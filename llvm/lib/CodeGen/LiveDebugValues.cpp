@@ -1291,15 +1291,6 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
                       std::greater<unsigned int>>
       Pending;
 
-  // Besides parameter's modification, check whether a DBG_VALUE is inlined
-  // in order to deduce whether the variable that it tracks comes from
-  // a different function. If that is the case we can't track its entry value.
-  auto IsUnmodifiedFuncParam = [&](const MachineInstr &MI) {
-    auto *DIVar = MI.getDebugVariable();
-    return DIVar->isParameter() && DIVar->isNotModified() &&
-           !MI.getDebugLoc()->getInlinedAt();
-  };
-
   const TargetLowering *TLI = MF.getSubtarget().getTargetLowering();
   unsigned SP = TLI->getStackPointerRegisterToSaveRestore();
   Register FP = TRI->getFrameRegister(MF);
@@ -1322,7 +1313,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   // TODO: Add support for local variables that are expressed in terms of
   // parameters entry values.
   for (auto &MI : First_MBB)
-    if (MI.isDebugValue() && IsUnmodifiedFuncParam(MI) &&
+    if (MI.isDebugValue() && !MI.getDebugLoc()->getInlinedAt() &&
         !MI.isIndirectDebugValue() && IsRegOtherThanSPAndFP(MI.getOperand(0)) &&
         !DebugEntryVals.count(MI.getDebugVariable()) &&
         !MI.getDebugExpression()->isFragment())
