@@ -168,7 +168,7 @@ namespace {
 
     /// This tracks, on a per-block basis, the set of values that are
     /// over-defined at the end of that block.
-    typedef DenseMap<PoisoningVH<BasicBlock>, SmallPtrSet<Value *, 4>>
+    typedef DenseMap<PoisoningVH<BasicBlock>, SmallSet<WeakVH, 4>>
         OverDefinedCacheTy;
     /// Keep track of all blocks that we have ever seen, so we
     /// don't spend time removing unused blocks from our caches.
@@ -261,7 +261,7 @@ void LazyValueInfoCache::eraseValue(Value *V) {
     // Copy and increment the iterator immediately so we can erase behind
     // ourselves.
     auto Iter = I++;
-    SmallPtrSetImpl<Value *> &ValueSet = Iter->second;
+    SmallSet<WeakVH, 4> &ValueSet = Iter->second;
     ValueSet.erase(V);
     if (ValueSet.empty())
       OverDefinedCache.erase(Iter);
@@ -326,7 +326,7 @@ void LazyValueInfoCache::threadEdgeImpl(BasicBlock *OldSucc,
     auto OI = OverDefinedCache.find(ToUpdate);
     if (OI == OverDefinedCache.end())
       continue;
-    SmallPtrSetImpl<Value *> &ValueSet = OI->second;
+    SmallSet<WeakVH, 4> &ValueSet = OI->second;
 
     bool changed = false;
     for (Value *V : ValsToClear) {
