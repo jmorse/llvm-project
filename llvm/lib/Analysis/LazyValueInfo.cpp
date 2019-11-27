@@ -176,7 +176,7 @@ namespace {
 
     /// This is all of the cached information for all values,
     /// mapped from Value* to key information.
-    DenseMap<Value *, std::unique_ptr<ValueCacheEntryTy>> ValueCache;
+    DenseMap<PoisoningVH<Value>, std::unique_ptr<ValueCacheEntryTy>> ValueCache;
     OverDefinedCacheTy OverDefinedCache;
 
 
