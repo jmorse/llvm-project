@@ -168,7 +168,7 @@ namespace {
 
     /// This tracks, on a per-block basis, the set of values that are
     /// over-defined at the end of that block.
-    typedef DenseMap<PoisoningVH<BasicBlock>, SmallSet<WeakVH, 4>>
+    typedef DenseMap<PoisoningVH<BasicBlock>, SmallSet<LVIValueHandle, 4>>
         OverDefinedCacheTy;
     /// Keep track of all blocks that we have ever seen, so we
     /// don't spend time removing unused blocks from our caches.
@@ -188,7 +188,7 @@ namespace {
       // Insert over-defined values into their own cache to reduce memory
       // overhead.
       if (Result.isOverdefined())
-        OverDefinedCache[BB].insert(Val);
+        OverDefinedCache[BB].insert(LVIValueHandle(Val, this));
       else {
         auto It = ValueCache.find_as(Val);
         if (It == ValueCache.end()) {
@@ -206,7 +206,7 @@ namespace {
       if (ODI == OverDefinedCache.end())
         return false;
 
-      return ODI->second.count(V);
+      return ODI->second.count(LVIValueHandle(V, const_cast<LazyValueInfoCache*>(this)));
     }
 
     bool hasCachedValueInfo(Value *V, BasicBlock *BB) const {
@@ -261,8 +261,8 @@ void LazyValueInfoCache::eraseValue(Value *V) {
     // Copy and increment the iterator immediately so we can erase behind
     // ourselves.
     auto Iter = I++;
-    SmallSet<WeakVH, 4> &ValueSet = Iter->second;
-    ValueSet.erase(V);
+    SmallSet<LVIValueHandle, 4> &ValueSet = Iter->second;
+    ValueSet.erase(LVIValueHandle(V, this));
     if (ValueSet.empty())
       OverDefinedCache.erase(Iter);
   }
@@ -326,11 +326,11 @@ void LazyValueInfoCache::threadEdgeImpl(BasicBlock *OldSucc,
     auto OI = OverDefinedCache.find(ToUpdate);
     if (OI == OverDefinedCache.end())
       continue;
-    SmallSet<WeakVH, 4> &ValueSet = OI->second;
+    SmallSet<LVIValueHandle, 4> &ValueSet = OI->second;
 
     bool changed = false;
     for (Value *V : ValsToClear) {
-      if (!ValueSet.erase(V))
+      if (!ValueSet.erase(LVIValueHandle(V, this)))
         continue;
 
       // If we removed anything, then we potentially need to update
