@@ -103,6 +103,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
+#include "llvm/Transforms/Utils/Local.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -1442,6 +1443,63 @@ bool FastISel::selectIntrinsicCall(const IntrinsicInst *II) {
       bool IsIndirect = false;
       BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, II, IsIndirect, Reg,
               DI->getVariable(), DI->getExpression());
+    } else if (isa<GetElementPtrInst>(V) || isa<BitCastInst>(V)) {
+      // Try some last minute salvaging.
+      DIExpression *Expr = const_cast<DIExpression*>(DI->getExpression());
+      unsigned Reg = 0;
+      while ((isa<GetElementPtrInst>(V) || isa<BitCastInst>(V)) &&
+             !(Reg = lookUpRegForValue(V))) {
+        const Instruction *Inst = cast<Instruction>(V);
+        Expr = salvageDebugInfoImpl(*Inst, Expr, true);
+        V = Inst->getOperand(0);
+      }
+
+      if (!Reg) {
+        // This didn't salvage to anything useful.
+        LLVM_DEBUG(dbgs() << "Dropping debug info for " << *DI << "\n");
+      } else {
+        BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, II, false, Reg,
+                      DI->getVariable(), Expr);
+      }
+    } else {
+      // We don't know how to handle other cases, so we drop.
+      LLVM_DEBUG(dbgs() << "Dropping debug info for " << *DI << "\n");
+    }
+    return true;
+  }
+  case Intrinsic::dbg_addr: {
+    const DbgAddrIntrinsic *DI = cast<DbgAddrIntrinsic>(II);
+    const MCInstrDesc &DII = TII.get(TargetOpcode::DBG_VALUE);
+    const Value *V = DI->getAddress();
+    assert(DI->getVariable()->isValidLocationForIntrinsic(DbgLoc) &&
+           "Expected inlined-at fields to agree");
+    if (!V || isa<UndefValue>(V)) {
+      // Currently the optimizer can produce this; insert an undef to
+      // help debugging.
+      BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, DII, false, 0U,
+              DI->getVariable(), DI->getExpression());
+    } else if (unsigned Reg = lookUpRegForValue(V)) {
+      // FIXME: This does not handle register-indirect values at offset 0.
+      BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, DII, true, Reg,
+              DI->getVariable(), DI->getExpression());
+    } else if (isa<GetElementPtrInst>(V) || isa<BitCastInst>(V)) {
+      // Try some last minute salvaging.
+      DIExpression *Expr = const_cast<DIExpression*>(DI->getExpression());
+      unsigned Reg = 0;
+      while ((isa<GetElementPtrInst>(V) || isa<BitCastInst>(V)) &&
+             !(Reg = lookUpRegForValue(V))) {
+        const Instruction *Inst = cast<Instruction>(V);
+        Expr = salvageDebugInfoImpl(*Inst, Expr, false);
+        V = Inst->getOperand(0);
+      }
+
+      if (!Reg) {
+        // This didn't salvage to anything useful.
+        LLVM_DEBUG(dbgs() << "Dropping debug info for " << *DI << "\n");
+      } else {
+        BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, DII, true, Reg,
+                      DI->getVariable(), Expr);
+      }
     } else {
       // We don't know how to handle other cases, so we drop.
       LLVM_DEBUG(dbgs() << "Dropping debug info for " << *DI << "\n");

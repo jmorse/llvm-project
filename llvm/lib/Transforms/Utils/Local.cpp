@@ -1665,7 +1665,7 @@ bool llvm::salvageDebugInfoForDbgValues(
   return true;
 }
 
-DIExpression *llvm::salvageDebugInfoImpl(Instruction &I,
+DIExpression *llvm::salvageDebugInfoImpl(const Instruction &I,
                                          DIExpression *SrcDIExpr,
                                          bool WithStackValue) {
   auto &M = *I.getModule();

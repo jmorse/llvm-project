@@ -365,8 +365,8 @@ bool salvageDebugInfoForDbgValues(Instruction &I,
 /// the effects of \p I into the returned DIExpression, or return nullptr if
 /// it cannot be salvaged. \p StackVal: whether DW_OP_stack_value should be
 /// appended to the expression.
-DIExpression *salvageDebugInfoImpl(Instruction &I, DIExpression *DIExpr,
-                                   bool StackVal);
+DIExpression *salvageDebugInfoImpl(const Instruction &I,
+                                   DIExpression *DIExpr, bool StackVal);
 
 /// Point debug users of \p From to \p To or salvage them. Use this function
 /// only when replacing all uses of \p From with \p To, with a guarantee that
