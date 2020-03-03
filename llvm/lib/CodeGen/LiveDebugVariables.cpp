@@ -1366,23 +1366,22 @@ void UserValue::insertDebugValue(MachineBasicBlock *MBB, SlotIndex StartIdx,
     // DBG_INSTR_REF: if the defining instruction is in this basic block,
     // use an instr ref instead.
     if (MO.isReg() && MO.getReg() != 0) {
-      const SlotIndexes *S = LIS.getSlotIndexes();
-      const SlotIndex thePoint = S->getInstructionIndex(*I);
-      LiveInterval &LI = LIS.getInterval(MO.getReg());
-      VNInfo *VN = LI.getVNInfoAt(thePoint);
-      if (VN != nullptr) {
-        MachineInstr *foo = S->getInstructionFromIndex(VN->def);
-        unsigned operandidx = 0;
-        for (auto &m : foo->operands()) {
-          if (m.isReg() && m.getReg() == MO.getReg() && m.isDef()) {
-            auto idno = foo->getDebugValueID(operandidx);
-            auto NewMO = MachineOperand::CreateImm(idno.asU64());
-            BuildMI(*MBB, I, getDebugLoc(), TII.get(TargetOpcode::DBG_INSTR_REF),
-                    IsIndirect, NewMO, Variable, Expr);
-            goto pastBuildMI; // Yes, really.
-          }
-          ++operandidx;
-        }
+      // Walk back through the block to see if we can find a reg def.
+      for (auto revit = I->getReverseIterator(),
+                revend = I->getParent()->instr_rend();
+           revit != revend; revit++) {
+       unsigned operandidx = 0;
+       for (auto &InstMO : revit->operands()) {
+         if (InstMO.isReg() && InstMO.isDef() && InstMO.getReg() == MO.getReg()) {
+              auto idno = revit->getDebugValueID(operandidx);
+              auto NewMO = MachineOperand::CreateImm(idno.asU64());
+              BuildMI(*MBB, I, getDebugLoc(), TII.get(TargetOpcode::DBG_INSTR_REF),
+                      IsIndirect, NewMO, Variable, Expr);
+              goto pastBuildMI; // Yes, really.
+
+         }
+         ++operandidx;
+       }
       }
     }
 
