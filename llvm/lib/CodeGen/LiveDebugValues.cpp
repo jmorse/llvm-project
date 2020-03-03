@@ -345,6 +345,11 @@ private:
     /// inlining information from the original DBG_VALUE instruction, which may
     /// have been several transfers ago.
     MachineInstr *BuildDbgValue(MachineFunction &MF) const {
+      // XXX XXX XXX that's a philosophical difference too: a VarLoc does not
+      // necessarily correspond to a DBG_VALUE output any more.
+      if (!hasVar())
+        return nullptr;
+
       const DebugLoc &DbgLoc = MI.getDebugLoc();
       bool Indirect = MI.isIndirectDebugValue();
       const auto &IID = MI.getDesc();
@@ -1629,7 +1634,8 @@ void LiveDebugValues::flushPendingLocs(VarLocInMBB &PendingInLocs,
       if (DiffIt.isEntryBackupLoc())
         continue;
       MachineInstr *MI = DiffIt.BuildDbgValue(*MBB.getParent());
-      MBB.insert(MBB.instr_begin(), MI);
+      if (MI)
+        MBB.insert(MBB.instr_begin(), MI);
 
       (void)MI;
       LLVM_DEBUG(dbgs() << "Inserted: "; MI->dump(););
@@ -1852,7 +1858,8 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     MachineBasicBlock *MBB = TR.TransferInst->getParent();
     const VarLoc &VL = VarLocIDs[TR.LocationID];
     MachineInstr *MI = VL.BuildDbgValue(MF);
-    MBB->insertAfterBundle(TR.TransferInst->getIterator(), MI);
+    if (MI)
+      MBB->insertAfterBundle(TR.TransferInst->getIterator(), MI);
   }
   Transfers.clear();
 
