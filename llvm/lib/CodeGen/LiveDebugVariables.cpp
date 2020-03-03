@@ -1363,8 +1363,33 @@ void UserValue::insertDebugValue(MachineBasicBlock *MBB, SlotIndex StartIdx,
   assert((!Spilled || MO.isFI()) && "a spilled location must be a frame index");
 
   do {
+    // DBG_INSTR_REF: if the defining instruction is in this basic block,
+    // use an instr ref instead.
+    if (MO.isReg() && MO.getReg() != 0) {
+      const SlotIndexes *S = LIS.getSlotIndexes();
+      const SlotIndex thePoint = S->getInstructionIndex(*I);
+      LiveInterval &LI = LIS.getInterval(MO.getReg());
+      VNInfo *VN = LI.getVNInfoAt(thePoint);
+      if (VN != nullptr) {
+        MachineInstr *foo = S->getInstructionFromIndex(VN->def);
+        unsigned operandidx = 0;
+        for (auto &m : foo->operands()) {
+          if (m.isReg() && m.getReg() == MO.getReg() && m.isDef()) {
+            auto idno = foo->getDebugValueID(operandidx);
+            auto NewMO = MachineOperand::CreateImm(idno.asU64());
+            BuildMI(*MBB, I, getDebugLoc(), TII.get(TargetOpcode::DBG_INSTR_REF),
+                    IsIndirect, NewMO, Variable, Expr);
+            goto pastBuildMI; // Yes, really.
+          }
+          ++operandidx;
+        }
+      }
+    }
+
+
     BuildMI(*MBB, I, getDebugLoc(), TII.get(TargetOpcode::DBG_VALUE),
             IsIndirect, MO, Variable, Expr);
+pastBuildMI:
 
     // Continue and insert DBG_VALUES after every redefinition of register
     // associated with the debug value within the range
