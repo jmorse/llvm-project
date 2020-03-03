@@ -52,6 +52,8 @@ class StringRef;
 class TargetInstrInfo;
 class TargetRegisterClass;
 class TargetRegisterInfo;
+class DebugInstrRefID;
+
 
 //===----------------------------------------------------------------------===//
 /// Representation of each machine instruction.
@@ -246,13 +248,9 @@ private:
 
   uint64_t DebugValueID;
   public:
-  void setDebugValueID(uint64_t dvid) {
-    DebugValueID = dvid;
-  }
 
-  uint64_t getDebugValueID(uint64_t dvid) {
-    return DebugValueID;
-  }
+  llvm::DebugInstrRefID getDebugValueID(unsigned int operand);
+
   private:
 
   // Intrusive list support

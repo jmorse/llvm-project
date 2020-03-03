@@ -2236,3 +2236,11 @@ MachineInstr::getFoldedRestoreSize(const TargetInstrInfo *TII) const {
     return getSpillSlotSize(Accesses, getMF()->getFrameInfo());
   return None;
 }
+
+llvm::DebugInstrRefID
+MachineInstr::getDebugValueID(unsigned int operand) {
+    if (DebugValueID == 0)
+      DebugValueID = getParent()->getParent()->getNewDebugValueID();
+    assert(operand < 8); // XXX
+    return llvm::DebugInstrRefID{DebugValueID, operand};
+  }

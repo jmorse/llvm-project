@@ -221,6 +221,16 @@ struct LandingPadInfo {
       : LandingPadBlock(MBB) {}
 };
 
+class DebugInstrRefID {
+public:
+  uint64_t idno : 61;
+  uint64_t operand : 3;
+
+  uint64_t asU64() const {
+    return idno << 3 | operand;
+  }
+};
+
 class MachineFunction {
   public:
   uint64_t DebugValueIDCount = 0;
