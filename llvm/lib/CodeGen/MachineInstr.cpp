@@ -116,7 +116,7 @@ void MachineInstr::addImplicitDefUseOperands(MachineFunction &MF) {
 /// the MCInstrDesc.
 MachineInstr::MachineInstr(MachineFunction &MF, const MCInstrDesc &tid,
                            DebugLoc dl, bool NoImp)
-    : MCID(&tid), debugLoc(std::move(dl)) {
+    : MCID(&tid), debugLoc(std::move(dl)), DebugValueID(0) {
   assert(debugLoc.hasTrivialDestructor() && "Expected trivial destructor");
 
   // Reserve space for the expected number of operands.
@@ -133,7 +133,7 @@ MachineInstr::MachineInstr(MachineFunction &MF, const MCInstrDesc &tid,
 /// MachineInstr ctor - Copies MachineInstr arg exactly
 ///
 MachineInstr::MachineInstr(MachineFunction &MF, const MachineInstr &MI)
-    : MCID(&MI.getDesc()), Info(MI.Info), debugLoc(MI.getDebugLoc()) {
+    : MCID(&MI.getDesc()), Info(MI.Info), debugLoc(MI.getDebugLoc()), DebugValueID(0) {
   assert(debugLoc.hasTrivialDestructor() && "Expected trivial destructor");
 
   CapOperands = OperandCapacity::get(MI.getNumOperands());

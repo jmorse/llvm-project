@@ -222,6 +222,14 @@ struct LandingPadInfo {
 };
 
 class MachineFunction {
+  public:
+  uint64_t DebugValueIDCount = 0;
+  uint64_t getNewDebugValueID() {
+    return ++DebugValueIDCount;
+  }
+
+  private:
+
   const Function &F;
   const LLVMTargetMachine &Target;
   const TargetSubtargetInfo *STI;

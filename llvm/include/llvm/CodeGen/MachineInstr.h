@@ -244,6 +244,17 @@ private:
 
   DebugLoc debugLoc;                    // Source line information.
 
+  uint64_t DebugValueID;
+  public:
+  void setDebugValueID(uint64_t dvid) {
+    DebugValueID = dvid;
+  }
+
+  uint64_t getDebugValueID(uint64_t dvid) {
+    return DebugValueID;
+  }
+  private:
+
   // Intrusive list support
   friend struct ilist_traits<MachineInstr>;
   friend struct ilist_callback_traits<MachineBasicBlock>;
