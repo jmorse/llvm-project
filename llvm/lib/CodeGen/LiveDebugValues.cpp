@@ -198,7 +198,10 @@ private:
     };
 
     /// Identity of the variable at this location.
-    const DebugVariable Var;
+    const Optional<DebugVariable> Var;
+
+    // If we're not a var, we're an instruction ref.
+    uint64_t InstrRefID;
 
     /// The expression applied to this location.
     const DIExpression *Expr;
@@ -207,7 +210,7 @@ private:
     /// is moved.
     const MachineInstr &MI;
 
-    mutable UserValueScopes UVS;
+    mutable Optional<UserValueScopes> UVS;
     enum VarLocKind {
       InvalidKind = 0,
       RegisterKind,
@@ -230,9 +233,10 @@ private:
     } Loc;
 
     VarLoc(const MachineInstr &MI, LexicalScopes &LS)
-        : Var(MI.getDebugVariable(), MI.getDebugExpression(),
-              MI.getDebugLoc()->getInlinedAt()),
-          Expr(MI.getDebugExpression()), MI(MI), UVS(MI.getDebugLoc(), LS) {
+        : Var(DebugVariable(MI.getDebugVariable(), MI.getDebugExpression(),
+              MI.getDebugLoc()->getInlinedAt())), InstrRefID(0),
+          Expr(MI.getDebugExpression()), MI(MI),
+          UVS(UserValueScopes(MI.getDebugLoc(), LS)) {
       static_assert((sizeof(Loc) == sizeof(uint64_t)),
                     "hash does not cover all members of Loc");
       assert(MI.isDebugValue() && "not a DBG_VALUE");
@@ -255,6 +259,20 @@ private:
       // from this ctor.
       assert(Kind != EntryValueKind && !isEntryBackupLoc());
     }
+
+    private:
+    // Varloc constructor for instrrefs. MI is a "real" instr.
+    VarLoc(const MachineInstr &MI, uint64_t ID)
+        : Var(None), InstrRefID(ID), Expr(nullptr), MI(MI), UVS(None) {
+      DebugInstrRefID lolid = DebugInstrRefID::fromU64(ID);
+      unsigned op = lolid.getOperand();
+      const MachineOperand &MO = MI.getOperand(op);
+      // Only cope with reg operands pls
+      assert(MO.isReg());
+      Kind = RegisterKind;
+      Loc.RegNo = MO.getReg();
+    }
+    public:
 
     /// Take the variable and machine-location in DBG_VALUE MI, and build an
     /// entry location using the given expression.
@@ -316,6 +334,10 @@ private:
       VL.Kind = SpillLocKind;
       VL.Loc.SpillLocation = {SpillBase, SpillOffset};
       return VL;
+    }
+
+    static VarLoc CreateInstrRefLoc(const MachineInstr &MI, uint64_t instrrefid) {
+      return VarLoc(MI, instrrefid);
     }
 
     /// Create a DBG_VALUE representing this VarLoc in the given function.
@@ -396,9 +418,18 @@ private:
       return 0;
     }
 
+    bool hasVar() const { return Var.hasValue(); }
+
+    Twine getName() const {
+      if (hasVar())
+        return Var->getVariable()->getName();
+      else
+        return Twine("InstrRef ").concat(Twine(InstrRefID));
+    }
+
     /// Determine whether the lexical scope of this value's debug location
     /// dominates MBB.
-    bool dominates(MachineBasicBlock &MBB) const { return UVS.dominates(&MBB); }
+    bool dominates(MachineBasicBlock &MBB) const { return UVS->dominates(&MBB); }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     // TRI can be null.
@@ -422,12 +453,16 @@ private:
         llvm_unreachable("Invalid VarLoc in dump method");
       }
 
-      dbgs() << ", \"" << Var.getVariable()->getName() << "\", " << *Expr
-             << ", ";
-      if (Var.getInlinedAt())
-        dbgs() << "!" << Var.getInlinedAt()->getMetadataID() << ")\n";
-      else
-        dbgs() << "(null))";
+      if (hasVar()) {
+        dbgs() << ", \"" << Var->getVariable()->getName() << "\", " << *Expr
+               << ", ";
+        if (Var->getInlinedAt())
+          dbgs() << "!" << Var->getInlinedAt()->getMetadataID() << ")\n";
+        else
+          dbgs() << "(null))";
+      } else {
+        dbgs() << "[instrref " << InstrRefID << "]";
+      }
 
       if (isEntryBackupLoc())
         dbgs() << " (backup loc)\n";
@@ -512,6 +547,7 @@ private:
   /// we will erase/insert from the EntryValuesBackupVars map, otherwise
   /// we perform the operation on the Vars.
   class OpenRangesSet {
+    VarLocMap &Map; // XXX jmorse
     VarLocSet VarLocs;
     // Map the DebugVariable to recent primary location ID.
     SmallDenseMap<DebugVariable, LocIndex, 8> Vars;
@@ -520,8 +556,8 @@ private:
     OverlapMap &OverlappingFragments;
 
   public:
-    OpenRangesSet(VarLocSet::Allocator &Alloc, OverlapMap &_OLapMap)
-        : VarLocs(Alloc), OverlappingFragments(_OLapMap) {}
+    OpenRangesSet(VarLocMap &_Map, VarLocSet::Allocator &Alloc, OverlapMap &_OLapMap)
+        : Map(_Map), VarLocs(Alloc), OverlappingFragments(_OLapMap) {}
 
     const VarLocSet &getVarLocs() const { return VarLocs; }
 
@@ -709,6 +745,12 @@ void LiveDebugValues::getAnalysisUsage(AnalysisUsage &AU) const {
 /// tracking its backup entry location. Otherwise, if the VarLoc is primary
 /// location, erase the variable from the Vars set.
 void LiveDebugValues::OpenRangesSet::erase(const VarLoc &VL) {
+  if (!VL.hasVar()) {
+    // This is very easy,
+    VarLocs.reset(Map.insert(VL).getAsRawInteger());
+    return;
+  }
+
   // Erasure helper.
   auto DoErase = [VL, this](DebugVariable VarToErase) {
     auto *EraseFrom = VL.isEntryBackupLoc() ? &EntryValuesBackupVars : &Vars;
@@ -720,7 +762,7 @@ void LiveDebugValues::OpenRangesSet::erase(const VarLoc &VL) {
     }
   };
 
-  DebugVariable Var = VL.Var;
+  DebugVariable Var = *VL.Var;
 
   // Erase the variable/fragment that ends here.
   DoErase(Var);
@@ -747,8 +789,10 @@ void LiveDebugValues::OpenRangesSet::erase(const VarLocSet &KillSet,
   VarLocs.intersectWithComplement(KillSet);
   for (uint64_t ID : KillSet) {
     const VarLoc *VL = &VarLocIDs[LocIndex::fromRawInteger(ID)];
+    if (!VL->hasVar())
+      continue;
     auto *EraseFrom = VL->isEntryBackupLoc() ? &EntryValuesBackupVars : &Vars;
-    EraseFrom->erase(VL->Var);
+    EraseFrom->erase(*VL->Var);
   }
 }
 
@@ -756,7 +800,8 @@ void LiveDebugValues::OpenRangesSet::insert(LocIndex VarLocID,
                                             const VarLoc &VL) {
   auto *InsertInto = VL.isEntryBackupLoc() ? &EntryValuesBackupVars : &Vars;
   VarLocs.set(VarLocID.getAsRawInteger());
-  InsertInto->insert({VL.Var, VarLocID});
+  if (VL.hasVar())
+    InsertInto->insert({*VL.Var, VarLocID});
 }
 
 /// Return the Loc ID of an entry value backup location, if it exists for the
@@ -824,7 +869,10 @@ void LiveDebugValues::printVarLocInMBB(const MachineFunction &MF,
     Out << "MBB: " << BB.getNumber() << ":\n";
     for (uint64_t VLL : L) {
       const VarLoc &VL = VarLocIDs[LocIndex::fromRawInteger(VLL)];
-      Out << " Var: " << VL.Var.getVariable()->getName();
+      if (VL.hasVar())
+        Out << " Var: " << VL.Var->getVariable()->getName();
+      else
+        Out << " InstrRef: " << VL.InstrRefID;
       Out << " MI: ";
       VL.dump(TRI, Out);
     }
@@ -962,10 +1010,10 @@ void LiveDebugValues::emitEntryValues(MachineInstr &MI,
   for (uint64_t ID : KillSet) {
     LocIndex Idx = LocIndex::fromRawInteger(ID);
     const VarLoc &VL = VarLocIDs[Idx];
-    if (!VL.Var.getVariable()->isParameter())
+    if (!VL.hasVar() || !VL.Var->getVariable()->isParameter())
       continue;
 
-    auto DebugVar = VL.Var;
+    auto DebugVar = *VL.Var;
     Optional<LocIndex> EntryValBackupID =
         OpenRanges.getEntryValueBackup(DebugVar);
 
@@ -1123,6 +1171,29 @@ void LiveDebugValues::transferRegisterDef(
     if (TM.Options.EnableDebugEntryValues)
       emitEntryValues(MI, OpenRanges, VarLocIDs, Transfers, KillSet);
   }
+
+  // DBG_INSTR_REF: Was this instr referred to by an instr ref?
+  if (MI.peekDebugValueID()) {
+    // Yes: record all its' register defs. XXX this could be reduced.
+    unsigned operandidx = 0;
+    for (auto &MO : MI.operands()) {
+      if (!MO.isReg() || !MO.isDef()) {
+        ++operandidx;
+        continue;
+      }
+      // Record this as a thing.
+
+      // XXX be careful in case this mutates in future
+      auto VL = VarLoc::CreateInstrRefLoc(MI, MI.getDebugValueID(operandidx).asU64());
+
+      LocIndex ID = VarLocIDs.insert(VL);
+      // Add the VarLoc to OpenRanges from this DBG_VALUE.
+      OpenRanges.insert(ID, VL);
+
+
+      ++operandidx;
+    }
+  }
 }
 
 bool LiveDebugValues::isSpillInstruction(const MachineInstr &MI,
@@ -1260,13 +1331,13 @@ void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI,
     LocIndex Idx = LocIndex::fromRawInteger(ID);
     const VarLoc &VL = VarLocIDs[Idx];
     if (TKind == TransferKind::TransferSpill && VL.isDescribedByReg() == Reg) {
-      LLVM_DEBUG(dbgs() << "Spilling Register " << printReg(Reg, TRI) << '('
-                        << VL.Var.getVariable()->getName() << ")\n");
+      LLVM_DEBUG(dbgs() << "Spilling Register " << printReg(Reg, TRI) << '(');
+      LLVM_DEBUG(dbgs() << VL.getName() << ")\n");
     } else if (TKind == TransferKind::TransferRestore &&
                VL.Kind == VarLoc::SpillLocKind &&
                VL.Loc.SpillLocation == *Loc) {
-      LLVM_DEBUG(dbgs() << "Restoring Register " << printReg(Reg, TRI) << '('
-                        << VL.Var.getVariable()->getName() << ")\n");
+      LLVM_DEBUG(dbgs() << "Restoring Register " << printReg(Reg, TRI) << '(');
+      LLVM_DEBUG(dbgs() << VL.getName() << ")\n");
     } else
       continue;
     insertTransferDebugPair(MI, OpenRanges, Transfers, VarLocIDs, Idx, TKind,
@@ -1382,6 +1453,7 @@ bool LiveDebugValues::transferTerminator(MachineBasicBlock *CurMBB,
 void LiveDebugValues::accumulateFragmentMap(MachineInstr &MI,
                                             VarToFragments &SeenFragments,
                                             OverlapMap &OverlappingFragments) {
+// XXX jmorse, I've ignored this for DBG_INSTR_REf
   DebugVariable MIVar(MI.getDebugVariable(), MI.getDebugExpression(),
                       MI.getDebugLoc()->getInlinedAt());
   FragmentInfo ThisFragment = MIVar.getFragmentOrDefault();
@@ -1483,9 +1555,7 @@ bool LiveDebugValues::join(
       if (!InLocsT.empty()) {
         for (uint64_t ID : InLocsT)
           dbgs() << "  gathered candidate incoming var: "
-                 << VarLocIDs[LocIndex::fromRawInteger(ID)]
-                        .Var.getVariable()
-                        ->getName()
+                 << VarLocIDs[LocIndex::fromRawInteger(ID)].getName()
                  << "\n";
       }
     });
@@ -1499,10 +1569,11 @@ bool LiveDebugValues::join(
   if (!IsArtificial) {
     for (uint64_t ID : InLocsT) {
       LocIndex Idx = LocIndex::fromRawInteger(ID);
-      if (!VarLocIDs[Idx].dominates(MBB)) {
+      const VarLoc &VL = VarLocIDs[Idx];
+      if (VL.hasVar() && !VL.dominates(MBB)) {
         KillSet.set(ID);
         LLVM_DEBUG({
-          auto Name = VarLocIDs[Idx].Var.getVariable()->getName();
+          auto Name = VarLocIDs[Idx].Var->getVariable()->getName();
           dbgs() << "  killing " << Name << ", it doesn't dominate MBB\n";
         });
       }
@@ -1658,7 +1729,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
   VarLocMap VarLocIDs;         // Map VarLoc<>unique ID for use in bitvectors.
   OverlapMap OverlapFragments; // Map of overlapping variable fragments.
-  OpenRangesSet OpenRanges(Alloc, OverlapFragments);
+  OpenRangesSet OpenRanges(VarLocIDs, Alloc, OverlapFragments);
                               // Ranges that are open until end of bb.
   VarLocInMBB OutLocs;        // Ranges that exist beyond bb.
   VarLocInMBB InLocs;         // Ranges that are incoming after joining.

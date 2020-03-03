@@ -229,6 +229,14 @@ public:
   uint64_t asU64() const {
     return idno << 3 | operand;
   }
+
+  static DebugInstrRefID fromU64(uint64_t id) {
+    return DebugInstrRefID{id >> 3, id & 7};
+  }
+
+  unsigned getOperand() const {
+    return operand;
+  }
 };
 
 class MachineFunction {

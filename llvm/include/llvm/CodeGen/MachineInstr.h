@@ -250,6 +250,9 @@ private:
   public:
 
   llvm::DebugInstrRefID getDebugValueID(unsigned int operand);
+  uint64_t peekDebugValueID() {
+    return DebugValueID;
+  }
 
   private:
 
