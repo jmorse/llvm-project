@@ -1144,6 +1144,9 @@ void AsmPrinter::emitFunctionBody() {
             emitInstruction(&MI);
         }
         break;
+      case TargetOpcode::DBG_INSTR_REF:
+        // XXX, do something about this
+        break;
       case TargetOpcode::DBG_LABEL:
         if (isVerbose()) {
           if (!emitDebugLabelComment(&MI, *this))
