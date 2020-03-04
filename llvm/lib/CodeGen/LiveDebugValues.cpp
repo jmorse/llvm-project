@@ -1161,6 +1161,7 @@ void LiveDebugValues::transferDebugInstrRef(MachineInstr &MI, OpenRangesSet &Ope
   // Add the VarLoc to OpenRanges from this DBG_INSTR_REF.
   OpenRanges.insert(NewLocIndex, NewVL);
 
+  // XXX, prevent repeated insertions.
   Transfers.push_back({&MI, NewLocIndex});
 }
 
