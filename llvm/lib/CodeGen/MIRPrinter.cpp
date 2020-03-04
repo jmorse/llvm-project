@@ -812,6 +812,12 @@ void MIPrinter::print(const MachineInstr &MI) {
       NeedComma = true;
     }
   }
+
+  if (MI.peekDebugValueID()) {
+    if (NeedComma)
+      OS << ',';
+    OS << " LOL-INSTR-REF " << MI.peekDebugValueID();
+  }
 }
 
 void MIPrinter::printStackObjectReference(int FrameIndex) {

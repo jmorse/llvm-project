@@ -1793,6 +1793,13 @@ void MachineInstr::print(raw_ostream &OS, ModuleSlotTracker &MST,
     }
   }
 
+  // XXX jmorse DBG_INSTR_REF
+  if (DebugValueID) {
+    if (!FirstOp)
+      OS << ',';
+    OS << " LOL-INSTR-REF " << DebugValueID;
+  }
+
   if (SkipDebugLoc)
     return;
 
