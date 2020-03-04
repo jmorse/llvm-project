@@ -443,7 +443,7 @@ private:
 
       const DebugLoc &DbgLoc = MI.getDebugLoc();
       bool Indirect = MI.isIndirectDebugValue();
-      const auto &IID = MI.getDesc();
+      const auto &IID = MF.getSubtarget().getInstrInfo()->get(TargetOpcode::DBG_VALUE);
       const DILocalVariable *Var = MI.getDebugVariable();
       const DIExpression *DIExpr = MI.getDebugExpression();
 
