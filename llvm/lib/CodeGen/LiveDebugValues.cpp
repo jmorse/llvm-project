@@ -152,6 +152,78 @@ struct LocIndex {
   }
 };
 
+class ValueIdentity {
+public:
+  // These should be union'd or variant'd in an implementation where we
+  // care about things like memory usage.
+  DebugVariable Var;
+  uint64_t ID = 0;
+  char _isVar;
+
+  private:
+  ValueIdentity(char wat, bool dummy) : Var(nullptr, None, nullptr) {
+    (void)dummy;
+    _isVar = wat;
+  }
+  public:
+
+  ValueIdentity(DebugVariable V) : Var(V) {
+    _isVar = 1;
+  }
+
+  ValueIdentity(DebugInstrRefID _ID) : Var(nullptr, None, nullptr) {
+    ID = _ID.asU64();
+    _isVar = 0;
+  }
+
+  ValueIdentity(uint64_t _ID) : Var(nullptr, None, nullptr) {
+    ID = _ID;
+    _isVar = 0;
+  }
+
+  bool isVar() const { return _isVar == 1; }
+
+  Twine getName() const {
+    if (isVar())
+      return Var.getVariable()->getName();
+    else
+      return Twine("InstrRef ").concat(Twine(ID));
+  }
+
+  Twine getIdentName() const {
+    if (isVar())
+      return Twine("Var: ").concat(getName());
+    else
+      return Twine("InstrRef: ").concat(getName());
+  }
+
+  static ValueIdentity getEmpty() { return ValueIdentity(2, false); }
+  static ValueIdentity getTombstone() { return ValueIdentity(3, false); }
+  unsigned getHashValue() const {
+    return hash_combine(hash_value(_isVar), hash_combine(hash_value(ID), DenseMapInfo<DebugVariable>::getHashValue(Var)));
+  }
+  bool operator==(const ValueIdentity &Other) const {
+    if (_isVar != Other._isVar)
+      return false;
+    if (_isVar)
+      return Var == Other.Var;
+    else
+      return ID == Other.ID;
+  }
+
+  bool operator<(const ValueIdentity &Other) const {
+    if (_isVar < Other._isVar)
+      return false;
+    else if (_isVar > Other._isVar)
+      return true;
+    else if (_isVar)
+      return Var < Other.Var;
+    else
+      return ID < Other.ID;
+  }
+};
+
+
 class LiveDebugValues : public MachineFunctionPass {
 private:
   const TargetRegisterInfo *TRI;
@@ -198,10 +270,7 @@ private:
     };
 
     /// Identity of the variable at this location.
-    const Optional<DebugVariable> Var;
-
-    // If we're not a var, we're an instruction ref.
-    uint64_t InstrRefID;
+    const ValueIdentity Ident;
 
     /// The expression applied to this location.
     const DIExpression *Expr;
@@ -233,8 +302,8 @@ private:
     } Loc;
 
     VarLoc(const MachineInstr &MI, LexicalScopes &LS)
-        : Var(DebugVariable(MI.getDebugVariable(), MI.getDebugExpression(),
-              MI.getDebugLoc()->getInlinedAt())), InstrRefID(0),
+        : Ident(DebugVariable(MI.getDebugVariable(), MI.getDebugExpression(),
+              MI.getDebugLoc()->getInlinedAt())),
           Expr(MI.getDebugExpression()), MI(MI),
           UVS(UserValueScopes(MI.getDebugLoc(), LS)) {
       static_assert((sizeof(Loc) == sizeof(uint64_t)),
@@ -263,7 +332,7 @@ private:
     private:
     // Varloc constructor for instrrefs. MI is a "real" instr.
     VarLoc(const MachineInstr &MI, uint64_t ID)
-        : Var(None), InstrRefID(ID), Expr(nullptr), MI(MI), UVS(None) {
+        : Ident(ID), Expr(nullptr), MI(MI), UVS(None) {
       DebugInstrRefID lolid = DebugInstrRefID::fromU64(ID);
       unsigned op = lolid.getOperand();
       const MachineOperand &MO = MI.getOperand(op);
@@ -276,10 +345,10 @@ private:
     // Private VarLoc constructor that copies an instrref variable location
     // and nothing else. This only moves the machine location, and doesn't
     // assume that MI is a DBG_VALUE.
-    VarLoc(const VarLoc &VL, bool dummy) : Var(None), InstrRefID(VL.InstrRefID),
+    VarLoc(const VarLoc &VL, bool dummy) : Ident(VL.Ident),
       Expr(nullptr), MI(VL.MI), UVS(None) {
       (void)dummy;
-      assert(InstrRefID != 0);
+      assert(Ident.isVar() != 0);
       assert(!VL.hasVar());
       Kind = VL.Kind;
       Loc.Hash = VL.Loc.Hash;
@@ -435,13 +504,10 @@ private:
       return 0;
     }
 
-    bool hasVar() const { return Var.hasValue(); }
+    bool hasVar() const { return Ident.isVar(); } // XXX try to eliminate?
 
     Twine getName() const {
-      if (hasVar())
-        return Var->getVariable()->getName();
-      else
-        return Twine("InstrRef ").concat(Twine(InstrRefID));
+      return Ident.getName();
     }
 
     /// Determine whether the lexical scope of this value's debug location
@@ -471,14 +537,14 @@ private:
       }
 
       if (hasVar()) {
-        dbgs() << ", \"" << Var->getVariable()->getName() << "\", " << *Expr
+        dbgs() << ", \"" << Ident.Var.getVariable()->getName() << "\", " << *Expr
                << ", ";
-        if (Var->getInlinedAt())
-          dbgs() << "!" << Var->getInlinedAt()->getMetadataID() << ")\n";
+        if (Ident.Var.getInlinedAt())
+          dbgs() << "!" << Ident.Var.getInlinedAt()->getMetadataID() << ")\n";
         else
           dbgs() << "(null))";
       } else {
-        dbgs() << "[instrref " << InstrRefID << "]";
+        dbgs() << "[instrref " << Ident.ID << "]";
       }
 
       if (isEntryBackupLoc())
@@ -489,14 +555,14 @@ private:
 #endif
 
     bool operator==(const VarLoc &Other) const {
-      return Kind == Other.Kind && Var == Other.Var &&
+      return Kind == Other.Kind && Ident == Other.Ident &&
              Loc.Hash == Other.Loc.Hash && Expr == Other.Expr;
     }
 
     /// This operator guarantees that VarLocs are sorted by Variable first.
     bool operator<(const VarLoc &Other) const {
-      return std::tie(Var, Kind, Loc.Hash, Expr) <
-             std::tie(Other.Var, Other.Kind, Other.Loc.Hash, Other.Expr);
+      return std::tie(Ident, Kind, Loc.Hash, Expr) <
+             std::tie(Other.Ident, Other.Kind, Other.Loc.Hash, Other.Expr);
     }
   };
 
@@ -564,17 +630,16 @@ private:
   /// we will erase/insert from the EntryValuesBackupVars map, otherwise
   /// we perform the operation on the Vars.
   class OpenRangesSet {
-    VarLocMap &Map; // XXX jmorse
     VarLocSet VarLocs;
     // Map the DebugVariable to recent primary location ID.
-    SmallDenseMap<DebugVariable, LocIndex, 8> Vars;
+    SmallDenseMap<ValueIdentity, LocIndex, 8> Vars;
     // Map the DebugVariable to recent backup location ID.
-    SmallDenseMap<DebugVariable, LocIndex, 8> EntryValuesBackupVars;
+    SmallDenseMap<ValueIdentity, LocIndex, 8> EntryValuesBackupVars;
     OverlapMap &OverlappingFragments;
 
   public:
-    OpenRangesSet(VarLocMap &_Map, VarLocSet::Allocator &Alloc, OverlapMap &_OLapMap)
-        : Map(_Map), VarLocs(Alloc), OverlappingFragments(_OLapMap) {}
+    OpenRangesSet(VarLocSet::Allocator &Alloc, OverlapMap &_OLapMap)
+        : VarLocs(Alloc), OverlappingFragments(_OLapMap) {}
 
     const VarLocSet &getVarLocs() const { return VarLocs; }
 
@@ -733,6 +798,22 @@ public:
 
 } // end anonymous namespace
 
+namespace llvm {
+
+template <> struct DenseMapInfo<ValueIdentity> {
+  friend class ValueIdentity;
+  static inline ValueIdentity getEmptyKey() { return ValueIdentity::getEmpty(); }
+
+  static inline ValueIdentity getTombstoneKey() { return ValueIdentity::getTombstone(); }
+
+  static unsigned getHashValue(const ValueIdentity &V) { return V.getHashValue(); }
+  static bool isEqual(const ValueIdentity &A, const ValueIdentity &B) { return A == B; }
+};
+
+}
+
+
+
 //===----------------------------------------------------------------------===//
 //            Implementation
 //===----------------------------------------------------------------------===//
@@ -762,14 +843,8 @@ void LiveDebugValues::getAnalysisUsage(AnalysisUsage &AU) const {
 /// tracking its backup entry location. Otherwise, if the VarLoc is primary
 /// location, erase the variable from the Vars set.
 void LiveDebugValues::OpenRangesSet::erase(const VarLoc &VL) {
-  if (!VL.hasVar()) {
-    // This is very easy,
-    VarLocs.reset(Map.insert(VL).getAsRawInteger());
-    return;
-  }
-
   // Erasure helper.
-  auto DoErase = [VL, this](DebugVariable VarToErase) {
+  auto DoErase = [VL, this](ValueIdentity VarToErase) {
     auto *EraseFrom = VL.isEntryBackupLoc() ? &EntryValuesBackupVars : &Vars;
     auto It = EraseFrom->find(VarToErase);
     if (It != EraseFrom->end()) {
@@ -779,10 +854,15 @@ void LiveDebugValues::OpenRangesSet::erase(const VarLoc &VL) {
     }
   };
 
-  DebugVariable Var = *VL.Var;
-
   // Erase the variable/fragment that ends here.
-  DoErase(Var);
+  DoErase(VL.Ident);
+
+  // If the value identity isn't associated with a variable, it can't have a
+  // fragment for overlap consideration.
+  if (!VL.hasVar())
+    return;
+
+  const DebugVariable &Var = VL.Ident.Var;
 
   // Extract the fragment. Interpret an empty fragment as one that covers all
   // possible bits.
@@ -796,7 +876,7 @@ void LiveDebugValues::OpenRangesSet::erase(const VarLoc &VL) {
       LiveDebugValues::OptFragmentInfo FragmentHolder;
       if (!DebugVariable::isDefaultFragment(Fragment))
         FragmentHolder = LiveDebugValues::OptFragmentInfo(Fragment);
-      DoErase({Var.getVariable(), FragmentHolder, Var.getInlinedAt()});
+      DoErase(ValueIdentity({Var.getVariable(), FragmentHolder, Var.getInlinedAt()}));
     }
   }
 }
@@ -806,10 +886,8 @@ void LiveDebugValues::OpenRangesSet::erase(const VarLocSet &KillSet,
   VarLocs.intersectWithComplement(KillSet);
   for (uint64_t ID : KillSet) {
     const VarLoc *VL = &VarLocIDs[LocIndex::fromRawInteger(ID)];
-    if (!VL->hasVar())
-      continue;
     auto *EraseFrom = VL->isEntryBackupLoc() ? &EntryValuesBackupVars : &Vars;
-    EraseFrom->erase(*VL->Var);
+    EraseFrom->erase(VL->Ident);
   }
 }
 
@@ -817,8 +895,7 @@ void LiveDebugValues::OpenRangesSet::insert(LocIndex VarLocID,
                                             const VarLoc &VL) {
   auto *InsertInto = VL.isEntryBackupLoc() ? &EntryValuesBackupVars : &Vars;
   VarLocs.set(VarLocID.getAsRawInteger());
-  if (VL.hasVar())
-    InsertInto->insert({*VL.Var, VarLocID});
+  InsertInto->insert({VL.Ident, VarLocID});
 }
 
 /// Return the Loc ID of an entry value backup location, if it exists for the
@@ -886,10 +963,7 @@ void LiveDebugValues::printVarLocInMBB(const MachineFunction &MF,
     Out << "MBB: " << BB.getNumber() << ":\n";
     for (uint64_t VLL : L) {
       const VarLoc &VL = VarLocIDs[LocIndex::fromRawInteger(VLL)];
-      if (VL.hasVar())
-        Out << " Var: " << VL.Var->getVariable()->getName();
-      else
-        Out << " InstrRef: " << VL.InstrRefID;
+      Out << VL.Ident.getIdentName();
       Out << " MI: ";
       VL.dump(TRI, Out);
     }
@@ -1027,10 +1101,10 @@ void LiveDebugValues::emitEntryValues(MachineInstr &MI,
   for (uint64_t ID : KillSet) {
     LocIndex Idx = LocIndex::fromRawInteger(ID);
     const VarLoc &VL = VarLocIDs[Idx];
-    if (!VL.hasVar() || !VL.Var->getVariable()->isParameter())
+    if (!VL.hasVar() || !VL.Ident.Var.getVariable()->isParameter())
       continue;
 
-    auto DebugVar = *VL.Var;
+    auto DebugVar = VL.Ident.Var;
     Optional<LocIndex> EntryValBackupID =
         OpenRanges.getEntryValueBackup(DebugVar);
 
@@ -1590,7 +1664,7 @@ bool LiveDebugValues::join(
       if (VL.hasVar() && !VL.dominates(MBB)) {
         KillSet.set(ID);
         LLVM_DEBUG({
-          auto Name = VarLocIDs[Idx].Var->getVariable()->getName();
+          auto Name = VarLocIDs[Idx].Ident.getName();
           dbgs() << "  killing " << Name << ", it doesn't dominate MBB\n";
         });
       }
@@ -1747,7 +1821,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
   VarLocMap VarLocIDs;         // Map VarLoc<>unique ID for use in bitvectors.
   OverlapMap OverlapFragments; // Map of overlapping variable fragments.
-  OpenRangesSet OpenRanges(VarLocIDs, Alloc, OverlapFragments);
+  OpenRangesSet OpenRanges(Alloc, OverlapFragments);
                               // Ranges that are open until end of bb.
   VarLocInMBB OutLocs;        // Ranges that exist beyond bb.
   VarLocInMBB InLocs;         // Ranges that are incoming after joining.
