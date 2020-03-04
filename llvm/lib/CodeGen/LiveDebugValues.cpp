@@ -272,6 +272,18 @@ private:
       Kind = RegisterKind;
       Loc.RegNo = MO.getReg();
     }
+
+    // Private VarLoc constructor that copies an instrref variable location
+    // and nothing else. This only moves the machine location, and doesn't
+    // assume that MI is a DBG_VALUE.
+    VarLoc(const VarLoc &VL, bool dummy) : Var(None), InstrRefID(VL.InstrRefID),
+      Expr(nullptr), MI(VL.MI), UVS(None) {
+      (void)dummy;
+      assert(InstrRefID != 0);
+      assert(!VL.hasVar());
+      Kind = VL.Kind;
+      Loc.Hash = VL.Loc.Hash;
+    }
     public:
 
     /// Take the variable and machine-location in DBG_VALUE MI, and build an
@@ -317,19 +329,19 @@ private:
 
     /// Copy the register location in DBG_VALUE MI, updating the register to
     /// be NewReg.
-    static VarLoc CreateCopyLoc(const MachineInstr &MI, LexicalScopes &LS,
+    static VarLoc CreateCopyLoc(const VarLoc &OldLV, LexicalScopes &LS,
                                 unsigned NewReg) {
-      VarLoc VL(MI, LS);
-      assert(VL.Kind == RegisterKind);
+      VarLoc VL = (OldLV.hasVar()) ? VarLoc(OldLV.MI, LS) : VarLoc(OldLV, false);
+      VL.Kind = RegisterKind; // XXX no assert, we can create copy from spill loc
       VL.Loc.RegNo = NewReg;
       return VL;
     }
 
     /// Take the variable described by DBG_VALUE MI, and create a VarLoc
     /// locating it in the specified spill location.
-    static VarLoc CreateSpillLoc(const MachineInstr &MI, unsigned SpillBase,
+    static VarLoc CreateSpillLoc(const VarLoc &OldLV, unsigned SpillBase,
                                  int SpillOffset, LexicalScopes &LS) {
-      VarLoc VL(MI, LS);
+      VarLoc VL = (OldLV.hasVar()) ? VarLoc(OldLV.MI, LS) : VarLoc(OldLV, false);
       assert(VL.Kind == RegisterKind);
       VL.Kind = SpillLocKind;
       VL.Loc.SpillLocation = {SpillBase, SpillOffset};
@@ -1045,7 +1057,7 @@ void LiveDebugValues::insertTransferDebugPair(
     MachineInstr &MI, OpenRangesSet &OpenRanges, TransferMap &Transfers,
     VarLocMap &VarLocIDs, LocIndex OldVarID, TransferKind Kind,
     unsigned NewReg) {
-  const MachineInstr *DebugInstr = &VarLocIDs[OldVarID].MI;
+  const VarLoc &OldVL = VarLocIDs[OldVarID];
 
   auto ProcessVarLoc = [&MI, &OpenRanges, &Transfers, &VarLocIDs](VarLoc &VL) {
     LocIndex LocId = VarLocIDs.insert(VL);
@@ -1068,7 +1080,7 @@ void LiveDebugValues::insertTransferDebugPair(
            "No register supplied when handling a copy of a debug value");
     // Create a DBG_VALUE instruction to describe the Var in its new
     // register location.
-    VarLoc VL = VarLoc::CreateCopyLoc(*DebugInstr, LS, NewReg);
+    VarLoc VL = VarLoc::CreateCopyLoc(OldVL, LS, NewReg);
     ProcessVarLoc(VL);
     LLVM_DEBUG({
       dbgs() << "Creating VarLoc for register copy:";
@@ -1080,7 +1092,7 @@ void LiveDebugValues::insertTransferDebugPair(
     // Create a DBG_VALUE instruction to describe the Var in its spilled
     // location.
     VarLoc::SpillLoc SpillLocation = extractSpillBaseRegAndOffset(MI);
-    VarLoc VL = VarLoc::CreateSpillLoc(*DebugInstr, SpillLocation.SpillBase,
+    VarLoc VL = VarLoc::CreateSpillLoc(OldVL, SpillLocation.SpillBase,
                                        SpillLocation.SpillOffset, LS);
     ProcessVarLoc(VL);
     LLVM_DEBUG({
@@ -1094,7 +1106,7 @@ void LiveDebugValues::insertTransferDebugPair(
            "No register supplied when handling a restore of a debug value");
     // DebugInstr refers to the pre-spill location, therefore we can reuse
     // its expression.
-    VarLoc VL = VarLoc::CreateCopyLoc(*DebugInstr, LS, NewReg);
+    VarLoc VL = VarLoc::CreateCopyLoc(OldVL, LS, NewReg);
     ProcessVarLoc(VL);
     LLVM_DEBUG({
       dbgs() << "Creating VarLoc for restore:";
@@ -1308,7 +1320,7 @@ void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI,
         // At this stage, we already know which DBG_VALUEs are for spills and
         // where they are located; it's best to fix handle overwrites now.
         KillSet.set(ID);
-        VarLoc UndefVL = VarLoc::CreateCopyLoc(VL.MI, LS, 0);
+        VarLoc UndefVL = VarLoc::CreateCopyLoc(VL, LS, 0);
         LocIndex UndefLocID = VarLocIDs.insert(UndefVL);
         Transfers.push_back({&MI, UndefLocID});
       }
