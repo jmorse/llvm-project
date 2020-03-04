@@ -353,6 +353,16 @@ private:
       Kind = VL.Kind;
       Loc.Hash = VL.Loc.Hash;
     }
+
+    VarLoc(const VarLoc &VL, const MachineInstr &MI, LexicalScopes &LS)
+        : Ident(DebugVariable(MI.getDebugVariable(), MI.getDebugExpression(),
+              MI.getDebugLoc()->getInlinedAt())),
+          Expr(MI.getDebugExpression()), MI(MI),
+          UVS(UserValueScopes(MI.getDebugLoc(), LS)) {
+      Kind = VL.Kind;
+      Loc.Hash = VL.Loc.Hash;
+    }
+
     public:
 
     /// Take the variable and machine-location in DBG_VALUE MI, and build an
@@ -504,6 +514,12 @@ private:
       return 0;
     }
 
+    // Turn this instr-ref VarLoc into one that refers to V
+    VarLoc ToVariableLoc(const MachineInstr &MI, LexicalScopes &LS) const {
+      assert(!hasVar());
+      return VarLoc(*this, MI, LS);
+    }
+
     bool hasVar() const { return Ident.isVar(); } // XXX try to eliminate?
 
     Twine getName() const {
@@ -644,7 +660,8 @@ private:
     const VarLocSet &getVarLocs() const { return VarLocs; }
 
     /// Terminate all open ranges for VL.Var by removing it from the set.
-    void erase(const VarLoc &VL);
+    void erase(const VarLoc &VL) { erase(VL.Ident, &VL); }
+    void erase(const ValueIdentity &VI, const VarLoc *VL = nullptr);
 
     /// Terminate all open ranges listed in \c KillSet by removing
     /// them from the set.
@@ -661,6 +678,8 @@ private:
         insert(Idx, VarL);
       }
     }
+
+    Optional<LocIndex> lookupInstrRef(DebugInstrRefID ID) const;
 
     llvm::Optional<LocIndex> getEntryValueBackup(DebugVariable Var);
 
@@ -737,6 +756,8 @@ private:
 
   void transferDebugValue(const MachineInstr &MI, OpenRangesSet &OpenRanges,
                           VarLocMap &VarLocIDs);
+  void transferDebugInstrRef(MachineInstr &MI, OpenRangesSet &OpenRanges,
+                          VarLocMap &VarLocIDs, TransferMap &Transfers);
   void transferSpillOrRestoreInst(MachineInstr &MI, OpenRangesSet &OpenRanges,
                                   VarLocMap &VarLocIDs, TransferMap &Transfers);
   bool removeEntryValue(const MachineInstr &MI, OpenRangesSet &OpenRanges,
@@ -842,10 +863,10 @@ void LiveDebugValues::getAnalysisUsage(AnalysisUsage &AU) const {
 /// the variable from the EntryValuesBackupVars set, indicating we should stop
 /// tracking its backup entry location. Otherwise, if the VarLoc is primary
 /// location, erase the variable from the Vars set.
-void LiveDebugValues::OpenRangesSet::erase(const VarLoc &VL) {
+void LiveDebugValues::OpenRangesSet::erase(const ValueIdentity &VI, const VarLoc *VL) {
   // Erasure helper.
   auto DoErase = [VL, this](ValueIdentity VarToErase) {
-    auto *EraseFrom = VL.isEntryBackupLoc() ? &EntryValuesBackupVars : &Vars;
+    auto *EraseFrom = (VL && VL->isEntryBackupLoc()) ? &EntryValuesBackupVars : &Vars;
     auto It = EraseFrom->find(VarToErase);
     if (It != EraseFrom->end()) {
       LocIndex ID = It->second;
@@ -855,14 +876,14 @@ void LiveDebugValues::OpenRangesSet::erase(const VarLoc &VL) {
   };
 
   // Erase the variable/fragment that ends here.
-  DoErase(VL.Ident);
+  DoErase(VI);
 
   // If the value identity isn't associated with a variable, it can't have a
   // fragment for overlap consideration.
-  if (!VL.hasVar())
+  if (!VI.isVar())
     return;
 
-  const DebugVariable &Var = VL.Ident.Var;
+  const DebugVariable &Var = VI.Var;
 
   // Extract the fragment. Interpret an empty fragment as one that covers all
   // possible bits.
@@ -896,6 +917,16 @@ void LiveDebugValues::OpenRangesSet::insert(LocIndex VarLocID,
   auto *InsertInto = VL.isEntryBackupLoc() ? &EntryValuesBackupVars : &Vars;
   VarLocs.set(VarLocID.getAsRawInteger());
   InsertInto->insert({VL.Ident, VarLocID});
+}
+
+llvm::Optional<LocIndex> LiveDebugValues::OpenRangesSet::lookupInstrRef(DebugInstrRefID ID) const
+{
+  // XXX -- I imagine it's impossible for an entry value to be an instr
+  // ref, because it's not a value sitting in a register in this func.
+  auto It = Vars.find(ValueIdentity(ID));
+  if (It == Vars.end())
+    return None;
+  return It->second;
 }
 
 /// Return the Loc ID of an entry value backup location, if it exists for the
@@ -1090,6 +1121,47 @@ void LiveDebugValues::transferDebugValue(const MachineInstr &MI,
     assert(MI.getOperand(0).isReg() && MI.getOperand(0).getReg() == 0 &&
            "Unexpected non-undef DBG_VALUE encountered");
   }
+}
+
+
+void LiveDebugValues::transferDebugInstrRef(MachineInstr &MI, OpenRangesSet &OpenRanges, VarLocMap &VarLocIDs, TransferMap &Transfers) {
+  // XXX: DBG_INSTR_REF: ignoring entry values for now.
+  if (!MI.isDebugRef())
+    return;
+
+  // A DBG_INSTR_REF is like a normal debug value, but the operand specifies
+  // a DebugInstrRefID rather than a machine location. First, pick out the
+  // variable that we are describing a location for.
+  const DILocalVariable *Var = MI.getDebugVariable();
+  const DIExpression *Expr = MI.getDebugExpression();
+  const DILocation *DebugLoc = MI.getDebugLoc();
+  const DILocation *InlinedAt = DebugLoc->getInlinedAt();
+  assert(Var->isValidLocationForIntrinsic(DebugLoc) &&
+         "Expected inlined-at fields to agree");
+
+  DebugVariable V(Var, Expr, InlinedAt);
+
+  // At a minimum, this DBG_INSTR_REF should terminate any earlier location.
+  OpenRanges.erase(ValueIdentity(V));
+
+  // Do we have a location for the designated value ID?
+  const MachineOperand &MO = MI.getOperand(0);
+  assert(MO.isImm());
+  auto ID = DebugInstrRefID::fromU64(MO.getImm());
+
+  auto OptIdx = OpenRanges.lookupInstrRef(ID);
+  if (!OptIdx)
+    // There is no location for that instruction reference right now. We've
+    // terminated the earlier location; just leave it terminated.
+    return;
+
+  const VarLoc &VL = VarLocIDs[*OptIdx];
+  VarLoc NewVL = VL.ToVariableLoc(MI, LS);
+  LocIndex NewLocIndex = VarLocIDs.insert(NewVL);
+  // Add the VarLoc to OpenRanges from this DBG_INSTR_REF.
+  OpenRanges.insert(NewLocIndex, NewVL);
+
+  Transfers.push_back({&MI, NewLocIndex});
 }
 
 /// Turn the entry value backup locations into primary locations.
@@ -1597,6 +1669,7 @@ void LiveDebugValues::accumulateFragmentMap(MachineInstr &MI,
 void LiveDebugValues::process(MachineInstr &MI, OpenRangesSet &OpenRanges,
                               VarLocMap &VarLocIDs, TransferMap &Transfers) {
   transferDebugValue(MI, OpenRanges, VarLocIDs);
+  transferDebugInstrRef(MI, OpenRanges, VarLocIDs, Transfers);
   transferRegisterDef(MI, OpenRanges, VarLocIDs, Transfers);
   transferRegisterCopy(MI, OpenRanges, VarLocIDs, Transfers);
   transferSpillOrRestoreInst(MI, OpenRanges, VarLocIDs, Transfers);

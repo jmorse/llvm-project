@@ -835,12 +835,12 @@ const DILabel *MachineInstr::getDebugLabel() const {
 }
 
 const DILocalVariable *MachineInstr::getDebugVariable() const {
-  assert(isDebugValue() && "not a DBG_VALUE");
+  assert((isDebugValue() || isDebugRef()) && "not a DBG_VALUE");
   return cast<DILocalVariable>(getOperand(2).getMetadata());
 }
 
 const DIExpression *MachineInstr::getDebugExpression() const {
-  assert(isDebugValue() && "not a DBG_VALUE");
+  assert((isDebugValue() || isDebugRef()) && "not a DBG_VALUE");
   return cast<DIExpression>(getOperand(3).getMetadata());
 }
 
