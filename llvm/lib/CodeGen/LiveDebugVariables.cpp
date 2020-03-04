@@ -1366,8 +1366,9 @@ void UserValue::insertDebugValue(MachineBasicBlock *MBB, SlotIndex StartIdx,
     // DBG_INSTR_REF: if the defining instruction is in this basic block,
     // use an instr ref instead.
     if (MO.isReg() && MO.getReg() != 0) {
-      // Walk back through the block to see if we can find a reg def.
-      for (auto revit = I->getReverseIterator(),
+      // Walk back through the block, from the instr before, to see if we
+      // can find a reg def.
+      for (auto revit = std::next(I->getReverseIterator()),
                 revend = I->getParent()->instr_rend();
            revit != revend; revit++) {
        unsigned operandidx = 0;
