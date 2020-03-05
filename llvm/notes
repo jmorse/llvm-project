@@ -1,0 +1,24 @@
+fails:
+    LLVM :: DebugInfo/X86/mi-print.ll <---- no idea, crash?
+    LLVM :: DebugInfo/X86/pieces-3.ll < -- copy from copy from abi-argument
+      Raises the possibility that we'll have to walk through CopyFromReg's
+      to find the input to a DAG.
+    LLVM :: DebugInfo/X86/pr34545.ll
+      This doesn't get a DBG_VALUE at one position because the instrref lands
+      on the wrong side of a register spill post regalloc. Suggests that
+      load/spill insertion would need more care&attention.
+    LLVM :: DebugInfo/X86/pr40427.ll
+       CHECKs for a DBG_VALUE
+    LLVM :: DebugInfo/X86/sdag-combine.ll
+       CHECKs for a DBG_VALUE
+    LLVM :: DebugInfo/X86/sdag-dangling-dbgvalue.ll
+       CHECKs for a DBG_VALUE
+    LLVM :: DebugInfo/X86/sdag-dbgvalue-phi-use-2.ll
+       CHECKs for a DBG_VALUE
+    LLVM :: DebugInfo/X86/sdag-legalize-multires.ll
+       CHECKs for a DBG_VALUE
+    LLVM :: DebugInfo/X86/sdag-salvage-add.ll
+       CHECKs for a DBG_VALUE
+    LLVM :: DebugInfo/X86/sdag-transfer-dbgvalue.ll
+       CHECKs for a DBG_VALUE
+
