@@ -254,6 +254,18 @@ private:
     return DebugValueID;
   }
 
+  unsigned getSingleDefIdx(void) const {
+    assert(getNumDefs() == 1);
+    unsigned idx = 0;
+    for (auto &MO : operands()) {
+      if (MO.isReg() && MO.isDef())
+        break;
+      ++idx;
+    }
+    assert(idx != getNumOperands());
+    return idx;
+  }
+
   private:
 
   // Intrusive list support

@@ -751,6 +751,24 @@ TwoAddressInstructionPass::convertInstTo3Addr(MachineBasicBlock::iterator &mi,
     // then one instruction.
     Sunk = sink3AddrInstruction(NewMI, RegB, mi);
 
+  // Haalllrriighty, find the tied single register def operand in here,
+  if (mi->getNumDefs() == 2 && mi->peekDebugValueID()) {
+    unsigned defidx = 0;
+    for (MachineOperand &Op : mi->operands()) {
+      if (Op.isReg() && Op.isDef() && Op.isTied())
+        break;
+      ++defidx;
+    }
+    assert(defidx != mi->getNumOperands());
+    // turn that into a DebugInstrRefID.
+    auto ID = mi->getDebugValueID(defidx);
+
+    // Now do the same for the new one
+    unsigned newidx = NewMI->getSingleDefIdx();
+    auto NewID = NewMI->getDebugValueID(newidx);
+    MF->valueIDUpdateMap.insert(std::make_pair(ID, NewID));
+  }
+
   MBB->erase(mi); // Nuke the old inst.
 
   if (!Sunk) {

@@ -1129,6 +1129,8 @@ void LiveDebugValues::transferDebugInstrRef(MachineInstr &MI, OpenRangesSet &Ope
   if (!MI.isDebugRef())
     return;
 
+  const MachineFunction *MF = MI.getParent()->getParent();
+
   // A DBG_INSTR_REF is like a normal debug value, but the operand specifies
   // a DebugInstrRefID rather than a machine location. First, pick out the
   // variable that we are describing a location for.
@@ -1149,11 +1151,18 @@ void LiveDebugValues::transferDebugInstrRef(MachineInstr &MI, OpenRangesSet &Ope
   assert(MO.isImm());
   auto ID = DebugInstrRefID::fromU64(MO.getImm());
 
-  auto OptIdx = OpenRanges.lookupInstrRef(ID);
-  if (!OptIdx)
-    // There is no location for that instruction reference right now. We've
-    // terminated the earlier location; just leave it terminated.
-    return;
+  Optional<LocIndex> OptIdx = OpenRanges.lookupInstrRef(ID);
+  while (!OptIdx) {
+    // There is no location for that instruction reference right now. Check
+    // whether some kind of replacement was made.
+    auto it = MF->valueIDUpdateMap.find(ID);
+    if (it == MF->valueIDUpdateMap.end())
+      // Nope, it's gone. We've terminated the earlier location; just leave
+      // it terminated.
+      return;
+    ID = it->second;
+    OptIdx = OpenRanges.lookupInstrRef(ID);
+  };
 
   const VarLoc &VL = VarLocIDs[*OptIdx];
   VarLoc NewVL = VL.ToVariableLoc(MI, LS);

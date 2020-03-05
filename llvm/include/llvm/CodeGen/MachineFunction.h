@@ -237,6 +237,14 @@ public:
   unsigned getOperand() const {
     return operand;
   }
+
+  bool operator<(const DebugInstrRefID &Other) const {
+    return asU64() < Other.asU64();
+  }
+
+  bool operator==(const DebugInstrRefID &Other) const {
+    return idno == Other.idno && operand == Other.operand;
+  }
 };
 
 class MachineFunction {
@@ -245,6 +253,8 @@ class MachineFunction {
   uint64_t getNewDebugValueID() {
     return ++DebugValueIDCount;
   }
+
+  std::map<DebugInstrRefID, DebugInstrRefID> valueIDUpdateMap;
 
   private:
 
