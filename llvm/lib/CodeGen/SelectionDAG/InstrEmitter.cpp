@@ -757,6 +757,9 @@ InstrEmitter::EmitDbgValue(SDDbgValue *SD,
       if (numdefs == 0)
         AddOperand(MIB, Op, (*MIB).getNumOperands(), &II, VRBaseMap,
                    /*IsDebug=*/true, /*IsClone=*/false, /*IsCloned=*/false);
+    } else {
+      AddOperand(MIB, Op, (*MIB).getNumOperands(), &II, VRBaseMap,
+                 /*IsDebug=*/true, /*IsClone=*/false, /*IsCloned=*/false);
     }
   } else if (SD->getKind() == SDDbgValue::VREG) {
     MIB.addReg(SD->getVReg(), RegState::Debug);

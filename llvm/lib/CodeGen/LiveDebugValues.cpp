@@ -348,7 +348,7 @@ private:
     VarLoc(const VarLoc &VL, bool dummy) : Ident(VL.Ident),
       Expr(nullptr), MI(VL.MI), UVS(None) {
       (void)dummy;
-      assert(Ident.isVar() != 0);
+      assert(!Ident.isVar());
       assert(!VL.hasVar());
       Kind = VL.Kind;
       Loc.Hash = VL.Loc.Hash;
