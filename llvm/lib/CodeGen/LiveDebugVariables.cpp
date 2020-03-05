@@ -1363,6 +1363,7 @@ void UserValue::insertDebugValue(MachineBasicBlock *MBB, SlotIndex StartIdx,
   assert((!Spilled || MO.isFI()) && "a spilled location must be a frame index");
 
   do {
+#if 0
     // DBG_INSTR_REF: if the defining instruction is in this basic block,
     // use an instr ref instead.
     if (MO.isReg() && MO.getReg() != 0) {
@@ -1385,6 +1386,7 @@ void UserValue::insertDebugValue(MachineBasicBlock *MBB, SlotIndex StartIdx,
        }
       }
     }
+#endif
 
 
     BuildMI(*MBB, I, getDebugLoc(), TII.get(TargetOpcode::DBG_VALUE),

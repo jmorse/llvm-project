@@ -724,11 +724,40 @@ InstrEmitter::EmitDbgValue(SDDbgValue *SD,
     // in all cases would be very fragile; this is a safeguard for any
     // that were missed.
     DenseMap<SDValue, unsigned>::iterator I = VRBaseMap.find(Op);
-    if (I==VRBaseMap.end())
+    if (I==VRBaseMap.end()) {
       MIB.addReg(0U);       // undef
-    else
-      AddOperand(MIB, Op, (*MIB).getNumOperands(), &II, VRBaseMap,
-                 /*IsDebug=*/true, /*IsClone=*/false, /*IsCloned=*/false);
+    } else if (Op.isMachineOpcode()) {
+      // jmorse DBG_INSTR_REF: try to pick out a defining instruction at
+      // this point.
+      unsigned VReg = getVR(Op, VRBaseMap);
+      unsigned numdefs = 0;
+      for (MachineInstr &DefMI : MRI->def_instructions(VReg)) {
+        // Ignore PHIs, those are Special (TM).
+        if (DefMI.isPHI())
+          continue;
+        // Got it. back out of the previous instr building. It isn't inserted
+        // anywhere, just (bump-allocator?) leak it for now.
+        const MCInstrDesc &RefII = TII->get(TargetOpcode::DBG_INSTR_REF);
+        MIB = BuildMI(*MF, DL, RefII);
+        // Erm, which operand idx is this?
+        unsigned opidx = 0;
+        for (const auto &op : DefMI.operands()) {
+          if (op.isReg() && op.isDef() && op.getReg() == VReg)
+            break;
+          ++opidx;
+        }
+        assert(opidx < DefMI.getNumOperands());
+        auto ID = DefMI.getDebugValueID(opidx);
+        MIB.addImm(ID.asU64());
+        ++numdefs;
+      }
+      assert(numdefs <= 1);
+
+      // If we couldn't find a def, then MIB is still a DBG_VALUE.
+      if (numdefs == 0)
+        AddOperand(MIB, Op, (*MIB).getNumOperands(), &II, VRBaseMap,
+                   /*IsDebug=*/true, /*IsClone=*/false, /*IsCloned=*/false);
+    }
   } else if (SD->getKind() == SDDbgValue::VREG) {
     MIB.addReg(SD->getVReg(), RegState::Debug);
   } else if (SD->getKind() == SDDbgValue::CONST) {
