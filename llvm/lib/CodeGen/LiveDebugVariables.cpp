@@ -412,6 +412,8 @@ class LDVImpl {
   MachineFunction *MF = nullptr;
   LiveIntervals *LIS;
   const TargetRegisterInfo *TRI;
+  std::map<DebugInstrRefID, std::pair<SlotIndex, Register>> ValToPos;
+  std::map<Register, std::vector<DebugInstrRefID>> RegIdx;
 
   /// Whether emitDebugValues is called.
   bool EmitDone = false;
@@ -477,6 +479,8 @@ public:
   /// Release all memory.
   void clear() {
     MF = nullptr;
+    ValToPos.clear();
+    RegIdx.clear();
     userValues.clear();
     userLabels.clear();
     virtRegToEqClass.clear();
@@ -1009,6 +1013,21 @@ bool LDVImpl::runOnMachineFunction(MachineFunction &mf) {
   bool Changed = collectDebugValues(mf);
   computeIntervals();
   LLVM_DEBUG(print(dbgs()));
+
+  LLVM_DEBUG(dbgs() << "********** INSPECTING MUTANT HORSESHOE CANDIDATES: "
+                    << mf.getName() << " **********\n");
+  // jmorse DBG_INSTR_REF, collect a bunch of reg/slotindexs we care about
+  // and their current vregs; plus an index of current vreg to reg/slotindexes.
+  // This is what will be split up later on.
+  SlotIndexes *Slots = LIS->getSlotIndexes(); 
+  for (const auto &lala : MF->exPHIs) {
+    MachineBasicBlock *MBB = lala.second.first;
+    Register reg = lala.second.second;
+    SlotIndex SI = Slots->getMBBStartIdx(MBB);
+    ValToPos.insert(std::make_pair(lala.first, std::make_pair(SI, reg)));
+    RegIdx[reg].push_back(lala.first);
+  }
+
   ModifiedMF = Changed;
   return Changed;
 }
@@ -1168,6 +1187,36 @@ UserValue::splitRegister(unsigned OldReg, ArrayRef<unsigned> NewRegs,
 }
 
 void LDVImpl::splitRegister(unsigned OldReg, ArrayRef<unsigned> NewRegs) {
+  // XXX jmorse DBG_INSTR_REF
+  auto It = RegIdx.find(OldReg);
+  std::vector<std::pair<Register, DebugInstrRefID>> newids;
+  // XXX might make more sense to flip this loop
+  if (It != RegIdx.end()) {
+    for (auto ID : It->second) {
+      auto It2 = ValToPos.find(ID);
+      assert(It2 != ValToPos.end());
+      const SlotIndex &Slot = It2->second.first;
+      Register r  = It2->second.second;
+      assert(r == OldReg);
+
+      // We only need to examine a single location.
+      for (auto newreg : NewRegs) {
+        const LiveInterval &LI = LIS->getInterval(newreg);
+        auto LII = LI.find(Slot);
+        if (LII != LI.end() && LII->start <= Slot) {
+          // OK, we have a match.
+          newids.push_back(std::make_pair(newreg, ID));
+          It2->second.second = newreg;
+          break;
+        }
+      }
+    }
+    RegIdx.erase(It);
+    for (auto &ref : newids)
+      RegIdx[ref.first].push_back(ref.second);
+  }
+
+
   bool DidChange = false;
   for (UserValue *UV = lookupVirtReg(OldReg); UV; UV = UV->getNext())
     DidChange |= UV->splitRegister(OldReg, NewRegs, *LIS);
@@ -1483,6 +1532,47 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
     LLVM_DEBUG(userLabel->print(dbgs(), TRI));
     userLabel->emitDebugLabel(*LIS, *TII);
   }
+
+  LLVM_DEBUG(dbgs() << "********** CATCHING FIRE AND SPRAYING BEES (FLAMING) **********\n");
+  for (auto &it : ValToPos) {
+    // For each exPHI, work out what its reg position is now.
+    auto ID = it.first;
+    auto reg = it.second.second;
+    MachineBasicBlock *OrigMBB = MF->exPHIs.find(ID)->second.first;
+    if (VRM->isAssignedReg(reg) &&
+          Register::isPhysicalRegister(VRM->getPhys(reg))) {
+      unsigned physreg = VRM->getPhys(reg);
+      MachineOperand MO = MachineOperand::CreateReg(physreg, false);
+      MF->PHIPointToReg.insert(std::make_pair(ID, std::make_pair(OrigMBB, MO)));
+    } else if (VRM->getStackSlot(reg) != VirtRegMap::NO_STACK_SLOT) {
+      const MachineRegisterInfo &MRI = MF->getRegInfo();
+      const TargetRegisterClass *TRC = MRI.getRegClass(reg);
+      unsigned SpillSize, SpillOffset;
+      // XXX XXX XXX 0 was subreg.
+      // XXX XXX XXX 0 was subreg.
+      // XXX XXX XXX 0 was subreg.
+      // Examine the subreg situatoin.
+      bool Success = TII->getStackSlotRange(TRC, 0, SpillSize, SpillOffset, *MF);
+
+      // FIXME: Invalidate the location if the offset couldn't be calculated.
+      (void)Success;
+
+      auto MO = MachineOperand::CreateFI(VRM->getStackSlot(reg));
+      MF->PHIPointToReg.insert(std::make_pair(ID, std::make_pair(OrigMBB, MO)));
+
+    } else {
+      //noreg
+      // There is no mapping for this value ID, it's gone. Delete it.
+      MF->exPHIs.erase(ID);
+      MF->PHIPointToReg.erase(ID);
+      auto exPHIIt = MF->exPHIIndex.find(OrigMBB);
+      assert(exPHIIt != MF->exPHIIndex.end());
+      std::remove(exPHIIt->second.begin(), exPHIIt->second.end(), ID);
+      if (exPHIIt->second.size() == 0)
+        MF->exPHIIndex.erase(exPHIIt);
+    }
+  }
+
   EmitDone = true;
 }
 

@@ -173,6 +173,21 @@ void BranchFolder::RemoveDeadBlock(MachineBasicBlock *MBB) {
     if (MI.shouldUpdateCallSiteInfo())
       MF->eraseCallSiteInfo(&MI);
   });
+
+  // Any PHIs that were in it are now dead. Expensive-search here can be
+  // indexed later.
+  auto it = MF->mbbsOfInterest.find(MBB);
+  if (it != MF->mbbsOfInterest.end()) {
+    auto exPHIIt = MF->exPHIIndex.find(MBB);
+    assert(exPHIIt != MF->exPHIIndex.end());
+    for (DebugInstrRefID &ID : exPHIIt->second) {
+      MF->exPHIs.erase(ID);
+      MF->PHIPointToReg.erase(ID);
+    }
+    MF->exPHIIndex.erase(exPHIIt);
+    MF->mbbsOfInterest.erase(it);
+  }
+
   // Remove the block.
   MF->erase(MBB);
   EHScopeMembership.erase(MBB);

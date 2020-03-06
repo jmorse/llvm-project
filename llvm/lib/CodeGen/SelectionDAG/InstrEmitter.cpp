@@ -733,8 +733,12 @@ InstrEmitter::EmitDbgValue(SDDbgValue *SD,
       unsigned numdefs = 0;
       for (MachineInstr &DefMI : MRI->def_instructions(VReg)) {
         // Ignore PHIs, those are Special (TM).
-        if (DefMI.isPHI())
+        if (DefMI.isPHI()) {
+          // Mark this as a PHI of interest, for mangling later.
+          auto ID = DefMI.getDebugValueID(0);
+          (void)ID;
           continue;
+        }
         // Got it. back out of the previous instr building. It isn't inserted
         // anywhere, just (bump-allocator?) leak it for now.
         const MCInstrDesc &RefII = TII->get(TargetOpcode::DBG_INSTR_REF);

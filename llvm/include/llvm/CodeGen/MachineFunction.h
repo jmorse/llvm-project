@@ -42,6 +42,7 @@
 #include <memory>
 #include <utility>
 #include <vector>
+#include <set>
 
 namespace llvm {
 
@@ -254,7 +255,13 @@ class MachineFunction {
     return ++DebugValueIDCount;
   }
 
+  using PHIPoint = std::pair<MachineBasicBlock *, Register>;
+  using PostPHIPoint = std::pair<MachineBasicBlock *, MachineOperand>;
   std::map<DebugInstrRefID, DebugInstrRefID> valueIDUpdateMap;
+  std::map<DebugInstrRefID, PHIPoint> exPHIs;
+  std::map<MachineBasicBlock *, std::vector<DebugInstrRefID>> exPHIIndex;
+  std::map<DebugInstrRefID, PostPHIPoint> PHIPointToReg;
+  std::set<MachineBasicBlock *> mbbsOfInterest;
 
   private:
 
@@ -722,10 +729,18 @@ public:
     BasicBlocks.splice(InsertPt, BasicBlocks, MBBI, MBBE);
   }
 
-  void remove(iterator MBBI) { BasicBlocks.remove(MBBI); }
-  void remove(MachineBasicBlock *MBBI) { BasicBlocks.remove(MBBI); }
-  void erase(iterator MBBI) { BasicBlocks.erase(MBBI); }
-  void erase(MachineBasicBlock *MBBI) { BasicBlocks.erase(MBBI); }
+  void remove(iterator MBBI) {
+assert (mbbsOfInterest.find(&*MBBI) == mbbsOfInterest.end()) ;
+ BasicBlocks.remove(MBBI); }
+  void remove(MachineBasicBlock *MBBI) {
+assert (mbbsOfInterest.find(&*MBBI) == mbbsOfInterest.end()) ;
+ BasicBlocks.remove(MBBI); }
+  void erase(iterator MBBI) { 
+assert (mbbsOfInterest.find(&*MBBI) == mbbsOfInterest.end()) ;
+BasicBlocks.erase(MBBI); }
+  void erase(MachineBasicBlock *MBBI) {
+assert (mbbsOfInterest.find(&*MBBI) == mbbsOfInterest.end()) ;
+ BasicBlocks.erase(MBBI); }
 
   template <typename Comp>
   void sort(Comp comp) {

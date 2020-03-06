@@ -281,6 +281,15 @@ void PHIElimination::LowerPHINode(MachineBasicBlock &MBB,
   assert(MPhi->getOperand(0).getSubReg() == 0 && "Can't handle sub-reg PHIs");
   bool isDead = MPhi->getOperand(0).isDead();
 
+  if (MPhi->peekDebugValueID()) {
+    // jmorse DBG_INSTR_REF: store where this PHI was.
+    MachineFunction *MF = MBB.getParent();
+    auto ID = MPhi->getDebugValueID(0);
+    MF->mbbsOfInterest.insert(&MBB);
+    MF->exPHIs.insert(std::make_pair(ID, std::make_pair(&MBB, DestReg)));
+    MF->exPHIIndex[&MBB].push_back(ID);
+  }
+
   // Create a new register for the incoming PHI arguments.
   MachineFunction &MF = *MBB.getParent();
   unsigned IncomingReg = 0;
