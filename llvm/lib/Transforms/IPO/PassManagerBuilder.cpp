@@ -490,6 +490,7 @@ void PassManagerBuilder::populateModulePassManager(
     addPGOInstrPasses(MPM);
     if (Inliner) {
       MPM.add(Inliner);
+      MPM.add(createRedundantDbgInstEliminationPass());
       Inliner = nullptr;
     }
 
@@ -596,6 +597,7 @@ void PassManagerBuilder::populateModulePassManager(
   bool RunInliner = false;
   if (Inliner) {
     MPM.add(Inliner);
+    MPM.add(createRedundantDbgInstEliminationPass());
     Inliner = nullptr;
     RunInliner = true;
   }
@@ -932,6 +934,7 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   bool RunInliner = Inliner;
   if (RunInliner) {
     PM.add(Inliner);
+    PM.add(createRedundantDbgInstEliminationPass());
     Inliner = nullptr;
   }
 
