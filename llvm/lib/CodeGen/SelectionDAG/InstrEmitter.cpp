@@ -748,12 +748,7 @@ InstrEmitter::EmitDbgValue(SDDbgValue *SD,
         MIB.addImm(ID.asU64());
         ++numdefs;
       }
-      assert(numdefs <= 1);
-
-      // If we couldn't find a def, then MIB is still a DBG_VALUE.
-      if (numdefs == 0)
-        AddOperand(MIB, Op, (*MIB).getNumOperands(), &II, VRBaseMap,
-                   /*IsDebug=*/true, /*IsClone=*/false, /*IsCloned=*/false);
+      assert(numdefs == 1);
     } else {
       AddOperand(MIB, Op, (*MIB).getNumOperands(), &II, VRBaseMap,
                  /*IsDebug=*/true, /*IsClone=*/false, /*IsCloned=*/false);
