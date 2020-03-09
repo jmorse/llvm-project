@@ -622,8 +622,12 @@ private:
       }
 
       if (hasVar()) {
-        dbgs() << ", \"" << Ident.Var.getVariable()->getName() << "\", " << *Loc.Expr
-               << ", ";
+        dbgs() << ", \"" << Ident.Var.getVariable()->getName() << "\", ";
+        if (Loc.Expr)
+           dbgs() << *Loc.Expr;
+        else
+           dbgs() << "!DIExpression()";
+        dbgs() << ", ";
         if (Ident.Var.getInlinedAt())
           dbgs() << "!" << Ident.Var.getInlinedAt()->getMetadataID() << ")\n";
         else
@@ -1893,11 +1897,10 @@ void LiveDebugValues::flushPendingLocs(VarLocInMBB &PendingInLocs,
       if (DiffIt.isEntryBackupLoc())
         continue;
       MachineInstr *MI = DiffIt.BuildDbgValue(*MBB.getParent());
-      if (MI)
+      if (MI) {
         MBB.insert(MBB.instr_begin(), MI);
-
-      (void)MI;
-      LLVM_DEBUG(dbgs() << "Inserted: "; MI->dump(););
+        LLVM_DEBUG(dbgs() << "Inserted: "; MI->dump(););
+     }
     }
   }
 }
