@@ -152,6 +152,31 @@ struct LocIndex {
   }
 };
 
+class UserValueScopes {
+  DebugLoc DL;
+  LexicalScopes &LS;
+  SmallPtrSet<const MachineBasicBlock *, 4> LBlocks;
+
+public:
+  UserValueScopes(DebugLoc D, LexicalScopes &L) : DL(std::move(D)), LS(L) {}
+
+  UserValueScopes(const UserValueScopes & Other) : DL(Other.DL), LS(Other.LS) {}
+
+  UserValueScopes &operator=(const UserValueScopes & Other) {
+    assert(&LS == &Other.LS);
+    DL = Other.DL;
+    return *this;
+  }
+
+  /// Return true if current scope dominates at least one machine
+  /// instruction in a given machine basic block.
+  bool dominates(MachineBasicBlock *MBB) {
+    if (LBlocks.empty())
+      LS.getMachineBasicBlocks(DL, LBlocks);
+    return LBlocks.count(MBB) != 0 || LS.dominates(DL, MBB);
+  }
+};
+
 class ValueIdentity {
 public:
   // These should be union'd or variant'd in an implementation where we
@@ -164,6 +189,8 @@ public:
   /// is moved.
   const MachineInstr *MI;
 
+  mutable Optional<UserValueScopes> UVS;
+
   private:
   ValueIdentity(char wat, bool dummy) : Var(nullptr, None, nullptr) {
     (void)dummy;
@@ -172,9 +199,10 @@ public:
   }
   public:
 
-  ValueIdentity(const MachineInstr &_MI) 
+  ValueIdentity(const MachineInstr &_MI, LexicalScopes &LS) 
         : Var(_MI.getDebugVariable(), _MI.getDebugExpression(),
-              _MI.getDebugLoc()->getInlinedAt()), MI(&_MI) {
+              _MI.getDebugLoc()->getInlinedAt()), MI(&_MI),
+              UVS(UserValueScopes(_MI.getDebugLoc(), LS)) {
     _isVar = 1;
   }
 
@@ -184,8 +212,6 @@ public:
         : Var(_Var), MI(nullptr) {
     _isVar = 1;
   }
-
-
 
   ValueIdentity(DebugInstrRefID _ID) : Var(nullptr, None, nullptr) {
     ID = _ID.asU64();
@@ -255,23 +281,6 @@ private:
 
   /// Keeps track of lexical scopes associated with a user value's source
   /// location.
-  class UserValueScopes {
-    DebugLoc DL;
-    LexicalScopes &LS;
-    SmallPtrSet<const MachineBasicBlock *, 4> LBlocks;
-
-  public:
-    UserValueScopes(DebugLoc D, LexicalScopes &L) : DL(std::move(D)), LS(L) {}
-
-    /// Return true if current scope dominates at least one machine
-    /// instruction in a given machine basic block.
-    bool dominates(MachineBasicBlock *MBB) {
-      if (LBlocks.empty())
-        LS.getMachineBasicBlocks(DL, LBlocks);
-      return LBlocks.count(MBB) != 0 || LS.dominates(DL, MBB);
-    }
-  };
-
   using FragmentInfo = DIExpression::FragmentInfo;
   using OptFragmentInfo = Optional<DIExpression::FragmentInfo>;
 
@@ -293,7 +302,6 @@ private:
     /// The expression applied to this location.
     const DIExpression *Expr;
 
-    mutable Optional<UserValueScopes> UVS;
     enum VarLocKind {
       InvalidKind = 0,
       RegisterKind,
@@ -316,9 +324,8 @@ private:
     } Loc;
 
     VarLoc(const MachineInstr &MI, LexicalScopes &LS)
-        : Ident(MI),
-          Expr(MI.getDebugExpression()),
-          UVS(UserValueScopes(MI.getDebugLoc(), LS)) {
+        : Ident(MI, LS),
+          Expr(MI.getDebugExpression()) {
       static_assert((sizeof(Loc) == sizeof(uint64_t)),
                     "hash does not cover all members of Loc");
       assert(MI.isDebugValue() && "not a DBG_VALUE");
@@ -345,7 +352,7 @@ private:
     private:
     // Varloc constructor for instrrefs. MI is a "real" instr.
     VarLoc(const MachineInstr &MI, uint64_t ID)
-        : Ident(ID), Expr(nullptr), UVS(None) {
+        : Ident(ID), Expr(nullptr) {
       DebugInstrRefID lolid = DebugInstrRefID::fromU64(ID);
       unsigned op = lolid.getOperand();
       const MachineOperand &MO = MI.getOperand(op);
@@ -358,8 +365,7 @@ private:
     // Private VarLoc constructor that copies an instrref variable location
     // and nothing else. This only moves the machine location, and doesn't
     // assume that MI is a DBG_VALUE.
-    VarLoc(const VarLoc &VL, bool dummy) : Ident(VL.Ident),
-      Expr(nullptr), UVS(None) {
+    VarLoc(const VarLoc &VL, bool dummy) : Ident(VL.Ident), Expr(nullptr) {
       (void)dummy;
       assert(!Ident.isVar());
       assert(!VL.hasVar());
@@ -368,8 +374,7 @@ private:
     }
 
     VarLoc(const VarLoc &VL, const MachineInstr &MI, LexicalScopes &LS)
-        : Ident(MI), Expr(MI.getDebugExpression()),
-          UVS(UserValueScopes(MI.getDebugLoc(), LS)) {
+        : Ident(MI, LS), Expr(MI.getDebugExpression()) {
       Kind = VL.Kind;
       Loc.Hash = VL.Loc.Hash;
     }
@@ -539,7 +544,7 @@ private:
 
     /// Determine whether the lexical scope of this value's debug location
     /// dominates MBB.
-    bool dominates(MachineBasicBlock &MBB) const { return UVS->dominates(&MBB); }
+    bool dominates(MachineBasicBlock &MBB) const { return Ident.UVS->dominates(&MBB); }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     // TRI can be null.
