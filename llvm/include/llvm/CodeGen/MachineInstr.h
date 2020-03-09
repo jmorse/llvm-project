@@ -266,6 +266,19 @@ private:
     return idx;
   }
 
+  unsigned getTiedDefIdx(void) const {
+    unsigned idx = 0;
+    for (auto &MO : operands()) {
+      if (MO.isReg() && MO.isDef() && MO.isTied())
+        break;
+      ++idx;
+    }
+    assert(idx != getNumOperands());
+    // XXX, what about multiple tied defs?
+    return idx;
+  }
+
+
   private:
 
   // Intrusive list support

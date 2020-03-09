@@ -754,6 +754,10 @@ InstrEmitter::EmitDbgValue(SDDbgValue *SD,
                  /*IsDebug=*/true, /*IsClone=*/false, /*IsCloned=*/false);
     }
   } else if (SD->getKind() == SDDbgValue::VREG) {
+    // Cough up a DBG_INSTR_REF with a vreg operand: this will be patched up
+    // later to point at the def of that vreg.
+    const MCInstrDesc &RefII = TII->get(TargetOpcode::DBG_INSTR_REF);
+    MIB = BuildMI(*MF, DL, RefII);
     MIB.addReg(SD->getVReg(), RegState::Debug);
   } else if (SD->getKind() == SDDbgValue::CONST) {
     const Value *V = SD->getConst();

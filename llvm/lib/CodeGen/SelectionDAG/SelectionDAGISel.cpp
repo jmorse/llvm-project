@@ -562,6 +562,31 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
     TLI->insertCopiesSplitCSR(EntryMBB, Returns);
   }
 
+  // XXX jmorse DBG_INSTR_REF, update any points-at-vreg DBG_INSTR_REF insts
+  // to point at the corresponding def.
+  for (auto &MBB : *MF) {
+    for (auto &MI : MBB) {
+      if (MI.isDebugRef() && MI.getOperand(0).isReg()) {
+        Register Reg = MI.getOperand(0).getReg();
+        unsigned op = 0;
+        MachineInstr &DefMI = *MRI.def_instr_begin(Reg);
+        assert(std::distance(MRI.def_instr_begin(Reg), MRI.def_instr_end()) == 1);
+        assert(MRI.hasOneDef(Reg));
+
+        // Errmmm
+        bool tieddef = any_of(DefMI.operands(), [](MachineOperand &MO){return MO.isReg() && MO.isDef() && MO.isTied();});
+
+        if (tieddef) {
+          op = DefMI.getTiedDefIdx();
+        } else {
+          op = DefMI.getSingleDefIdx();
+        }
+        auto ID = DefMI.getDebugValueID(op);
+        MI.getOperand(0).ChangeToImmediate(ID.asU64());
+      }
+    }
+  }
+
   DenseMap<unsigned, unsigned> LiveInMap;
   if (!FuncInfo->ArgDbgValues.empty())
     for (std::pair<unsigned, unsigned> LI : RegInfo->liveins())
