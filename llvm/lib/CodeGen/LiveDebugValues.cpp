@@ -330,6 +330,15 @@ public:
     unsigned op = lolid.getOperand();
     const MachineOperand &MO = DefMI.getOperand(op);
     // Only cope with reg operands pls
+    initFromOp(MO);
+  }
+
+  MachineLocation(const MachineOperand &MO) {
+    initFromOp(MO);
+  }
+
+  void initFromOp(const MachineOperand &MO) {
+    // Only cope with reg operands pls
     assert(MO.isReg());
     Kind = RegisterKind;
     Loc.RegNo = MO.getReg();
@@ -484,6 +493,11 @@ private:
 
     static VarLoc CreateInstrRefLoc(const MachineInstr &MI, uint64_t instrrefid) {
       return VarLoc(ValueIdentity(instrrefid), MachineLocation(MI, instrrefid));
+    }
+
+
+    static VarLoc CreatePhiLoc(const MachineOperand &MO, uint64_t instrrefid) {
+      return VarLoc(ValueIdentity(instrrefid), MachineLocation(MO));
     }
 
     /// Create a DBG_VALUE representing this VarLoc in the given function.
@@ -807,7 +821,7 @@ private:
                                LocIndex OldVarID, TransferKind Kind,
                                unsigned NewReg = 0);
 
-  void transferStartOfBlock(MachineFunction *MF, MachineBasicBlock *MBB, OpenRangesSet &OpenRanges, VarLocMap &VarLocIDs);
+  void transferStartOfBlock(MachineFunction &MF, MachineBasicBlock *MBB, OpenRangesSet &OpenRanges, VarLocMap &VarLocIDs);
   void transferDebugValue(const MachineInstr &MI, OpenRangesSet &OpenRanges,
                           VarLocMap &VarLocIDs);
   void transferDebugInstrRef(MachineInstr &MI, OpenRangesSet &OpenRanges,
@@ -1129,29 +1143,24 @@ bool LiveDebugValues::removeEntryValue(const MachineInstr &MI,
 }
 
 // jmorse DBG_INSTR_REF
-void LiveDebugValues::transferStartOfBlock(MachineFunction *MF, MachineBasicBlock *MBB, OpenRangesSet &OpenRanges, VarLocMap &VarLocIDs) {
+void LiveDebugValues::transferStartOfBlock(MachineFunction &MF, MachineBasicBlock *MBB, OpenRangesSet &OpenRanges, VarLocMap &VarLocIDs) {
   // If there were PHIs at the start of this block, open up a range for
   // their values.
-  if (MF->mbbsOfInterest.find(MBB) == MF->mbbsOfInterest.end())
+  if (MF.mbbsOfInterest.find(MBB) == MF.mbbsOfInterest.end())
     return;
-  auto it = MF->exPHIIndex.find(MBB);
-  assert(it != MF->exPHIIndex.end());
+  auto it = MF.exPHIIndex.find(MBB);
+  assert(it != MF.exPHIIndex.end());
   for (DebugInstrRefID ID : it->second) {
-    auto detail = MF->PHIPointToReg.find(ID);
-    assert(detail != MF->PHIPointToReg.end());
+    auto detail = MF.PHIPointToReg.find(ID);
+    assert(detail != MF.PHIPointToReg.end());
     MachineOperand &MO = detail->second.second;
 
-#if 0
     // XXX be careful in case this mutates in future
-    auto VL = VarLoc::CreateInstrRefLoc(MI, MI.getDebugValueID(operandidx).asU64());
+    auto VL = VarLoc::CreatePhiLoc(MO, ID.asU64());
 
-    LocIndex ID = VarLocIDs.insert(VL);
+    LocIndex LocID = VarLocIDs.insert(VL);
     // Add the VarLoc to OpenRanges from this DBG_VALUE.
-    OpenRanges.insert(ID, VL);
-#endif
-
-
-
+    OpenRanges.insert(LocID, VL);
   }
 }
 
@@ -2079,6 +2088,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
         // First load any pending inlocs.
         OpenRanges.insertFromLocSet(getVarLocsInMBB(MBB, PendingInLocs),
                                     VarLocIDs);
+        transferStartOfBlock(MF, MBB, OpenRanges, VarLocIDs);
         for (auto &MI : *MBB)
           process(MI, OpenRanges, VarLocIDs, Transfers);
         OLChanged |= transferTerminator(MBB, OpenRanges, OutLocs, VarLocIDs);
