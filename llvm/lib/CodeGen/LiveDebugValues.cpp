@@ -1156,7 +1156,10 @@ void LiveDebugValues::transferStartOfBlock(MachineFunction &MF, MachineBasicBloc
   assert(it != MF.exPHIIndex.end());
   for (DebugInstrRefID ID : it->second) {
     auto detail = MF.PHIPointToReg.find(ID);
-    assert(detail != MF.PHIPointToReg.end());
+
+    // Was it optimised out?:
+    if (detail == MF.PHIPointToReg.end())
+      continue;
     MachineOperand &MO = detail->second.second;
 
     // XXX be careful in case this mutates in future
