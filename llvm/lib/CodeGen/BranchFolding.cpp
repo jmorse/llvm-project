@@ -120,6 +120,34 @@ char &llvm::BranchFolderPassID = BranchFolderPass::ID;
 INITIALIZE_PASS(BranchFolderPass, DEBUG_TYPE,
                 "Control Flow Optimizer", false, false)
 
+static void moveDebugPHIsToNewBlock(MachineBasicBlock &Src, MachineBasicBlock &Dest) {
+  MachineFunction *MF = Src.getParent();
+
+  auto MBBIt = MF->mbbsOfInterest.find(&Src);
+  if (MBBIt == MF->mbbsOfInterest.end())
+    return;
+
+  auto PHIIndex = MF->exPHIIndex.find(&Src);
+  assert(PHIIndex != MF->exPHIIndex.end());
+  std::vector<DebugInstrRefID> elems = std::move(PHIIndex->second);
+  MF->exPHIIndex.erase(PHIIndex);
+  MF->mbbsOfInterest.erase(MBBIt);
+
+  MF->mbbsOfInterest.insert(&Dest);
+  for (auto &ID : elems) {
+    MF->exPHIs[ID].first = &Dest;
+    auto pointit = MF->PHIPointToReg.find(ID);
+    assert(pointit != MF->PHIPointToReg.end());
+    pointit->second.first = &Dest;
+  }
+  // "Dest" might already have PHIs.
+  auto iit = MF->exPHIIndex.insert(std::make_pair(&Dest, std::vector<DebugInstrRefID>()));
+  if (iit.second)
+    iit.first->second = std::move(elems);
+  else
+    iit.first->second.insert(iit.first->second.begin(), elems.begin(), elems.end());
+}
+
 bool BranchFolderPass::runOnMachineFunction(MachineFunction &MF) {
   if (skipFunction(MF.getFunction()))
     return false;
@@ -1374,6 +1402,7 @@ ReoptimizeBlock:
         MachineBasicBlock *Pred = *(MBB->pred_end()-1);
         Pred->ReplaceUsesOfBlockWith(MBB, &*FallThrough);
       }
+      moveDebugPHIsToNewBlock(*MBB, *FallThrough);
       // If MBB was the target of a jump table, update jump tables to go to the
       // fallthrough instead.
       if (MachineJumpTableInfo *MJTI = MF.getJumpTableInfo())
@@ -1442,6 +1471,7 @@ ReoptimizeBlock:
       PrevBB.removeSuccessor(PrevBB.succ_begin());
       assert(PrevBB.succ_empty());
       PrevBB.transferSuccessors(MBB);
+      moveDebugPHIsToNewBlock(PrevBB, *MBB);
       MadeChange = true;
       return MadeChange;
     }
@@ -1668,6 +1698,9 @@ ReoptimizeBlock:
           // Change any jumptables to go to the new MBB.
           if (MachineJumpTableInfo *MJTI = MF.getJumpTableInfo())
             MJTI->ReplaceMBBInJumpTables(MBB, CurTBB);
+
+          moveDebugPHIsToNewBlock(*MBB, *CurTBB);
+
           if (DidChange) {
             ++NumBranchOpts;
             MadeChange = true;
