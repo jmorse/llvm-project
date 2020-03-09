@@ -267,6 +267,137 @@ public:
   }
 };
 
+class MachineLocation {
+public:
+  // The location at which a spilled variable resides. It consists of a
+  // register and an offset.
+  struct SpillLoc {
+    unsigned SpillBase;
+    int SpillOffset;
+    bool operator==(const SpillLoc &Other) const {
+      return SpillBase == Other.SpillBase && SpillOffset == Other.SpillOffset;
+    }
+  };
+
+  /// The expression applied to this location.
+  const DIExpression *Expr;
+
+  enum VarLocKind {
+    InvalidKind = 0,
+    RegisterKind,
+    SpillLocKind,
+    ImmediateKind,
+    EntryValueKind,
+    EntryValueBackupKind,
+    EntryValueCopyBackupKind
+  } Kind = InvalidKind;
+
+  /// The value location. Stored separately to avoid repeatedly
+  /// extracting it from MI.
+  union {
+    uint64_t RegNo;
+    SpillLoc SpillLocation;
+    uint64_t Hash;
+    int64_t Immediate;
+    const ConstantFP *FPImm;
+    const ConstantInt *CImm;
+  } Loc;
+
+  MachineLocation(const MachineInstr &MI) {
+    static_assert((sizeof(Loc) == sizeof(uint64_t)),
+                  "hash does not cover all members of Loc");
+    assert(MI.isDebugValue() && "not a DBG_VALUE");
+    assert(MI.getNumOperands() == 4 && "malformed DBG_VALUE");
+    if (int RegNo = isDbgValueDescribedByReg(MI)) {
+      Kind = RegisterKind;
+      Loc.RegNo = RegNo;
+    } else if (MI.getOperand(0).isImm()) {
+      Kind = ImmediateKind;
+      Loc.Immediate = MI.getOperand(0).getImm();
+    } else if (MI.getOperand(0).isFPImm()) {
+      Kind = ImmediateKind;
+      Loc.FPImm = MI.getOperand(0).getFPImm();
+    } else if (MI.getOperand(0).isCImm()) {
+      Kind = ImmediateKind;
+      Loc.CImm = MI.getOperand(0).getCImm();
+    }
+
+    Expr = MI.getDebugExpression();
+  }
+
+  MachineLocation(const MachineInstr &DefMI, uint64_t ID) {
+    DebugInstrRefID lolid = DebugInstrRefID::fromU64(ID);
+    unsigned op = lolid.getOperand();
+    const MachineOperand &MO = DefMI.getOperand(op);
+    // Only cope with reg operands pls
+    assert(MO.isReg());
+    Kind = RegisterKind;
+    Loc.RegNo = MO.getReg();
+    Expr = nullptr; // XXX XXX XXX
+  }
+
+  private:
+  // private empty
+  MachineLocation() { }
+  public:
+
+  static MachineLocation CreateEntryLoc(const DIExpression *E, unsigned Reg) {
+    MachineLocation ML;
+    ML.Kind = EntryValueKind;
+    ML.Expr = E;
+    ML.Loc.RegNo = Reg;
+    return ML;
+  }
+
+  static MachineLocation CreateEntryBackupLoc(const DIExpression *E) {
+    MachineLocation ML;
+    ML.Kind = EntryValueBackupKind;
+    ML.Expr = E;
+    ML.Loc.Hash = 0;
+    return ML;
+  }
+
+  static MachineLocation CreateEntryCopyBackupLoc(const DIExpression *E, unsigned Reg) {
+    MachineLocation ML;
+    ML.Kind = EntryValueCopyBackupKind;
+    ML.Expr = E;
+    ML.Loc.RegNo = Reg;
+    return ML;
+  }
+
+  /// Copy the register location in DBG_VALUE MI, updating the register to
+  /// be NewReg.
+  static MachineLocation CreateCopyLoc(const MachineLocation &OldML, unsigned Reg) {
+    MachineLocation ML;
+    ML.Kind = RegisterKind;
+    ML.Expr = OldML.Expr;
+    ML.Loc.RegNo = Reg;
+    return ML;
+  }
+
+  /// Take the variable described by DBG_VALUE MI, and create a VarLoc
+  /// locating it in the specified spill location.
+  static MachineLocation CreateSpillLoc(const MachineLocation &OldML, unsigned SpillBase,
+                               int SpillOffset) {
+    MachineLocation ML;
+    assert(OldML.Kind == RegisterKind);
+    ML.Kind = SpillLocKind;
+    ML.Expr = OldML.Expr;
+    ML.Loc.SpillLocation = {SpillBase, SpillOffset};
+    return ML;
+  }
+
+  bool operator==(const MachineLocation &Other) const {
+    return Kind == Other.Kind && Expr == Other.Expr && Loc.Hash == Other.Loc.Hash;
+  }
+
+  bool operator<(const MachineLocation &Other) const {
+    return std::tie(Kind, Expr, Loc.Hash) < std::tie(Other.Kind, Other.Expr, Other.Loc.Hash);
+  }
+
+
+};
+
 
 class LiveDebugValues : public MachineFunctionPass {
 private:
@@ -286,110 +417,49 @@ private:
 
   /// A pair of debug variable and value location.
   struct VarLoc {
-    // The location at which a spilled variable resides. It consists of a
-    // register and an offset.
-    struct SpillLoc {
-      unsigned SpillBase;
-      int SpillOffset;
-      bool operator==(const SpillLoc &Other) const {
-        return SpillBase == Other.SpillBase && SpillOffset == Other.SpillOffset;
-      }
-    };
-
     /// Identity of the variable at this location.
     const ValueIdentity Ident;
-
-    /// The expression applied to this location.
-    const DIExpression *Expr;
-
-    enum VarLocKind {
-      InvalidKind = 0,
-      RegisterKind,
-      SpillLocKind,
-      ImmediateKind,
-      EntryValueKind,
-      EntryValueBackupKind,
-      EntryValueCopyBackupKind
-    } Kind = InvalidKind;
-
-    /// The value location. Stored separately to avoid repeatedly
-    /// extracting it from MI.
-    union {
-      uint64_t RegNo;
-      SpillLoc SpillLocation;
-      uint64_t Hash;
-      int64_t Immediate;
-      const ConstantFP *FPImm;
-      const ConstantInt *CImm;
-    } Loc;
+    const MachineLocation Loc;
 
     VarLoc(const MachineInstr &MI, LexicalScopes &LS)
-        : Ident(MI, LS),
-          Expr(MI.getDebugExpression()) {
-      static_assert((sizeof(Loc) == sizeof(uint64_t)),
-                    "hash does not cover all members of Loc");
-      assert(MI.isDebugValue() && "not a DBG_VALUE");
-      assert(MI.getNumOperands() == 4 && "malformed DBG_VALUE");
-      if (int RegNo = isDbgValueDescribedByReg(MI)) {
-        Kind = RegisterKind;
-        Loc.RegNo = RegNo;
-      } else if (MI.getOperand(0).isImm()) {
-        Kind = ImmediateKind;
-        Loc.Immediate = MI.getOperand(0).getImm();
-      } else if (MI.getOperand(0).isFPImm()) {
-        Kind = ImmediateKind;
-        Loc.FPImm = MI.getOperand(0).getFPImm();
-      } else if (MI.getOperand(0).isCImm()) {
-        Kind = ImmediateKind;
-        Loc.CImm = MI.getOperand(0).getCImm();
-      }
-
+        : Ident(MI, LS), Loc(MI) {
       // We create the debug entry values from the factory functions rather than
       // from this ctor.
-      assert(Kind != EntryValueKind && !isEntryBackupLoc());
+      assert(Loc.Kind != MachineLocation::EntryValueKind && !isEntryBackupLoc());
     }
 
     private:
     // Varloc constructor for instrrefs. MI is a "real" instr.
     VarLoc(const MachineInstr &MI, uint64_t ID)
-        : Ident(ID), Expr(nullptr) {
-      DebugInstrRefID lolid = DebugInstrRefID::fromU64(ID);
-      unsigned op = lolid.getOperand();
-      const MachineOperand &MO = MI.getOperand(op);
-      // Only cope with reg operands pls
-      assert(MO.isReg());
-      Kind = RegisterKind;
-      Loc.RegNo = MO.getReg();
+        : Ident(ID), Loc(MI, ID) {
     }
 
     // Private VarLoc constructor that copies an instrref variable location
     // and nothing else. This only moves the machine location, and doesn't
     // assume that MI is a DBG_VALUE.
-    VarLoc(const VarLoc &VL, bool dummy) : Ident(VL.Ident), Expr(nullptr) {
-      (void)dummy;
+    // XXX in new model is this just a copy constructor now?
+    VarLoc(const VarLoc &VL, bool dummy) : Ident(VL.Ident), Loc(VL.Loc) {
       assert(!Ident.isVar());
       assert(!VL.hasVar());
-      Kind = VL.Kind;
-      Loc.Hash = VL.Loc.Hash;
     }
 
+    // XXX, I think this is "copy machine loc, but assign variable name"
     VarLoc(const VarLoc &VL, const MachineInstr &MI, LexicalScopes &LS)
-        : Ident(MI, LS), Expr(MI.getDebugExpression()) {
-      Kind = VL.Kind;
-      Loc.Hash = VL.Loc.Hash;
+        : Ident(MI, LS), Loc(VL.Loc) {
     }
 
     public:
+    // Stick a var loc together from its two components.
+    VarLoc(ValueIdentity VIdent, MachineLocation L)
+        : Ident(VIdent), Loc(L) {
+    }
 
     /// Take the variable and machine-location in DBG_VALUE MI, and build an
     /// entry location using the given expression.
     static VarLoc CreateEntryLoc(const MachineInstr &MI, LexicalScopes &LS,
                                  const DIExpression *EntryExpr, unsigned Reg) {
-      VarLoc VL(MI, LS);
-      assert(VL.Kind == RegisterKind);
-      VL.Kind = EntryValueKind;
-      VL.Expr = EntryExpr;
-      VL.Loc.RegNo = Reg;
+      MachineLocation L = MachineLocation::CreateEntryLoc(EntryExpr, Reg);
+      VarLoc VL(ValueIdentity(MI, LS), L);
       return VL;
     }
 
@@ -400,10 +470,8 @@ private:
     static VarLoc CreateEntryBackupLoc(const MachineInstr &MI,
                                        LexicalScopes &LS,
                                        const DIExpression *EntryExpr) {
-      VarLoc VL(MI, LS);
-      assert(VL.Kind == RegisterKind);
-      VL.Kind = EntryValueBackupKind;
-      VL.Expr = EntryExpr;
+      MachineLocation L = MachineLocation::CreateEntryBackupLoc(EntryExpr);
+      VarLoc VL(ValueIdentity(MI, LS), L);
       return VL;
     }
 
@@ -414,11 +482,8 @@ private:
                                            LexicalScopes &LS,
                                            const DIExpression *EntryExpr,
                                            unsigned NewReg) {
-      VarLoc VL(MI, LS);
-      assert(VL.Kind == RegisterKind);
-      VL.Kind = EntryValueCopyBackupKind;
-      VL.Expr = EntryExpr;
-      VL.Loc.RegNo = NewReg;
+      MachineLocation L = MachineLocation::CreateEntryCopyBackupLoc(EntryExpr, NewReg);
+      VarLoc VL(ValueIdentity(MI, LS), L);
       return VL;
     }
 
@@ -426,21 +491,16 @@ private:
     /// be NewReg.
     static VarLoc CreateCopyLoc(const VarLoc &OldLV, LexicalScopes &LS,
                                 unsigned NewReg) {
-      VarLoc VL = (OldLV.hasVar()) ? VarLoc(*OldLV.Ident.MI, LS) : VarLoc(OldLV, false);
-      VL.Kind = RegisterKind; // XXX no assert, we can create copy from spill loc
-      VL.Loc.RegNo = NewReg;
-      return VL;
+      MachineLocation ML = MachineLocation::CreateCopyLoc(OldLV.Loc, NewReg);
+      return VarLoc(OldLV.Ident, ML);
     }
 
     /// Take the variable described by DBG_VALUE MI, and create a VarLoc
     /// locating it in the specified spill location.
     static VarLoc CreateSpillLoc(const VarLoc &OldLV, unsigned SpillBase,
                                  int SpillOffset, LexicalScopes &LS) {
-      VarLoc VL = (OldLV.hasVar()) ? VarLoc(*OldLV.Ident.MI, LS) : VarLoc(OldLV, false);
-      assert(VL.Kind == RegisterKind);
-      VL.Kind = SpillLocKind;
-      VL.Loc.SpillLocation = {SpillBase, SpillOffset};
-      return VL;
+      MachineLocation ML = MachineLocation::CreateSpillLoc(OldLV.Loc, SpillBase, SpillOffset);
+      return VarLoc(OldLV.Ident, ML);
     }
 
     static VarLoc CreateInstrRefLoc(const MachineInstr &MI, uint64_t instrrefid) {
@@ -463,35 +523,35 @@ private:
       const DILocalVariable *Var = Ident.MI->getDebugVariable();
       const DIExpression *DIExpr = Ident.MI->getDebugExpression();
 
-      switch (Kind) {
-      case EntryValueKind:
+      switch (Loc.Kind) {
+      case MachineLocation::EntryValueKind:
         // An entry value is a register location -- but with an updated
         // expression. The register location of such DBG_VALUE is always the one
         // from the entry DBG_VALUE, it does not matter if the entry value was
         // copied in to another register due to some optimizations.
         return BuildMI(MF, DbgLoc, IID, Indirect, Ident.MI->getOperand(0).getReg(),
-                       Var, Expr);
-      case RegisterKind:
+                       Var, Loc.Expr);
+      case MachineLocation::RegisterKind:
         // Register locations are like the source DBG_VALUE, but with the
         // register number from this VarLoc.
-        return BuildMI(MF, DbgLoc, IID, Indirect, Loc.RegNo, Var, DIExpr);
-      case SpillLocKind: {
+        return BuildMI(MF, DbgLoc, IID, Indirect, Loc.Loc.RegNo, Var, DIExpr);
+      case MachineLocation::SpillLocKind: {
         // Spills are indirect DBG_VALUEs, with a base register and offset.
         // Use the original DBG_VALUEs expression to build the spilt location
         // on top of. FIXME: spill locations created before this pass runs
         // are not recognized, and not handled here.
         auto *SpillExpr = DIExpression::prepend(
-            DIExpr, DIExpression::ApplyOffset, Loc.SpillLocation.SpillOffset);
-        unsigned Base = Loc.SpillLocation.SpillBase;
+            DIExpr, DIExpression::ApplyOffset, Loc.Loc.SpillLocation.SpillOffset);
+        unsigned Base = Loc.Loc.SpillLocation.SpillBase;
         return BuildMI(MF, DbgLoc, IID, true, Base, Var, SpillExpr);
       }
-      case ImmediateKind: {
+      case MachineLocation::ImmediateKind: {
         MachineOperand MO = Ident.MI->getOperand(0);
         return BuildMI(MF, DbgLoc, IID, Indirect, MO, Var, DIExpr);
       }
-      case EntryValueBackupKind:
-      case EntryValueCopyBackupKind:
-      case InvalidKind:
+      case MachineLocation::EntryValueBackupKind:
+      case MachineLocation::EntryValueCopyBackupKind:
+      case MachineLocation::InvalidKind:
         llvm_unreachable(
             "Tried to produce DBG_VALUE for invalid or backup VarLoc");
       }
@@ -499,34 +559,34 @@ private:
     }
 
     /// Is the Loc field a constant or constant object?
-    bool isConstant() const { return Kind == ImmediateKind; }
+    bool isConstant() const { return Loc.Kind == MachineLocation::ImmediateKind; }
 
     /// Check if the Loc field is an entry backup location.
     bool isEntryBackupLoc() const {
-      return Kind == EntryValueBackupKind || Kind == EntryValueCopyBackupKind;
+      return Loc.Kind == MachineLocation::EntryValueBackupKind || Loc.Kind == MachineLocation::EntryValueCopyBackupKind;
     }
 
     /// If this variable is described by a register holding the entry value,
     /// return it, otherwise return 0.
     unsigned getEntryValueBackupReg() const {
-      if (Kind == EntryValueBackupKind)
-        return Loc.RegNo;
+      if (Loc.Kind == MachineLocation::EntryValueBackupKind)
+        return Loc.Loc.RegNo;
       return 0;
     }
 
     /// If this variable is described by a register holding the copy of the
     /// entry value, return it, otherwise return 0.
     unsigned getEntryValueCopyBackupReg() const {
-      if (Kind == EntryValueCopyBackupKind)
-        return Loc.RegNo;
+      if (Loc.Kind == MachineLocation::EntryValueCopyBackupKind)
+        return Loc.Loc.RegNo;
       return 0;
     }
 
     /// If this variable is described by a register, return it,
     /// otherwise return 0.
     unsigned isDescribedByReg() const {
-      if (Kind == RegisterKind)
-        return Loc.RegNo;
+      if (Loc.Kind == MachineLocation::RegisterKind)
+        return Loc.Loc.RegNo;
       return 0;
     }
 
@@ -550,26 +610,26 @@ private:
     // TRI can be null.
     void dump(const TargetRegisterInfo *TRI, raw_ostream &Out = dbgs()) const {
       dbgs() << "VarLoc(";
-      switch (Kind) {
-      case RegisterKind:
-      case EntryValueKind:
-      case EntryValueBackupKind:
-      case EntryValueCopyBackupKind:
-        dbgs() << printReg(Loc.RegNo, TRI);
+      switch (Loc.Kind) {
+      case MachineLocation::RegisterKind:
+      case MachineLocation::EntryValueKind:
+      case MachineLocation::EntryValueBackupKind:
+      case MachineLocation::EntryValueCopyBackupKind:
+        dbgs() << printReg(Loc.Loc.RegNo, TRI);
         break;
-      case SpillLocKind:
-        dbgs() << printReg(Loc.SpillLocation.SpillBase, TRI);
-        dbgs() << "[" << Loc.SpillLocation.SpillOffset << "]";
+      case MachineLocation::SpillLocKind:
+        dbgs() << printReg(Loc.Loc.SpillLocation.SpillBase, TRI);
+        dbgs() << "[" << Loc.Loc.SpillLocation.SpillOffset << "]";
         break;
-      case ImmediateKind:
-        dbgs() << Loc.Immediate;
+      case MachineLocation::ImmediateKind:
+        dbgs() << Loc.Loc.Immediate;
         break;
-      case InvalidKind:
+      case MachineLocation::InvalidKind:
         llvm_unreachable("Invalid VarLoc in dump method");
       }
 
       if (hasVar()) {
-        dbgs() << ", \"" << Ident.Var.getVariable()->getName() << "\", " << *Expr
+        dbgs() << ", \"" << Ident.Var.getVariable()->getName() << "\", " << *Loc.Expr
                << ", ";
         if (Ident.Var.getInlinedAt())
           dbgs() << "!" << Ident.Var.getInlinedAt()->getMetadataID() << ")\n";
@@ -587,14 +647,12 @@ private:
 #endif
 
     bool operator==(const VarLoc &Other) const {
-      return Kind == Other.Kind && Ident == Other.Ident &&
-             Loc.Hash == Other.Loc.Hash && Expr == Other.Expr;
+      return Loc == Other.Loc && Ident == Other.Ident;
     }
 
     /// This operator guarantees that VarLocs are sorted by Variable first.
     bool operator<(const VarLoc &Other) const {
-      return std::tie(Ident, Kind, Loc.Hash, Expr) <
-             std::tie(Other.Ident, Other.Kind, Other.Loc.Hash, Other.Expr);
+      return std::tie(Ident, Loc) < std::tie(Other.Ident, Other.Loc);
     }
   };
 
@@ -759,12 +817,12 @@ private:
 
   /// If a given instruction is identified as a spill, return the spill location
   /// and set \p Reg to the spilled register.
-  Optional<VarLoc::SpillLoc> isRestoreInstruction(const MachineInstr &MI,
+  Optional<MachineLocation::SpillLoc> isRestoreInstruction(const MachineInstr &MI,
                                                   MachineFunction *MF,
                                                   unsigned &Reg);
   /// Given a spill instruction, extract the register and offset used to
   /// address the spill location in a target independent way.
-  VarLoc::SpillLoc extractSpillBaseRegAndOffset(const MachineInstr &MI);
+  MachineLocation::SpillLoc extractSpillBaseRegAndOffset(const MachineInstr &MI);
   void insertTransferDebugPair(MachineInstr &MI, OpenRangesSet &OpenRanges,
                                TransferMap &Transfers, VarLocMap &VarLocIDs,
                                LocIndex OldVarID, TransferKind Kind,
@@ -1020,7 +1078,7 @@ void LiveDebugValues::printVarLocInMBB(const MachineFunction &MF,
 }
 #endif
 
-LiveDebugValues::VarLoc::SpillLoc
+MachineLocation::SpillLoc
 LiveDebugValues::extractSpillBaseRegAndOffset(const MachineInstr &MI) {
   assert(MI.hasOneMemOperand() &&
          "Spill instruction does not have exactly one memory operand?");
@@ -1241,7 +1299,7 @@ void LiveDebugValues::emitEntryValues(MachineInstr &MI,
 
     const VarLoc &EntryVL = VarLocIDs[*EntryValBackupID];
     VarLoc EntryLoc =
-        VarLoc::CreateEntryLoc(*EntryVL.Ident.MI, LS, EntryVL.Expr, EntryVL.Loc.RegNo);
+        VarLoc::CreateEntryLoc(*EntryVL.Ident.MI, LS, EntryVL.Loc.Expr, EntryVL.Loc.Loc.RegNo);
     LocIndex EntryValueID = VarLocIDs.insert(EntryLoc);
     Transfers.push_back({&MI, EntryValueID});
     OpenRanges.insert(EntryValueID, EntryLoc);
@@ -1291,7 +1349,7 @@ void LiveDebugValues::insertTransferDebugPair(
   case TransferKind::TransferSpill: {
     // Create a DBG_VALUE instruction to describe the Var in its spilled
     // location.
-    VarLoc::SpillLoc SpillLocation = extractSpillBaseRegAndOffset(MI);
+    MachineLocation::SpillLoc SpillLocation = extractSpillBaseRegAndOffset(MI);
     VarLoc VL = VarLoc::CreateSpillLoc(OldVL, SpillLocation.SpillBase,
                                        SpillLocation.SpillOffset, LS);
     ProcessVarLoc(VL);
@@ -1466,7 +1524,7 @@ bool LiveDebugValues::isLocationSpill(const MachineInstr &MI,
   return false;
 }
 
-Optional<LiveDebugValues::VarLoc::SpillLoc>
+Optional<MachineLocation::SpillLoc>
 LiveDebugValues::isRestoreInstruction(const MachineInstr &MI,
                                       MachineFunction *MF, unsigned &Reg) {
   if (!MI.hasOneMemOperand())
@@ -1495,7 +1553,7 @@ void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI,
   MachineFunction *MF = MI.getMF();
   TransferKind TKind;
   unsigned Reg;
-  Optional<VarLoc::SpillLoc> Loc;
+  Optional<MachineLocation::SpillLoc> Loc;
 
   LLVM_DEBUG(dbgs() << "Examining instruction: "; MI.dump(););
 
@@ -1508,7 +1566,7 @@ void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI,
     for (uint64_t ID : OpenRanges.getVarLocs()) {
       LocIndex Idx = LocIndex::fromRawInteger(ID);
       const VarLoc &VL = VarLocIDs[Idx];
-      if (VL.Kind == VarLoc::SpillLocKind && VL.Loc.SpillLocation == *Loc) {
+      if (VL.Loc.Kind == MachineLocation::SpillLocKind && VL.Loc.Loc.SpillLocation == *Loc) {
         // This location is overwritten by the current instruction -- terminate
         // the open range, and insert an explicit DBG_VALUE $noreg.
         //
@@ -1551,8 +1609,8 @@ void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI,
       LLVM_DEBUG(dbgs() << "Spilling Register " << printReg(Reg, TRI) << '(');
       LLVM_DEBUG(dbgs() << VL.getName() << ")\n");
     } else if (TKind == TransferKind::TransferRestore &&
-               VL.Kind == VarLoc::SpillLocKind &&
-               VL.Loc.SpillLocation == *Loc) {
+               VL.Loc.Kind == MachineLocation::SpillLocKind &&
+               VL.Loc.Loc.SpillLocation == *Loc) {
       LLVM_DEBUG(dbgs() << "Restoring Register " << printReg(Reg, TRI) << '(');
       LLVM_DEBUG(dbgs() << VL.getName() << ")\n");
     } else
@@ -1608,7 +1666,7 @@ void LiveDebugValues::transferRegisterCopy(MachineInstr &MI,
       if (VL.getEntryValueBackupReg() == SrcReg) {
         LLVM_DEBUG(dbgs() << "Copy of the entry value: "; MI.dump(););
         VarLoc EntryValLocCopyBackup =
-            VarLoc::CreateEntryCopyBackupLoc(*VL.Ident.MI, LS, VL.Expr, DestReg);
+            VarLoc::CreateEntryCopyBackupLoc(*VL.Ident.MI, LS, VL.Loc.Expr, DestReg);
 
         // Stop tracking the original entry value.
         OpenRanges.erase(VL);
