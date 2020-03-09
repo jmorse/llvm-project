@@ -428,27 +428,6 @@ private:
       assert(Loc.Kind != MachineLocation::EntryValueKind && !isEntryBackupLoc());
     }
 
-    private:
-    // Varloc constructor for instrrefs. MI is a "real" instr.
-    VarLoc(const MachineInstr &MI, uint64_t ID)
-        : Ident(ID), Loc(MI, ID) {
-    }
-
-    // Private VarLoc constructor that copies an instrref variable location
-    // and nothing else. This only moves the machine location, and doesn't
-    // assume that MI is a DBG_VALUE.
-    // XXX in new model is this just a copy constructor now?
-    VarLoc(const VarLoc &VL, bool dummy) : Ident(VL.Ident), Loc(VL.Loc) {
-      assert(!Ident.isVar());
-      assert(!VL.hasVar());
-    }
-
-    // XXX, I think this is "copy machine loc, but assign variable name"
-    VarLoc(const VarLoc &VL, const MachineInstr &MI, LexicalScopes &LS)
-        : Ident(MI, LS), Loc(VL.Loc) {
-    }
-
-    public:
     // Stick a var loc together from its two components.
     VarLoc(ValueIdentity VIdent, MachineLocation L)
         : Ident(VIdent), Loc(L) {
@@ -504,7 +483,7 @@ private:
     }
 
     static VarLoc CreateInstrRefLoc(const MachineInstr &MI, uint64_t instrrefid) {
-      return VarLoc(MI, instrrefid);
+      return VarLoc(ValueIdentity(instrrefid), MachineLocation(MI, instrrefid));
     }
 
     /// Create a DBG_VALUE representing this VarLoc in the given function.
@@ -593,7 +572,7 @@ private:
     // Turn this instr-ref VarLoc into one that refers to V
     VarLoc ToVariableLoc(const MachineInstr &MI, LexicalScopes &LS) const {
       assert(!hasVar());
-      return VarLoc(*this, MI, LS);
+      return VarLoc(ValueIdentity(MI, LS), Loc);
     }
 
     bool hasVar() const { return Ident.isVar(); } // XXX try to eliminate?
