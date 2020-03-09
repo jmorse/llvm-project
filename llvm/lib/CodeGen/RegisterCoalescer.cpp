@@ -133,6 +133,9 @@ namespace {
     AliasAnalysis *AA = nullptr;
     RegisterClassInfo RegClassInfo;
 
+    std::map<DebugInstrRefID, std::pair<SlotIndex, Register>> ValToPos;
+    std::map<Register, std::vector<DebugInstrRefID>> RegIdx;
+
     /// Debug variable location tracking -- for each VReg, maintain an
     /// ordered-by-slot-index set of DBG_VALUEs, to help quick
     /// identification of whether coalescing may change location validity.
@@ -3431,6 +3434,24 @@ bool RegisterCoalescer::joinVirtRegs(CoalescerPair &CP) {
   // Scan and mark undef any DBG_VALUEs that would refer to a different value.
   checkMergingChangesDbgValues(CP, LHS, LHSVals, RHS, RHSVals);
 
+  // Mangle vreg records for debug phis.
+  auto it = RegIdx.find(CP.getSrcReg());
+  if (it != RegIdx.end()) {
+    for (auto ID : it->second) {
+      auto valit = ValToPos.find(ID);
+      assert(valit != ValToPos.end());
+      auto LII = RHS.find(valit->second.first);
+      if (LII == RHS.end() || LII->start > valit->second.first)
+        continue;
+      // XXX don't examine resolutions, because we only merge things that
+      // caaannnn mergggeee?? Bold statement.
+      valit->second.second = CP.getDstReg();
+    }
+    auto vec = it->second;
+    RegIdx.erase(it);
+    RegIdx.insert(std::make_pair(CP.getDstReg(), vec));
+  }
+
   // Join RHS into LHS.
   LHS.join(RHS, LHSVals.getAssignments(), RHSVals.getAssignments(), NewVNInfo);
 
@@ -3867,6 +3888,19 @@ bool RegisterCoalescer::runOnMachineFunction(MachineFunction &fn) {
   else
     JoinGlobalCopies = (EnableGlobalCopies == cl::BOU_TRUE);
 
+  SlotIndexes *Slots = LIS->getSlotIndexes();
+  for (const auto &lala : MF->exPHIs) {
+    MachineBasicBlock *MBB = lala.second.first;
+    Register reg = lala.second.second;
+    SlotIndex SI;
+    if (!MBB->empty())
+      SI = Slots->getInstructionIndex(*MBB->begin()).getRegSlot();
+    else
+      SI = Slots->getMBBStartIdx(MBB);
+    ValToPos.insert(std::make_pair(lala.first, std::make_pair(SI, reg)));
+    RegIdx[reg].push_back(lala.first);
+  }
+
   // The MachineScheduler does not currently require JoinSplitEdges. This will
   // either be enabled unconditionally or replaced by a more general live range
   // splitting optimization.
@@ -3923,6 +3957,13 @@ bool RegisterCoalescer::runOnMachineFunction(MachineFunction &fn) {
         }
       }
     }
+  }
+
+  // Rewrite the debug phi mappings.
+  for (auto &p : MF->exPHIs) {
+    auto it = ValToPos.find(p.first);
+    assert(it != ValToPos.end());
+    p.second.second = it->second.second;
   }
 
   LLVM_DEBUG(dump());
