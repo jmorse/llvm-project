@@ -1,4 +1,10 @@
 fails:
+    LLVM :: DebugInfo/X86/dbg-value-arg-movement.ll
+      DBG_VALUE in CHECK
+    LLVM :: DebugInfo/X86/dbg-value-transfer-order.ll
+      XXX Drops subregister, this needs addressing
+    LLVM :: DebugInfo/X86/live-debug-values-expr-conflict.ll
+      DBG_VALUE in CHECK
     LLVM :: DebugInfo/X86/mi-print.ll <---- no idea, crash?
     LLVM :: DebugInfo/X86/pieces-3.ll < -- copy from copy from abi-argument
       Raises the possibility that we'll have to walk through CopyFromReg's
@@ -14,6 +20,14 @@ fails:
     LLVM :: DebugInfo/X86/sdag-dangling-dbgvalue.ll
        CHECKs for a DBG_VALUE
     LLVM :: DebugInfo/X86/sdag-dbgvalue-phi-use-2.ll
+       CHECKs for a DBG_VALUE
+    LLVM :: DebugInfo/X86/sdag-dbgvalue-phi-use-3.ll
+       CHECKs for a DBG_VALUE
+    LLVM :: DebugInfo/X86/sdag-dbgvalue-phi-use-4.ll
+       CHECKs for a DBG_VALUE
+    LLVM :: DebugInfo/X86/sdag-dbgvalue-ssareg.ll
+       CHECKs for a DBG_VALUE
+    LLVM :: DebugInfo/X86/sdag-ir-salvage.ll
        CHECKs for a DBG_VALUE
     LLVM :: DebugInfo/X86/sdag-legalize-multires.ll
        CHECKs for a DBG_VALUE
