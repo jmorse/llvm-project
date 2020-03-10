@@ -726,7 +726,7 @@ InstrEmitter::EmitDbgValue(SDDbgValue *SD,
     DenseMap<SDValue, unsigned>::iterator I = VRBaseMap.find(Op);
     if (I==VRBaseMap.end()) {
       MIB.addReg(0U);       // undef
-    } else if (Op.isMachineOpcode()) {
+    } else {
       // jmorse DBG_INSTR_REF: try to pick out a defining instruction at
       // this point.
       unsigned VReg = getVR(Op, VRBaseMap);
@@ -748,10 +748,14 @@ InstrEmitter::EmitDbgValue(SDDbgValue *SD,
         MIB.addImm(ID.asU64());
         ++numdefs;
       }
-      assert(numdefs == 1);
-    } else {
-      AddOperand(MIB, Op, (*MIB).getNumOperands(), &II, VRBaseMap,
-                 /*IsDebug=*/true, /*IsClone=*/false, /*IsCloned=*/false);
+      assert(numdefs <= 1);
+      if (numdefs == 0) {
+        // Cough up a DBG_INSTR_REF with a vreg operand: this will be patched up
+        // later to point at the def of that vreg.
+        const MCInstrDesc &RefII = TII->get(TargetOpcode::DBG_INSTR_REF);
+        MIB = BuildMI(*MF, DL, RefII);
+        MIB.addReg(VReg, RegState::Debug);
+      }
     }
   } else if (SD->getKind() == SDDbgValue::VREG) {
     // Cough up a DBG_INSTR_REF with a vreg operand: this will be patched up
