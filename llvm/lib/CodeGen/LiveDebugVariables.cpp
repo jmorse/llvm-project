@@ -1412,35 +1412,8 @@ void UserValue::insertDebugValue(MachineBasicBlock *MBB, SlotIndex StartIdx,
   assert((!Spilled || MO.isFI()) && "a spilled location must be a frame index");
 
   do {
-#if 0
-    // DBG_INSTR_REF: if the defining instruction is in this basic block,
-    // use an instr ref instead.
-    if (MO.isReg() && MO.getReg() != 0) {
-      // Walk back through the block, from the instr before, to see if we
-      // can find a reg def.
-      for (auto revit = std::next(I->getReverseIterator()),
-                revend = I->getParent()->instr_rend();
-           revit != revend; revit++) {
-       unsigned operandidx = 0;
-       for (auto &InstMO : revit->operands()) {
-         if (InstMO.isReg() && InstMO.isDef() && InstMO.getReg() == MO.getReg()) {
-              auto idno = revit->getDebugValueID(operandidx);
-              auto NewMO = MachineOperand::CreateImm(idno.asU64());
-              BuildMI(*MBB, I, getDebugLoc(), TII.get(TargetOpcode::DBG_INSTR_REF),
-                      IsIndirect, NewMO, Variable, Expr);
-              goto pastBuildMI; // Yes, really.
-
-         }
-         ++operandidx;
-       }
-      }
-    }
-#endif
-
-
     BuildMI(*MBB, I, getDebugLoc(), TII.get(TargetOpcode::DBG_VALUE),
             IsIndirect, MO, Variable, Expr);
-pastBuildMI:
 
     // Continue and insert DBG_VALUES after every redefinition of register
     // associated with the debug value within the range
