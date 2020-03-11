@@ -1,8 +1,16 @@
 fails:
     LLVM :: DebugInfo/X86/dbg-value-arg-movement.ll
       DBG_VALUE in CHECK
+    LLVM :: DebugInfo/X86/dbg-value-funcarg.ll
+      DBG_VALUE in CHECK, and we still generate DBG_VALUEs for most arguments
+    LLVM :: DebugInfo/X86/dbg-value-funcarg2.ll
+      DBG_VALUE in CHECK, and we still generate DBG_VALUEs for most arguments
     LLVM :: DebugInfo/X86/dbg-value-transfer-order.ll
       XXX Drops subregister, this needs addressing
+    LLVM :: DebugInfo/X86/live-debug-values.ll
+      XXX Suffers from what use to be a DBG_VALUE of a copy, now being an
+      optional copy considered by LiveDebugValues::transferRegisterCopy,
+      instead of being forced to follow the copy. We get the wrong answer.
     LLVM :: DebugInfo/X86/live-debug-values-expr-conflict.ll
       DBG_VALUE in CHECK
     LLVM :: DebugInfo/X86/mi-print.ll <---- no idea, crash?
