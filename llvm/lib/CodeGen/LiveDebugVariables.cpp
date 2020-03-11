@@ -1593,7 +1593,8 @@ LIS->dump();
       if (VRM->isAssignedReg(reg) &&
             Register::isPhysicalRegister(VRM->getPhys(reg))) {
         unsigned physreg = VRM->getPhys(reg);
-        SlotIndex MostRecentDefInst = Slots->getMBBStartIdx(Slots->getMBBFromIndex(SI));
+        auto MBB = Slots->getMBBFromIndex(SI);
+        SlotIndex MostRecentDefInst = Slots->getMBBStartIdx(MBB);
         // The deleted copy is still represented by a def in the live intervals
         // map, as VRM does the deletion and doesn't bother updating. Look
         // to see what def'd the register at the index immediately before.
@@ -1609,8 +1610,18 @@ LIS->dump();
 
         // Two things we can do now: it's either a PHI or some other inst.
         if (MostRecentDefInst.isBlock()) {
-          // It was a copy of something PHI-like, or an argument.
-          abort();
+          // It was a copy of something PHI-like, or an argument. Add a new
+          // ex PHI value.
+          // XXX, will things break due to there being nothing in exPHIs?
+          MF->mbbsOfInterest.insert(MBB);
+          MachineOperand MO = MachineOperand::CreateReg(physreg, false);
+          MF->PHIPointToReg.insert(std::make_pair(ID, std::make_pair(MBB, MO)));
+          auto idxIt = MF->exPHIIndex.find(MBB);
+          if (idxIt == MF->exPHIIndex.end()) {
+            MF->exPHIIndex.insert(std::make_pair(MBB, std::vector<DebugInstrRefID>{ID}));
+          } else {
+            idxIt->second.push_back(ID);
+          }
         } else {
           // There's an instruction we can hinge on. However, there might not
           // be an operand we can touch. Formulate one manually and stick
@@ -1639,6 +1650,9 @@ LIS->dump();
     }
   }
 
+  // Defensiveness: clear exPHIs, as nothing should be interested post-regalloc
+  // in the vreg operand that it had pre-regalloc.
+  MF->exPHIs.clear();
 
   EmitDone = true;
 }
