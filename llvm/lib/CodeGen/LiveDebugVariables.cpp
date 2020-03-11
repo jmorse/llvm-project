@@ -503,6 +503,8 @@ public:
   /// Recreate DBG_VALUE instruction from data structures.
   void emitDebugValues(VirtRegMap *VRM);
 
+  std::pair<SlotIndex, Register> skipBackFromCopy(SlotIndex Idx, Register physreg);
+
   void print(raw_ostream&);
 };
 
@@ -1504,6 +1506,45 @@ void UserLabel::emitDebugLabel(LiveIntervals &LIS, const TargetInstrInfo &TII) {
   LLVM_DEBUG(dbgs() << '\n');
 }
 
+// input physreg is whatever's read from the copy.
+std::pair<SlotIndex, Register> LDVImpl::skipBackFromCopy(SlotIndex Idx, Register physreg) {
+  // Soooooo, is there still a copy left in the designated area?
+  auto Slots = LIS->getSlotIndexes();
+  auto MI = Slots->getInstructionFromIndex(Idx);
+  // Doesn't actually matter, we want to ditch all copies anyway.
+
+
+  // We need to create a new value record. It might be either a PHI value
+  // or something defined by a register operand, or an implicit def even.
+
+  assert(physreg.isPhysical());
+  auto MBB = Slots->getMBBFromIndex(Idx);
+  SlotIndex MostRecentDefInst = Slots->getMBBStartIdx(MBB);
+
+  // The deleted copy is still represented by a def in the live intervals
+  // map, as VRM does the deletion and doesn't bother updating. Look
+  // to see what def'd the register at the index immediately before.
+  // XXX, and the same for copies that still exist.
+  Idx = Idx.getPrevIndex();
+  if (MI != nullptr) {
+    // Follow the copy,
+    assert(MI->isCopy());
+    assert(MI->getOperand(1).isReg() && !MI->getOperand(1).isDef());
+    physreg = MI->getOperand(1).getReg();
+  }
+  // else leave physreg as it is, an identity copy was deleted.
+
+  // Find the most recently def'd unit of the physreg.
+  for (MCRegUnitIterator Units(physreg, TRI); Units.isValid(); ++Units) {
+    const LiveRange &LR = LIS->getRegUnit(*Units);
+    auto LII = LR.find(Idx); // XXX how does this interact with dead defs?
+    if (LII != LR.end() && LII->start <= Idx && LII->start > MostRecentDefInst)
+      MostRecentDefInst = LII->start;
+  }
+
+  return {MostRecentDefInst, physreg};
+}
+
 void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
   LLVM_DEBUG(dbgs() << "********** EMITTING LIVE DEBUG VARIABLES **********\n");
   if (!MF)
@@ -1575,80 +1616,64 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
     if (VulnerableCopies.find(ID) == VulnerableCopies.end())
       continue;
 
-    // Soooooo, is there still a copy left in the designated area?
-    auto MI = Slots->getInstructionFromIndex(SI);
-    if (!MI) {
-      // Nooooooo. Expensive sanity check:
-      for (auto &MBB : *MF)
-        for (auto &MI : MBB)
-          assert(MI.peekDebugValueID() == 0 || MI.getDebugValueID(0) != ID);
-      // We need to create a new value record. It might be either a PHI value
-      // or something defined by a register operand, or an implicit def even.
-#if 0
-      __asm__("int $3");
-      __asm__("int $3");
-LIS->dump();
-#endif
+    // XXX XXX XXX
+    // Weak assumption: because the copy hasn't been DCE'd or coalesced
+    // away somewhere else, it must have been doing something live.
+    // The register allocator doesn't delete it (VirtRegMap does), so
+    // it must have allocated some registers for it. I don't _think_ we
+    // can either have an undef value here or have a stack slot; thus
+    // there must have been a physreg mapping.
 
-      if (VRM->isAssignedReg(reg) &&
-            Register::isPhysicalRegister(VRM->getPhys(reg))) {
-        unsigned physreg = VRM->getPhys(reg);
-        auto MBB = Slots->getMBBFromIndex(SI);
-        SlotIndex MostRecentDefInst = Slots->getMBBStartIdx(MBB);
-        // The deleted copy is still represented by a def in the live intervals
-        // map, as VRM does the deletion and doesn't bother updating. Look
-        // to see what def'd the register at the index immediately before.
-        SlotIndex PrevSI = SI.getPrevIndex();
+    assert(VRM->isAssignedReg(reg));
+    Register physreg = VRM->getPhys(reg);
+    assert(physreg.isPhysical());
 
-        // Find the most recently def'd unit of the physreg.
-        for (MCRegUnitIterator Units(physreg, TRI); Units.isValid(); ++Units) {
-          const LiveRange &LR = LIS->getRegUnit(*Units);
-          auto LII = LR.find(PrevSI); // XXX how does this interact with dead defs?
-          if (LII != LR.end() && LII->start <= PrevSI && LII->start > MostRecentDefInst)
-            MostRecentDefInst = LII->start;
-        }
+    // Errrmmmm. If the current slot is either a copy, or empty (meaning that
+    // a copy got deleted), skip backwards to find a non copy register def.
+    // A live-in value is great, it's probably a PHI.
+    
+    auto MBB = Slots->getMBBFromIndex(SI);
+    Register NewReg = physreg;
+    SlotIndex NewIdx = SI;
+    do {
+      std::tie(NewIdx, NewReg) = skipBackFromCopy(NewIdx, NewReg);
+      if (NewIdx.isBlock())
+        break;
+      auto *DefMI = Slots->getInstructionFromIndex(NewIdx);
+      if (DefMI && !DefMI->isCopy())
+        break;
+    } while (true);
+    physreg = NewReg;
 
-        // Two things we can do now: it's either a PHI or some other inst.
-        if (MostRecentDefInst.isBlock()) {
-          // It was a copy of something PHI-like, or an argument. Add a new
-          // ex PHI value.
-          // XXX, will things break due to there being nothing in exPHIs?
-          MF->mbbsOfInterest.insert(MBB);
-          MachineOperand MO = MachineOperand::CreateReg(physreg, false);
-          MF->PHIPointToReg.insert(std::make_pair(ID, std::make_pair(MBB, MO)));
-          auto idxIt = MF->exPHIIndex.find(MBB);
-          if (idxIt == MF->exPHIIndex.end()) {
-            MF->exPHIIndex.insert(std::make_pair(MBB, std::vector<DebugInstrRefID>{ID}));
-          } else {
-            idxIt->second.push_back(ID);
-          }
-        } else {
-          // There's an instruction we can hinge on. However, there might not
-          // be an operand we can touch. Formulate one manually and stick
-          // it into ANOTHER weird side table.
-          MachineInstr *DefMI = Slots->getInstructionFromIndex(MostRecentDefInst);
-          auto DummyID = DefMI->getDebugValueID(0);
-          auto ABIIt = MF->ABIRegDef.find(DummyID.getInstID());
-          if (ABIIt != MF->ABIRegDef.end()) {
-            ABIIt->second.push_back(Register(physreg));
-          } else {
-            std::vector<Register> toInsert{Register(physreg)};
-            MF->ABIRegDef.insert(std::make_pair(DummyID.getInstID(), toInsert));
-          }
-          DebugInstrRefID NewID(DummyID.getInstID(), Register(physreg));
-          MF->valueIDUpdateMap.insert(std::make_pair(ID, NewID));
-        }
-
+    // Two things we can do now: it's either a PHI or some other inst.
+    if (NewIdx.isBlock()) {
+      // It was a copy of something PHI-like, or an argument. Add a new
+      // ex PHI value.
+      // XXX, will things break due to there being nothing in exPHIs?
+      MF->mbbsOfInterest.insert(MBB);
+      MachineOperand MO = MachineOperand::CreateReg(physreg, false);
+      MF->PHIPointToReg.insert(std::make_pair(ID, std::make_pair(MBB, MO)));
+      auto idxIt = MF->exPHIIndex.find(MBB);
+      if (idxIt == MF->exPHIIndex.end()) {
+        MF->exPHIIndex.insert(std::make_pair(MBB, std::vector<DebugInstrRefID>{ID}));
       } else {
-        // XXX XXX XXX
-        // Weak assumption: because the copy hasn't been DCE'd or coalesced
-        // away somewhere else, it must have been doing something live.
-        // The register allocator doesn't delete it (VirtRegMap does), so
-        // it must have allocated some registers for it. I don't _think_ we
-        // can either have an undef value here or have a stack slot; thus
-        // there must have been a physreg mapping.
-        abort();
+        idxIt->second.push_back(ID);
       }
+    } else {
+      // There's an instruction we can hinge on. However, there might not
+      // be an operand we can touch. Formulate one manually and stick
+      // it into ANOTHER weird side table.
+      MachineInstr *DefMI = Slots->getInstructionFromIndex(NewIdx);
+      auto DummyID = DefMI->getDebugValueID(0);
+      auto ABIIt = MF->ABIRegDef.find(DummyID.getInstID());
+      if (ABIIt != MF->ABIRegDef.end()) {
+        ABIIt->second.push_back(Register(physreg));
+      } else {
+        std::vector<Register> toInsert{Register(physreg)};
+        MF->ABIRegDef.insert(std::make_pair(DummyID.getInstID(), toInsert));
+      }
+      DebugInstrRefID NewID(DummyID.getInstID(), Register(physreg));
+      MF->valueIDUpdateMap.insert(std::make_pair(ID, NewID));
     }
   }
 
