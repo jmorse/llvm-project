@@ -414,7 +414,6 @@ class LDVImpl {
   const TargetRegisterInfo *TRI;
   std::map<DebugInstrRefID, std::pair<SlotIndex, Register>> ValToPos;
   std::map<Register, std::vector<DebugInstrRefID>> RegIdx;
-  std::set<DebugInstrRefID> VulnerableCopies;
 
   /// Whether emitDebugValues is called.
   bool EmitDone = false;
@@ -482,7 +481,6 @@ public:
     MF = nullptr;
     ValToPos.clear();
     RegIdx.clear();
-    VulnerableCopies.clear();
     userValues.clear();
     userLabels.clear();
     virtRegToEqClass.clear();
@@ -1040,7 +1038,36 @@ bool LDVImpl::runOnMachineFunction(MachineFunction &mf) {
         auto ID = MI.getDebugValueID(0); // is always operand 0
         ValToPos.insert(std::make_pair(ID, std::make_pair(SI, reg)));
         RegIdx[reg].push_back(ID);
-        VulnerableCopies.insert(ID);
+
+      // Errrmmmm. If the current slot is either a copy, or empty (meaning that
+      // a copy got deleted), skip backwards to find a non copy register def.
+      // A live-in value is great, it's probably a PHI.
+      
+      auto MBB = Slots->getMBBFromIndex(SI);
+      Register NewReg = reg;
+      SlotIndex NewIdx = SI;
+      do {
+        std::tie(NewIdx, NewReg) = skipBackFromCopy(NewIdx, NewReg);
+        if (NewIdx.isBlock())
+          break;
+        auto *DefMI = Slots->getInstructionFromIndex(NewIdx);
+        if (DefMI && !DefMI->isCopy())
+          break;
+      } while (true);
+
+      // Two things we can do now: it's either a PHI or some other inst.
+      if (NewIdx.isBlock()) {
+        MF->mbbsOfInterest.insert(MBB);
+        MF->exPHIs.insert(std::make_pair(ID, std::make_pair(MBB, NewReg)));
+        MF->exPHIIndex[MBB].push_back(ID);
+      } else {
+        // There's an instruction we can hinge on. However, there might not
+        // be an operand we can touch. Formulate one manually and stick
+        // it into ANOTHER weird side table.
+        MachineInstr *DefMI = Slots->getInstructionFromIndex(NewIdx);
+        auto DummyID = DefMI->getDebugValueID(0);
+        MF->makeNewABIRegDefPostRegalloc(MBB, DummyID.getInstID(), NewReg, ID);
+      }
       }
     }
   }
@@ -1517,7 +1544,6 @@ std::pair<SlotIndex, Register> LDVImpl::skipBackFromCopy(SlotIndex Idx, Register
   // We need to create a new value record. It might be either a PHI value
   // or something defined by a register operand, or an implicit def even.
 
-  assert(physreg.isPhysical());
   auto MBB = Slots->getMBBFromIndex(Idx);
   SlotIndex MostRecentDefInst = Slots->getMBBStartIdx(MBB);
 
@@ -1568,9 +1594,6 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
     auto ID = it.first;
     auto reg = it.second.second;
 
-    if (VulnerableCopies.find(ID) != VulnerableCopies.end())
-      continue;
-
     MachineBasicBlock *OrigMBB = MF->exPHIs.find(ID)->second.first;
     if (VRM->isAssignedReg(reg) &&
           Register::isPhysicalRegister(VRM->getPhys(reg))) {
@@ -1603,61 +1626,6 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
       std::remove(exPHIIt->second.begin(), exPHIIt->second.end(), ID);
       if (exPHIIt->second.size() == 0)
         MF->exPHIIndex.erase(exPHIIt);
-    }
-  }
-
-  // Do this all again but for vulnerable copies.
-  auto Slots = LIS->getSlotIndexes();
-  for (auto &it : ValToPos) {
-    auto ID = it.first;
-    auto SI = it.second.first;
-    auto reg = it.second.second;
-
-    if (VulnerableCopies.find(ID) == VulnerableCopies.end())
-      continue;
-
-    // XXX XXX XXX
-    // Weak assumption: because the copy hasn't been DCE'd or coalesced
-    // away somewhere else, it must have been doing something live.
-    // The register allocator doesn't delete it (VirtRegMap does), so
-    // it must have allocated some registers for it. I don't _think_ we
-    // can either have an undef value here or have a stack slot; thus
-    // there must have been a physreg mapping.
-
-    assert(VRM->isAssignedReg(reg));
-    Register physreg = VRM->getPhys(reg);
-    assert(physreg.isPhysical());
-
-    // Errrmmmm. If the current slot is either a copy, or empty (meaning that
-    // a copy got deleted), skip backwards to find a non copy register def.
-    // A live-in value is great, it's probably a PHI.
-    
-    auto MBB = Slots->getMBBFromIndex(SI);
-    Register NewReg = physreg;
-    SlotIndex NewIdx = SI;
-    do {
-      std::tie(NewIdx, NewReg) = skipBackFromCopy(NewIdx, NewReg);
-      if (NewIdx.isBlock())
-        break;
-      auto *DefMI = Slots->getInstructionFromIndex(NewIdx);
-      if (DefMI && !DefMI->isCopy())
-        break;
-    } while (true);
-    physreg = NewReg;
-
-    // Two things we can do now: it's either a PHI or some other inst.
-    if (NewIdx.isBlock()) {
-      // It was a copy of something PHI-like, or an argument. Add a new
-      // ex PHI value.
-      // XXX, will things break due to there being nothing in exPHIs?
-      MF->makeNewExPHIPostRegalloc(MBB, ID, physreg);
-    } else {
-      // There's an instruction we can hinge on. However, there might not
-      // be an operand we can touch. Formulate one manually and stick
-      // it into ANOTHER weird side table.
-      MachineInstr *DefMI = Slots->getInstructionFromIndex(NewIdx);
-      auto DummyID = DefMI->getDebugValueID(0);
-      MF->makeNewABIRegDefPostRegalloc(MBB, DummyID.getInstID(), physreg, ID);
     }
   }
 
