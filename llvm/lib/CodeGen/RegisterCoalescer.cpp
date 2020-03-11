@@ -2013,6 +2013,39 @@ bool RegisterCoalescer::joinCopy(MachineInstr *CopyMI, bool &Again) {
   return true;
 }
 
+// input physreg is whatever's read from the copy.
+static std::pair<SlotIndex, Register> skipBackFromCopy(LiveIntervals *LIS, SlotIndex Idx) {
+  // Soooooo, is there still a copy left in the designated area?
+  auto Slots = LIS->getSlotIndexes();
+  auto MI = Slots->getInstructionFromIndex(Idx);
+  // Doesn't actually matter, we want to ditch all copies anyway.
+
+
+  // We need to create a new value record. It might be either a PHI value
+  // or something defined by a register operand, or an implicit def even.
+
+  auto MBB = Slots->getMBBFromIndex(Idx);
+  SlotIndex MostRecentDefInst = Slots->getMBBStartIdx(MBB);
+
+  Idx = Idx.getPrevIndex();
+  assert(MI != nullptr);
+  // Follow the copy,
+  assert(MI->isCopy());
+  assert(MI->getOperand(1).isReg() && !MI->getOperand(1).isDef());
+  Register physreg = MI->getOperand(1).getReg();
+
+  // Find the most recently def'd unit of the physreg.
+  auto *TRI = MBB->getParent()->getRegInfo().getTargetRegisterInfo();
+  for (MCRegUnitIterator Units(physreg, TRI); Units.isValid(); ++Units) {
+    const LiveRange &LR = LIS->getRegUnit(*Units);
+    auto LII = LR.find(Idx); // XXX how does this interact with dead defs?
+    if (LII != LR.end() && LII->start <= Idx && LII->start > MostRecentDefInst)
+      MostRecentDefInst = LII->start;
+  }
+
+  return {MostRecentDefInst, physreg};
+}
+
 bool RegisterCoalescer::joinReservedPhysReg(CoalescerPair &CP) {
   unsigned DstReg = CP.getDstReg();
   unsigned SrcReg = CP.getSrcReg();
@@ -2069,6 +2102,51 @@ bool RegisterCoalescer::joinReservedPhysReg(CoalescerPair &CP) {
     //   ...
     //   use %physreg_x
     CopyMI = MRI->getVRegDef(SrcReg);
+
+    // Is this copy the target of any debug values?
+    if (CopyMI->peekDebugValueID()) {
+      // Yaas, it needs recovering. Find the physreg def.
+      auto *Slots = LIS->getSlotIndexes();
+      SlotIndex SI = Slots->getInstructionIndex(*CopyMI);
+      SlotIndex Def;
+      Register physreg;
+      std::tie(Def, physreg) = skipBackFromCopy(LIS, SI);
+      // We have either a block or inst def.
+
+      auto ID = CopyMI->getDebugValueID(0);
+
+      // All of this copied from LiveDebugVariables
+      if (Def.isBlock()) {
+        // It was a copy of something PHI-like, or an argument. Add a new
+        // ex PHI value.
+        // XXX, will things break due to there being nothing in exPHIs?
+        auto *MBB = CopyMI->getParent();
+        MF->mbbsOfInterest.insert(MBB);
+        MachineOperand MO = MachineOperand::CreateReg(physreg, false);
+        MF->PHIPointToReg.insert(std::make_pair(ID, std::make_pair(MBB, MO)));
+        auto idxIt = MF->exPHIIndex.find(MBB);
+        if (idxIt == MF->exPHIIndex.end()) {
+          MF->exPHIIndex.insert(std::make_pair(MBB, std::vector<DebugInstrRefID>{ID}));
+        } else {
+          idxIt->second.push_back(ID);
+        }
+      } else {
+        // There's an instruction we can hinge on. However, there might not
+        // be an operand we can touch. Formulate one manually and stick
+        // it into ANOTHER weird side table.
+        MachineInstr *DefMI = Slots->getInstructionFromIndex(Def);
+        auto DummyID = DefMI->getDebugValueID(0);
+        auto ABIIt = MF->ABIRegDef.find(DummyID.getInstID());
+        if (ABIIt != MF->ABIRegDef.end()) {
+          ABIIt->second.push_back(Register(physreg));
+        } else {
+          std::vector<Register> toInsert{Register(physreg)};
+          MF->ABIRegDef.insert(std::make_pair(DummyID.getInstID(), toInsert));
+        }
+        DebugInstrRefID NewID(DummyID.getInstID(), Register(physreg));
+        MF->valueIDUpdateMap.insert(std::make_pair(ID, NewID));
+      }
+    }
   } else {
     // VReg is copied into physreg:
     //   %y = def
@@ -2077,6 +2155,7 @@ bool RegisterCoalescer::joinReservedPhysReg(CoalescerPair &CP) {
     // =>
     //   %physreg_x = def
     //   ...
+
     if (!MRI->hasOneNonDBGUse(SrcReg)) {
       LLVM_DEBUG(dbgs() << "\t\tMultiple vreg uses!\n");
       return false;
@@ -2091,6 +2170,11 @@ bool RegisterCoalescer::joinReservedPhysReg(CoalescerPair &CP) {
     CopyMI = &*MRI->use_instr_nodbg_begin(SrcReg);
     SlotIndex CopyRegIdx = LIS->getInstructionIndex(*CopyMI).getRegSlot();
     SlotIndex DestRegIdx = LIS->getInstructionIndex(DestMI).getRegSlot();
+
+    // XXX jmorse DBG_INSTR_REF, should never codegen something like this.
+    assert(!CopyMI->peekDebugValueID());
+
+
 
     if (!MRI->isConstantPhysReg(DstReg)) {
       // We checked above that there are no interfering defs of the physical
@@ -2119,6 +2203,7 @@ bool RegisterCoalescer::joinReservedPhysReg(CoalescerPair &CP) {
       LR.createDeadDef(DestRegIdx, LIS->getVNInfoAllocator());
     }
   }
+
 
   deleteInstr(CopyMI);
 
