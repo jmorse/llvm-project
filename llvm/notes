@@ -27,6 +27,8 @@ fails:
        CHECKs for a DBG_VALUE
     LLVM :: DebugInfo/X86/sdag-dangling-dbgvalue.ll
        CHECKs for a DBG_VALUE
+    LLVM :: DebugInfo/X86/sdag-dbgvalue-phi-use-1.ll
+       CHECKs for a DBG_VALUE
     LLVM :: DebugInfo/X86/sdag-dbgvalue-phi-use-2.ll
        CHECKs for a DBG_VALUE
     LLVM :: DebugInfo/X86/sdag-dbgvalue-phi-use-3.ll
