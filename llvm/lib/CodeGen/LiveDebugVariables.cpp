@@ -1639,12 +1639,14 @@ LIS->dump();
           MF->valueIDUpdateMap.insert(std::make_pair(ID, NewID));
         }
 
-      } else if (VRM->getStackSlot(reg) != VirtRegMap::NO_STACK_SLOT) {
-        // Was spilled, and the copy killed at the same time. Awkward, how do
-        // we find out what defined the spilled value?
-        abort();
       } else {
-        // Dead copy?
+        // XXX XXX XXX
+        // Weak assumption: because the copy hasn't been DCE'd or coalesced
+        // away somewhere else, it must have been doing something live.
+        // The register allocator doesn't delete it (VirtRegMap does), so
+        // it must have allocated some registers for it. I don't _think_ we
+        // can either have an undef value here or have a stack slot; thus
+        // there must have been a physreg mapping.
         abort();
       }
     }
