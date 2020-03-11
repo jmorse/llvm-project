@@ -224,19 +224,48 @@ struct LandingPadInfo {
 
 class DebugInstrRefID {
 public:
-  uint64_t idno : 61;
-  uint64_t operand : 3;
+  uint64_t idno : 48;
+  unsigned is_operand : 1;
+  uint64_t operand_or_reg : 15;
 
   uint64_t asU64() const {
-    return idno << 3 | operand;
+    return idno << 16 | is_operand << 15 | operand_or_reg;
+  }
+
+  DebugInstrRefID(uint64_t id, unsigned is_op, unsigned op) {
+    idno = id;
+    is_operand = is_op;
+    operand_or_reg = op;
+  }
+
+  explicit
+  DebugInstrRefID(uint64_t id, Register reg) {
+    idno = id;
+    is_operand = 0;
+    assert(reg.isPhysical());
+    operand_or_reg = reg.id();
   }
 
   static DebugInstrRefID fromU64(uint64_t id) {
-    return DebugInstrRefID{id >> 3, id & 7};
+    return DebugInstrRefID{id >> 16, (unsigned)((id >> 15) & 1), (unsigned)(id & 0x7FFF)};
+  }
+
+  uint64_t getInstID() const {
+    return idno;
   }
 
   unsigned getOperand() const {
-    return operand;
+    assert(is_operand);
+    return operand_or_reg;
+  }
+
+  unsigned getReg() const {
+    assert(!is_operand);
+    return operand_or_reg;
+  }
+
+  bool isOperand() const {
+    return is_operand;
   }
 
   bool operator<(const DebugInstrRefID &Other) const {
@@ -244,7 +273,11 @@ public:
   }
 
   bool operator==(const DebugInstrRefID &Other) const {
-    return idno == Other.idno && operand == Other.operand;
+    return asU64() == Other.asU64();
+  }
+
+  bool operator!=(const DebugInstrRefID &Other) const {
+    return !(*this == Other);
   }
 };
 
@@ -262,6 +295,8 @@ class MachineFunction {
   std::map<MachineBasicBlock *, std::vector<DebugInstrRefID>> exPHIIndex;
   std::map<DebugInstrRefID, PostPHIPoint> PHIPointToReg;
   std::set<MachineBasicBlock *> mbbsOfInterest;
+
+  std::map<uint64_t, std::vector<Register>> ABIRegDef;
 
   private:
 

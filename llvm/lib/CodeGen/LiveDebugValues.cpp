@@ -1463,6 +1463,22 @@ void LiveDebugValues::transferRegisterDef(
 
       ++operandidx;
     }
+
+    // Also see whether or not there were any implicit defs that we picked up.
+    auto tmpid = MI.getDebugValueID(0);
+    auto ABIIt = MF->ABIRegDef.find(tmpid.getInstID());
+    if (ABIIt != MF->ABIRegDef.end()) {
+      for (Register r : ABIIt->second) {
+        // This inst defines the specified register, and it gets associated
+        // with a value ID we can synthesise.
+        auto NewValueID = DebugInstrRefID(tmpid.getInstID(), r);
+        MachineLocation ML(MachineOperand::CreateReg(r, false));
+        auto VL = VarLoc(ValueIdentity(NewValueID), ML);
+        LocIndex LocID = VarLocIDs.insert(VL);
+        // Add the VarLoc to OpenRanges from this DBG_VALUE.
+        OpenRanges.insert(LocID, VL);
+      }
+    }
   }
 }
 

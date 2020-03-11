@@ -414,6 +414,7 @@ class LDVImpl {
   const TargetRegisterInfo *TRI;
   std::map<DebugInstrRefID, std::pair<SlotIndex, Register>> ValToPos;
   std::map<Register, std::vector<DebugInstrRefID>> RegIdx;
+  std::set<DebugInstrRefID> VulnerableCopies;
 
   /// Whether emitDebugValues is called.
   bool EmitDone = false;
@@ -481,6 +482,7 @@ public:
     MF = nullptr;
     ValToPos.clear();
     RegIdx.clear();
+    VulnerableCopies.clear();
     userValues.clear();
     userLabels.clear();
     virtRegToEqClass.clear();
@@ -1027,6 +1029,19 @@ bool LDVImpl::runOnMachineFunction(MachineFunction &mf) {
     ValToPos.insert(std::make_pair(lala.first, std::make_pair(SI, reg)));
     RegIdx[reg].push_back(lala.first);
   }
+  // Fun times: also keep track of COPYs, as those can be just deleted.
+  for (auto &MBB : *MF) {
+    for (auto &MI : MBB) {
+      if (MI.isCopy() && MI.peekDebugValueID()) {
+        Register reg = MI.getOperand(0).getReg();
+        SlotIndex SI = Slots->getInstructionIndex(MI).getRegSlot();
+        auto ID = MI.getDebugValueID(0); // is always operand 0
+        ValToPos.insert(std::make_pair(ID, std::make_pair(SI, reg)));
+        RegIdx[reg].push_back(ID);
+        VulnerableCopies.insert(ID);
+      }
+    }
+  }
 
   ModifiedMF = Changed;
   return Changed;
@@ -1511,6 +1526,10 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
     // For each exPHI, work out what its reg position is now.
     auto ID = it.first;
     auto reg = it.second.second;
+
+    if (VulnerableCopies.find(ID) != VulnerableCopies.end())
+      continue;
+
     MachineBasicBlock *OrigMBB = MF->exPHIs.find(ID)->second.first;
     if (VRM->isAssignedReg(reg) &&
           Register::isPhysicalRegister(VRM->getPhys(reg))) {
@@ -1545,6 +1564,81 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
         MF->exPHIIndex.erase(exPHIIt);
     }
   }
+
+  // Do this all again but for vulnerable copies.
+  auto Slots = LIS->getSlotIndexes();
+  for (auto &it : ValToPos) {
+    auto ID = it.first;
+    auto SI = it.second.first;
+    auto reg = it.second.second;
+
+    if (VulnerableCopies.find(ID) == VulnerableCopies.end())
+      continue;
+
+    // Soooooo, is there still a copy left in the designated area?
+    auto MI = Slots->getInstructionFromIndex(SI);
+    if (!MI) {
+      // Nooooooo. Expensive sanity check:
+      for (auto &MBB : *MF)
+        for (auto &MI : MBB)
+          assert(MI.peekDebugValueID() == 0 || MI.getDebugValueID(0) != ID);
+      // We need to create a new value record. It might be either a PHI value
+      // or something defined by a register operand, or an implicit def even.
+#if 0
+      __asm__("int $3");
+      __asm__("int $3");
+LIS->dump();
+#endif
+
+      if (VRM->isAssignedReg(reg) &&
+            Register::isPhysicalRegister(VRM->getPhys(reg))) {
+        unsigned physreg = VRM->getPhys(reg);
+        SlotIndex MostRecentDefInst = Slots->getMBBStartIdx(Slots->getMBBFromIndex(SI));
+        // The deleted copy is still represented by a def in the live intervals
+        // map, as VRM does the deletion and doesn't bother updating. Look
+        // to see what def'd the register at the index immediately before.
+        SlotIndex PrevSI = SI.getPrevIndex();
+
+        // Find the most recently def'd unit of the physreg.
+        for (MCRegUnitIterator Units(physreg, TRI); Units.isValid(); ++Units) {
+          const LiveRange &LR = LIS->getRegUnit(*Units);
+          auto LII = LR.find(PrevSI); // XXX how does this interact with dead defs?
+          if (LII != LR.end() && LII->start <= PrevSI && LII->start > MostRecentDefInst)
+            MostRecentDefInst = LII->start;
+        }
+
+        // Two things we can do now: it's either a PHI or some other inst.
+        if (MostRecentDefInst.isBlock()) {
+          // It was a copy of something PHI-like, or an argument.
+          abort();
+        } else {
+          // There's an instruction we can hinge on. However, there might not
+          // be an operand we can touch. Formulate one manually and stick
+          // it into ANOTHER weird side table.
+          MachineInstr *DefMI = Slots->getInstructionFromIndex(MostRecentDefInst);
+          auto DummyID = DefMI->getDebugValueID(0);
+          auto ABIIt = MF->ABIRegDef.find(DummyID.getInstID());
+          if (ABIIt != MF->ABIRegDef.end()) {
+            ABIIt->second.push_back(Register(physreg));
+          } else {
+            std::vector<Register> toInsert{Register(physreg)};
+            MF->ABIRegDef.insert(std::make_pair(DummyID.getInstID(), toInsert));
+          }
+          DebugInstrRefID NewID(DummyID.getInstID(), Register(physreg));
+          MF->valueIDUpdateMap.insert(std::make_pair(ID, NewID));
+        }
+
+      } else if (VRM->getStackSlot(reg) != VirtRegMap::NO_STACK_SLOT) {
+        // Was spilled, and the copy killed at the same time. Awkward, how do
+        // we find out what defined the spilled value?
+        abort();
+      } else {
+        // Dead copy?
+        abort();
+      }
+    }
+  }
+
 
   EmitDone = true;
 }
