@@ -1650,30 +1650,14 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
       // It was a copy of something PHI-like, or an argument. Add a new
       // ex PHI value.
       // XXX, will things break due to there being nothing in exPHIs?
-      MF->mbbsOfInterest.insert(MBB);
-      MachineOperand MO = MachineOperand::CreateReg(physreg, false);
-      MF->PHIPointToReg.insert(std::make_pair(ID, std::make_pair(MBB, MO)));
-      auto idxIt = MF->exPHIIndex.find(MBB);
-      if (idxIt == MF->exPHIIndex.end()) {
-        MF->exPHIIndex.insert(std::make_pair(MBB, std::vector<DebugInstrRefID>{ID}));
-      } else {
-        idxIt->second.push_back(ID);
-      }
+      MF->makeNewExPHIPostRegalloc(MBB, ID, physreg);
     } else {
       // There's an instruction we can hinge on. However, there might not
       // be an operand we can touch. Formulate one manually and stick
       // it into ANOTHER weird side table.
       MachineInstr *DefMI = Slots->getInstructionFromIndex(NewIdx);
       auto DummyID = DefMI->getDebugValueID(0);
-      auto ABIIt = MF->ABIRegDef.find(DummyID.getInstID());
-      if (ABIIt != MF->ABIRegDef.end()) {
-        ABIIt->second.push_back(Register(physreg));
-      } else {
-        std::vector<Register> toInsert{Register(physreg)};
-        MF->ABIRegDef.insert(std::make_pair(DummyID.getInstID(), toInsert));
-      }
-      DebugInstrRefID NewID(DummyID.getInstID(), Register(physreg));
-      MF->valueIDUpdateMap.insert(std::make_pair(ID, NewID));
+      MF->makeNewABIRegDefPostRegalloc(MBB, DummyID.getInstID(), physreg, ID);
     }
   }
 

@@ -1191,3 +1191,34 @@ void MachineConstantPool::print(raw_ostream &OS) const {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 LLVM_DUMP_METHOD void MachineConstantPool::dump() const { print(dbgs()); }
 #endif
+
+void MachineFunction::makeNewExPHIPostRegalloc(MachineBasicBlock *MBB, DebugInstrRefID ID, Register reg) {
+  // It was a copy of something PHI-like, or an argument. Add a new
+  // ex PHI value.
+  // XXX, will things break due to there being nothing in exPHIs?
+  mbbsOfInterest.insert(MBB);
+  MachineOperand MO = MachineOperand::CreateReg(reg, false);
+  PHIPointToReg.insert(std::make_pair(ID, std::make_pair(MBB, MO)));
+  auto idxIt = exPHIIndex.find(MBB);
+  if (idxIt == exPHIIndex.end()) {
+    exPHIIndex.insert(std::make_pair(MBB, std::vector<DebugInstrRefID>{ID}));
+  } else {
+    idxIt->second.push_back(ID);
+  }
+}
+
+void MachineFunction::makeNewABIRegDefPostRegalloc(MachineBasicBlock *MBB, uint64_t instrid, Register reg, DebugInstrRefID OldID) {
+  // There's an instruction we can hinge on. However, there might not
+  // be an operand we can touch. Formulate one manually and stick
+  // it into ANOTHER weird side table.
+  auto ABIIt = ABIRegDef.find(instrid);
+  if (ABIIt != ABIRegDef.end()) {
+    ABIIt->second.push_back(Register(reg));
+  } else {
+    std::vector<Register> toInsert{Register(reg)};
+    ABIRegDef.insert(std::make_pair(instrid, toInsert));
+  }
+  DebugInstrRefID NewID(instrid, Register(reg));
+  valueIDUpdateMap.insert(std::make_pair(OldID, NewID));
+
+}

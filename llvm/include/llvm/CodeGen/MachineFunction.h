@@ -298,6 +298,9 @@ class MachineFunction {
 
   std::map<uint64_t, std::vector<Register>> ABIRegDef;
 
+  void makeNewExPHIPostRegalloc(MachineBasicBlock *MBB, DebugInstrRefID ID, Register reg);
+  void makeNewABIRegDefPostRegalloc(MachineBasicBlock *MBB, uint64_t instrid, Register reg, DebugInstrRefID OldID);
+
   private:
 
   const Function &F;
