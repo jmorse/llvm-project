@@ -2248,6 +2248,6 @@ llvm::DebugInstrRefID
 MachineInstr::getDebugValueID(unsigned int operand) {
     if (DebugValueID == 0)
       DebugValueID = getParent()->getParent()->getNewDebugValueID();
-    assert(operand < 8); // XXX
+    assert(operand < 0x7FFF); // XXX
     return llvm::DebugInstrRefID{DebugValueID, 1, operand};
   }
