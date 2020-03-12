@@ -1079,7 +1079,7 @@ bool LDVImpl::runOnMachineFunction(MachineFunction &mf) {
         MF->mbbsOfInterest.insert(SlotMBB);
         MF->exPHIs.insert(std::make_pair(ID, std::make_pair(SlotMBB, NewReg)));
         MF->exPHIIndex[SlotMBB].insert(ID);
-      } else {
+      } else if (NewReg.isPhysical()) {
         // There's an instruction we can hinge on. However, there might not
         // be an operand we can touch. Formulate one manually and stick
         // it into ANOTHER weird side table.
@@ -1093,6 +1093,21 @@ bool LDVImpl::runOnMachineFunction(MachineFunction &mf) {
 //        ValToPos.insert(std::make_pair(ID, std::make_pair(SI, reg)));
 //        RegIdx[reg].push_back(ID);
 
+      } else {
+        // This is a plain old instruction writing to a vreg. Just remap
+        // its ID number.
+        // Find operand
+        MachineInstr *DefMI = Slots->getInstructionFromIndex(NewIdx);
+        unsigned opidx = 0;
+        for (auto &MO : DefMI->operands()) {
+          if (MO.isReg() && MO.getReg() == NewReg && MO.isDef())
+            break;
+          opidx++;
+        }
+        assert(opidx < DefMI->getNumOperands());
+        auto NewID = DefMI->getDebugValueID(opidx);
+        auto OrigID = MI.getDebugValueID(0); // is always operand 0
+        MF->valueIDUpdateMap.insert(std::make_pair(OrigID, NewID));
       }
       }
     }
