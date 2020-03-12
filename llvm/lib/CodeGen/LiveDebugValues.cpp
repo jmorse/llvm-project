@@ -416,7 +416,19 @@ public:
     return std::tie(Kind, Expr, Loc.Hash) < std::tie(Other.Kind, Other.Expr, Other.Loc.Hash);
   }
 
+  static bool isLocationValid(const MachineFunction &MF, const MachineOperand &MO) {
+    if (MO.isReg() && MO.getReg() == 0)
+      return false;
 
+    if (MO.isFI()) {
+      unsigned FI = MO.getIndex();
+      auto &FInfo = MF.getFrameInfo();
+      if (FInfo.isDeadObjectIndex(FI))
+        return false;
+    }
+ 
+    return true;
+  }
 };
 
 
@@ -1175,6 +1187,11 @@ void LiveDebugValues::transferStartOfBlock(MachineFunction &MF, MachineBasicBloc
     if (detail == MF.PHIPointToReg.end())
       continue;
     MachineOperand &MO = detail->second.second;
+
+    // Skip out if it's a frame index and no longer valid. Not clear why
+    // frame indexes become invalid, but they do.
+    if (!MachineLocation::isLocationValid(MF, MO))
+      continue;
 
     // XXX be careful in case this mutates in future
     auto VL = VarLoc::CreatePhiLoc(MF, MO, ID.asU64());
