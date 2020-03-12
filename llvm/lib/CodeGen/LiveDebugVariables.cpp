@@ -1549,8 +1549,8 @@ void UserLabel::emitDebugLabel(LiveIntervals &LIS, const TargetInstrInfo &TII) {
   LLVM_DEBUG(dbgs() << '\n');
 }
 
-// input physreg is whatever's read from the copy.
-std::pair<SlotIndex, Register> LDVImpl::skipBackFromCopy(SlotIndex Idx, Register physreg) {
+// input reg is whatever's read from the copy.
+std::pair<SlotIndex, Register> LDVImpl::skipBackFromCopy(SlotIndex Idx, Register reg) {
   // Soooooo, is there still a copy left in the designated area?
   auto Slots = LIS->getSlotIndexes();
   auto MI = Slots->getInstructionFromIndex(Idx);
@@ -1572,19 +1572,27 @@ std::pair<SlotIndex, Register> LDVImpl::skipBackFromCopy(SlotIndex Idx, Register
     // Follow the copy,
     assert(MI->isCopy());
     assert(MI->getOperand(1).isReg() && !MI->getOperand(1).isDef());
-    physreg = MI->getOperand(1).getReg();
+    reg = MI->getOperand(1).getReg();
   }
-  // else leave physreg as it is, an identity copy was deleted.
+  // else leave reg as it is, an identity copy was deleted.
 
-  // Find the most recently def'd unit of the physreg.
-  for (MCRegUnitIterator Units(physreg, TRI); Units.isValid(); ++Units) {
-    const LiveRange &LR = LIS->getRegUnit(*Units);
-    auto LII = LR.find(Idx); // XXX how does this interact with dead defs?
-    if (LII != LR.end() && LII->start <= Idx && LII->start > MostRecentDefInst)
+  if (reg.isPhysical()) {
+    // Find the most recently def'd unit of the physreg.
+    for (MCRegUnitIterator Units(reg, TRI); Units.isValid(); ++Units) {
+      const LiveRange &LR = LIS->getRegUnit(*Units);
+      auto LII = LR.find(Idx); // XXX how does this interact with dead defs?
+      if (LII != LR.end() && LII->start <= Idx && LII->start > MostRecentDefInst)
+        MostRecentDefInst = LII->start;
+    }
+  } else {
+    // It's virtual. Just look backwards for a def.
+    const LiveInterval &LI = LIS->getInterval(reg);
+    auto LII = LI.find(Idx); // XXX how does this interact with dead defs?
+    if (LII != LI.end() && LII->start <= Idx && LII->start > MostRecentDefInst)
       MostRecentDefInst = LII->start;
   }
 
-  return {MostRecentDefInst, physreg};
+  return {MostRecentDefInst, reg};
 }
 
 void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
