@@ -901,6 +901,21 @@ void StackColoring::remapInstructions(DenseMap<int, int> &SlotRemap) {
     }
   }
 
+  for (auto &p : MF->PHIPointToReg) {
+    auto &MO = p.second.second;
+    if (MO.isFI()) {
+      int FromSlot = MO.getIndex();
+      // Don't touch arguments.
+      if (FromSlot<0)
+        continue;
+      // Only look at mapped slots.
+      if (!SlotRemap.count(FromSlot))
+        continue;
+      int ToSlot = SlotRemap[FromSlot];
+      MO.setIndex(ToSlot);
+    }
+  }
+
   // Keep a list of *allocas* which need to be remapped.
   DenseMap<const AllocaInst*, const AllocaInst*> Allocas;
 
