@@ -405,6 +405,8 @@ public:
   void print(raw_ostream &, const TargetRegisterInfo *);
 };
 
+typedef std::tuple<DebugInstrRefID, const DILocalVariable *, const DIExpression *, DebugLoc> CookingInstrRef;
+
 /// Implementation of the LiveDebugVariables pass.
 class LDVImpl {
   LiveDebugVariables &pass;
@@ -414,6 +416,8 @@ class LDVImpl {
   const TargetRegisterInfo *TRI;
   std::map<DebugInstrRefID, std::pair<SlotIndex, Register>> ValToPos;
   std::map<Register, std::vector<DebugInstrRefID>> RegIdx;
+
+  std::map<SlotIndex, std::vector<CookingInstrRef>> InstrRefsToCook;
 
   /// Whether emitDebugValues is called.
   bool EmitDone = false;
@@ -451,6 +455,8 @@ class LDVImpl {
   /// \returns True if the DBG_VALUE instruction should be deleted.
   bool handleDebugValue(MachineInstr &MI, SlotIndex Idx);
 
+  bool handleDebugRef(MachineInstr &MI, SlotIndex Idx);
+
   /// Add DBG_LABEL instruction to UserLabel.
   ///
   /// \param MI DBG_LABEL instruction
@@ -481,6 +487,7 @@ public:
     MF = nullptr;
     ValToPos.clear();
     RegIdx.clear();
+    InstrRefsToCook.clear();
     userValues.clear();
     userLabels.clear();
     virtRegToEqClass.clear();
@@ -693,6 +700,14 @@ bool LDVImpl::handleDebugValue(MachineInstr &MI, SlotIndex Idx) {
   return true;
 }
 
+bool LDVImpl::handleDebugRef(MachineInstr &MI, SlotIndex Idx) {
+  assert(MI.isDebugRef());
+  DebugInstrRefID ID = DebugInstrRefID::fromU64(MI.getOperand(0).getImm());
+  CookingInstrRef toCook = std::make_tuple(ID, MI.getDebugVariable(), MI.getDebugExpression(), MI.getDebugLoc());
+  InstrRefsToCook[Idx].push_back(toCook);
+  return true;
+}
+
 bool LDVImpl::handleDebugLabel(MachineInstr &MI, SlotIndex Idx) {
   // DBG_LABEL label
   if (MI.getNumOperands() != 1 || !MI.getOperand(0).isMetadata()) {
@@ -740,6 +755,7 @@ bool LDVImpl::collectDebugValues(MachineFunction &mf) {
         // Only handle DBG_VALUE in handleDebugValue(). Skip all other
         // kinds of debug instructions.
         if ((MBBI->isDebugValue() && handleDebugValue(*MBBI, Idx)) ||
+            (MBBI->isDebugRef() && handleDebugRef(*MBBI, Idx)) ||
             (MBBI->isDebugLabel() && handleDebugLabel(*MBBI, Idx))) {
           MBBI = MBB->erase(MBBI);
           Changed = true;
@@ -1632,6 +1648,25 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
   // Defensiveness: clear exPHIs, as nothing should be interested post-regalloc
   // in the vreg operand that it had pre-regalloc.
   MF->exPHIs.clear();
+
+  // Re-emit DBG_INSTR_REFs.
+  LLVM_DEBUG(dbgs() << "********** TRAINING FIGHTING SHREWS FOR APOCOLYPSE **********\n");
+  const MCInstrDesc &RefII = TII->get(TargetOpcode::DBG_INSTR_REF);
+  auto Slots = LIS->getSlotIndexes();
+  for (auto &P : InstrRefsToCook) {
+    const SlotIndex &Idx = P.first;
+    auto *MBB = Slots->getMBBFromIndex(Idx);
+    MachineBasicBlock::iterator insertPos = findInsertLocation(MBB, Idx, *LIS);
+    for (auto &Tup : P.second) {
+      auto MIB = BuildMI(*MF, std::get<3>(Tup), RefII);
+      MIB.addImm(std::get<0>(Tup).asU64());
+      MIB.addReg(0);
+      MIB.addMetadata(std::get<1>(Tup));
+      MIB.addMetadata(std::get<2>(Tup));
+      MachineInstr *New = MIB;
+      MBB->insert(insertPos, New);
+    }
+  }
 
   EmitDone = true;
 }
