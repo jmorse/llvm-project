@@ -4029,6 +4029,9 @@ bool RegisterCoalescer::runOnMachineFunction(MachineFunction &fn) {
     p.second.second = it->second.second;
   }
 
+  ValToPos.clear();
+  RegIdx.clear();
+
   LLVM_DEBUG(dump());
   if (VerifyCoalescing)
     MF->verify(this, "After register coalescing");
