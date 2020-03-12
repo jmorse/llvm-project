@@ -1016,6 +1016,24 @@ void TailDuplicator::removeDeadBlock(
   LLVM_DEBUG(dbgs() << "\nRemoving MBB: " << *MBB);
 
   MachineFunction *MF = MBB->getParent();
+
+  // XXX jmorse DBG_INSTR_REF, drop PHI information from this block. Note that
+  // we should be duplicating PHI info and instr refs in the block duplicator,
+  // but currently don't.
+  auto mbbIt = MF->mbbsOfInterest.find(MBB);
+  if (mbbIt != MF->mbbsOfInterest.end()) {
+    auto idxIt = MF->exPHIIndex.find(MBB);
+    assert(idxIt != MF->exPHIIndex.end());
+    for (auto ID : idxIt->second) {
+      auto tmp = MF->PHIPointToReg.find(ID);
+      // XXX this shouldn't be necessary?
+      if (tmp != MF->PHIPointToReg.end())
+        MF->PHIPointToReg.erase(tmp);
+    }
+    MF->exPHIIndex.erase(idxIt);
+    MF->mbbsOfInterest.erase(mbbIt);
+  }
+
   // Update the call site info.
   std::for_each(MBB->begin(), MBB->end(), [MF](const MachineInstr &MI) {
     if (MI.shouldUpdateCallSiteInfo())
