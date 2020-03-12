@@ -1207,7 +1207,7 @@ void MachineFunction::makeNewExPHIPostRegalloc(MachineBasicBlock *MBB, DebugInst
   }
 }
 
-void MachineFunction::makeNewABIRegDefPostRegalloc(MachineBasicBlock *MBB, uint64_t instrid, Register reg, DebugInstrRefID OldID) {
+DebugInstrRefID MachineFunction::makeNewABIRegDefPostRegalloc(MachineBasicBlock *MBB, uint64_t instrid, Register reg, DebugInstrRefID OldID) {
   // There's an instruction we can hinge on. However, there might not
   // be an operand we can touch. Formulate one manually and stick
   // it into ANOTHER weird side table.
@@ -1220,5 +1220,5 @@ void MachineFunction::makeNewABIRegDefPostRegalloc(MachineBasicBlock *MBB, uint6
   }
   DebugInstrRefID NewID(instrid, Register(reg));
   valueIDUpdateMap.insert(std::make_pair(OldID, NewID));
-
+  return NewID;
 }

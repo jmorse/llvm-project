@@ -1041,25 +1041,24 @@ bool LDVImpl::runOnMachineFunction(MachineFunction &mf) {
   for (const auto &lala : MF->exPHIs) {
     MachineBasicBlock *MBB = lala.second.first;
     Register reg = lala.second.second;
+    assert(MF->exPHIIndex.find(MBB) != MF->exPHIIndex.end());
     SlotIndex SI = Slots->getMBBStartIdx(MBB);
     ValToPos.insert(std::make_pair(lala.first, std::make_pair(SI, reg)));
     RegIdx[reg].push_back(lala.first);
   }
+
   // Fun times: also keep track of COPYs, as those can be just deleted.
   for (auto &MBB : *MF) {
     for (auto &MI : MBB) {
       if (MI.isCopy() && MI.peekDebugValueID()) {
         Register reg = MI.getOperand(0).getReg();
         SlotIndex SI = Slots->getInstructionIndex(MI).getRegSlot();
-        auto ID = MI.getDebugValueID(0); // is always operand 0
-        ValToPos.insert(std::make_pair(ID, std::make_pair(SI, reg)));
-        RegIdx[reg].push_back(ID);
 
       // Errrmmmm. If the current slot is either a copy, or empty (meaning that
       // a copy got deleted), skip backwards to find a non copy register def.
       // A live-in value is great, it's probably a PHI.
       
-      auto MBB = Slots->getMBBFromIndex(SI);
+      auto *SlotMBB = Slots->getMBBFromIndex(SI);
       Register NewReg = reg;
       SlotIndex NewIdx = SI;
       do {
@@ -1073,16 +1072,25 @@ bool LDVImpl::runOnMachineFunction(MachineFunction &mf) {
 
       // Two things we can do now: it's either a PHI or some other inst.
       if (NewIdx.isBlock()) {
-        MF->mbbsOfInterest.insert(MBB);
-        MF->exPHIs.insert(std::make_pair(ID, std::make_pair(MBB, NewReg)));
-        MF->exPHIIndex[MBB].insert(ID);
+        auto ID = MI.getDebugValueID(0); // is always operand 0
+        ValToPos.insert(std::make_pair(ID, std::make_pair(SI, reg)));
+        RegIdx[reg].push_back(ID);
+
+        MF->mbbsOfInterest.insert(SlotMBB);
+        MF->exPHIs.insert(std::make_pair(ID, std::make_pair(SlotMBB, NewReg)));
+        MF->exPHIIndex[SlotMBB].insert(ID);
       } else {
         // There's an instruction we can hinge on. However, there might not
         // be an operand we can touch. Formulate one manually and stick
         // it into ANOTHER weird side table.
         MachineInstr *DefMI = Slots->getInstructionFromIndex(NewIdx);
         auto DummyID = DefMI->getDebugValueID(0);
-        MF->makeNewABIRegDefPostRegalloc(MBB, DummyID.getInstID(), NewReg, ID);
+        auto OrigID = MI.getDebugValueID(0); // is always operand 0
+        auto ID = MF->makeNewABIRegDefPostRegalloc(SlotMBB, DummyID.getInstID(), NewReg, OrigID);
+
+        ValToPos.insert(std::make_pair(ID, std::make_pair(SI, reg)));
+        RegIdx[reg].push_back(ID);
+
       }
       }
     }
