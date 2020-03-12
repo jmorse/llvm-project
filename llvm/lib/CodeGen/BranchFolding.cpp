@@ -129,7 +129,7 @@ static void moveDebugPHIsToNewBlock(MachineBasicBlock &Src, MachineBasicBlock &D
 
   auto PHIIndex = MF->exPHIIndex.find(&Src);
   assert(PHIIndex != MF->exPHIIndex.end());
-  std::vector<DebugInstrRefID> elems = std::move(PHIIndex->second);
+  std::set<DebugInstrRefID> elems = std::move(PHIIndex->second);
   MF->exPHIIndex.erase(PHIIndex);
   MF->mbbsOfInterest.erase(MBBIt);
 
@@ -141,11 +141,11 @@ static void moveDebugPHIsToNewBlock(MachineBasicBlock &Src, MachineBasicBlock &D
     pointit->second.first = &Dest;
   }
   // "Dest" might already have PHIs.
-  auto iit = MF->exPHIIndex.insert(std::make_pair(&Dest, std::vector<DebugInstrRefID>()));
+  auto iit = MF->exPHIIndex.insert(std::make_pair(&Dest, std::set<DebugInstrRefID>()));
   if (iit.second)
     iit.first->second = std::move(elems);
   else
-    iit.first->second.insert(iit.first->second.begin(), elems.begin(), elems.end());
+    iit.first->second.insert(elems.begin(), elems.end());
 }
 
 bool BranchFolderPass::runOnMachineFunction(MachineFunction &MF) {
@@ -208,7 +208,7 @@ void BranchFolder::RemoveDeadBlock(MachineBasicBlock *MBB) {
   if (it != MF->mbbsOfInterest.end()) {
     auto exPHIIt = MF->exPHIIndex.find(MBB);
     assert(exPHIIt != MF->exPHIIndex.end());
-    for (DebugInstrRefID &ID : exPHIIt->second) {
+    for (const DebugInstrRefID &ID : exPHIIt->second) {
       MF->exPHIs.erase(ID);
       MF->PHIPointToReg.erase(ID);
     }

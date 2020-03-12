@@ -287,7 +287,7 @@ void PHIElimination::LowerPHINode(MachineBasicBlock &MBB,
     auto ID = MPhi->getDebugValueID(0);
     MF->mbbsOfInterest.insert(&MBB);
     MF->exPHIs.insert(std::make_pair(ID, std::make_pair(&MBB, DestReg)));
-    MF->exPHIIndex[&MBB].push_back(ID);
+    MF->exPHIIndex[&MBB].insert(ID);
   }
 
   // Create a new register for the incoming PHI arguments.

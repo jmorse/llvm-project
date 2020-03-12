@@ -292,7 +292,7 @@ class MachineFunction {
   using PostPHIPoint = std::pair<MachineBasicBlock *, MachineOperand>;
   std::map<DebugInstrRefID, DebugInstrRefID> valueIDUpdateMap;
   std::map<DebugInstrRefID, PHIPoint> exPHIs;
-  std::map<MachineBasicBlock *, std::vector<DebugInstrRefID>> exPHIIndex;
+  std::map<MachineBasicBlock *, std::set<DebugInstrRefID>> exPHIIndex;
   std::map<DebugInstrRefID, PostPHIPoint> PHIPointToReg;
   std::set<MachineBasicBlock *> mbbsOfInterest;
 

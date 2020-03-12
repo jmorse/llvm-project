@@ -1201,9 +1201,9 @@ void MachineFunction::makeNewExPHIPostRegalloc(MachineBasicBlock *MBB, DebugInst
   PHIPointToReg.insert(std::make_pair(ID, std::make_pair(MBB, MO)));
   auto idxIt = exPHIIndex.find(MBB);
   if (idxIt == exPHIIndex.end()) {
-    exPHIIndex.insert(std::make_pair(MBB, std::vector<DebugInstrRefID>{ID}));
+    exPHIIndex.insert(std::make_pair(MBB, std::set<DebugInstrRefID>{ID}));
   } else {
-    idxIt->second.push_back(ID);
+    idxIt->second.insert(ID);
   }
 }
 

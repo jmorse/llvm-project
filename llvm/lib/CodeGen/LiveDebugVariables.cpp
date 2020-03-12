@@ -1075,7 +1075,7 @@ bool LDVImpl::runOnMachineFunction(MachineFunction &mf) {
       if (NewIdx.isBlock()) {
         MF->mbbsOfInterest.insert(MBB);
         MF->exPHIs.insert(std::make_pair(ID, std::make_pair(MBB, NewReg)));
-        MF->exPHIIndex[MBB].push_back(ID);
+        MF->exPHIIndex[MBB].insert(ID);
       } else {
         // There's an instruction we can hinge on. However, there might not
         // be an operand we can touch. Formulate one manually and stick
@@ -1615,7 +1615,8 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
           Register::isPhysicalRegister(VRM->getPhys(reg))) {
       unsigned physreg = VRM->getPhys(reg);
       MachineOperand MO = MachineOperand::CreateReg(physreg, false);
-      MF->PHIPointToReg.insert(std::make_pair(ID, std::make_pair(OrigMBB, MO)));
+      auto resit = MF->PHIPointToReg.insert(std::make_pair(ID, std::make_pair(OrigMBB, MO)));
+      assert(resit.second);
     } else if (VRM->getStackSlot(reg) != VirtRegMap::NO_STACK_SLOT) {
       const MachineRegisterInfo &MRI = MF->getRegInfo();
       const TargetRegisterClass *TRC = MRI.getRegClass(reg);
@@ -1630,7 +1631,8 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
       (void)Success;
 
       auto MO = MachineOperand::CreateFI(VRM->getStackSlot(reg));
-      MF->PHIPointToReg.insert(std::make_pair(ID, std::make_pair(OrigMBB, MO)));
+      auto resit = MF->PHIPointToReg.insert(std::make_pair(ID, std::make_pair(OrigMBB, MO)));
+      assert(resit.second);
 
     } else {
       //noreg
@@ -1639,9 +1641,16 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
       MF->PHIPointToReg.erase(ID);
       auto exPHIIt = MF->exPHIIndex.find(OrigMBB);
       assert(exPHIIt != MF->exPHIIndex.end());
-      std::remove(exPHIIt->second.begin(), exPHIIt->second.end(), ID);
-      if (exPHIIt->second.size() == 0)
+      unsigned len = exPHIIt->second.size();
+      auto idx = exPHIIt->second.find(ID);
+      assert(idx != exPHIIt->second.end());
+      exPHIIt->second.erase(idx);
+      assert(exPHIIt->second.size() + 1 == len);
+      if (exPHIIt->second.size() == 0) {
         MF->exPHIIndex.erase(exPHIIt);
+        auto lala = MF->mbbsOfInterest.find(OrigMBB);
+        MF->mbbsOfInterest.erase(lala);
+      }
     }
   }
 
