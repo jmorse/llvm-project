@@ -330,18 +330,30 @@ public:
     unsigned op = lolid.getOperand();
     const MachineOperand &MO = DefMI.getOperand(op);
     // Only cope with reg operands pls
-    initFromOp(MO);
+    initFromOp(*DefMI.getParent()->getParent(), MO);
   }
 
-  MachineLocation(const MachineOperand &MO) {
-    initFromOp(MO);
+  MachineLocation(const MachineFunction &MF, const MachineOperand &MO) {
+    initFromOp(MF, MO);
   }
 
-  void initFromOp(const MachineOperand &MO) {
+  void initFromOp(const MachineFunction &MF, const MachineOperand &MO) {
     // Only cope with reg operands pls
-    assert(MO.isReg());
-    Kind = RegisterKind;
-    Loc.RegNo = MO.getReg();
+    if (MO.isReg()) {
+      Kind = RegisterKind;
+      Loc.RegNo = MO.getReg();
+    } else {
+      assert(MO.isFI());
+      auto *TFI = MF.getSubtarget().getFrameLowering();
+      unsigned FI = MO.getIndex();
+      auto &FInfo = MF.getFrameInfo();
+      unsigned BaseReg;
+      unsigned Offset = TFI->getFrameIndexReference(MF, FI, BaseReg);
+      Loc.SpillLocation.SpillBase = BaseReg;
+      Loc.SpillLocation.SpillOffset = Offset;
+      Kind = SpillLocKind;
+    }
+
     Expr = nullptr; // XXX XXX XXX
   }
 
@@ -496,8 +508,8 @@ private:
     }
 
 
-    static VarLoc CreatePhiLoc(const MachineOperand &MO, uint64_t instrrefid) {
-      return VarLoc(ValueIdentity(instrrefid), MachineLocation(MO));
+    static VarLoc CreatePhiLoc(const MachineFunction &MF, const MachineOperand &MO, uint64_t instrrefid) {
+      return VarLoc(ValueIdentity(instrrefid), MachineLocation(MF, MO));
     }
 
     /// Create a DBG_VALUE representing this VarLoc in the given function.
@@ -1165,7 +1177,7 @@ void LiveDebugValues::transferStartOfBlock(MachineFunction &MF, MachineBasicBloc
     MachineOperand &MO = detail->second.second;
 
     // XXX be careful in case this mutates in future
-    auto VL = VarLoc::CreatePhiLoc(MO, ID.asU64());
+    auto VL = VarLoc::CreatePhiLoc(MF, MO, ID.asU64());
 
     LocIndex LocID = VarLocIDs.insert(VL);
     // Add the VarLoc to OpenRanges from this DBG_VALUE.
@@ -1474,7 +1486,7 @@ void LiveDebugValues::transferRegisterDef(
         // This inst defines the specified register, and it gets associated
         // with a value ID we can synthesise.
         auto NewValueID = DebugInstrRefID(tmpid.getInstID(), r);
-        MachineLocation ML(MachineOperand::CreateReg(r, false));
+        MachineLocation ML(*MF, MachineOperand::CreateReg(r, false));
         auto VL = VarLoc(ValueIdentity(NewValueID), ML);
         LocIndex LocID = VarLocIDs.insert(VL);
         // Add the VarLoc to OpenRanges from this DBG_VALUE.
