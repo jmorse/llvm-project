@@ -987,7 +987,9 @@ void LiveDebugValues::OpenRangesSet::erase(const VarLocSet &KillSet,
 void LiveDebugValues::OpenRangesSet::insert(LocIndex VarLocID,
                                             const VarLoc &VL) {
   auto *InsertInto = VL.isEntryBackupLoc() ? &EntryValuesBackupVars : &Vars;
-  VarLocs.set(VarLocID.getAsRawInteger());
+  // XXX jmorse DBG_INSTR_ref, transferStartOfBlock can re-set already set
+  // items here, just bodge it to use the slow version for now.
+  VarLocs.test_and_set(VarLocID.getAsRawInteger());
   InsertInto->insert({VL.Ident, VarLocID});
 }
 
