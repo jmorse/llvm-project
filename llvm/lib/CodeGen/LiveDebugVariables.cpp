@@ -1621,12 +1621,18 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
   }
 
   LLVM_DEBUG(dbgs() << "********** CATCHING FIRE AND SPRAYING BEES (FLAMING) **********\n");
+  auto Slots = LIS->getSlotIndexes();
   for (auto &it : ValToPos) {
     // For each exPHI, work out what its reg position is now.
     auto ID = it.first;
+    auto Slot = it.second.first;
     auto reg = it.second.second;
 
-    MachineBasicBlock *OrigMBB = MF->exPHIs.find(ID)->second.first;
+    // Is this ID a register reference? If so, ignore for now, it's an ABI thing
+    if (!ID.isOperand())
+      continue;
+
+    MachineBasicBlock *OrigMBB = Slots->getMBBFromIndex(Slot);
     if (VRM->isAssignedReg(reg) &&
           Register::isPhysicalRegister(VRM->getPhys(reg))) {
       unsigned physreg = VRM->getPhys(reg);
@@ -1670,6 +1676,13 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
     }
   }
 
+  // XXX XXX XXX
+  // XXX XXX XXX
+  // XXX XXX XXX
+  // We skipped "register" IDs that are written in ABIRegDef. AFAIUI those
+  // aren't subject to any kind of rewriting, or lack of livesness. We just
+  // leave them behind for now. Return to this in the future.
+
   // Defensiveness: clear exPHIs, as nothing should be interested post-regalloc
   // in the vreg operand that it had pre-regalloc.
   MF->exPHIs.clear();
@@ -1677,7 +1690,6 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
   // Re-emit DBG_INSTR_REFs.
   LLVM_DEBUG(dbgs() << "********** TRAINING FIGHTING SHREWS FOR APOCOLYPSE **********\n");
   const MCInstrDesc &RefII = TII->get(TargetOpcode::DBG_INSTR_REF);
-  auto Slots = LIS->getSlotIndexes();
   for (auto &P : InstrRefsToCook) {
     const SlotIndex &Idx = P.first;
     auto *MBB = Slots->getMBBFromIndex(Idx);
