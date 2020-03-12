@@ -255,10 +255,15 @@ private:
   }
 
   unsigned getSingleDefIdx(void) const {
-    assert(getNumDefs() == 1);
+    unsigned numdefs = 0;
+    for (auto &MO : operands())
+      if (MO.isReg() && MO.isDef() && !MO.isImplicit())
+        numdefs++;
+    assert(numdefs == 1);
+
     unsigned idx = 0;
     for (auto &MO : operands()) {
-      if (MO.isReg() && MO.isDef())
+      if (MO.isReg() && MO.isDef() && !MO.isImplicit())
         break;
       ++idx;
     }
