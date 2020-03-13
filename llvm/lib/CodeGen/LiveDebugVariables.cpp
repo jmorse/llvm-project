@@ -1071,7 +1071,7 @@ bool LDVImpl::runOnMachineFunction(MachineFunction &mf) {
       } while (true);
 
       // Two things we can do now: it's either a PHI or some other inst.
-      if (NewIdx.isBlock()) {
+      if (NewIdx.isBlock() && NewReg.isVirtual()) {
         auto ID = MI.getDebugValueID(0); // is always operand 0
         ValToPos.insert(std::make_pair(ID, std::make_pair(SI, NewReg)));
         RegIdx[NewReg].push_back(ID);
@@ -1079,6 +1079,14 @@ bool LDVImpl::runOnMachineFunction(MachineFunction &mf) {
         MF->mbbsOfInterest.insert(SlotMBB);
         MF->exPHIs.insert(std::make_pair(ID, std::make_pair(SlotMBB, NewReg)));
         MF->exPHIIndex[SlotMBB].insert(ID);
+      } else if (NewIdx.isBlock() && NewReg.isPhysical()) {
+        // Physical -> it's already a fixed PHI, probably an argument.
+        // Don't track it.
+        auto ID = MI.getDebugValueID(0); // is always operand 0
+        MachineOperand MO = MachineOperand::CreateReg(NewReg, false);
+        MF->PHIPointToReg.insert(std::make_pair(ID, std::make_pair(SlotMBB, MO)));
+        MF->exPHIIndex[SlotMBB].insert(ID);
+        MF->mbbsOfInterest.insert(SlotMBB);
       } else if (NewReg.isPhysical()) {
         // There's an instruction we can hinge on. However, there might not
         // be an operand we can touch. Formulate one manually and stick
