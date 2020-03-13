@@ -1379,6 +1379,9 @@ bool SelectionDAGBuilder::handleDebugValue(const Value *V, DILocalVariable *Var,
           Offset += RegisterSize;
         }
       } else {
+        // XXX XXX XXX jmorse, why do I need to force this to be a vreg?
+        Reg = Register::index2VirtReg(Reg);
+
         SDV = DAG.getVRegDbgValue(Var, Expr, Reg, false, dl, SDNodeOrder);
         DAG.AddDbgValue(SDV, nullptr, false);
       }

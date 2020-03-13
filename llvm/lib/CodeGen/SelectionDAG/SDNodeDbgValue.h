@@ -80,10 +80,12 @@ public:
     assert((Kind == VREG || Kind == FRAMEIX) &&
            "Invalid SDDbgValue constructor");
     kind = Kind;
-    if (kind == VREG)
+    if (kind == VREG) {
+      assert(VRegOrFrameIdx != 0);
       u.VReg = VRegOrFrameIdx;
-    else
+    } else {
       u.FrameIx = VRegOrFrameIdx;
+    }
   }
 
   /// Returns the kind.
