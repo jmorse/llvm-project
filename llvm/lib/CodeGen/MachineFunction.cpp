@@ -515,6 +515,27 @@ void MachineFunction::print(raw_ostream &OS, const SlotIndexes *Indexes) const {
   getProperties().print(OS);
   OS << '\n';
 
+  // XXX jmorse DBG_INSTR_REF
+  OS << "# MY DUDES!\n";
+  OS << "Value updates:\n";
+  for (auto &P : valueIDUpdateMap) {
+    OS << "  " << P.first << "\t->\t" << P.second << "\n";
+  }
+  
+  OS << "ex PHIs\n";
+
+  for (auto &P : exPHIs) {
+    OS << "  " << P.first << "\t-> " << P.second.first->getName() << " reg " << P.second.second << "\n";
+  }
+
+  OS << "post-regalloc exPHIs\n";
+
+  for (auto &P : PHIPointToReg) {
+    OS << "  " << P.first << "\t-> " << P.second.first->getName() << " operand " <<   P.second.second << "\n";
+  }
+
+  OS << "# Peace out\n";
+
   // Print Frame Information
   FrameInfo->print(*this, OS);
 

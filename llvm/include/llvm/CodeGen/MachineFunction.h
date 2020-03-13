@@ -281,6 +281,12 @@ public:
   }
 };
 
+inline llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, const DebugInstrRefID &ID) {
+  OS << ID.asU64();
+  return OS;
+}
+
+
 class MachineFunction {
   public:
   uint64_t DebugValueIDCount = 0;
