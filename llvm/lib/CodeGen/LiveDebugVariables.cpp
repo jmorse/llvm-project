@@ -1073,8 +1073,8 @@ bool LDVImpl::runOnMachineFunction(MachineFunction &mf) {
       // Two things we can do now: it's either a PHI or some other inst.
       if (NewIdx.isBlock()) {
         auto ID = MI.getDebugValueID(0); // is always operand 0
-        ValToPos.insert(std::make_pair(ID, std::make_pair(SI, reg)));
-        RegIdx[reg].push_back(ID);
+        ValToPos.insert(std::make_pair(ID, std::make_pair(SI, NewReg)));
+        RegIdx[NewReg].push_back(ID);
 
         MF->mbbsOfInterest.insert(SlotMBB);
         MF->exPHIs.insert(std::make_pair(ID, std::make_pair(SlotMBB, NewReg)));
