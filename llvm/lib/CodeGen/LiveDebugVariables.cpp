@@ -1096,6 +1096,7 @@ bool LDVImpl::runOnMachineFunction(MachineFunction &mf) {
         auto OrigID = MI.getDebugValueID(0); // is always operand 0
         auto ID = MF->makeNewABIRegDefPostRegalloc(SlotMBB, DummyID.getInstID(), NewReg, OrigID);
 
+        MF->valueIDUpdateMap.insert(std::make_pair(OrigID, ID));
 // XXX XXX XXX -- just disable recording these things. They have an inst
 // and a physreg. Nothing needs doing.
 //        ValToPos.insert(std::make_pair(ID, std::make_pair(SI, reg)));
