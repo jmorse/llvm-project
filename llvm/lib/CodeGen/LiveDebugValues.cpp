@@ -227,18 +227,18 @@ public:
 
   bool isVar() const { return _isVar == 1; }
 
-  Twine getName() const {
+  std::string getName() const {
     if (isVar())
-      return Var.getVariable()->getName();
+      return Var.getVariable()->getName().str();
     else
-      return Twine("InstrRef ").concat(Twine(ID));
+      return Twine("InstrRef ").concat(Twine(ID)).str();
   }
 
-  Twine getIdentName() const {
+  std::string getIdentName() const {
     if (isVar())
-      return Twine("Var: ").concat(getName());
+      return Twine("Var: ").concat(getName()).str();
     else
-      return Twine("InstrRef: ").concat(getName());
+      return Twine("InstrRef: ").concat(getName()).str();
   }
 
   static ValueIdentity getEmpty() { return ValueIdentity(2, false); }
@@ -615,7 +615,7 @@ private:
 
     bool hasVar() const { return Ident.isVar(); } // XXX try to eliminate?
 
-    Twine getName() const {
+    std::string getName() const {
       return Ident.getName();
     }
 
@@ -1891,8 +1891,7 @@ bool LiveDebugValues::join(
       if (VL.hasVar() && !VL.dominates(MBB)) {
         KillSet.set(ID);
         LLVM_DEBUG({
-          auto Name = VarLocIDs[Idx].Ident.getName();
-          dbgs() << "  killing " << Name << ", it doesn't dominate MBB\n";
+          dbgs() << "  killing " << VL.Ident.getName() << ", it doesn't dominate MBB\n";
         });
       }
     }
