@@ -1723,9 +1723,6 @@ void LiveDebugValues::transferRegisterCopy(MachineInstr &MI,
     }
   }
 
-  if (!SrcRegOp->isKill())
-    return;
-
   SmallVector<LocIndex, 4> IdxesToMove;
   for (uint64_t ID : OpenRanges.getVarLocs()) {
     LocIndex Idx = LocIndex::fromRawInteger(ID);
