@@ -1642,6 +1642,7 @@ void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI,
                       << "\n");
   }
   // Check if the register or spill location is the location of a debug value.
+  SmallVector<LocIndex, 8> IdxesToTransfer;
   for (uint64_t ID : OpenRanges.getVarLocs()) {
     LocIndex Idx = LocIndex::fromRawInteger(ID);
     const VarLoc &VL = VarLocIDs[Idx];
@@ -1655,10 +1656,13 @@ void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI,
       LLVM_DEBUG(dbgs() << VL.getName() << ")\n");
     } else
       continue;
-    insertTransferDebugPair(MI, OpenRanges, Transfers, VarLocIDs, Idx, TKind,
-                            Reg);
+    IdxesToTransfer.push_back(Idx);
     return;
   }
+
+  for (auto Idx : IdxesToTransfer)
+    insertTransferDebugPair(MI, OpenRanges, Transfers, VarLocIDs, Idx, TKind,
+                            Reg);
 }
 
 /// If \p MI is a register copy instruction, that copies a previously tracked
@@ -1722,13 +1726,17 @@ void LiveDebugValues::transferRegisterCopy(MachineInstr &MI,
   if (!SrcRegOp->isKill())
     return;
 
+  SmallVector<LocIndex, 4> IdxesToMove;
   for (uint64_t ID : OpenRanges.getVarLocs()) {
     LocIndex Idx = LocIndex::fromRawInteger(ID);
     if (VarLocIDs[Idx].isDescribedByReg() == SrcReg) {
-      insertTransferDebugPair(MI, OpenRanges, Transfers, VarLocIDs, Idx,
-                              TransferKind::TransferCopy, DestReg);
-      return;
+      IdxesToMove.push_back(Idx);
     }
+  }
+
+  for (auto Idx : IdxesToMove) {
+    insertTransferDebugPair(MI, OpenRanges, Transfers, VarLocIDs, Idx,
+                            TransferKind::TransferCopy, DestReg);
   }
 }
 
