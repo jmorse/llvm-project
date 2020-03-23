@@ -1093,6 +1093,12 @@ def DBG_VALUE : StandardPseudoInstruction {
   let AsmString = "DBG_VALUE";
   let hasSideEffects = 0;
 }
+def DBG_PHI : StandardPseudoInstruction {
+  let OutOperandList = (outs);
+  let InOperandList = (ins variable_ops);
+  let AsmString = "DBG_PHI";
+  let hasSideEffects = 0;
+}
 def DBG_LABEL : StandardPseudoInstruction {
   let OutOperandList = (outs);
   let InOperandList = (ins unknown:$label);

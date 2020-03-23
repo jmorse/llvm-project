@@ -152,6 +152,222 @@ struct LocIndex {
   }
 };
 
+// The location at which a spilled variable resides. It consists of a
+// register and an offset.
+struct SpillLoc {
+  unsigned SpillBase;
+  int SpillOffset;
+  bool operator==(const SpillLoc &Other) const {
+    return SpillBase == Other.SpillBase && SpillOffset == Other.SpillOffset;
+  }
+  bool operator<(const SpillLoc &Other) const {
+    return std::tie(SpillBase, SpillOffset) < std::tie(Other.SpillBase, Other.SpillOffset);
+  }
+};
+
+class ValueIDNum {
+public:
+  uint64_t BlockNo : 16;
+  uint64_t InstNo : 20;
+  uint64_t LocNo : 14;
+
+  uint64_t asU64() const {
+    uint64_t tmp_block = BlockNo;
+    uint64_t tmp_inst = InstNo;
+    return tmp_block << 34ull | tmp_inst << 14 | LocNo;
+  }
+
+  static ValueIDNum fromU64(uint64_t v) {
+    return {v >> 34ull, ((v >> 14) & 0xFFFFF), v & 0x3FFF};
+  }
+
+ bool operator<(const ValueIDNum &Other) const {
+   return asU64() < Other.asU64();
+ }
+
+  std::string asString(const TargetRegisterInfo *TRI) const {
+    std::string regname;
+    if (LocNo < TRI->getNumRegs())
+      regname = TRI->getRegAsmName(LocNo).str();
+    else
+      regname = Twine("slot ").concat(Twine(LocNo - TRI->getNumRegs())).str();
+    return Twine("bb ").concat(
+           Twine(BlockNo).concat(
+           Twine(" inst ").concat(
+           Twine(InstNo).concat(
+           Twine(" loc ").concat(
+           Twine(regname)))))).str();
+  }
+};
+
+class VarLocPos {
+public:
+  ValueIDNum ID;
+  uint64_t CurrentLoc : 14;
+
+  uint64_t asU64() const {
+    return ID.asU64() << 14 | CurrentLoc;
+  }
+
+  static VarLocPos fromU64(uint64_t v) {
+    return {ValueIDNum::fromU64(v >> 14), v & 0x3FFF};
+  }
+
+};
+
+class MLocTracker {
+public:
+  VarLocSet::Allocator &Alloc;
+  std::vector<ValueIDNum> MachineLocsToIDNums;
+  unsigned NumRegs;
+  UniqueVector<SpillLoc> SpillsToMLocs;
+
+  MLocTracker(VarLocSet::Allocator &Alloc, unsigned NumRegs)
+    : Alloc(Alloc), NumRegs(NumRegs) {
+    MachineLocsToIDNums.resize(NumRegs);
+    reset();
+  }
+
+  VarLocPos getVarLocPos(unsigned idx) const {
+    return {MachineLocsToIDNums[idx], idx};
+  }
+
+  VarLocSet makeVarLocSet(void) const {
+    VarLocSet set(Alloc);
+    for (unsigned idx = 0; idx < MachineLocsToIDNums.size(); ++idx) {
+      if (MachineLocsToIDNums[idx].LocNo == 0)
+        continue;
+      set.set(getVarLocPos(idx).asU64());
+    }
+    return set;
+  }
+
+  void loadFromVarLocSet(const VarLocSet &vls) {
+    reset();
+    for (auto ID : vls) {
+      auto pos = VarLocPos::fromU64(ID);
+      MachineLocsToIDNums[pos.CurrentLoc] = pos.ID;
+    }
+  }
+
+  void reset(void) {
+    memset(&MachineLocsToIDNums[0], 0, MachineLocsToIDNums.size() * sizeof(ValueIDNum));
+  }
+
+  void clear(void) {
+    MachineLocsToIDNums.clear();
+    //SpillsToMLocs.reset(); XXX can't reset?
+    SpillsToMLocs = decltype(SpillsToMLocs)();
+  }
+
+  void defReg(Register r, unsigned bb, unsigned inst) {
+    ValueIDNum id = {bb, inst, r};
+    MachineLocsToIDNums[r] = id;
+  }
+
+  void setReg(Register r, ValueIDNum id) {
+    MachineLocsToIDNums[r] = id;
+  }
+
+  void defSpill(SpillLoc l, unsigned bb, unsigned inst) {
+    unsigned SpillID = SpillsToMLocs.idFor(l);
+    if (SpillID == 0) {
+      SpillID = SpillsToMLocs.insert(l);
+      SpillID += NumRegs - 1;
+      ValueIDNum id = {bb, inst, SpillID};
+      MachineLocsToIDNums.push_back(id);
+      assert(MachineLocsToIDNums.size() == SpillID + 1);
+    } else {
+      ValueIDNum id = {bb, inst, SpillID + NumRegs - 1};
+      MachineLocsToIDNums[NumRegs + SpillID - 1] = id;
+    }
+  }
+
+  // xxx duplication
+  void setSpill(SpillLoc l, ValueIDNum id) {
+    unsigned SpillID = SpillsToMLocs.idFor(l);
+    if (SpillID == 0) {
+      SpillID = SpillsToMLocs.insert(l);
+      SpillID += NumRegs - 1;
+      MachineLocsToIDNums.push_back(id);
+      assert(MachineLocsToIDNums.size() == SpillID + 1);
+    } else {
+      MachineLocsToIDNums[NumRegs + SpillID - 1] = id;
+    }
+  }
+
+  ValueIDNum readReg(Register r) {
+    return MachineLocsToIDNums[r];
+  }
+
+  ValueIDNum readSpill(SpillLoc l) {
+    unsigned pos = SpillsToMLocs.idFor(l);
+    if (pos == 0)
+      // Returning no location -> 0 means $noreg and some hand wavey position
+      return {0, 0, 0};
+    return MachineLocsToIDNums[NumRegs + pos - 1];
+  }
+
+  void dump(const TargetRegisterInfo *TRI) {
+    for (unsigned int ID = 0; ID < NumRegs; ++ID) {
+      auto &num = MachineLocsToIDNums[ID];
+      if (num.LocNo == 0)
+        continue;
+      std::string defname = num.asString(TRI);
+      dbgs() << TRI->getRegAsmName(ID) << " --> " << defname << "\n";
+    }
+    for (unsigned int ID = NumRegs; ID < MachineLocsToIDNums.size(); ++ID) {
+      auto &num = MachineLocsToIDNums[ID];
+      if (num.LocNo == 0)
+        continue;
+      std::string lolslot = Twine("slot ").concat(Twine(ID - NumRegs)).str();
+      std::string defname = num.asString(TRI);
+      dbgs() << lolslot << " --> " << defname << "\n";
+    }
+  }
+};
+
+// Types for recording sets of variable fragments that overlap. For a given
+// local variable, we record all other fragments of that variable that could
+// overlap it, to reduce search time.
+using FragmentOfVar =
+    std::pair<const DILocalVariable *, DIExpression::FragmentInfo>;
+using OverlapMap =
+    DenseMap<FragmentOfVar, SmallVector<DIExpression::FragmentInfo, 1>>;
+
+class VLocTracker {
+public:
+  // Map the DebugVariable to recent primary location ID.
+  class TheValue {
+  public:
+    ValueIDNum ID;
+    Optional<MachineOperand> MO;
+    bool isMO;
+    const DIExpression *Expr;
+  };
+  SmallDenseMap<DebugVariable, TheValue, 8> Vars;
+
+public:
+  VLocTracker() {}
+
+  void defVar(const MachineInstr &MI, ValueIDNum ID) {
+    // XXX skipping overlapping fragments for now.
+    assert(MI.isDebugValue());
+    DebugVariable Var(MI.getDebugVariable(), MI.getDebugExpression(),
+                      MI.getDebugLoc()->getInlinedAt());
+    Vars[Var] = {ID, None, false, MI.getDebugExpression()};
+  }
+
+  void defVar(const MachineInstr &MI, const MachineOperand &MO) {
+    // XXX skipping overlapping fragments for now.
+    assert(MI.isDebugValue());
+    DebugVariable Var(MI.getDebugVariable(), MI.getDebugExpression(),
+                      MI.getDebugLoc()->getInlinedAt());
+    Vars[Var] = {{0, 0, 0}, MO, true, MI.getDebugExpression()};
+  }
+
+};
+
 class LiveDebugValues : public MachineFunctionPass {
 private:
   const TargetRegisterInfo *TRI;
@@ -160,6 +376,11 @@ private:
   BitVector CalleeSavedRegs;
   LexicalScopes LS;
   VarLocSet::Allocator Alloc;
+
+  MLocTracker *tracker;
+  unsigned cur_bb;
+  unsigned cur_inst;
+  VLocTracker *vtracker;
 
   enum struct TransferKind { TransferCopy, TransferSpill, TransferRestore };
 
@@ -187,16 +408,6 @@ private:
 
   /// A pair of debug variable and value location.
   struct VarLoc {
-    // The location at which a spilled variable resides. It consists of a
-    // register and an offset.
-    struct SpillLoc {
-      unsigned SpillBase;
-      int SpillOffset;
-      bool operator==(const SpillLoc &Other) const {
-        return SpillBase == Other.SpillBase && SpillOffset == Other.SpillOffset;
-      }
-    };
-
     /// Identity of the variable at this location.
     const DebugVariable Var;
 
@@ -489,14 +700,6 @@ private:
   };
   using TransferMap = SmallVector<TransferDebugPair, 4>;
 
-  // Types for recording sets of variable fragments that overlap. For a given
-  // local variable, we record all other fragments of that variable that could
-  // overlap it, to reduce search time.
-  using FragmentOfVar =
-      std::pair<const DILocalVariable *, DIExpression::FragmentInfo>;
-  using OverlapMap =
-      DenseMap<FragmentOfVar, SmallVector<DIExpression::FragmentInfo, 1>>;
-
   // Helper while building OverlapMap, a map of all fragments seen for a given
   // DILocalVariable.
   using VarToFragments =
@@ -606,12 +809,12 @@ private:
 
   /// If a given instruction is identified as a spill, return the spill location
   /// and set \p Reg to the spilled register.
-  Optional<VarLoc::SpillLoc> isRestoreInstruction(const MachineInstr &MI,
+  Optional<SpillLoc> isRestoreInstruction(const MachineInstr &MI,
                                                   MachineFunction *MF,
                                                   unsigned &Reg);
   /// Given a spill instruction, extract the register and offset used to
   /// address the spill location in a target independent way.
-  VarLoc::SpillLoc extractSpillBaseRegAndOffset(const MachineInstr &MI);
+  SpillLoc extractSpillBaseRegAndOffset(const MachineInstr &MI);
   void insertTransferDebugPair(MachineInstr &MI, OpenRangesSet &OpenRanges,
                                TransferMap &Transfers, VarLocMap &VarLocIDs,
                                LocIndex OldVarID, TransferKind Kind,
@@ -646,7 +849,7 @@ private:
             const VarLocMap &VarLocIDs,
             SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
             SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
-            VarLocInMBB &PendingInLocs);
+            VarLocInMBB &PendingInLocs, bool mlocs);
 
   /// Create DBG_VALUE insts for inlocs that have been propagated but
   /// had their instruction creation deferred.
@@ -833,7 +1036,7 @@ void LiveDebugValues::printVarLocInMBB(const MachineFunction &MF,
 }
 #endif
 
-LiveDebugValues::VarLoc::SpillLoc
+SpillLoc
 LiveDebugValues::extractSpillBaseRegAndOffset(const MachineInstr &MI) {
   assert(MI.hasOneMemOperand() &&
          "Spill instruction does not have exactly one memory operand?");
@@ -951,6 +1154,16 @@ void LiveDebugValues::transferDebugValue(const MachineInstr &MI,
     assert(MI.getOperand(0).isReg() && MI.getOperand(0).getReg() == 0 &&
            "Unexpected non-undef DBG_VALUE encountered");
   }
+
+  if (vtracker) {
+    if (isDbgValueDescribedByReg(MI)) {
+      auto ID = tracker->readReg(MI.getOperand(0).getReg());
+      vtracker->defVar(MI, ID);
+    } else if (MI.getOperand(0).isImm() || MI.getOperand(0).isFPImm() ||
+               MI.getOperand(0).isCImm()) {
+      vtracker->defVar(MI, MI.getOperand(0));
+    }
+  }
 }
 
 /// Turn the entry value backup locations into primary locations.
@@ -1026,7 +1239,7 @@ void LiveDebugValues::insertTransferDebugPair(
   case TransferKind::TransferSpill: {
     // Create a DBG_VALUE instruction to describe the Var in its spilled
     // location.
-    VarLoc::SpillLoc SpillLocation = extractSpillBaseRegAndOffset(MI);
+    SpillLoc SpillLocation = extractSpillBaseRegAndOffset(MI);
     VarLoc VL = VarLoc::CreateSpillLoc(*DebugInstr, SpillLocation.SpillBase,
                                        SpillLocation.SpillOffset, LS);
     ProcessVarLoc(VL);
@@ -1090,8 +1303,10 @@ void LiveDebugValues::transferRegisterDef(
   // reasons, it's critical to not iterate over the full set of open VarLocs.
   // Iterate over the set of dying/used regs instead.
   VarLocSet KillSet(Alloc);
-  for (uint32_t DeadReg : DeadRegs)
+  for (uint32_t DeadReg : DeadRegs) {
     collectIDsForReg(KillSet, DeadReg, OpenRanges.getVarLocs());
+    tracker->defReg(DeadReg, cur_bb, cur_inst);
+  }
   if (!RegMasks.empty()) {
     SmallVector<uint32_t, 32> UsedRegs;
     getUsedRegs(OpenRanges.getVarLocs(), UsedRegs);
@@ -1112,8 +1327,10 @@ void LiveDebugValues::transferRegisterDef(
           any_of(RegMasks, [Reg](const uint32_t *RegMask) {
             return MachineOperand::clobbersPhysReg(RegMask, Reg);
           });
-      if (AnyRegMaskKillsReg)
+      if (AnyRegMaskKillsReg) {
         collectIDsForReg(KillSet, Reg, OpenRanges.getVarLocs());
+        tracker->defReg(Reg, cur_bb, cur_inst);
+      }
     }
   }
   OpenRanges.erase(KillSet, VarLocIDs);
@@ -1178,7 +1395,7 @@ bool LiveDebugValues::isLocationSpill(const MachineInstr &MI,
   return false;
 }
 
-Optional<LiveDebugValues::VarLoc::SpillLoc>
+Optional<SpillLoc>
 LiveDebugValues::isRestoreInstruction(const MachineInstr &MI,
                                       MachineFunction *MF, unsigned &Reg) {
   if (!MI.hasOneMemOperand())
@@ -1207,7 +1424,7 @@ void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI,
   MachineFunction *MF = MI.getMF();
   TransferKind TKind;
   unsigned Reg;
-  Optional<VarLoc::SpillLoc> Loc;
+  Optional<SpillLoc> Loc;
 
   LLVM_DEBUG(dbgs() << "Examining instruction: "; MI.dump(););
 
@@ -1255,6 +1472,17 @@ void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI,
     LLVM_DEBUG(dbgs() << "Register: " << Reg << " " << printReg(Reg, TRI)
                       << "\n");
   }
+
+  Loc = extractSpillBaseRegAndOffset(MI);
+  if (TKind == TransferKind::TransferSpill) {
+    auto id = tracker->readReg(Reg);
+    tracker->setSpill(*Loc, id);
+  } else {
+    auto id = tracker->readSpill(*Loc);
+    if (id.LocNo != 0)
+      tracker->setReg(Reg, id);
+  }
+
   // Check if the register or spill location is the location of a debug value.
   for (uint64_t ID : OpenRanges.getVarLocs()) {
     LocIndex Idx = LocIndex::fromRawInteger(ID);
@@ -1341,6 +1569,8 @@ void LiveDebugValues::transferRegisterCopy(MachineInstr &MI,
     if (VarLocIDs[Idx].isDescribedByReg() == SrcReg) {
       insertTransferDebugPair(MI, OpenRanges, Transfers, VarLocIDs, Idx,
                               TransferKind::TransferCopy, DestReg);
+      auto id = tracker->readReg(SrcReg);
+      tracker->setReg(DestReg, id);
       return;
     }
   }
@@ -1447,7 +1677,7 @@ bool LiveDebugValues::join(
     const VarLocMap &VarLocIDs,
     SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
     SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
-    VarLocInMBB &PendingInLocs) {
+    VarLocInMBB &PendingInLocs, bool mlocs) {
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
 
@@ -1480,7 +1710,7 @@ bool LiveDebugValues::join(
       InLocsT &= OL->second;
 
     LLVM_DEBUG({
-      if (!InLocsT.empty()) {
+      if (!InLocsT.empty() && !mlocs) {
         for (uint64_t ID : InLocsT)
           dbgs() << "  gathered candidate incoming var: "
                  << VarLocIDs[LocIndex::fromRawInteger(ID)]
@@ -1496,7 +1726,7 @@ bool LiveDebugValues::join(
   // Filter out DBG_VALUES that are out of scope.
   VarLocSet KillSet(Alloc);
   bool IsArtificial = ArtificialBlocks.count(&MBB);
-  if (!IsArtificial) {
+  if (!IsArtificial && !mlocs) {
     for (uint64_t ID : InLocsT) {
       LocIndex Idx = LocIndex::fromRawInteger(ID);
       if (!VarLocIDs[Idx].dominates(MBB)) {
@@ -1668,6 +1898,8 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
                               // that we have deferred creating DBG_VALUE insts
                               // for immediately.
 
+  VarLocInMBB MLOCOutLocs, MLOCInLocs, MLOCPendingInLocs;
+
   VarToFragments SeenFragments;
 
   // Blocks which are artificial, i.e. blocks which exclusively contain
@@ -1730,7 +1962,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   // To solve it, we perform join() and process() using the two worklist method
   // until the ranges converge.
   // Ranges have converged when both worklists are empty.
-  SmallPtrSet<const MachineBasicBlock *, 16> Visited;
+  SmallPtrSet<const MachineBasicBlock *, 16> Visited, MLOCVisited;
   while (!Worklist.empty() || !Pending.empty()) {
     // We track what is on the pending worklist to avoid inserting the same
     // thing twice.  We could avoid this with a custom priority queue, but this
@@ -1739,10 +1971,17 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     LLVM_DEBUG(dbgs() << "Processing Worklist\n");
     while (!Worklist.empty()) {
       MachineBasicBlock *MBB = OrderToBB[Worklist.top()];
+      cur_bb = Worklist.top();
+      cur_inst = 0;
       Worklist.pop();
       MBBJoined = join(*MBB, OutLocs, InLocs, VarLocIDs, Visited,
-                       ArtificialBlocks, PendingInLocs);
+                       ArtificialBlocks, PendingInLocs, false);
       MBBJoined |= Visited.insert(MBB).second;
+      MLOCVisited.insert(MBB);
+
+     // XXX jmorse
+      join(*MBB, MLOCOutLocs, MLOCInLocs, VarLocIDs, MLOCVisited, ArtificialBlocks, MLOCPendingInLocs, true);
+
       if (MBBJoined) {
         MBBJoined = false;
         Changed = true;
@@ -1752,8 +1991,11 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
         // First load any pending inlocs.
         OpenRanges.insertFromLocSet(getVarLocsInMBB(MBB, PendingInLocs),
                                     VarLocIDs);
-        for (auto &MI : *MBB)
+        tracker->loadFromVarLocSet(getVarLocsInMBB(MBB, MLOCInLocs));
+        for (auto &MI : *MBB) {
           process(MI, OpenRanges, VarLocIDs, Transfers);
+          ++cur_inst;
+        }
         OLChanged |= transferTerminator(MBB, OpenRanges, OutLocs, VarLocIDs);
 
         LLVM_DEBUG(printVarLocInMBB(MF, OutLocs, VarLocIDs,
@@ -1768,12 +2010,36 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
               Pending.push(BBToOrder[s]);
             }
         }
+        getVarLocsInMBB(MBB, MLOCOutLocs) = tracker->makeVarLocSet();
+        tracker->reset();
       }
     }
     Worklist.swap(Pending);
     // At this point, pending must be empty, since it was just the empty
     // worklist
     assert(Pending.empty() && "Pending should be empty");
+  }
+
+  // vlocs and mlocs: go back over each block, this time tracking the vlocs
+  // and building a transfer function between each block. 
+  DenseMap<unsigned, VLocTracker *> vlocs;
+  for (unsigned I = 0; I < MF.size(); ++I)
+    vlocs[I] = new VLocTracker();
+
+  // Accumulate things into the vloc tracker.
+  for (auto RI = RPOT.begin(), RE = RPOT.end(); RI != RE; ++RI) {
+    unsigned Idx = BBToOrder[*RI];
+    auto *MBB = *RI;
+    tracker->reset();
+    vtracker = vlocs[Idx];
+    tracker->loadFromVarLocSet(getVarLocsInMBB(MBB, MLOCInLocs));
+    cur_bb = Idx;
+    cur_inst = 0;
+    OpenRanges.clear();
+    for (auto &MI : *MBB) { // XXX I think the empty open ranges does nufink
+      process(MI, OpenRanges, VarLocIDs, Transfers);
+      ++cur_inst;
+    }
   }
 
   // Add any DBG_VALUE instructions created by location transfers.
@@ -1791,6 +2057,20 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
   LLVM_DEBUG(printVarLocInMBB(MF, OutLocs, VarLocIDs, "Final OutLocs", dbgs()));
   LLVM_DEBUG(printVarLocInMBB(MF, InLocs, VarLocIDs, "Final InLocs", dbgs()));
+
+  LLVM_DEBUG({
+    dbgs() << "At the end of all that...\n";
+    for (auto RI = RPOT.begin(), RE = RPOT.end(); RI != RE; ++RI) {
+      unsigned id = BBToOrder[*RI];
+      MachineBasicBlock *MBB = *RI;
+      dbgs() << "In bb " << MBB->getName() << " num " << id << "\n";
+      tracker->reset();
+      tracker->loadFromVarLocSet(getVarLocsInMBB(MBB, MLOCOutLocs));
+      tracker->dump(TRI);
+      dbgs() << "FIN BLOCK\n\n";
+    }
+  });
+
   return Changed;
 }
 
@@ -1810,6 +2090,11 @@ bool LiveDebugValues::runOnMachineFunction(MachineFunction &MF) {
   TFI->getCalleeSaves(MF, CalleeSavedRegs);
   LS.initialize(MF);
 
+  tracker = new MLocTracker(Alloc, TRI->getNumRegs());
+  vtracker = nullptr;
+
   bool Changed = ExtendRanges(MF);
+  delete tracker;
+  vtracker = nullptr;
   return Changed;
 }

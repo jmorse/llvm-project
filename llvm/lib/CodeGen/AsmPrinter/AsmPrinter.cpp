@@ -1144,6 +1144,8 @@ void AsmPrinter::emitFunctionBody() {
             emitInstruction(&MI);
         }
         break;
+      case TargetOpcode::DBG_PHI:
+        break;
       case TargetOpcode::DBG_LABEL:
         if (isVerbose()) {
           if (!emitDebugLabelComment(&MI, *this))

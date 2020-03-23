@@ -101,12 +101,12 @@ enum : unsigned { UndefLocNo = ~0U };
 class DbgVariableValue {
 public:
   DbgVariableValue(unsigned LocNo, bool WasIndirect,
-                   const DIExpression &Expression)
-      : LocNo(LocNo), WasIndirect(WasIndirect), Expression(&Expression) {
+                   const DIExpression &Expression, bool isPHI)
+      : LocNo(LocNo), WasIndirect(WasIndirect), Expression(&Expression), isPHI(isPHI) {
     assert(getLocNo() == LocNo && "location truncation");
   }
 
-  DbgVariableValue() : LocNo(0), WasIndirect(0) {}
+  DbgVariableValue() : LocNo(0), WasIndirect(0), isPHI(0) {}
 
   const DIExpression *getExpression() const { return Expression; }
   unsigned getLocNo() const {
@@ -115,9 +115,10 @@ public:
   }
   bool getWasIndirect() const { return WasIndirect; }
   bool isUndef() const { return getLocNo() == UndefLocNo; }
+  bool getIsPHI() const { return isPHI; }
 
   DbgVariableValue changeLocNo(unsigned NewLocNo) const {
-    return DbgVariableValue(NewLocNo, WasIndirect, *Expression);
+    return DbgVariableValue(NewLocNo, WasIndirect, *Expression, isPHI);
   }
 
   friend inline bool operator==(const DbgVariableValue &LHS,
@@ -132,8 +133,9 @@ public:
   }
 
 private:
-  unsigned LocNo : 31;
+  unsigned LocNo : 30;
   unsigned WasIndirect : 1;
+  unsigned isPHI : 1;
   const DIExpression *Expression = nullptr;
 };
 
@@ -301,8 +303,8 @@ public:
 
   /// Add a definition point to this user value.
   void addDef(SlotIndex Idx, const MachineOperand &LocMO, bool IsIndirect,
-              const DIExpression &Expr) {
-    DbgVariableValue DbgValue(getLocationNo(LocMO), IsIndirect, Expr);
+              const DIExpression &Expr, bool isPHI) {
+    DbgVariableValue DbgValue(getLocationNo(LocMO), IsIndirect, Expr, isPHI);
     // Add a singular (Idx,Idx) -> value mapping.
     LocMap::iterator I = locInts.find(Idx);
     if (!I.valid() || I.start() != Idx)
@@ -629,6 +631,8 @@ UserValue *LDVImpl::lookupVirtReg(unsigned VirtReg) {
 }
 
 bool LDVImpl::handleDebugValue(MachineInstr &MI, SlotIndex Idx) {
+  bool isPHI = MI.isDebugPHI();
+
   // DBG_VALUE loc, offset, variable
   if (MI.getNumOperands() != 4 ||
       !(MI.getOperand(1).isReg() || MI.getOperand(1).isImm()) ||
@@ -678,11 +682,11 @@ bool LDVImpl::handleDebugValue(MachineInstr &MI, SlotIndex Idx) {
   const DIExpression *Expr = MI.getDebugExpression();
   UserValue *UV = getUserValue(Var, Expr->getFragmentInfo(), MI.getDebugLoc());
   if (!Discard)
-    UV->addDef(Idx, MI.getOperand(0), IsIndirect, *Expr);
+    UV->addDef(Idx, MI.getOperand(0), IsIndirect, *Expr, isPHI);
   else {
     MachineOperand MO = MachineOperand::CreateReg(0U, false);
     MO.setIsDebug();
-    UV->addDef(Idx, MO, false, *Expr);
+    UV->addDef(Idx, MO, false, *Expr, isPHI);
   }
   return true;
 }
@@ -734,7 +738,8 @@ bool LDVImpl::collectDebugValues(MachineFunction &mf) {
         // Only handle DBG_VALUE in handleDebugValue(). Skip all other
         // kinds of debug instructions.
         if ((MBBI->isDebugValue() && handleDebugValue(*MBBI, Idx)) ||
-            (MBBI->isDebugLabel() && handleDebugLabel(*MBBI, Idx))) {
+            (MBBI->isDebugLabel() && handleDebugLabel(*MBBI, Idx)) ||
+            (MBBI->isDebugPHI() && handleDebugValue(*MBBI, Idx))) {
           MBBI = MBB->erase(MBBI);
           Changed = true;
         } else
@@ -1360,10 +1365,13 @@ void UserValue::insertDebugValue(MachineBasicBlock *MBB, SlotIndex StartIdx,
     IsIndirect = true;
   }
 
+  auto desc = (DbgValue.getIsPHI()) ? TII.get(TargetOpcode::DBG_PHI)
+                                    : TII.get(TargetOpcode::DBG_VALUE);
+
   assert((!Spilled || MO.isFI()) && "a spilled location must be a frame index");
 
   do {
-    BuildMI(*MBB, I, getDebugLoc(), TII.get(TargetOpcode::DBG_VALUE),
+    BuildMI(*MBB, I, getDebugLoc(), desc,
             IsIndirect, MO, Variable, Expr);
 
     // Continue and insert DBG_VALUES after every redefinition of register
