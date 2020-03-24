@@ -442,15 +442,20 @@ public:
 
 class TransferTracker {
 public:
+  const TargetInstrInfo *TII;
+  MLocTracker *mlocs;
+  MachineFunction &MF;
+
   typedef std::pair<unsigned, const DIExpression *> hahaloc;
-  typedef std::pair<DebugVariable, hahaloc> TFer;
-  typedef std::pair<MachineBasicBlock::iterator, TFer> TFerPosish;
+  typedef std::pair<MachineBasicBlock::iterator, std::vector<MachineInstr *>> TFerPosish;
   std::vector<TFerPosish> Transfers;
 
   DenseMap<unsigned, SmallSet<DebugVariable, 4>> ActiveMLocs;
   DenseMap<DebugVariable, hahaloc> ActiveVLocs;
 
-  void loadInlocs(lolnumberingt &lolnumbering, VarLocSet &mlocs, VarLocSet &vlocs) {  
+  TransferTracker(const TargetInstrInfo *TII, MLocTracker *mlocs, MachineFunction &MF) : TII(TII), mlocs(mlocs), MF(MF) { }
+
+  void loadInlocs(MachineBasicBlock &MBB, lolnumberingt &lolnumbering, VarLocSet &mlocs, VarLocSet &vlocs) {  
     ActiveMLocs.clear();
     ActiveVLocs.clear();
 
@@ -466,14 +471,19 @@ public:
     }
 
     // Now map variables to their current machine locs
+    std::vector<MachineInstr *> inlocs;
     for (auto ID : vlocs) {
       auto &Var = lolnumbering[ID];
-      if (Var.second.isMO)
+      if (Var.second.isMO) {
+        inlocs.push_back(emitMOLoc(*Var.second.MO, Var.first, Var.second.Expr));
         continue;
+      }
       unsigned mloc = tmpmap[Var.second.ID];
       ActiveVLocs[Var.first] = std::make_pair(mloc, Var.second.Expr);
       ActiveMLocs[mloc].insert(Var.first);
+      inlocs.push_back(emitLoc(mloc, Var.first, Var.second.Expr));
     }
+    Transfers.push_back({MBB.begin(), std::move(inlocs)});
   }
 
   void redefVar(const MachineInstr &MI) {
@@ -516,15 +526,49 @@ public:
     assert(ActiveMLocs[dst].size() == 0);
     ActiveMLocs[dst] = ActiveMLocs[src];
 
+    std::vector<MachineInstr *> instrs;
     for (auto &Var : ActiveMLocs[src]) {
       auto it = ActiveVLocs.find(Var);
       assert(it != ActiveVLocs.end());
       it->second.first = dst;
 
-      TFer t = {Var, {dst, it->second.second}};
-      Transfers.push_back({pos, t});
+      MachineInstr *MI = emitLoc(dst, Var, it->second.second);
+      instrs.push_back(MI);
     }
     ActiveMLocs[src].clear();
+    Transfers.push_back({std::next(pos), std::move(instrs)});
+  }
+
+  MachineInstrBuilder 
+  emitMOLoc(const MachineOperand &MO,
+              const DebugVariable &Var, const DIExpression *Expr) {
+    DebugLoc DL = DebugLoc::get(0, 0, Var.getVariable()->getScope(), Var.getInlinedAt());
+    auto MIB = BuildMI(MF, DL, TII->get(TargetOpcode::DBG_VALUE));
+    MIB.add(MO);
+    MIB.addReg(0);
+    MIB.addMetadata(Var.getVariable());
+    MIB.addMetadata(Expr);
+    return MIB;
+  }
+
+  MachineInstrBuilder 
+  emitLoc(unsigned MLoc, const DebugVariable &Var, const DIExpression *Expr) {
+    DebugLoc DL = DebugLoc::get(0, 0, Var.getVariable()->getScope(), Var.getInlinedAt());
+    auto MIB = BuildMI(MF, DL, TII->get(TargetOpcode::DBG_VALUE));
+
+    if (MLoc < mlocs->NumRegs) {
+      MIB.addReg(MLoc);
+    } else {
+      const SpillLoc &Loc = mlocs->SpillsToMLocs[MLoc - mlocs->NumRegs + 1];
+      Expr = DIExpression::prepend(Expr, DIExpression::ApplyOffset, Loc.SpillOffset);
+      unsigned Base = Loc.SpillBase;
+      MIB.addReg(Base);
+    }
+
+    MIB.addReg(0);
+    MIB.addMetadata(Var.getVariable());
+    MIB.addMetadata(Expr);
+    return MIB;
   }
 };
 
@@ -1045,6 +1089,9 @@ public:
   void printVarLocInMBB(const MachineFunction &MF, const VarLocInMBB &V,
                         const VarLocMap &VarLocIDs, const char *msg,
                         raw_ostream &Out) const;
+
+  void emitDbgValue(MLocTracker *mlocs, ValueRec &theloc, DebugVariable &Var,
+                    MachineBasicBlock::iterator pos);
 
   /// Calculate the liveness information for the given machine function.
   bool runOnMachineFunction(MachineFunction &MF) override;
@@ -2412,11 +2459,13 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     assert(Pending.empty() && "Pending should be empty");
   }
 
-  ttracker = new TransferTracker();
+  // mloc argument only needs the posish -> spills map and the like.
+  ttracker = new TransferTracker(TII, tracker, MF);
+
   // Reprocess all instructions a final time and record transfers. The live-in
   // locations should not change as we've reached a fixedpoint.
   for (MachineBasicBlock &MBB : MF) {
-    ttracker->loadInlocs(lolnumbering, getVarLocsInMBB(&MBB, MLOCInLocs), getVarLocsInMBB(&MBB, VLOCInLocs));
+    ttracker->loadInlocs(MBB, lolnumbering, getVarLocsInMBB(&MBB, MLOCInLocs), getVarLocsInMBB(&MBB, VLOCInLocs));
 
     OpenRanges.insertFromLocSet(getVarLocsInMBB(&MBB, PendingInLocs), VarLocIDs);
     for (auto &MI : MBB)
