@@ -1067,9 +1067,8 @@ public:
   bool isPosition() const { return isLabel() || isCFIInstruction(); }
 
   bool isDebugValue() const { return getOpcode() == TargetOpcode::DBG_VALUE; }
-  bool isDebugPHI() const { return getOpcode() == TargetOpcode::DBG_PHI; }
   bool isDebugLabel() const { return getOpcode() == TargetOpcode::DBG_LABEL; }
-  bool isDebugInstr() const { return isDebugValue() || isDebugLabel() || isDebugPHI(); }
+  bool isDebugInstr() const { return isDebugValue() || isDebugLabel(); }
 
   /// A DBG_VALUE is indirect iff the first operand is a register and
   /// the second operand is an immediate.
