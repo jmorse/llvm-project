@@ -1,3 +1,4 @@
+; XFAIL: *
 ; RUN: llc -debug-entry-values -filetype=asm -o - %s | FileCheck %s
 
 ; Verify that the entry value covers both of the DW_OP_regx pieces. Previously

@@ -1,3 +1,4 @@
+# XFAIL: *
 # RUN: llc -debug-entry-values -start-before=livedebugvalues -filetype=obj -o - %s | llvm-dwarfdump - | FileCheck %s
 
 # Based on the following C++ code:

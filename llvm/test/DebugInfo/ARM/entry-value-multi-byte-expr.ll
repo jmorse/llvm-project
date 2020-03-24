@@ -1,3 +1,4 @@
+; XFAIL: *
 ; RUN: llc -debug-entry-values -filetype=asm -o - %s | FileCheck %s
 
 ; Verify that the size operands of the DW_OP_GNU_entry_value operations are

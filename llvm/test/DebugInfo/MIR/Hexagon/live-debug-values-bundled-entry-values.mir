@@ -1,3 +1,4 @@
+# XFAIL: *
 # RUN: llc -debug-entry-values -run-pass=livedebugvalues -o - %s | FileCheck %s
 
 # Verify that the entry values for the input parameters are inserted after the
