@@ -191,6 +191,7 @@ public:
       regname = TRI->getRegAsmName(LocNo).str();
     else
       regname = Twine("slot ").concat(Twine(LocNo - TRI->getNumRegs())).str();
+    assert(regname != "");
     return Twine("bb ").concat(
            Twine(BlockNo).concat(
            Twine(" inst ").concat(
@@ -335,17 +336,46 @@ using FragmentOfVar =
 using OverlapMap =
     DenseMap<FragmentOfVar, SmallVector<DIExpression::FragmentInfo, 1>>;
 
+class ValueRec {
+public:
+  ValueIDNum ID;
+  Optional<MachineOperand> MO;
+  bool isMO;
+  const DIExpression *Expr;
+
+  void dump(const TargetRegisterInfo *TRI) const {
+    if (isMO) {
+      MO->dump();
+    } else {
+      dbgs() << ID.asString(TRI);
+    }
+    dbgs() << " " << *Expr;
+  }
+
+  bool operator<(const ValueRec &Other) const {
+    if (isMO && Other.isMO) {
+      if (MO->getType() == Other.MO->getType()) {
+        if (MO->isImm())
+          return MO->getImm() < Other.MO->getImm(); 
+        else if (MO->isCImm())
+          return MO->getCImm() < Other.MO->getCImm(); 
+        else if (MO->isFPImm())
+          return MO->getFPImm() < Other.MO->getFPImm(); 
+        else
+          abort();
+      } else {
+        return MO->getType() < Other.MO->getType();
+      }
+    } else {
+      return std::tie(isMO, ID, Expr) < std::tie(Other.isMO, Other.ID, Other.Expr);
+    }
+  }
+};
+
 class VLocTracker {
 public:
   // Map the DebugVariable to recent primary location ID.
-  class TheValue {
-  public:
-    ValueIDNum ID;
-    Optional<MachineOperand> MO;
-    bool isMO;
-    const DIExpression *Expr;
-  };
-  SmallDenseMap<DebugVariable, TheValue, 8> Vars;
+  SmallDenseMap<DebugVariable, ValueRec, 8> Vars;
 
 public:
   VLocTracker() {}
@@ -365,7 +395,25 @@ public:
                       MI.getDebugLoc()->getInlinedAt());
     Vars[Var] = {{0, 0, 0}, MO, true, MI.getDebugExpression()};
   }
+};
 
+/// Keeps track of lexical scopes associated with a user value's source
+/// location.
+class UserValueScopes {
+  DebugLoc DL;
+  LexicalScopes &LS;
+  SmallPtrSet<const MachineBasicBlock *, 4> LBlocks;
+
+public:
+  UserValueScopes(DebugLoc D, LexicalScopes &L) : DL(std::move(D)), LS(L) {}
+
+  /// Return true if current scope dominates at least one machine
+  /// instruction in a given machine basic block.
+  bool dominates(MachineBasicBlock *MBB) {
+    if (LBlocks.empty())
+      LS.getMachineBasicBlocks(DL, LBlocks);
+    return LBlocks.count(MBB) != 0 || LS.dominates(DL, MBB);
+  }
 };
 
 class LiveDebugValues : public MachineFunctionPass {
@@ -384,24 +432,6 @@ private:
 
   enum struct TransferKind { TransferCopy, TransferSpill, TransferRestore };
 
-  /// Keeps track of lexical scopes associated with a user value's source
-  /// location.
-  class UserValueScopes {
-    DebugLoc DL;
-    LexicalScopes &LS;
-    SmallPtrSet<const MachineBasicBlock *, 4> LBlocks;
-
-  public:
-    UserValueScopes(DebugLoc D, LexicalScopes &L) : DL(std::move(D)), LS(L) {}
-
-    /// Return true if current scope dominates at least one machine
-    /// instruction in a given machine basic block.
-    bool dominates(MachineBasicBlock *MBB) {
-      if (LBlocks.empty())
-        LS.getMachineBasicBlocks(DL, LBlocks);
-      return LBlocks.count(MBB) != 0 || LS.dominates(DL, MBB);
-    }
-  };
 
   using FragmentInfo = DIExpression::FragmentInfo;
   using OptFragmentInfo = Optional<DIExpression::FragmentInfo>;
@@ -850,6 +880,14 @@ private:
             SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
             SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
             VarLocInMBB &PendingInLocs, bool mlocs);
+
+  typedef UniqueVector<std::pair<DebugVariable, ValueRec>> lolnumberingt;
+  bool vloc_join(const MachineBasicBlock &MBB, VarLocInMBB &VLOCOutLocs,
+                 VarLocInMBB &VLOCInLocs, lolnumberingt &lolnumbering,
+                 SmallPtrSet<const MachineBasicBlock *, 16> &VLOCVisited,
+                 SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
+                 VarLocInMBB &VLOCPendingInLocs);
+  bool vloc_transfer(VarLocSet &ilocs, VarLocSet &transfer, VarLocSet &olocs, lolnumberingt &lolnumbering);
 
   /// Create DBG_VALUE insts for inlocs that have been propagated but
   /// had their instruction creation deferred.
@@ -1772,6 +1810,128 @@ bool LiveDebugValues::join(
   return Changed;
 }
 
+bool LiveDebugValues::vloc_join(
+  const MachineBasicBlock &MBB, VarLocInMBB &VLOCOutLocs,
+   VarLocInMBB &VLOCInLocs, lolnumberingt &lolnumbering,
+   SmallPtrSet<const MachineBasicBlock *, 16> &VLOCVisited,
+   SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
+   VarLocInMBB &VLOCPendingInLocs) {
+  LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
+  bool Changed = false;
+
+  VarLocSet InLocsT(Alloc); // Temporary incoming locations.
+
+  // For all predecessors of this MBB, find the set of VarLocs that
+  // can be joined.
+  int NumVisited = 0;
+  for (auto p : MBB.predecessors()) {
+    // Ignore backedges if we have not visited the predecessor yet. As the
+    // predecessor hasn't yet had locations propagated into it, most locations
+    // will not yet be valid, so treat them as all being uninitialized and
+    // potentially valid. If a location guessed to be correct here is
+    // invalidated later, we will remove it when we revisit this block.
+    if (!VLOCVisited.count(p)) {
+      LLVM_DEBUG(dbgs() << "  ignoring unvisited pred MBB: " << p->getNumber()
+                        << "\n");
+      continue;
+    }
+    auto OL = VLOCOutLocs.find(p);
+    // Join is null in case of empty OutLocs from any of the pred.
+    if (OL == VLOCOutLocs.end())
+      return false;
+
+    // Just copy over the Out locs to incoming locs for the first visited
+    // predecessor, and for all other predecessors join the Out locs.
+    if (!NumVisited)
+      InLocsT = OL->second;
+    else
+      InLocsT &= OL->second;
+
+    // xXX jmorse deleted debug statement
+
+    NumVisited++;
+  }
+
+  // Filter out DBG_VALUES that are out of scope.
+  VarLocSet KillSet(Alloc);
+  bool IsArtificial = ArtificialBlocks.count(&MBB);
+  if (!IsArtificial) {
+    for (uint64_t ID : InLocsT) {
+      auto &lolpair = lolnumbering[ID];
+      DebugLoc dl = DebugLoc::get(0, 0, lolpair.first.getVariable()->getScope(), lolpair.first.getInlinedAt());
+      // XXX performance fail
+      UserValueScopes UVS(dl, LS);
+      if (UVS.dominates(const_cast<MachineBasicBlock *>(&MBB))) {
+        KillSet.set(ID);
+        // XXX deleted debug statement
+      }
+    }
+  }
+  InLocsT.intersectWithComplement(KillSet);
+
+  // As we are processing blocks in reverse post-order we
+  // should have processed at least one predecessor, unless it
+  // is the entry block which has no predecessor.
+  assert((NumVisited || MBB.pred_empty()) &&
+         "Should have processed at least one predecessor");
+
+  VarLocSet &ILS = getVarLocsInMBB(&MBB, VLOCInLocs);
+  VarLocSet &Pending = getVarLocsInMBB(&MBB, VLOCPendingInLocs);
+
+  // New locations will have DBG_VALUE insts inserted at the start of the
+  // block, after location propagation has finished. Record the insertions
+  // that we need to perform in the Pending set.
+  VarLocSet Diff = InLocsT;
+  Diff.intersectWithComplement(ILS);
+  Pending.set(Diff);
+  ILS.set(Diff);
+  NumInserted += Diff.count();
+  Changed |= !Diff.empty();
+
+  // We may have lost locations by learning about a predecessor that either
+  // loses or moves a variable. Find any locations in ILS that are not in the
+  // new in-locations, and delete those.
+  VarLocSet Removed = ILS;
+  Removed.intersectWithComplement(InLocsT);
+  Pending.intersectWithComplement(Removed);
+  ILS.intersectWithComplement(Removed);
+  NumRemoved += Removed.count();
+  Changed |= !Removed.empty();
+
+  return Changed;
+}
+
+bool LiveDebugValues::vloc_transfer(VarLocSet &ilocs, VarLocSet &transfer, VarLocSet &olocs, lolnumberingt &lolnumbering) {
+  // Eeeerrmmmm...
+  // quick implementation then, anything in transfer overrides ilocs. Filter
+  // out anything that's been deleted in the meantime.
+
+  olocs = transfer;
+  DenseSet<DebugVariable> set;
+  for (auto ID : transfer) {
+    set.insert(lolnumbering[ID].first);
+  }
+
+  VarLocSet tmp = ilocs;
+  tmp.intersectWithComplement(transfer);
+  for (auto ID : tmp) {
+    if (set.count(lolnumbering[ID].first))
+      continue;
+    olocs.set(ID);
+  }
+
+  // XXX erm, unset any empty locations.
+  VarLocSet bees(Alloc);
+  for (auto ID : olocs) {
+    auto rec = lolnumbering[ID].second;
+    if (!rec.isMO && rec.ID.LocNo == 0)
+      bees.set(ID);
+  }
+  olocs.intersectWithComplement(bees);
+
+  return olocs != ilocs;
+}
+
 void LiveDebugValues::flushPendingLocs(VarLocInMBB &PendingInLocs,
                                        VarLocMap &VarLocIDs) {
   // PendingInLocs records all locations propagated into blocks, which have
@@ -2029,6 +2189,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   // Accumulate things into the vloc tracker.
   for (auto RI = RPOT.begin(), RE = RPOT.end(); RI != RE; ++RI) {
     unsigned Idx = BBToOrder[*RI];
+    Worklist.push(Idx);
     auto *MBB = *RI;
     tracker->reset();
     vtracker = vlocs[Idx];
@@ -2041,6 +2202,65 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
       ++cur_inst;
     }
   }
+
+  // OK, we have some transfer functions. Number everything; do data flow.
+  UniqueVector<std::pair<DebugVariable, ValueRec>> lolnumbering;
+  VarLocInMBB VLOCOutLocs, VLOCInLocs, VLOCPendingInLocs, VLOCTransfer;
+
+  for (auto &It : vlocs) {
+    const MachineBasicBlock *MBB = OrderToBB[It.first];
+    VarLocSet &transfer = getVarLocsInMBB(MBB, VLOCTransfer);
+    VarLocSet &olocs = getVarLocsInMBB(MBB, VLOCOutLocs);
+    for (auto &idx : It.second->Vars) {
+      const DebugVariable &Var = idx.first;
+      const ValueRec &Rec = idx.second;
+      unsigned num = lolnumbering.insert(std::make_pair(Var, Rec));
+      transfer.set(num);
+      olocs.set(num);
+    }
+  }
+
+  SmallPtrSet<const MachineBasicBlock *, 16> VLOCVisited;
+  while (!Worklist.empty() || !Pending.empty()) {
+    // We track what is on the pending worklist to avoid inserting the same
+    // thing twice.  We could avoid this with a custom priority queue, but this
+    // is probably not worth it.
+    SmallPtrSet<MachineBasicBlock *, 16> OnPending;
+    LLVM_DEBUG(dbgs() << "Processing Worklist\n");
+    while (!Worklist.empty()) {
+      MachineBasicBlock *MBB = OrderToBB[Worklist.top()];
+      Worklist.pop();
+
+      MBBJoined = vloc_join(*MBB, VLOCOutLocs, VLOCInLocs, lolnumbering,
+                       VLOCVisited,
+                       ArtificialBlocks, VLOCPendingInLocs);
+      MBBJoined |= VLOCVisited.insert(MBB).second;
+
+      if (MBBJoined) {
+        MBBJoined = false;
+        Changed = true;
+
+        auto &ilocs = getVarLocsInMBB(MBB, VLOCInLocs);
+        auto &transfers = getVarLocsInMBB(MBB, VLOCTransfer);
+        auto &olocs = getVarLocsInMBB(MBB, VLOCOutLocs);
+        OLChanged = vloc_transfer(ilocs, transfers, olocs, lolnumbering);
+
+        if (OLChanged) {
+          OLChanged = false;
+          for (auto s : MBB->successors())
+            if (OnPending.insert(s).second) {
+              Pending.push(BBToOrder[s]);
+            }
+        }
+      }
+    }
+    Worklist.swap(Pending);
+    // At this point, pending must be empty, since it was just the empty
+    // worklist
+    assert(Pending.empty() && "Pending should be empty");
+  }
+
+
 
   // Add any DBG_VALUE instructions created by location transfers.
   for (auto &TR : Transfers) {
@@ -2067,6 +2287,17 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
       tracker->reset();
       tracker->loadFromVarLocSet(getVarLocsInMBB(MBB, MLOCOutLocs));
       tracker->dump(TRI);
+
+      dbgs() << "variable outlocs\n";
+      auto &olocs = getVarLocsInMBB(MBB, VLOCOutLocs);
+      for (unsigned ID : olocs) {
+        dbgs() << "Var: ";
+        dbgs() << lolnumbering[ID].first.getVariable()->getName();
+        dbgs() << " locno ";
+        lolnumbering[ID].second.dump(TRI);
+        dbgs() << "\n";
+      }
+
       dbgs() << "FIN BLOCK\n\n";
     }
   });

@@ -292,6 +292,7 @@ void PHIElimination::LowerPHINode(MachineBasicBlock &MBB,
   MachineInstr *PHICopy = nullptr;
   const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
 
+#if 0
   // Look at all debug users AT THE START OF THIS BLOCK, convert them to
   // being DBG_PHIs. DBG_VALUEs of PHIs that aren't at the start of the block
   // are not the remains of real PHIs.
@@ -301,6 +302,7 @@ void PHIElimination::LowerPHINode(MachineBasicBlock &MBB,
       It->setDesc(DbgPHI);
     }
   }
+#endif
 
   if (allPhiOperandsUndefined(*MPhi, *MRI))
     // If all sources of a PHI node are implicit_def or undef uses, just emit an
