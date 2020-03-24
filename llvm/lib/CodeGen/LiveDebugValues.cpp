@@ -185,6 +185,13 @@ public:
    return asU64() < Other.asU64();
  }
 
+ bool operator==(const ValueIDNum &Other) const {
+   return std::tie(BlockNo, InstNo, LocNo) ==
+          std::tie(Other.BlockNo, Other.InstNo, Other.LocNo);
+ }
+
+
+
   std::string asString(const TargetRegisterInfo *TRI) const {
     std::string regname;
     if (LocNo < TRI->getNumRegs())
@@ -200,6 +207,28 @@ public:
            Twine(regname)))))).str();
   }
 };
+} // end anon namespace
+
+namespace llvm {
+template <> struct DenseMapInfo<ValueIDNum> {
+  // NB, there's a risk of overlap of uint64_max with legitmate numbering if
+  // there are very many machine locations. Fix by not bit packing so hard.
+  static const uint64_t MaxVal = std::numeric_limits<uint64_t>::max();
+
+  static inline ValueIDNum getEmptyKey() { return ValueIDNum::fromU64(MaxVal); }
+
+  static inline ValueIDNum getTombstoneKey() { return ValueIDNum::fromU64(MaxVal - 1); }
+
+  static unsigned getHashValue(ValueIDNum num) {
+    return hash_value(num.asU64());
+  }
+
+  static bool isEqual(const ValueIDNum &A, const ValueIDNum &B) { return A == B; }
+};
+} // end namespace llvm
+
+
+namespace {
 
 class VarLocPos {
 public:
@@ -244,7 +273,6 @@ public:
   }
 
   void loadFromVarLocSet(const VarLocSet &vls) {
-    reset();
     for (auto ID : vls) {
       auto pos = VarLocPos::fromU64(ID);
       MachineLocsToIDNums[pos.CurrentLoc] = pos.ID;
@@ -268,6 +296,11 @@ public:
 
   void setReg(Register r, ValueIDNum id) {
     MachineLocsToIDNums[r] = id;
+  }
+
+  // Because we need to replicate values only having one location for now.
+  void lolwipe(Register r) {
+    MachineLocsToIDNums[r] = {0, 0, 0};
   }
 
   void defSpill(SpillLoc l, unsigned bb, unsigned inst) {
@@ -296,6 +329,14 @@ public:
       MachineLocsToIDNums[NumRegs + SpillID - 1] = id;
     }
   }
+
+  void lolwipe(SpillLoc l) {
+    unsigned SpillID = SpillsToMLocs.idFor(l);
+    assert(SpillID != 0);
+    MachineLocsToIDNums[NumRegs + SpillID - 1] = {0, 0, 0};
+  }
+
+
 
   ValueIDNum readReg(Register r) {
     return MachineLocsToIDNums[r];
@@ -372,6 +413,8 @@ public:
   }
 };
 
+typedef UniqueVector<std::pair<DebugVariable, ValueRec>> lolnumberingt;
+
 class VLocTracker {
 public:
   // Map the DebugVariable to recent primary location ID.
@@ -394,6 +437,94 @@ public:
     DebugVariable Var(MI.getDebugVariable(), MI.getDebugExpression(),
                       MI.getDebugLoc()->getInlinedAt());
     Vars[Var] = {{0, 0, 0}, MO, true, MI.getDebugExpression()};
+  }
+};
+
+class TransferTracker {
+public:
+  typedef std::pair<unsigned, const DIExpression *> hahaloc;
+  typedef std::pair<DebugVariable, hahaloc> TFer;
+  typedef std::pair<MachineBasicBlock::iterator, TFer> TFerPosish;
+  std::vector<TFerPosish> Transfers;
+
+  DenseMap<unsigned, SmallSet<DebugVariable, 4>> ActiveMLocs;
+  DenseMap<DebugVariable, hahaloc> ActiveVLocs;
+
+  void loadInlocs(lolnumberingt &lolnumbering, VarLocSet &mlocs, VarLocSet &vlocs) {  
+    ActiveMLocs.clear();
+    ActiveVLocs.clear();
+
+    DenseMap<ValueIDNum, unsigned> tmpmap;
+
+    for (auto ID : mlocs) {
+      // Each mloc is a VarLocPos
+      auto VLP = VarLocPos::fromU64(ID);
+      // Produce a map of value numbers to the current machine locs they live
+      // in. There should only be one machine loc per value.
+      assert(tmpmap.find(VLP.ID) == tmpmap.end()); // XXX expensie
+      tmpmap[VLP.ID] = VLP.CurrentLoc;
+    }
+
+    // Now map variables to their current machine locs
+    for (auto ID : vlocs) {
+      auto &Var = lolnumbering[ID];
+      if (Var.second.isMO)
+        continue;
+      unsigned mloc = tmpmap[Var.second.ID];
+      ActiveVLocs[Var.first] = std::make_pair(mloc, Var.second.Expr);
+      ActiveMLocs[mloc].insert(Var.first);
+    }
+  }
+
+  void redefVar(const MachineInstr &MI) {
+    DebugVariable Var(MI.getDebugVariable(), MI.getDebugExpression(),
+                      MI.getDebugLoc()->getInlinedAt());
+    const MachineOperand &MO = MI.getOperand(0);
+
+    // Erase any previous location,
+    auto It = ActiveVLocs.find(Var);
+    if (It != ActiveVLocs.end()) {
+      ActiveMLocs[It->second.first].erase(Var);
+    }
+
+    // Insert a new vloc. Ignore non-register locations, we don't transfer
+    // those, and can't current describe spill locs independently of regs.
+    if (!MO.isReg() || MO.getReg() == 0) {
+      ActiveVLocs.erase(It);
+      return;
+    }
+
+    unsigned Reg = MO.getReg();
+    ActiveMLocs[Reg].insert(Var);
+    It->second.first = Reg;
+    It->second.second = MI.getDebugExpression();
+  }
+
+  void clobberMloc(unsigned mloc) {
+    auto It = ActiveMLocs.find(mloc);
+    if (It == ActiveMLocs.end())
+      return;
+
+    for (auto &Var : It->second) {
+      ActiveVLocs.erase(Var);
+    }
+
+    It->second.clear();
+  }
+
+  void transferMlocs(unsigned src, unsigned dst, MachineBasicBlock::iterator pos) {
+    assert(ActiveMLocs[dst].size() == 0);
+    ActiveMLocs[dst] = ActiveMLocs[src];
+
+    for (auto &Var : ActiveMLocs[src]) {
+      auto it = ActiveVLocs.find(Var);
+      assert(it != ActiveVLocs.end());
+      it->second.first = dst;
+
+      TFer t = {Var, {dst, it->second.second}};
+      Transfers.push_back({pos, t});
+    }
+    ActiveMLocs[src].clear();
   }
 };
 
@@ -429,6 +560,7 @@ private:
   unsigned cur_bb;
   unsigned cur_inst;
   VLocTracker *vtracker;
+  TransferTracker *ttracker;
 
   enum struct TransferKind { TransferCopy, TransferSpill, TransferRestore };
 
@@ -881,7 +1013,6 @@ private:
             SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
             VarLocInMBB &PendingInLocs, bool mlocs);
 
-  typedef UniqueVector<std::pair<DebugVariable, ValueRec>> lolnumberingt;
   bool vloc_join(const MachineBasicBlock &MBB, VarLocInMBB &VLOCOutLocs,
                  VarLocInMBB &VLOCInLocs, lolnumberingt &lolnumbering,
                  SmallPtrSet<const MachineBasicBlock *, 16> &VLOCVisited,
@@ -920,6 +1051,7 @@ public:
 };
 
 } // end anonymous namespace
+
 
 //===----------------------------------------------------------------------===//
 //            Implementation
@@ -1518,10 +1650,13 @@ void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI,
   if (TKind == TransferKind::TransferSpill) {
     auto id = tracker->readReg(Reg);
     tracker->setSpill(*Loc, id);
+    tracker->lolwipe(Reg);
   } else {
     auto id = tracker->readSpill(*Loc);
-    if (id.LocNo != 0)
+    if (id.LocNo != 0) {
       tracker->setReg(Reg, id);
+      tracker->lolwipe(*Loc);
+    }
   }
 
   // Check if the register or spill location is the location of a debug value.
@@ -1612,6 +1747,7 @@ void LiveDebugValues::transferRegisterCopy(MachineInstr &MI,
                               TransferKind::TransferCopy, DestReg);
       auto id = tracker->readReg(SrcReg);
       tracker->setReg(DestReg, id);
+      tracker->lolwipe(SrcReg);
       return;
     }
   }
@@ -2121,6 +2257,12 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     Worklist.push(RPONumber);
     ++RPONumber;
   }
+
+  // XXX hack, feed in argument locations for the first run.
+  for (unsigned int Reg = 1; Reg < TRI->getNumRegs(); ++Reg) {
+    tracker->defReg(Reg, UINT_MAX, UINT_MAX);
+  }
+
   // This is a standard "union of predecessor outs" dataflow problem.
   // To solve it, we perform join() and process() using the two worklist method
   // until the ranges converge.
@@ -2189,12 +2331,18 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   for (unsigned I = 0; I < MF.size(); ++I)
     vlocs[I] = new VLocTracker();
 
+
+  // XXX hack, feed in argument locations for the first run.
+  tracker->reset();
+  for (unsigned int Reg = 1; Reg < TRI->getNumRegs(); ++Reg) {
+    tracker->defReg(Reg, UINT_MAX, UINT_MAX);
+  }
+
   // Accumulate things into the vloc tracker.
   for (auto RI = RPOT.begin(), RE = RPOT.end(); RI != RE; ++RI) {
     unsigned Idx = BBToOrder[*RI];
     Worklist.push(Idx);
     auto *MBB = *RI;
-    tracker->reset();
     vtracker = vlocs[Idx];
     tracker->loadFromVarLocSet(getVarLocsInMBB(MBB, MLOCInLocs));
     cur_bb = Idx;
@@ -2204,6 +2352,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
       process(MI, OpenRanges, VarLocIDs, nullptr);
       ++cur_inst;
     }
+    tracker->reset();
   }
 
   // OK, we have some transfer functions. Number everything; do data flow.
@@ -2263,11 +2412,12 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     assert(Pending.empty() && "Pending should be empty");
   }
 
-
-
+  ttracker = new TransferTracker();
   // Reprocess all instructions a final time and record transfers. The live-in
   // locations should not change as we've reached a fixedpoint.
   for (MachineBasicBlock &MBB : MF) {
+    ttracker->loadInlocs(lolnumbering, getVarLocsInMBB(&MBB, MLOCInLocs), getVarLocsInMBB(&MBB, VLOCInLocs));
+
     OpenRanges.insertFromLocSet(getVarLocsInMBB(&MBB, PendingInLocs), VarLocIDs);
     for (auto &MI : MBB)
       process(MI, OpenRanges, VarLocIDs, &Transfers);
@@ -2335,9 +2485,11 @@ bool LiveDebugValues::runOnMachineFunction(MachineFunction &MF) {
 
   tracker = new MLocTracker(Alloc, TRI->getNumRegs());
   vtracker = nullptr;
+  ttracker = nullptr;
 
   bool Changed = ExtendRanges(MF);
   delete tracker;
   vtracker = nullptr;
+  ttracker = nullptr;
   return Changed;
 }
