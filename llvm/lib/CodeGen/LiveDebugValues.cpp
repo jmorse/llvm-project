@@ -483,7 +483,8 @@ public:
       ActiveMLocs[mloc].insert(Var.first);
       inlocs.push_back(emitLoc(mloc, Var.first, Var.second.Expr));
     }
-    Transfers.push_back({MBB.begin(), std::move(inlocs)});
+    if (inlocs.size() > 0)
+      Transfers.push_back({MBB.begin(), std::move(inlocs)});
   }
 
   void redefVar(const MachineInstr &MI) {
@@ -536,7 +537,8 @@ public:
       instrs.push_back(MI);
     }
     ActiveMLocs[src].clear();
-    Transfers.push_back({std::next(pos), std::move(instrs)});
+    if (instrs.size() > 0)
+      Transfers.push_back({std::next(pos), std::move(instrs)});
   }
 
   MachineInstrBuilder 
