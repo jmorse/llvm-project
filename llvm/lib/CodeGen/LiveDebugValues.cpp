@@ -243,6 +243,14 @@ public:
     return {ValueIDNum::fromU64(v >> 14), v & 0x3FFF};
   }
 
+  std::string asString(const TargetRegisterInfo *TRI) const {
+    std::string regname;
+    if (CurrentLoc < TRI->getNumRegs())
+      regname = TRI->getRegAsmName(CurrentLoc).str();
+    else
+      regname = Twine("slot ").concat(Twine(CurrentLoc - TRI->getNumRegs())).str();
+    return Twine("VLP(").concat(ID.asString(TRI)).concat(",cur ").concat(regname).concat(")").str();
+  }
 };
 
 class MLocTracker {
@@ -386,20 +394,27 @@ class ValueRec {
 public:
   ValueIDNum ID;
   Optional<MachineOperand> MO;
-  bool isMO;
-  const DIExpression *Expr;
+  const DIExpression *Expr = nullptr;
+  unsigned BlockPHI = 0;
+
+  typedef enum { Def, Const, PHI } KindT;
+  KindT Kind;
 
   void dump(const TargetRegisterInfo *TRI) const {
-    if (isMO) {
+    if (Kind == Const) {
       MO->dump();
+    } else if (Kind == PHI) {
+      dbgs() << "PHI-bb" << BlockPHI << "\n";
     } else {
+      assert(Kind == Def);
       dbgs() << ID.asString(TRI);
     }
-    dbgs() << " " << *Expr;
+    if (Expr)
+      dbgs() << " " << *Expr;
   }
 
   bool operator<(const ValueRec &Other) const {
-    if (isMO && Other.isMO) {
+    if (Kind == Const && Other.Kind == Const) {
       if (MO->getType() == Other.MO->getType()) {
         if (MO->isImm())
           return MO->getImm() < Other.MO->getImm(); 
@@ -433,7 +448,7 @@ public:
     assert(MI.isDebugValue());
     DebugVariable Var(MI.getDebugVariable(), MI.getDebugExpression(),
                       MI.getDebugLoc()->getInlinedAt());
-    Vars[Var] = {ID, None, false, MI.getDebugExpression()};
+    Vars[Var] = {ID, None, MI.getDebugExpression(), 0, ValueRec::Def};
   }
 
   void defVar(const MachineInstr &MI, const MachineOperand &MO) {
@@ -441,7 +456,7 @@ public:
     assert(MI.isDebugValue());
     DebugVariable Var(MI.getDebugVariable(), MI.getDebugExpression(),
                       MI.getDebugLoc()->getInlinedAt());
-    Vars[Var] = {{0, 0, 0}, MO, true, MI.getDebugExpression()};
+    Vars[Var] = {{0, 0, 0}, MO, MI.getDebugExpression(), 0, ValueRec::Const};
   }
 };
 
@@ -460,7 +475,7 @@ public:
 
   TransferTracker(const TargetInstrInfo *TII, MLocTracker *mlocs, MachineFunction &MF) : TII(TII), mlocs(mlocs), MF(MF) { }
 
-  void loadInlocs(MachineBasicBlock &MBB, lolnumberingt &lolnumbering, VarLocSet &mlocs, VarLocSet &vlocs) {  
+  void loadInlocs(MachineBasicBlock &MBB, lolnumberingt &lolnumbering, VarLocSet &mlocs, VarLocSet &vlocs, unsigned cur_bb) {  
     ActiveMLocs.clear();
     ActiveVLocs.clear();
 
@@ -479,17 +494,29 @@ public:
     std::vector<MachineInstr *> inlocs;
     for (auto ID : vlocs) {
       auto &Var = lolnumbering[ID];
-      if (Var.second.isMO) {
+      if (Var.second.Kind == ValueRec::Const) {
         inlocs.push_back(emitMOLoc(*Var.second.MO, Var.first, Var.second.Expr));
         continue;
       }
 
-      // Value unavailable / has no machine loc -> define no location.
-      auto hahait = tmpmap.find(Var.second.ID);
-      if (hahait == tmpmap.end())
+      // Unresolved PHI -> skip
+      if (Var.second.Kind == ValueRec::PHI)
         continue;
+      assert(Var.second.Kind == ValueRec::Def);
 
-      unsigned mloc = hahait->second;
+      // Value unavailable / has no machine loc -> define no location.
+      unsigned mloc;
+      auto hahait = tmpmap.find(Var.second.ID);
+      if (hahait == tmpmap.end()) {
+        // Unless this is actually an mloc phi,
+        auto &IDNum = Var.second.ID;
+        if (IDNum.BlockNo != cur_bb || IDNum.InstNo != 0)
+          continue;
+        mloc = IDNum.LocNo;
+      } else {
+        mloc = hahait->second;
+      }
+
       ActiveVLocs[Var.first] = std::make_pair(mloc, Var.second.Expr);
       ActiveMLocs[mloc].insert(Var.first);
       assert(mloc != 0);
@@ -1077,8 +1104,11 @@ private:
                  VarLocInMBB &VLOCInLocs, lolnumberingt &lolnumbering,
                  SmallPtrSet<const MachineBasicBlock *, 16> &VLOCVisited,
                  SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
-                 VarLocInMBB &VLOCPendingInLocs);
+                 VarLocInMBB &VLOCPendingInLocs, unsigned cur_bb);
   bool vloc_transfer(VarLocSet &ilocs, VarLocSet &transfer, VarLocSet &olocs, lolnumberingt &lolnumbering);
+
+
+  void resolveVPHIs(lolnumberingt &lolnumbering, MachineBasicBlock &MBB, VarLocSet &InLocs, VarLocInMBB &VLOCOutLocs, VarLocInMBB &MLOCOutLocs, unsigned cur_bb);
 
   /// Create DBG_VALUE insts for inlocs that have been propagated but
   /// had their instruction creation deferred.
@@ -2017,11 +2047,12 @@ bool LiveDebugValues::vloc_join(
    VarLocInMBB &VLOCInLocs, lolnumberingt &lolnumbering,
    SmallPtrSet<const MachineBasicBlock *, 16> &VLOCVisited,
    SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
-   VarLocInMBB &VLOCPendingInLocs) {
+   VarLocInMBB &VLOCPendingInLocs, unsigned cur_bb) {
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
 
   VarLocSet InLocsT(Alloc); // Temporary incoming locations.
+  VarLocSet toBecomePHIs(Alloc);
 
   // For all predecessors of this MBB, find the set of VarLocs that
   // can be joined.
@@ -2044,16 +2075,39 @@ bool LiveDebugValues::vloc_join(
 
     // Just copy over the Out locs to incoming locs for the first visited
     // predecessor, and for all other predecessors join the Out locs.
-    if (!NumVisited)
+    if (!NumVisited) {
       InLocsT = OL->second;
-    else
+      toBecomePHIs = OL->second;
+      dbgs() << "vloc_join setting\n";
+      InLocsT.dump();
+      dbgs() << "\n";
+    } else {
       InLocsT &= OL->second;
+      toBecomePHIs |= OL->second;
+      dbgs() << "vloc_join anding\n";
+      OL->second.dump();
+      dbgs() << "\n";
+    }
+
+    dbgs() << "to get \n";
+    InLocsT.dump();
 
     // xXX jmorse deleted debug statement
 
     NumVisited++;
   }
 
+  // Erm. We need to produce PHI nodes for vlocs that aren't in the same
+  // location. Pick out variables that aren't in InLocsT.
+  toBecomePHIs.intersectWithComplement(InLocsT);
+  DenseSet<DebugVariable> tophi;
+  for (auto ID : toBecomePHIs) {
+    tophi.insert(lolnumbering[ID].first);
+  }
+
+  for (auto Var : tophi) {
+    InLocsT.set(lolnumbering.insert({Var, {{0, 0, 0}, None, nullptr, cur_bb, ValueRec::PHI}}));
+  }
   // Filter out DBG_VALUES that are out of scope.
   VarLocSet KillSet(Alloc);
   bool IsArtificial = ArtificialBlocks.count(&MBB);
@@ -2123,15 +2177,99 @@ bool LiveDebugValues::vloc_transfer(VarLocSet &ilocs, VarLocSet &transfer, VarLo
   }
 
   // XXX erm, unset any empty locations.
+  // XXX XXX are there any now that everything starts with mloc phis?
   VarLocSet bees(Alloc);
   for (auto ID : olocs) {
     auto rec = lolnumbering[ID].second;
-    if (!rec.isMO && rec.ID.LocNo == 0)
+    if (rec.Kind == ValueRec::Def && rec.ID.LocNo == 0)
       bees.set(ID);
   }
   olocs.intersectWithComplement(bees);
 
   return olocs != ilocs;
+}
+
+void LiveDebugValues::resolveVPHIs(lolnumberingt &lolnumbering, MachineBasicBlock &MBB, VarLocSet &InLocs, VarLocInMBB &VLOCOutLocs, VarLocInMBB &MLOCOutLocs, unsigned cur_bb) {
+  // Take a look at each PHI in the inlocs.
+  std::vector<std::pair<unsigned, unsigned>> toreplace;
+  for (unsigned ID : InLocs) {
+    auto Pair = lolnumbering[ID];
+    if (Pair.second.Kind != ValueRec::PHI)
+      continue;
+
+    bool valid = true;
+    unsigned overal_mloc = 0;
+    const DIExpression *Expr = nullptr;
+    for (auto p : MBB.predecessors()) {
+      const VarLocSet &mlocs = getVarLocsInMBB(p, MLOCOutLocs);
+      const VarLocSet &vlocs = getVarLocsInMBB(p, VLOCOutLocs);
+
+      // Find our value num,
+      ValueIDNum n_to_find;
+      bool found = false;
+      for (unsigned ID : vlocs) {
+        auto &loc = lolnumbering[ID];
+        if (!(loc.first == Pair.first) && loc.second.Kind != ValueRec::Def)
+          continue;
+
+        if (overal_mloc != 0 && Expr != loc.second.Expr) {
+          found = false;
+          break;
+        }
+
+        Expr = loc.second.Expr;
+
+        // Any PHIs should have been previously resolved; or represent the
+        // fact that things are unresolvable.
+        n_to_find = loc.second.ID;
+        found = true;
+        break;
+      }
+      if (!found) {
+        valid = false;
+        break;
+      }
+
+      found = false;
+      unsigned the_mloc = 0;
+      for (auto it = mlocs.begin(); it != mlocs.end(); ++it) {
+        uint64_t mlocid = *it;
+        VarLocPos n = VarLocPos::fromU64(mlocid);
+        if (!(n.ID == n_to_find))
+          continue;
+        the_mloc = n.CurrentLoc;
+        found = true;
+        break;
+      }
+
+      if (!found) {
+        valid = false;
+        break;
+      }
+ 
+      if (overal_mloc != 0 && overal_mloc != the_mloc) {
+        valid = false;
+        break;
+      }
+      overal_mloc = the_mloc;
+    }
+
+    if (valid && overal_mloc != 0) {
+      // Good news, everyone agrees on that mloc. Replace the PHI with an
+      // mloc PHI at that position.
+      
+      ValueIDNum newid = {cur_bb, 0, overal_mloc};
+      ValueRec r = {newid, None, Expr, 0, ValueRec::Def};
+      unsigned newnum = lolnumbering.insert({Pair.first, r});
+      // Record pair to mangle later.
+      toreplace.push_back(std::make_pair(ID, newnum));
+    }
+  }
+
+  for (auto &P : toreplace) {
+    InLocs.reset(P.first);
+    InLocs.set(P.second);
+  }
 }
 
 void LiveDebugValues::flushPendingLocs(VarLocInMBB &PendingInLocs,
@@ -2354,7 +2492,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
         // First load any pending inlocs.
         OpenRanges.insertFromLocSet(getVarLocsInMBB(MBB, PendingInLocs),
                                     VarLocIDs);
-        tracker->loadFromVarLocSet(getVarLocsInMBB(MBB, MLOCInLocs));
+        tracker->loadFromVarLocSet(getVarLocsInMBB(MBB, MLOCInLocs), cur_bb);
         for (auto &MI : *MBB) {
           process(MI, OpenRanges, VarLocIDs, nullptr);
           ++cur_inst;
@@ -2395,7 +2533,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     Worklist.push(Idx);
     auto *MBB = *RI;
     vtracker = vlocs[Idx];
-    tracker->loadFromVarLocSet(getVarLocsInMBB(MBB, MLOCInLocs));
+    tracker->loadFromVarLocSet(getVarLocsInMBB(MBB, MLOCInLocs), cur_bb);
     cur_bb = Idx;
     cur_inst = 1;
     OpenRanges.clear();
@@ -2419,6 +2557,8 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
       const ValueRec &Rec = idx.second;
       unsigned num = lolnumbering.insert(std::make_pair(Var, Rec));
       transfer.set(num);
+      if (Rec.Kind == ValueRec::Def && Rec.ID.LocNo == 0) // XXX ded?
+        continue;
       olocs.set(num);
     }
   }
@@ -2432,11 +2572,12 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     LLVM_DEBUG(dbgs() << "Processing Worklist\n");
     while (!Worklist.empty()) {
       MachineBasicBlock *MBB = OrderToBB[Worklist.top()];
+      cur_bb = Worklist.top();
       Worklist.pop();
 
       MBBJoined = vloc_join(*MBB, VLOCOutLocs, VLOCInLocs, lolnumbering,
                        VLOCVisited,
-                       ArtificialBlocks, VLOCPendingInLocs);
+                       ArtificialBlocks, VLOCPendingInLocs, cur_bb);
       MBBJoined |= VLOCVisited.insert(MBB).second;
 
       if (MBBJoined) {
@@ -2463,13 +2604,22 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     assert(Pending.empty() && "Pending should be empty");
   }
 
+  for (auto &It : VLOCInLocs) {
+    for (auto lala : It.second) {
+      auto &var = lolnumbering[lala];
+      assert(var.second.Kind != ValueRec::Def || var.second.ID.LocNo != 0);
+    }
+  }
+
   // mloc argument only needs the posish -> spills map and the like.
   ttracker = new TransferTracker(TII, tracker, MF);
 
   // Reprocess all instructions a final time and record transfers. The live-in
   // locations should not change as we've reached a fixedpoint.
   for (MachineBasicBlock &MBB : MF) {
-    ttracker->loadInlocs(MBB, lolnumbering, getVarLocsInMBB(&MBB, MLOCInLocs), getVarLocsInMBB(&MBB, VLOCInLocs));
+    unsigned bbnum = BBToOrder[&MBB];
+    resolveVPHIs(lolnumbering, MBB, getVarLocsInMBB(&MBB, VLOCInLocs), VLOCOutLocs, MLOCOutLocs, bbnum);
+    ttracker->loadInlocs(MBB, lolnumbering, getVarLocsInMBB(&MBB, MLOCInLocs), getVarLocsInMBB(&MBB, VLOCInLocs), bbnum);
 
     OpenRanges.insertFromLocSet(getVarLocsInMBB(&MBB, PendingInLocs), VarLocIDs);
     for (auto &MI : MBB)
@@ -2509,7 +2659,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
       MachineBasicBlock *MBB = *RI;
       dbgs() << "In bb " << MBB->getName() << " num " << id << "\n";
       tracker->reset();
-      tracker->loadFromVarLocSet(getVarLocsInMBB(MBB, MLOCOutLocs));
+      tracker->loadFromVarLocSet(getVarLocsInMBB(MBB, MLOCOutLocs), cur_bb);
       tracker->dump(TRI);
 
       dbgs() << "variable outlocs\n";
