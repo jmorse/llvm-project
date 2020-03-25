@@ -478,9 +478,16 @@ public:
         inlocs.push_back(emitMOLoc(*Var.second.MO, Var.first, Var.second.Expr));
         continue;
       }
-      unsigned mloc = tmpmap[Var.second.ID];
+
+      // Value unavailable / has no machine loc -> define no location.
+      auto hahait = tmpmap.find(Var.second.ID);
+      if (hahait == tmpmap.end())
+        continue;
+
+      unsigned mloc = hahait->second;
       ActiveVLocs[Var.first] = std::make_pair(mloc, Var.second.Expr);
       ActiveMLocs[mloc].insert(Var.first);
+      assert(mloc != 0);
       inlocs.push_back(emitLoc(mloc, Var.first, Var.second.Expr));
     }
     if (inlocs.size() > 0)
@@ -533,6 +540,7 @@ public:
       assert(it != ActiveVLocs.end());
       it->second.first = dst;
 
+      assert(dst != 0);
       MachineInstr *MI = emitLoc(dst, Var, it->second.second);
       instrs.push_back(MI);
     }
@@ -559,6 +567,7 @@ public:
     auto MIB = BuildMI(MF, DL, TII->get(TargetOpcode::DBG_VALUE));
 
     if (MLoc < mlocs->NumRegs) {
+      assert(MLoc != 0);
       MIB.addReg(MLoc);
     } else {
       const SpillLoc &Loc = mlocs->SpillsToMLocs[MLoc - mlocs->NumRegs + 1];
