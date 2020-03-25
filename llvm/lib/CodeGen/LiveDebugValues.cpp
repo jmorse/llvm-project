@@ -272,7 +272,12 @@ public:
     return set;
   }
 
-  void loadFromVarLocSet(const VarLocSet &vls) {
+  void loadFromVarLocSet(const VarLocSet &vls, unsigned cur_bb) {
+    // Quickly reset everything to being itself at inst 0, representing a phi.
+    for (unsigned ID = 0; ID < MachineLocsToIDNums.size(); ++ID) {
+      MachineLocsToIDNums[ID] = {0, 0, ID};
+    }
+
     for (auto ID : vls) {
       auto pos = VarLocPos::fromU64(ID);
       MachineLocsToIDNums[pos.CurrentLoc] = pos.ID;
@@ -2316,11 +2321,6 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     ++RPONumber;
   }
 
-  // XXX hack, feed in argument locations for the first run.
-  for (unsigned int Reg = 1; Reg < TRI->getNumRegs(); ++Reg) {
-    tracker->defReg(Reg, UINT_MAX, UINT_MAX);
-  }
-
   // This is a standard "union of predecessor outs" dataflow problem.
   // To solve it, we perform join() and process() using the two worklist method
   // until the ranges converge.
@@ -2335,7 +2335,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     while (!Worklist.empty()) {
       MachineBasicBlock *MBB = OrderToBB[Worklist.top()];
       cur_bb = Worklist.top();
-      cur_inst = 0;
+      cur_inst = 1;
       Worklist.pop();
       MBBJoined = join(*MBB, OutLocs, InLocs, VarLocIDs, Visited,
                        ArtificialBlocks, PendingInLocs, false);
@@ -2389,13 +2389,6 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   for (unsigned I = 0; I < MF.size(); ++I)
     vlocs[I] = new VLocTracker();
 
-
-  // XXX hack, feed in argument locations for the first run.
-  tracker->reset();
-  for (unsigned int Reg = 1; Reg < TRI->getNumRegs(); ++Reg) {
-    tracker->defReg(Reg, UINT_MAX, UINT_MAX);
-  }
-
   // Accumulate things into the vloc tracker.
   for (auto RI = RPOT.begin(), RE = RPOT.end(); RI != RE; ++RI) {
     unsigned Idx = BBToOrder[*RI];
@@ -2404,7 +2397,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     vtracker = vlocs[Idx];
     tracker->loadFromVarLocSet(getVarLocsInMBB(MBB, MLOCInLocs));
     cur_bb = Idx;
-    cur_inst = 0;
+    cur_inst = 1;
     OpenRanges.clear();
     for (auto &MI : *MBB) { // XXX I think the empty open ranges does nufink
       process(MI, OpenRanges, VarLocIDs, nullptr);
