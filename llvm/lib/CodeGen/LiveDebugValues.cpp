@@ -2049,7 +2049,7 @@ bool LiveDebugValues::vloc_join(
       DebugLoc dl = DebugLoc::get(0, 0, lolpair.first.getVariable()->getScope(), lolpair.first.getInlinedAt());
       // XXX performance fail
       UserValueScopes UVS(dl, LS);
-      if (UVS.dominates(const_cast<MachineBasicBlock *>(&MBB))) {
+      if (!UVS.dominates(const_cast<MachineBasicBlock *>(&MBB))) {
         KillSet.set(ID);
         // XXX deleted debug statement
       }
