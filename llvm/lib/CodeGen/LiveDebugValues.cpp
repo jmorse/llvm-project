@@ -2477,6 +2477,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     OpenRanges.clear();
   }
 
+#if 0
   // Add any DBG_VALUE instructions created by location transfers.
   for (auto &TR : Transfers) {
     MachineBasicBlock *MBB = TR.TransferInst->getParent();
@@ -2489,6 +2490,14 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   // Deferred inlocs will not have had any DBG_VALUE insts created; do
   // that now.
   flushPendingLocs(PendingInLocs, VarLocIDs);
+#endif
+
+  for (auto &P : ttracker->Transfers) {
+    MachineBasicBlock &MBB = *P.first->getParent();
+    for (auto *MI : P.second) {
+      MBB.insert(P.first, MI);
+    }
+  }
 
   LLVM_DEBUG(printVarLocInMBB(MF, OutLocs, VarLocIDs, "Final OutLocs", dbgs()));
   LLVM_DEBUG(printVarLocInMBB(MF, InLocs, VarLocIDs, "Final InLocs", dbgs()));
