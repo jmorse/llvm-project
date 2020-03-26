@@ -397,11 +397,13 @@ using FragmentOfVar =
 using OverlapMap =
     DenseMap<FragmentOfVar, SmallVector<DIExpression::FragmentInfo, 1>>;
 
+typedef std::pair<const DIExpression *, bool> MetaVal;
+
 class ValueRec {
 public:
   ValueIDNum ID;
   Optional<MachineOperand> MO;
-  const DIExpression *Expr = nullptr;
+  MetaVal meta;
   unsigned BlockPHI = 0;
 
   typedef enum { Def, Const, PHI } KindT;
@@ -416,11 +418,16 @@ public:
       assert(Kind == Def);
       dbgs() << ID.asString(TRI);
     }
-    if (Expr)
-      dbgs() << " " << *Expr;
+    if (meta.second)
+      dbgs() << " indir";
+    if (meta.first)
+      dbgs() << " " << *meta.first;
   }
 
   bool operator<(const ValueRec &Other) const {
+    if (meta != Other.meta)
+      return meta < Other.meta;
+
     if (Kind == Const && Other.Kind == Const) {
       if (MO->getType() == Other.MO->getType()) {
         if (MO->isImm())
@@ -460,7 +467,8 @@ public:
     assert(MI.isDebugValue());
     DebugVariable Var(MI.getDebugVariable(), MI.getDebugExpression(),
                       MI.getDebugLoc()->getInlinedAt());
-    Vars[Var] = {ID, None, MI.getDebugExpression(), 0, ValueRec::Def};
+    MetaVal m = {MI.getDebugExpression(), MI.getOperand(1).isImm()};
+    Vars[Var] = {ID, None, m, 0, ValueRec::Def};
   }
 
   void defVar(const MachineInstr &MI, const MachineOperand &MO) {
@@ -468,7 +476,8 @@ public:
     assert(MI.isDebugValue());
     DebugVariable Var(MI.getDebugVariable(), MI.getDebugExpression(),
                       MI.getDebugLoc()->getInlinedAt());
-    Vars[Var] = {{0, 0, 0}, MO, MI.getDebugExpression(), 0, ValueRec::Const};
+    MetaVal m = {MI.getDebugExpression(), MI.getOperand(1).isImm()};
+    Vars[Var] = {{0, 0, 0}, MO, m, 0, ValueRec::Const};
   }
 };
 
@@ -484,7 +493,7 @@ public:
     std::vector<MachineInstr *> insts;
   };
 
-  typedef std::pair<unsigned, const DIExpression *> hahaloc;
+  typedef std::pair<unsigned, MetaVal> hahaloc;
   std::vector<Transfer> Transfers;
 
   DenseMap<unsigned, SmallSet<DebugVariable, 4>> ActiveMLocs;
@@ -512,7 +521,7 @@ public:
     for (auto ID : vlocs) {
       auto &Var = lolnumbering[ID];
       if (Var.second.Kind == ValueRec::Const) {
-        inlocs.push_back(emitMOLoc(*Var.second.MO, Var.first, Var.second.Expr));
+        inlocs.push_back(emitMOLoc(*Var.second.MO, Var.first, Var.second.meta));
         continue;
       }
 
@@ -534,10 +543,10 @@ public:
         mloc = hahait->second;
       }
 
-      ActiveVLocs[Var.first] = std::make_pair(mloc, Var.second.Expr);
+      ActiveVLocs[Var.first] = std::make_pair(mloc, Var.second.meta);
       ActiveMLocs[mloc].insert(Var.first);
       assert(mloc != 0);
-      inlocs.push_back(emitLoc(mloc, Var.first, Var.second.Expr));
+      inlocs.push_back(emitLoc(mloc, Var.first, Var.second.meta));
     }
     if (inlocs.size() > 0)
       Transfers.push_back({MBB.begin(), true, std::move(inlocs)});
@@ -564,7 +573,7 @@ public:
     unsigned Reg = MO.getReg();
     ActiveMLocs[Reg].insert(Var);
     It->second.first = Reg;
-    It->second.second = MI.getDebugExpression();
+    It->second.second = {MI.getDebugExpression(), MI.getOperand(1).isImm()};
   }
 
   void clobberMloc(unsigned mloc) {
@@ -600,25 +609,32 @@ public:
 
   MachineInstrBuilder 
   emitMOLoc(const MachineOperand &MO,
-              const DebugVariable &Var, const DIExpression *Expr) {
+              const DebugVariable &Var, const MetaVal &meta) {
     DebugLoc DL = DebugLoc::get(0, 0, Var.getVariable()->getScope(), Var.getInlinedAt());
     auto MIB = BuildMI(MF, DL, TII->get(TargetOpcode::DBG_VALUE));
     MIB.add(MO);
-    MIB.addReg(0);
+    if (meta.second)
+      MIB.addImm(0);
+    else
+      MIB.addReg(0);
     MIB.addMetadata(Var.getVariable());
-    MIB.addMetadata(Expr);
+    MIB.addMetadata(meta.first);
     return MIB;
   }
 
   MachineInstrBuilder 
-  emitLoc(unsigned MLoc, const DebugVariable &Var, const DIExpression *Expr) {
+  emitLoc(unsigned MLoc, const DebugVariable &Var, const MetaVal &meta) {
     DebugLoc DL = DebugLoc::get(0, 0, Var.getVariable()->getScope(), Var.getInlinedAt());
     auto MIB = BuildMI(MF, DL, TII->get(TargetOpcode::DBG_VALUE));
 
+    const DIExpression *Expr = meta.first;
     if (MLoc < mlocs->NumRegs) {
       assert(MLoc != 0);
       MIB.addReg(MLoc);
-      MIB.addReg(0);
+      if (meta.second)
+        MIB.addImm(0);
+      else
+        MIB.addReg(0);
     } else {
       const SpillLoc &Loc = mlocs->SpillsToMLocs[MLoc - mlocs->NumRegs + 1];
       Expr = DIExpression::prepend(Expr, DIExpression::ApplyOffset, Loc.SpillOffset);
@@ -2133,7 +2149,7 @@ bool LiveDebugValues::vloc_join(
   }
 
   for (auto Var : tophi) {
-    InLocsT.set(lolnumbering.insert({Var, {{0, 0, 0}, None, nullptr, cur_bb, ValueRec::PHI}}));
+    InLocsT.set(lolnumbering.insert({Var, {{0, 0, 0}, None, {nullptr, false}, cur_bb, ValueRec::PHI}}));
   }
   // Filter out DBG_VALUES that are out of scope.
   VarLocSet KillSet(Alloc);
@@ -2235,7 +2251,7 @@ void LiveDebugValues::resolveVPHIs(vphitomphit &vphitomphi, lolnumberingt &lolnu
 
     bool valid = true;
     unsigned overal_mloc = 0;
-    const DIExpression *Expr = nullptr;
+    MetaVal meta;
     for (auto p : MBB.predecessors()) {
       const VarLocSet &mlocs = getVarLocsInMBB(p, MLOCOutLocs);
       const VarLocSet &vlocs = getVarLocsInMBB(p, VLOCOutLocs);
@@ -2248,12 +2264,12 @@ void LiveDebugValues::resolveVPHIs(vphitomphit &vphitomphi, lolnumberingt &lolnu
         if (!(loc.first == Pair.first) && loc.second.Kind != ValueRec::Def)
           continue;
 
-        if (overal_mloc != 0 && Expr != loc.second.Expr) {
+        if (overal_mloc != 0 && meta != loc.second.meta) {
           found = false;
           break;
         }
 
-        Expr = loc.second.Expr;
+        meta = loc.second.meta;
 
         // Any PHIs should have been previously resolved; or represent the
         // fact that things are unresolvable.
@@ -2295,7 +2311,7 @@ void LiveDebugValues::resolveVPHIs(vphitomphit &vphitomphi, lolnumberingt &lolnu
       // mloc PHI at that position.
       
       ValueIDNum newid = {cur_bb, 0, overal_mloc};
-      ValueRec r = {newid, None, Expr, 0, ValueRec::Def};
+      ValueRec r = {newid, None, meta, 0, ValueRec::Def};
       unsigned newnum = lolnumbering.insert({Pair.first, r});
       // Record pair to mangle later.
       toreplace.push_back(std::make_pair(ID, newnum));
