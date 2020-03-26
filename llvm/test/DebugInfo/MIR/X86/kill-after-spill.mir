@@ -14,8 +14,8 @@
 # ...
 #
 # CHECK: bb.1.if.end:
-# CHECK: DBG_VALUE $rbp, 0, !37, !DIExpression(DW_OP_constu, 44, DW_OP_minus), debug-location !58
-# CHECK-NOT: DBG_VALUE $rbp, 0, !36, !DIExpression(DW_OP_constu, 48, DW_OP_minus), debug-location !57
+# CHECK: DBG_VALUE $rbp, 0, !37, !DIExpression(DW_OP_constu, 44, DW_OP_minus)
+# CHECK-NOT: DBG_VALUE $rbp, 0, !36, !DIExpression(DW_OP_constu, 48, DW_OP_minus)
 
 --- |
   ; ModuleID = '<stdin>'
