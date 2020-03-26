@@ -2567,15 +2567,11 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   for (auto &It : vlocs) {
     const MachineBasicBlock *MBB = OrderToBB[It.first];
     VarLocSet &transfer = getVarLocsInMBB(MBB, VLOCTransfer);
-    VarLocSet &olocs = getVarLocsInMBB(MBB, VLOCOutLocs);
     for (auto &idx : It.second->Vars) {
       const DebugVariable &Var = idx.first;
       const ValueRec &Rec = idx.second;
       unsigned num = lolnumbering.insert(std::make_pair(Var, Rec));
       transfer.set(num);
-      if (Rec.Kind == ValueRec::Def && Rec.ID.LocNo == 0) // XXX ded?
-        continue;
-      olocs.set(num);
     }
   }
 
