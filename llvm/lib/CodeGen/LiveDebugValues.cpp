@@ -570,7 +570,8 @@ public:
     // Insert a new vloc. Ignore non-register locations, we don't transfer
     // those, and can't current describe spill locs independently of regs.
     if (!MO.isReg() || MO.getReg() == 0) {
-      ActiveVLocs.erase(It);
+      if (It != ActiveVLocs.end())
+        ActiveVLocs.erase(It);
       return;
     }
 
