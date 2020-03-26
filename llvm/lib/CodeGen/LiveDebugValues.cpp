@@ -363,6 +363,13 @@ public:
     return MachineLocsToIDNums[NumRegs + pos - 1];
   }
 
+  unsigned getSpillMLoc(SpillLoc l) {
+    unsigned SpillID = SpillsToMLocs.idFor(l);
+    assert(SpillID != 0);
+    SpillID += NumRegs - 1;
+    return SpillID;
+  }
+
   void dump(const TargetRegisterInfo *TRI) {
     for (unsigned int ID = 0; ID < NumRegs; ++ID) {
       auto &num = MachineLocsToIDNums[ID];
@@ -1749,11 +1756,16 @@ void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI,
     auto id = tracker->readReg(Reg);
     tracker->setSpill(*Loc, id);
     tracker->lolwipe(Reg);
+    if (ttracker)
+      ttracker->transferMlocs(Reg, tracker->getSpillMLoc(*Loc), MI.getIterator());
+
   } else {
     auto id = tracker->readSpill(*Loc);
     if (id.LocNo != 0) {
       tracker->setReg(Reg, id);
       tracker->lolwipe(*Loc);
+      if (ttracker)
+        ttracker->transferMlocs(tracker->getSpillMLoc(*Loc), Reg, MI.getIterator());
     }
   }
 
@@ -1846,6 +1858,8 @@ void LiveDebugValues::transferRegisterCopy(MachineInstr &MI,
       auto id = tracker->readReg(SrcReg);
       tracker->setReg(DestReg, id);
       tracker->lolwipe(SrcReg);
+      if (ttracker)
+        ttracker->transferMlocs(SrcReg, DestReg, MI.getIterator());
       return;
     }
   }
