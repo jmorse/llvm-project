@@ -478,9 +478,14 @@ public:
   MLocTracker *mlocs;
   MachineFunction &MF;
 
+  struct Transfer {
+    MachineBasicBlock::iterator pos;
+    bool isInLoc;
+    std::vector<MachineInstr *> insts;
+  };
+
   typedef std::pair<unsigned, const DIExpression *> hahaloc;
-  typedef std::pair<MachineBasicBlock::iterator, std::vector<MachineInstr *>> TFerPosish;
-  std::vector<TFerPosish> Transfers;
+  std::vector<Transfer> Transfers;
 
   DenseMap<unsigned, SmallSet<DebugVariable, 4>> ActiveMLocs;
   DenseMap<DebugVariable, hahaloc> ActiveVLocs;
@@ -535,7 +540,7 @@ public:
       inlocs.push_back(emitLoc(mloc, Var.first, Var.second.Expr));
     }
     if (inlocs.size() > 0)
-      Transfers.push_back({MBB.begin(), std::move(inlocs)});
+      Transfers.push_back({MBB.begin(), true, std::move(inlocs)});
   }
 
   void redefVar(const MachineInstr &MI) {
@@ -590,7 +595,7 @@ public:
     }
     ActiveMLocs[src].clear();
     if (instrs.size() > 0)
-      Transfers.push_back({std::next(pos), std::move(instrs)});
+      Transfers.push_back({pos, false, std::move(instrs)});
   }
 
   MachineInstrBuilder 
@@ -2674,9 +2679,12 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 #endif
 
   for (auto &P : ttracker->Transfers) {
-    MachineBasicBlock &MBB = *P.first->getParent();
-    for (auto *MI : P.second) {
-      MBB.insert(P.first, MI);
+    MachineBasicBlock &MBB = *P.pos->getParent();
+    auto pos = P.pos;
+    if (!P.isInLoc)
+      pos = std::next(pos);
+    for (auto *MI : P.insts) {
+      MBB.insert(pos, MI);
     }
   }
 
