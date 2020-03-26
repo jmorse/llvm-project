@@ -2167,7 +2167,7 @@ bool LiveDebugValues::vloc_transfer(VarLocSet &ilocs, VarLocSet &transfer, VarLo
   // quick implementation then, anything in transfer overrides ilocs. Filter
   // out anything that's been deleted in the meantime.
 
-  olocs = transfer;
+  VarLocSet new_olocs = transfer;
   DenseSet<DebugVariable> set;
   for (auto ID : transfer) {
     set.insert(lolnumbering[ID].first);
@@ -2178,20 +2178,21 @@ bool LiveDebugValues::vloc_transfer(VarLocSet &ilocs, VarLocSet &transfer, VarLo
   for (auto ID : tmp) {
     if (set.count(lolnumbering[ID].first))
       continue;
-    olocs.set(ID);
+    new_olocs.set(ID);
   }
 
   // XXX erm, unset any empty locations.
   // XXX XXX are there any now that everything starts with mloc phis?
   VarLocSet bees(Alloc);
-  for (auto ID : olocs) {
+  for (auto ID : new_olocs) {
     auto rec = lolnumbering[ID].second;
     if (rec.Kind == ValueRec::Def && rec.ID.LocNo == 0)
       bees.set(ID);
   }
-  olocs.intersectWithComplement(bees);
-
-  return olocs != ilocs;
+  new_olocs.intersectWithComplement(bees);
+  bool Changed = new_olocs != olocs;
+  olocs = new_olocs;
+  return Changed;
 }
 
 void LiveDebugValues::resolveVPHIs(vphitomphit &vphitomphi, lolnumberingt &lolnumbering, MachineBasicBlock &MBB, VarLocSet &InLocs, VarLocInMBB &VLOCOutLocs, VarLocInMBB &MLOCOutLocs, unsigned cur_bb) {
