@@ -438,6 +438,7 @@ public:
 };
 
 typedef UniqueVector<std::pair<DebugVariable, ValueRec>> lolnumberingt;
+typedef DenseMap<uint64_t, uint64_t> vphitomphit;
 
 class VLocTracker {
 public:
@@ -1112,7 +1113,7 @@ private:
   bool vloc_transfer(VarLocSet &ilocs, VarLocSet &transfer, VarLocSet &olocs, lolnumberingt &lolnumbering);
 
 
-  void resolveVPHIs(lolnumberingt &lolnumbering, MachineBasicBlock &MBB, VarLocSet &InLocs, VarLocInMBB &VLOCOutLocs, VarLocInMBB &MLOCOutLocs, unsigned cur_bb);
+  void resolveVPHIs(vphitomphit &vphitomphi, lolnumberingt &lolnumbering, MachineBasicBlock &MBB, VarLocSet &InLocs, VarLocInMBB &VLOCOutLocs, VarLocInMBB &MLOCOutLocs, unsigned cur_bb);
 
   /// Create DBG_VALUE insts for inlocs that have been propagated but
   /// had their instruction creation deferred.
@@ -2193,13 +2194,21 @@ bool LiveDebugValues::vloc_transfer(VarLocSet &ilocs, VarLocSet &transfer, VarLo
   return olocs != ilocs;
 }
 
-void LiveDebugValues::resolveVPHIs(lolnumberingt &lolnumbering, MachineBasicBlock &MBB, VarLocSet &InLocs, VarLocInMBB &VLOCOutLocs, VarLocInMBB &MLOCOutLocs, unsigned cur_bb) {
+void LiveDebugValues::resolveVPHIs(vphitomphit &vphitomphi, lolnumberingt &lolnumbering, MachineBasicBlock &MBB, VarLocSet &InLocs, VarLocInMBB &VLOCOutLocs, VarLocInMBB &MLOCOutLocs, unsigned cur_bb) {
   // Take a look at each PHI in the inlocs.
   std::vector<std::pair<unsigned, unsigned>> toreplace;
   for (unsigned ID : InLocs) {
     auto Pair = lolnumbering[ID];
     if (Pair.second.Kind != ValueRec::PHI)
       continue;
+
+    if (Pair.second.BlockPHI != cur_bb) {
+      auto it = vphitomphi.find(ID);
+      if (it == vphitomphi.end())
+        continue;
+      toreplace.push_back(std::make_pair(ID, it->second));
+      continue;
+    }
 
     bool valid = true;
     unsigned overal_mloc = 0;
@@ -2267,6 +2276,8 @@ void LiveDebugValues::resolveVPHIs(lolnumberingt &lolnumbering, MachineBasicBloc
       unsigned newnum = lolnumbering.insert({Pair.first, r});
       // Record pair to mangle later.
       toreplace.push_back(std::make_pair(ID, newnum));
+      assert(vphitomphi.find(ID) == vphitomphi.end());
+      vphitomphi[ID] = newnum;
     }
   }
 
@@ -2620,9 +2631,10 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
   // Reprocess all instructions a final time and record transfers. The live-in
   // locations should not change as we've reached a fixedpoint.
+  vphitomphit vphitomphi;
   for (MachineBasicBlock &MBB : MF) {
     unsigned bbnum = BBToOrder[&MBB];
-    resolveVPHIs(lolnumbering, MBB, getVarLocsInMBB(&MBB, VLOCInLocs), VLOCOutLocs, MLOCOutLocs, bbnum);
+    resolveVPHIs(vphitomphi, lolnumbering, MBB, getVarLocsInMBB(&MBB, VLOCInLocs), VLOCOutLocs, MLOCOutLocs, bbnum);
     ttracker->loadInlocs(MBB, lolnumbering, getVarLocsInMBB(&MBB, MLOCInLocs), getVarLocsInMBB(&MBB, VLOCInLocs), bbnum);
 
     OpenRanges.insertFromLocSet(getVarLocsInMBB(&MBB, PendingInLocs), VarLocIDs);
