@@ -427,8 +427,12 @@ public:
       } else {
         return MO->getType() < Other.MO->getType();
       }
+    } else if (Kind == PHI && Other.Kind == PHI) {
+      return BlockPHI < Other.BlockPHI;
+    } else if (Kind == Def && Other.Kind == Def) {
+      return ID < Other.ID;
     } else {
-      return std::tie(isMO, ID, Expr) < std::tie(Other.isMO, Other.ID, Other.Expr);
+      return Kind < Other.Kind;
     }
   }
 };
