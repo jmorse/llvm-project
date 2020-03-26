@@ -1755,17 +1755,17 @@ void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI,
   if (TKind == TransferKind::TransferSpill) {
     auto id = tracker->readReg(Reg);
     tracker->setSpill(*Loc, id);
-    tracker->lolwipe(Reg);
     if (ttracker)
       ttracker->transferMlocs(Reg, tracker->getSpillMLoc(*Loc), MI.getIterator());
+    tracker->lolwipe(Reg);
 
   } else {
     auto id = tracker->readSpill(*Loc);
     if (id.LocNo != 0) {
       tracker->setReg(Reg, id);
-      tracker->lolwipe(*Loc);
       if (ttracker)
         ttracker->transferMlocs(tracker->getSpillMLoc(*Loc), Reg, MI.getIterator());
+      tracker->lolwipe(*Loc);
     }
   }
 
