@@ -618,14 +618,15 @@ public:
     if (MLoc < mlocs->NumRegs) {
       assert(MLoc != 0);
       MIB.addReg(MLoc);
+      MIB.addReg(0);
     } else {
       const SpillLoc &Loc = mlocs->SpillsToMLocs[MLoc - mlocs->NumRegs + 1];
       Expr = DIExpression::prepend(Expr, DIExpression::ApplyOffset, Loc.SpillOffset);
       unsigned Base = Loc.SpillBase;
       MIB.addReg(Base);
+      MIB.addImm(0);
     }
 
-    MIB.addReg(0);
     MIB.addMetadata(Var.getVariable());
     MIB.addMetadata(Expr);
     return MIB;
