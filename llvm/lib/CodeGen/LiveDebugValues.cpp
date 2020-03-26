@@ -1585,6 +1585,8 @@ void LiveDebugValues::transferRegisterDef(
   for (uint32_t DeadReg : DeadRegs) {
     collectIDsForReg(KillSet, DeadReg, OpenRanges.getVarLocs());
     tracker->defReg(DeadReg, cur_bb, cur_inst);
+    if (ttracker)
+      ttracker->clobberMloc(DeadReg);
   }
   if (!RegMasks.empty()) {
     SmallVector<uint32_t, 32> UsedRegs;
