@@ -575,9 +575,15 @@ public:
     }
 
     unsigned Reg = MO.getReg();
+    MetaVal meta = {MI.getDebugExpression(), MI.getOperand(1).isImm()};
+
     ActiveMLocs[Reg].insert(Var);
-    It->second.first = Reg;
-    It->second.second = {MI.getDebugExpression(), MI.getOperand(1).isImm()};
+    if (It == ActiveVLocs.end()) {
+      ActiveVLocs.insert(std::make_pair(Var, std::make_pair(Reg, meta)));
+    } else {
+      It->second.first = Reg;
+      It->second.second = meta;
+    }
   }
 
   void clobberMloc(unsigned mloc, MachineBasicBlock::iterator pos) {
@@ -1474,6 +1480,9 @@ void LiveDebugValues::transferDebugValue(const MachineInstr &MI,
       vtracker->defVar(MI, MI.getOperand(0));
     }
   }
+
+  if (ttracker)
+    ttracker->redefVar(MI);
 }
 
 /// Turn the entry value backup locations into primary locations.
