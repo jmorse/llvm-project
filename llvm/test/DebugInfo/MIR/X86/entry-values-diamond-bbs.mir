@@ -1,3 +1,4 @@
+# XFAIL: *
 # RUN: llc -debug-entry-values -run-pass=livedebugvalues -march=x86-64 -o - %s | FileCheck %s
 #
 # The test case was artificially adjusted, in order to make proper diamond basic
