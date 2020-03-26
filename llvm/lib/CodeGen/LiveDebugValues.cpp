@@ -2647,6 +2647,8 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     unsigned bbnum = BBToOrder[&MBB];
     resolveVPHIs(vphitomphi, lolnumbering, MBB, getVarLocsInMBB(&MBB, VLOCInLocs), VLOCOutLocs, MLOCOutLocs, bbnum);
     ttracker->loadInlocs(MBB, lolnumbering, getVarLocsInMBB(&MBB, MLOCInLocs), getVarLocsInMBB(&MBB, VLOCInLocs), bbnum);
+    tracker->reset();
+    tracker->loadFromVarLocSet(getVarLocsInMBB(&MBB, MLOCInLocs), bbnum);
 
     OpenRanges.insertFromLocSet(getVarLocsInMBB(&MBB, PendingInLocs), VarLocIDs);
     for (auto &MI : MBB)
