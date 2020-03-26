@@ -1899,9 +1899,9 @@ void LiveDebugValues::transferRegisterCopy(MachineInstr &MI,
                               TransferKind::TransferCopy, DestReg);
       auto id = tracker->readReg(SrcReg);
       tracker->setReg(DestReg, id);
-      tracker->lolwipe(SrcReg);
       if (ttracker)
         ttracker->transferMlocs(SrcReg, DestReg, MI.getIterator());
+      tracker->lolwipe(SrcReg);
       return;
     }
   }
