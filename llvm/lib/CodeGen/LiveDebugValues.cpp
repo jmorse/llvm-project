@@ -370,6 +370,10 @@ public:
     return SpillID;
   }
 
+  bool isSpill(unsigned mloc) const {
+    return mloc >= NumRegs;
+  }
+
   void dump(const TargetRegisterInfo *TRI) {
     for (unsigned int ID = 0; ID < NumRegs; ++ID) {
       auto &num = MachineLocsToIDNums[ID];
@@ -576,14 +580,24 @@ public:
     It->second.second = {MI.getDebugExpression(), MI.getOperand(1).isImm()};
   }
 
-  void clobberMloc(unsigned mloc) {
+  void clobberMloc(unsigned mloc, MachineBasicBlock::iterator pos) {
     auto It = ActiveMLocs.find(mloc);
     if (It == ActiveMLocs.end())
       return;
 
+    std::vector<MachineInstr *>insts;
     for (auto &Var : It->second) {
-      ActiveVLocs.erase(Var);
+      auto ALoc = ActiveVLocs.find(Var);
+      if (mlocs->isSpill(mloc)) {
+        // Create an undef. We can't feed in a nullptr DIExpression alas,
+        // so use the variables last expression.
+        const DIExpression *Expr = ALoc->second.second.first;
+        insts.push_back(emitLoc(0, Var, {Expr, false}));
+      }
+      ActiveVLocs.erase(ALoc);
     }
+    if (insts.size() != 0)
+      Transfers.push_back({pos, false, std::move(insts)});
 
     It->second.clear();
   }
@@ -629,7 +643,6 @@ public:
 
     const DIExpression *Expr = meta.first;
     if (MLoc < mlocs->NumRegs) {
-      assert(MLoc != 0);
       MIB.addReg(MLoc);
       if (meta.second)
         MIB.addImm(0);
@@ -1608,7 +1621,7 @@ void LiveDebugValues::transferRegisterDef(
     collectIDsForReg(KillSet, DeadReg, OpenRanges.getVarLocs());
     tracker->defReg(DeadReg, cur_bb, cur_inst);
     if (ttracker)
-      ttracker->clobberMloc(DeadReg);
+      ttracker->clobberMloc(DeadReg, MI.getIterator());
   }
   if (!RegMasks.empty()) {
     SmallVector<uint32_t, 32> UsedRegs;
@@ -1754,6 +1767,11 @@ void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI,
         LocIndex UndefLocID = VarLocIDs.insert(UndefVL);
         if (Transfers)
           Transfers->push_back({&MI, UndefLocID});
+
+        if (ttracker) {
+          unsigned mloc = tracker->getSpillMLoc(*Loc);
+          ttracker->clobberMloc(mloc, MI.getIterator());
+        }
       }
     }
     OpenRanges.erase(KillSet, VarLocIDs);
