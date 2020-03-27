@@ -2572,10 +2572,10 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
       MBBJoined = join(*MBB, OutLocs, InLocs, VarLocIDs, Visited,
                        ArtificialBlocks, PendingInLocs, false);
       MBBJoined |= Visited.insert(MBB).second;
-      MLOCVisited.insert(MBB);
 
      // XXX jmorse
       join(*MBB, MLOCOutLocs, MLOCInLocs, VarLocIDs, MLOCVisited, ArtificialBlocks, MLOCPendingInLocs, true);
+      MLOCVisited.insert(MBB);
 
       if (MBBJoined) {
         MBBJoined = false;
