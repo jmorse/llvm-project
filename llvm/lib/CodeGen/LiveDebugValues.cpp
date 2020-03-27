@@ -1633,6 +1633,13 @@ void LiveDebugValues::transferRegisterDef(
     if (ttracker)
       ttracker->clobberMloc(DeadReg, MI.getIterator());
   }
+
+  auto AnyRegMaskKillsReg = [RegMasks](Register Reg) -> bool {
+    return any_of(RegMasks, [Reg](const uint32_t *RegMask) {
+      return MachineOperand::clobbersPhysReg(RegMask, Reg);
+    });
+  };
+
   if (!RegMasks.empty()) {
     SmallVector<uint32_t, 32> UsedRegs;
     getUsedRegs(OpenRanges.getVarLocs(), UsedRegs);
@@ -1649,16 +1656,21 @@ void LiveDebugValues::transferRegisterDef(
       // still a better user experience.
       if (Reg == SP)
         continue;
-      bool AnyRegMaskKillsReg =
-          any_of(RegMasks, [Reg](const uint32_t *RegMask) {
-            return MachineOperand::clobbersPhysReg(RegMask, Reg);
-          });
-      if (AnyRegMaskKillsReg) {
+      if (AnyRegMaskKillsReg(Reg)) {
         collectIDsForReg(KillSet, Reg, OpenRanges.getVarLocs());
-        tracker->defReg(Reg, cur_bb, cur_inst);
       }
     }
   }
+
+  // All registers not in the mask may need re-deffing...
+  for (unsigned Reg = 1; Reg < TRI->getNumRegs(); ++Reg) {
+    if (AnyRegMaskKillsReg(Reg)) {
+      tracker->defReg(Reg, cur_bb, cur_inst);
+      if (ttracker)
+        ttracker->clobberMloc(Reg, MI.getIterator());
+    }
+  }
+
   OpenRanges.erase(KillSet, VarLocIDs);
 
   if (auto *TPC = getAnalysisIfAvailable<TargetPassConfig>()) {
