@@ -2624,11 +2624,11 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   // Accumulate things into the vloc tracker.
   for (auto RI = RPOT.begin(), RE = RPOT.end(); RI != RE; ++RI) {
     unsigned Idx = BBToOrder[*RI];
+    cur_bb = Idx;
     Worklist.push(Idx);
     auto *MBB = *RI;
     vtracker = vlocs[Idx];
     tracker->loadFromVarLocSet(getVarLocsInMBB(MBB, MLOCInLocs), cur_bb);
-    cur_bb = Idx;
     cur_inst = 1;
     OpenRanges.clear();
     for (auto &MI : *MBB) { // XXX I think the empty open ranges does nufink
