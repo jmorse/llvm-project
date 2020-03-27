@@ -283,7 +283,7 @@ public:
   void loadFromVarLocSet(const VarLocSet &vls, unsigned cur_bb) {
     // Quickly reset everything to being itself at inst 0, representing a phi.
     for (unsigned ID = 0; ID < MachineLocsToIDNums.size(); ++ID) {
-      MachineLocsToIDNums[ID] = {0, 0, ID};
+      MachineLocsToIDNums[ID] = {cur_bb, 0, ID};
     }
 
     for (auto ID : vls) {
