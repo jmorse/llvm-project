@@ -2249,29 +2249,27 @@ bool LiveDebugValues::vloc_transfer(VarLocSet &ilocs, VarLocSet &transfer, VarLo
   // quick implementation then, anything in transfer overrides ilocs. Filter
   // out anything that's been deleted in the meantime.
 
-  VarLocSet new_olocs = transfer;
-  DenseSet<DebugVariable> set;
-  for (auto ID : transfer) {
-    set.insert(lolnumbering[ID].first);
+  VarLocSet new_olocs(Alloc);
+  DenseMap<DebugVariable, ValueRec> set;
+  for (auto ID : ilocs) {
+    set.insert(lolnumbering[ID]);
   }
 
-  VarLocSet tmp = ilocs;
-  tmp.intersectWithComplement(transfer);
-  for (auto ID : tmp) {
-    if (set.count(lolnumbering[ID].first))
-      continue;
-    new_olocs.set(ID);
+  for (auto ID : transfer) {
+    set.erase(lolnumbering[ID].first);
+    set.insert(lolnumbering[ID]);
   }
 
   // XXX erm, unset any empty locations.
   // XXX XXX are there any now that everything starts with mloc phis?
-  VarLocSet bees(Alloc);
-  for (auto ID : new_olocs) {
-    auto rec = lolnumbering[ID].second;
-    if (rec.Kind == ValueRec::Def && rec.ID.LocNo == 0)
-      bees.set(ID);
+  for (auto &P : set) {
+    if (P.second.Kind == ValueRec::Def && P.second.ID.LocNo == 0)
+      continue;
+    unsigned id = lolnumbering.idFor(P);
+    assert(id != 0);
+    new_olocs.set(id);
   }
-  new_olocs.intersectWithComplement(bees);
+
   bool Changed = new_olocs != olocs;
   olocs = new_olocs;
   return Changed;
