@@ -1668,7 +1668,7 @@ void LiveDebugValues::transferRegisterDef(
 
   // All registers not in the mask may need re-deffing...
   for (unsigned Reg = 1; Reg < TRI->getNumRegs(); ++Reg) {
-    if (AnyRegMaskKillsReg(Reg)) {
+    if (Reg != SP && AnyRegMaskKillsReg(Reg)) {
       tracker->defReg(Reg, cur_bb, cur_inst);
       if (ttracker)
         ttracker->clobberMloc(Reg, MI.getIterator());
