@@ -2576,7 +2576,8 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
       MBBJoined |= Visited.insert(MBB).second;
 
      // XXX jmorse
-      join(*MBB, MLOCOutLocs, MLOCInLocs, VarLocIDs, MLOCVisited, ArtificialBlocks, MLOCPendingInLocs, true);
+     // Also XXX, do we go around these loops too many times?
+      MBBJoined |= join(*MBB, MLOCOutLocs, MLOCInLocs, VarLocIDs, MLOCVisited, ArtificialBlocks, MLOCPendingInLocs, true);
       MLOCVisited.insert(MBB);
 
       if (MBBJoined) {
@@ -2600,6 +2601,12 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
         LLVM_DEBUG(printVarLocInMBB(MF, InLocs, VarLocIDs,
                                     "InLocs after propagating", dbgs()));
 
+        auto tmpset = tracker->makeVarLocSet();
+        auto &replaceset = getVarLocsInMBB(MBB, MLOCOutLocs);
+        OLChanged |= tmpset != replaceset;
+        replaceset = tmpset;
+        tracker->reset();
+
         if (OLChanged) {
           OLChanged = false;
           for (auto s : MBB->successors())
@@ -2607,8 +2614,6 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
               Pending.push(BBToOrder[s]);
             }
         }
-        getVarLocsInMBB(MBB, MLOCOutLocs) = tracker->makeVarLocSet();
-        tracker->reset();
       }
     }
     Worklist.swap(Pending);
