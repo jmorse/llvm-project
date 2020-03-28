@@ -243,6 +243,10 @@ public:
     return {ValueIDNum::fromU64(v >> 14), v & 0x3FFF};
   }
 
+  bool operator==(const VarLocPos &Other) const {
+    return std::tie(ID, CurrentLoc) == std::tie(Other.ID, Other.CurrentLoc);
+  }
+
   std::string asString(const TargetRegisterInfo *TRI) const {
     std::string regname;
     if (CurrentLoc < TRI->getNumRegs())
