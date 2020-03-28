@@ -22,36 +22,36 @@
 # CHECK: [[VAR_C:![0-9]+]] = !DILocalVariable(name: "c",
 # CHECK: [[VAR_I:![0-9]+]] = !DILocalVariable(name: "i",
 
-# CHECK: bb.0.entry
+# CHECK-LABEL: bb.0.entry
 # CHECK: DBG_VALUE $r0, $noreg, [[VAR_A]]
 # CHECK: DBG_VALUE [[REG_A:\$r[0-9]+]], $noreg, [[VAR_A]]
 # CHECK: DBG_VALUE [[REG_B:\$r[0-9]+]], $noreg, [[VAR_B]]
 
-# CHECK: bb.1.if.then
+# CHECK-LABEL: bb.1.if.then
 # CHECK: DBG_VALUE [[REG_B]], $noreg, [[VAR_B]]
 # CHECK: DBG_VALUE [[REG_A]], $noreg, [[VAR_A]]
 # CHECK: DBG_VALUE [[REG_C:\$r[0-9]+]], $noreg, [[VAR_C]]
 # CHECK: DBG_VALUE 1, 0, [[VAR_I]]
 
-# CHECK: bb.2.for.body
+# CHECK-LABEL: bb.2.for.body
 # CHECK: DBG_VALUE [[REG_I:\$r[0-9]+]], $noreg, [[VAR_I]]
 # CHECK: DBG_VALUE [[REG_C]], $noreg, [[VAR_C]]
 # CHECK: DBG_VALUE [[REG_B]], $noreg, [[VAR_B]]
 # CHECK: DBG_VALUE [[REG_A]], $noreg, [[VAR_A]]
 # CHECK: DBG_VALUE [[REG_I]], $noreg, [[VAR_I]]
 
-# CHECK: bb.3.for.cond
+# CHECK-LABEL: bb.3.for.cond
 # CHECK: DBG_VALUE [[REG_C]], $noreg, [[VAR_C]]
 # CHECK: DBG_VALUE [[REG_B]], $noreg, [[VAR_B]]
 # CHECK: DBG_VALUE [[REG_A]], $noreg, [[VAR_A]]
 # CHECK: DBG_VALUE [[REG_I]], $noreg, [[VAR_I]]
 
-# CHECK: bb.4.for.cond.cleanup
+# CHECK-LABEL: bb.4.for.cond.cleanup
 # CHECK: DBG_VALUE [[REG_C]], $noreg, [[VAR_C]]
 # CHECK: DBG_VALUE [[REG_B]], $noreg, [[VAR_B]]
 # CHECK: DBG_VALUE [[REG_A]], $noreg, [[VAR_A]]
 
-# CHECK: bb.5.if.end
+# CHECK-LABEL: bb.5.if.end
 # CHECK: DBG_VALUE [[REG_B]], $noreg, [[VAR_B]]
 # CHECK: DBG_VALUE [[REG_A]], $noreg, [[VAR_A]]
 --- |
