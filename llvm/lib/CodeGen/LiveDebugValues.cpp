@@ -2573,7 +2573,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     LLVM_DEBUG(dbgs() << "Processing Worklist\n");
     while (!Worklist.empty()) {
       MachineBasicBlock *MBB = OrderToBB[Worklist.top()];
-      cur_bb = Worklist.top();
+      cur_bb = MBB->getNumber();
       cur_inst = 1;
       Worklist.pop();
       MBBJoined = join(*MBB, OutLocs, InLocs, VarLocIDs, Visited,
@@ -2637,7 +2637,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   // Accumulate things into the vloc tracker.
   for (auto RI = RPOT.begin(), RE = RPOT.end(); RI != RE; ++RI) {
     unsigned Idx = BBToOrder[*RI];
-    cur_bb = Idx;
+    cur_bb = (*RI)->getNumber();
     Worklist.push(Idx);
     auto *MBB = *RI;
     vtracker = vlocs[Idx];
@@ -2675,7 +2675,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     LLVM_DEBUG(dbgs() << "Processing Worklist\n");
     while (!Worklist.empty()) {
       MachineBasicBlock *MBB = OrderToBB[Worklist.top()];
-      cur_bb = Worklist.top();
+      cur_bb = MBB->getNumber();
       Worklist.pop();
 
       MBBJoined = vloc_join(*MBB, VLOCOutLocs, VLOCInLocs, lolnumbering,
@@ -2721,7 +2721,8 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   // locations should not change as we've reached a fixedpoint.
   vphitomphit vphitomphi;
   for (MachineBasicBlock &MBB : MF) {
-    unsigned bbnum = BBToOrder[&MBB];
+    unsigned bbnum = MBB.getNumber();
+
     resolveVPHIs(vphitomphi, lolnumbering, MBB, getVarLocsInMBB(&MBB, VLOCInLocs), VLOCOutLocs, MLOCOutLocs, bbnum);
     ttracker->loadInlocs(MBB, lolnumbering, getVarLocsInMBB(&MBB, MLOCInLocs), getVarLocsInMBB(&MBB, VLOCInLocs), bbnum);
     tracker->reset();
