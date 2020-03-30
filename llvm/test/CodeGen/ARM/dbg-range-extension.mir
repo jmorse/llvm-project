@@ -28,32 +28,33 @@
 # CHECK: DBG_VALUE [[REG_B:\$r[0-9]+]], $noreg, [[VAR_B]]
 
 # CHECK-LABEL: bb.1.if.then
-# CHECK: DBG_VALUE [[REG_B]], $noreg, [[VAR_B]]
 # CHECK: DBG_VALUE [[REG_A]], $noreg, [[VAR_A]]
+# CHECK: DBG_VALUE [[REG_B]], $noreg, [[VAR_B]]
 # CHECK: DBG_VALUE [[REG_C:\$r[0-9]+]], $noreg, [[VAR_C]]
 # CHECK: DBG_VALUE 1, 0, [[VAR_I]]
 
 # CHECK-LABEL: bb.2.for.body
-# CHECK: DBG_VALUE [[REG_I:\$r[0-9]+]], $noreg, [[VAR_I]]
-# CHECK: DBG_VALUE [[REG_C]], $noreg, [[VAR_C]]
-# CHECK: DBG_VALUE [[REG_B]], $noreg, [[VAR_B]]
 # CHECK: DBG_VALUE [[REG_A]], $noreg, [[VAR_A]]
+# CHECK: DBG_VALUE [[REG_B]], $noreg, [[VAR_B]]
+# CHECK: DBG_VALUE [[REG_C]], $noreg, [[VAR_C]]
+# CHECK: DBG_VALUE [[REG_I:\$r[0-9]+]], $noreg, [[VAR_I]]
 # CHECK: DBG_VALUE [[REG_I]], $noreg, [[VAR_I]]
 
 # CHECK-LABEL: bb.3.for.cond
-# CHECK: DBG_VALUE [[REG_C]], $noreg, [[VAR_C]]
-# CHECK: DBG_VALUE [[REG_B]], $noreg, [[VAR_B]]
 # CHECK: DBG_VALUE [[REG_A]], $noreg, [[VAR_A]]
+# CHECK: DBG_VALUE [[REG_B]], $noreg, [[VAR_B]]
+# CHECK: DBG_VALUE [[REG_C]], $noreg, [[VAR_C]]
+# CHECK: DBG_VALUE [[REG_A]], $noreg, [[VAR_I]]
 # CHECK: DBG_VALUE [[REG_I]], $noreg, [[VAR_I]]
 
 # CHECK-LABEL: bb.4.for.cond.cleanup
-# CHECK: DBG_VALUE [[REG_C]], $noreg, [[VAR_C]]
-# CHECK: DBG_VALUE [[REG_B]], $noreg, [[VAR_B]]
 # CHECK: DBG_VALUE [[REG_A]], $noreg, [[VAR_A]]
+# CHECK: DBG_VALUE [[REG_B]], $noreg, [[VAR_B]]
+# CHECK: DBG_VALUE [[REG_C]], $noreg, [[VAR_C]]
 
 # CHECK-LABEL: bb.5.if.end
-# CHECK: DBG_VALUE [[REG_B]], $noreg, [[VAR_B]]
 # CHECK: DBG_VALUE [[REG_A]], $noreg, [[VAR_A]]
+# CHECK: DBG_VALUE [[REG_B]], $noreg, [[VAR_B]]
 --- |
   ; ModuleID = '/data/kwalker/work/OpenSource-llvm/llvm/test/CodeGen/ARM/dbg-range-extension.ll'
   source_filename = "/data/kwalker/work/OpenSource-llvm/llvm/test/CodeGen/ARM/dbg-range-extension.ll"
