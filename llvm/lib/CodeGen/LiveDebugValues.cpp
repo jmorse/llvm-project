@@ -617,7 +617,8 @@ public:
   }
 
   void transferMlocs(unsigned src, unsigned dst, MachineBasicBlock::iterator pos) {
-    assert(ActiveMLocs[dst].size() == 0);
+    // Legitimate scenario on account of un-clobbered slot being assigned to?
+    //assert(ActiveMLocs[dst].size() == 0);
     ActiveMLocs[dst] = ActiveMLocs[src];
 
     std::vector<MachineInstr *> instrs;
