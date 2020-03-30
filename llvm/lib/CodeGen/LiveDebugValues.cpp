@@ -2308,7 +2308,7 @@ void LiveDebugValues::resolveVPHIs(vphitomphit &vphitomphi, lolnumberingt &lolnu
       bool found = false;
       for (unsigned ID : vlocs) {
         auto &loc = lolnumbering[ID];
-        if (!(loc.first == Pair.first) && loc.second.Kind != ValueRec::Def)
+        if (!(loc.first == Pair.first) || loc.second.Kind != ValueRec::Def)
           continue;
 
         if (overal_mloc != 0 && meta != loc.second.meta) {
