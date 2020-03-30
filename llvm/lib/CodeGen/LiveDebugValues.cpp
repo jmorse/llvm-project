@@ -190,7 +190,9 @@ public:
           std::tie(Other.BlockNo, Other.InstNo, Other.LocNo);
  }
 
-
+   bool operator!=(const ValueIDNum &Other) const {
+    return !(*this == Other);
+   }
 
   std::string asString(const TargetRegisterInfo *TRI) const {
     std::string regname;
@@ -257,6 +259,64 @@ public:
   }
 };
 
+typedef std::pair<const DIExpression *, bool> MetaVal;
+
+class ValueRec {
+public:
+  ValueIDNum ID;
+  Optional<MachineOperand> MO;
+  MetaVal meta;
+  unsigned BlockPHI = 0;
+
+  typedef enum { Def, Const, PHI } KindT;
+  KindT Kind;
+
+  void dump(const TargetRegisterInfo *TRI) const {
+    if (Kind == Const) {
+      MO->dump();
+    } else if (Kind == PHI) {
+      dbgs() << "PHI-bb" << BlockPHI << "\n";
+    } else {
+      assert(Kind == Def);
+      dbgs() << ID.asString(TRI);
+    }
+    if (meta.second)
+      dbgs() << " indir";
+    if (meta.first)
+      dbgs() << " " << *meta.first;
+  }
+
+  bool operator<(const ValueRec &Other) const {
+    if (meta != Other.meta)
+      return meta < Other.meta;
+
+    if (Kind == Const && Other.Kind == Const) {
+      if (MO->getType() == Other.MO->getType()) {
+        if (MO->isImm())
+          return MO->getImm() < Other.MO->getImm(); 
+        else if (MO->isCImm())
+          return MO->getCImm() < Other.MO->getCImm(); 
+        else if (MO->isFPImm())
+          return MO->getFPImm() < Other.MO->getFPImm(); 
+        else
+          abort();
+      } else {
+        return MO->getType() < Other.MO->getType();
+      }
+    } else if (Kind == PHI && Other.Kind == PHI) {
+      return BlockPHI < Other.BlockPHI;
+    } else if (Kind == Def && Other.Kind == Def) {
+      return ID < Other.ID;
+    } else {
+      return Kind < Other.Kind;
+    }
+  }
+};
+
+typedef UniqueVector<std::pair<DebugVariable, ValueRec>> lolnumberingt;
+typedef DenseMap<uint64_t, uint64_t> vphitomphit;
+typedef DenseMap<ValueIDNum, ValueIDNum> mphiremapt;
+
 class MLocTracker {
 public:
   VarLocSet::Allocator &Alloc;
@@ -272,6 +332,10 @@ public:
 
   VarLocPos getVarLocPos(unsigned idx) const {
     return {MachineLocsToIDNums[idx], idx};
+  }
+
+  unsigned getNumLocs(void) const {
+    return MachineLocsToIDNums.size();
   }
 
   VarLocSet makeVarLocSet(void) const {
@@ -293,6 +357,16 @@ public:
     for (auto ID : vls) {
       auto pos = VarLocPos::fromU64(ID);
       MachineLocsToIDNums[pos.CurrentLoc] = pos.ID;
+    }
+  }
+
+  void lolremap(const mphiremapt &mphiremap) {
+    for (unsigned ID = 0; ID < MachineLocsToIDNums.size(); ++ID) {
+      if (MachineLocsToIDNums[ID].InstNo == 0) {
+        auto it = mphiremap.find(MachineLocsToIDNums[ID]);
+        if (it != mphiremap.end())
+          MachineLocsToIDNums[ID] = it->second;
+      }
     }
   }
 
@@ -404,63 +478,6 @@ using FragmentOfVar =
     std::pair<const DILocalVariable *, DIExpression::FragmentInfo>;
 using OverlapMap =
     DenseMap<FragmentOfVar, SmallVector<DIExpression::FragmentInfo, 1>>;
-
-typedef std::pair<const DIExpression *, bool> MetaVal;
-
-class ValueRec {
-public:
-  ValueIDNum ID;
-  Optional<MachineOperand> MO;
-  MetaVal meta;
-  unsigned BlockPHI = 0;
-
-  typedef enum { Def, Const, PHI } KindT;
-  KindT Kind;
-
-  void dump(const TargetRegisterInfo *TRI) const {
-    if (Kind == Const) {
-      MO->dump();
-    } else if (Kind == PHI) {
-      dbgs() << "PHI-bb" << BlockPHI << "\n";
-    } else {
-      assert(Kind == Def);
-      dbgs() << ID.asString(TRI);
-    }
-    if (meta.second)
-      dbgs() << " indir";
-    if (meta.first)
-      dbgs() << " " << *meta.first;
-  }
-
-  bool operator<(const ValueRec &Other) const {
-    if (meta != Other.meta)
-      return meta < Other.meta;
-
-    if (Kind == Const && Other.Kind == Const) {
-      if (MO->getType() == Other.MO->getType()) {
-        if (MO->isImm())
-          return MO->getImm() < Other.MO->getImm(); 
-        else if (MO->isCImm())
-          return MO->getCImm() < Other.MO->getCImm(); 
-        else if (MO->isFPImm())
-          return MO->getFPImm() < Other.MO->getFPImm(); 
-        else
-          abort();
-      } else {
-        return MO->getType() < Other.MO->getType();
-      }
-    } else if (Kind == PHI && Other.Kind == PHI) {
-      return BlockPHI < Other.BlockPHI;
-    } else if (Kind == Def && Other.Kind == Def) {
-      return ID < Other.ID;
-    } else {
-      return Kind < Other.Kind;
-    }
-  }
-};
-
-typedef UniqueVector<std::pair<DebugVariable, ValueRec>> lolnumberingt;
-typedef DenseMap<uint64_t, uint64_t> vphitomphit;
 
 class VLocTracker {
 public:
@@ -1170,7 +1187,8 @@ private:
   bool vloc_transfer(VarLocSet &ilocs, VarLocSet &transfer, VarLocSet &olocs, lolnumberingt &lolnumbering);
 
 
-  void resolveVPHIs(vphitomphit &vphitomphi, lolnumberingt &lolnumbering, MachineBasicBlock &MBB, VarLocSet &InLocs, VarLocInMBB &VLOCOutLocs, VarLocInMBB &MLOCOutLocs, unsigned cur_bb);
+  void resolveMPHIs(mphiremapt &mphiremap, MachineBasicBlock &MBB, VarLocSet &InLocs, VarLocInMBB &MLOCOutLocs, unsigned cur_bb);
+  void resolveVPHIs(vphitomphit &vphitomphi, const mphiremapt &mphiremap, lolnumberingt &lolnumbering, MachineBasicBlock &MBB, VarLocSet &InLocs, VarLocInMBB &VLOCOutLocs, VarLocInMBB &MLOCOutLocs, unsigned cur_bb);
 
   /// Create DBG_VALUE insts for inlocs that have been propagated but
   /// had their instruction creation deferred.
@@ -2280,11 +2298,53 @@ bool LiveDebugValues::vloc_transfer(VarLocSet &ilocs, VarLocSet &transfer, VarLo
   return Changed;
 }
 
-void LiveDebugValues::resolveVPHIs(vphitomphit &vphitomphi, lolnumberingt &lolnumbering, MachineBasicBlock &MBB, VarLocSet &InLocs, VarLocInMBB &VLOCOutLocs, VarLocInMBB &MLOCOutLocs, unsigned cur_bb) {
+void LiveDebugValues::resolveMPHIs(mphiremapt &mphiremap, MachineBasicBlock &MBB, VarLocSet &InLocs, VarLocInMBB &MLOCOutLocs, unsigned cur_bb)
+{
+  // Take a look at any inlocs here that are PHIs; are they really PHIS?
+  tracker->reset();
+  tracker->loadFromVarLocSet(InLocs, cur_bb);
+  std::vector<ValueIDNum> toexamine;
+  for (unsigned Idx = 1; Idx < tracker->getNumLocs(); ++Idx) {
+    VarLocPos Pos = tracker->getVarLocPos(Idx);
+    if (Pos.ID.BlockNo == cur_bb && Pos.ID.InstNo == 0)
+      toexamine.push_back(Pos.ID);
+  }
+
+  std::vector<ValueIDNum> seen_values = toexamine;
+  // Look over predecessors...
+  for (auto &p : MBB.predecessors()) {
+    tracker->reset();
+    tracker->loadFromVarLocSet(getVarLocsInMBB(p, MLOCOutLocs), p->getNumber());
+    for (unsigned Idx = 0; Idx < toexamine.size(); ++Idx) {
+      VarLocPos outpos = tracker->getVarLocPos(toexamine[Idx].LocNo);
+      if (outpos.ID != toexamine[Idx] && outpos.ID != seen_values[Idx])
+        seen_values[Idx].LocNo = 0;
+      else
+        seen_values[Idx] = outpos.ID;
+    }
+  }
+
+  // Any seen values that aren't nulled out means that the only incoming
+  // values were the mphi value or one other value. We can remap to that other
+  // value.
+  for (unsigned Idx = 0; Idx < toexamine.size(); ++Idx) {
+    if (seen_values[Idx].LocNo == 0)
+      continue;
+    mphiremap.insert(std::make_pair(toexamine[Idx], seen_values[Idx]));
+  }
+}
+
+void LiveDebugValues::resolveVPHIs(vphitomphit &vphitomphi, const mphiremapt &mphiremap, lolnumberingt &lolnumbering, MachineBasicBlock &MBB, VarLocSet &InLocs, VarLocInMBB &VLOCOutLocs, VarLocInMBB &MLOCOutLocs, unsigned cur_bb) {
   // Take a look at each PHI in the inlocs.
   std::vector<std::pair<unsigned, unsigned>> toreplace;
   for (unsigned ID : InLocs) {
     auto Pair = lolnumbering[ID];
+    if (Pair.second.Kind == ValueRec::Def) {
+      auto it = mphiremap.find(Pair.second.ID);
+      if (it != mphiremap.end())
+        Pair.second.ID = it->second;
+    }
+
     if (Pair.second.Kind != ValueRec::PHI)
       continue;
 
@@ -2720,13 +2780,16 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   // Reprocess all instructions a final time and record transfers. The live-in
   // locations should not change as we've reached a fixedpoint.
   vphitomphit vphitomphi;
+  mphiremapt mphiremap;
   for (MachineBasicBlock &MBB : MF) {
     unsigned bbnum = MBB.getNumber();
 
-    resolveVPHIs(vphitomphi, lolnumbering, MBB, getVarLocsInMBB(&MBB, VLOCInLocs), VLOCOutLocs, MLOCOutLocs, bbnum);
+    resolveMPHIs(mphiremap, MBB, getVarLocsInMBB(&MBB, MLOCInLocs), MLOCOutLocs, bbnum);
+    resolveVPHIs(vphitomphi, mphiremap, lolnumbering, MBB, getVarLocsInMBB(&MBB, VLOCInLocs), VLOCOutLocs, MLOCOutLocs, bbnum);
     ttracker->loadInlocs(MBB, lolnumbering, getVarLocsInMBB(&MBB, MLOCInLocs), getVarLocsInMBB(&MBB, VLOCInLocs), bbnum);
     tracker->reset();
     tracker->loadFromVarLocSet(getVarLocsInMBB(&MBB, MLOCInLocs), bbnum);
+    tracker->lolremap(mphiremap);
 
     OpenRanges.insertFromLocSet(getVarLocsInMBB(&MBB, PendingInLocs), VarLocIDs);
     for (auto &MI : MBB)
