@@ -465,7 +465,9 @@ typedef DenseMap<uint64_t, uint64_t> vphitomphit;
 class VLocTracker {
 public:
   // Map the DebugVariable to recent primary location ID.
-  SmallDenseMap<DebugVariable, ValueRec, 8> Vars;
+  // xxx determinism?
+  // This is the one that actually reduces things :o
+  MapVector<DebugVariable, ValueRec> Vars;
 
 public:
   VLocTracker() {}
@@ -504,7 +506,8 @@ public:
   typedef std::pair<unsigned, MetaVal> hahaloc;
   std::vector<Transfer> Transfers;
 
-  DenseMap<unsigned, SmallSet<DebugVariable, 4>> ActiveMLocs;
+  // MapVector for nondeterminism
+  DenseMap<unsigned, MapVector<DebugVariable, unsigned>> ActiveMLocs;
   DenseMap<DebugVariable, hahaloc> ActiveVLocs;
 
   TransferTracker(const TargetInstrInfo *TII, MLocTracker *mlocs, MachineFunction &MF) : TII(TII), mlocs(mlocs), MF(MF) { }
@@ -552,7 +555,7 @@ public:
       }
 
       ActiveVLocs[Var.first] = std::make_pair(mloc, Var.second.meta);
-      ActiveMLocs[mloc].insert(Var.first);
+      ActiveMLocs[mloc].insert(std::make_pair(Var.first, 0));
       assert(mloc != 0);
       inlocs.push_back(emitLoc(mloc, Var.first, Var.second.meta));
     }
@@ -582,7 +585,7 @@ public:
     unsigned Reg = MO.getReg();
     MetaVal meta = {MI.getDebugExpression(), MI.getOperand(1).isImm()};
 
-    ActiveMLocs[Reg].insert(Var);
+    ActiveMLocs[Reg].insert(std::make_pair(Var, 0));
     if (It == ActiveVLocs.end()) {
       ActiveVLocs.insert(std::make_pair(Var, std::make_pair(Reg, meta)));
     } else {
@@ -598,12 +601,12 @@ public:
 
     std::vector<MachineInstr *>insts;
     for (auto &Var : It->second) {
-      auto ALoc = ActiveVLocs.find(Var);
+      auto ALoc = ActiveVLocs.find(Var.first);
       if (mlocs->isSpill(mloc)) {
         // Create an undef. We can't feed in a nullptr DIExpression alas,
         // so use the variables last expression.
         const DIExpression *Expr = ALoc->second.second.first;
-        insts.push_back(emitLoc(0, Var, {Expr, false}));
+        insts.push_back(emitLoc(0, Var.first, {Expr, false}));
       }
       ActiveVLocs.erase(ALoc);
     }
@@ -619,12 +622,12 @@ public:
 
     std::vector<MachineInstr *> instrs;
     for (auto &Var : ActiveMLocs[src]) {
-      auto it = ActiveVLocs.find(Var);
+      auto it = ActiveVLocs.find(Var.first);
       assert(it != ActiveVLocs.end());
       it->second.first = dst;
 
       assert(dst != 0);
-      MachineInstr *MI = emitLoc(dst, Var, it->second.second);
+      MachineInstr *MI = emitLoc(dst, Var.first, it->second.second);
       instrs.push_back(MI);
     }
     ActiveMLocs[src].clear();
@@ -2187,13 +2190,14 @@ bool LiveDebugValues::vloc_join(
   // Erm. We need to produce PHI nodes for vlocs that aren't in the same
   // location. Pick out variables that aren't in InLocsT.
   toBecomePHIs.intersectWithComplement(InLocsT);
-  DenseSet<DebugVariable> tophi;
+  // set for nondeterminism
+  MapVector<DebugVariable, unsigned> tophi;
   for (auto ID : toBecomePHIs) {
-    tophi.insert(lolnumbering[ID].first);
+    tophi.insert(std::make_pair(lolnumbering[ID].first, 0));
   }
 
   for (auto Var : tophi) {
-    InLocsT.set(lolnumbering.insert({Var, {{0, 0, 0}, None, {nullptr, false}, cur_bb, ValueRec::PHI}}));
+    InLocsT.set(lolnumbering.insert({Var.first, {{0, 0, 0}, None, {nullptr, false}, cur_bb, ValueRec::PHI}}));
   }
   // Filter out DBG_VALUES that are out of scope.
   VarLocSet KillSet(Alloc);
@@ -2624,7 +2628,8 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
   // vlocs and mlocs: go back over each block, this time tracking the vlocs
   // and building a transfer function between each block. 
-  DenseMap<unsigned, VLocTracker *> vlocs;
+  // XXX mv for nondeterminism
+  MapVector<unsigned, VLocTracker *> vlocs;
   for (unsigned I = 0; I < MF.size(); ++I)
     vlocs[I] = new VLocTracker();
 
