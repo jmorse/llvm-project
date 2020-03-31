@@ -801,13 +801,13 @@ private:
   bool join(MachineBasicBlock &MBB, VarLocInMBB &OutLocs, VarLocInMBB &InLocs,
             SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
             SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
-            VarLocInMBB &PendingInLocs, bool mlocs);
+            bool mlocs);
 
   bool vloc_join(const MachineBasicBlock &MBB, VarLocInMBB &VLOCOutLocs,
                  VarLocInMBB &VLOCInLocs, lolnumberingt &lolnumbering,
                  SmallPtrSet<const MachineBasicBlock *, 16> &VLOCVisited,
                  SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
-                 VarLocInMBB &VLOCPendingInLocs, unsigned cur_bb);
+                 unsigned cur_bb);
   bool vloc_transfer(VarLocSet &ilocs, VarLocSet &transfer, VarLocSet &olocs, lolnumberingt &lolnumbering);
 
 
@@ -1212,7 +1212,7 @@ bool LiveDebugValues::join(
     MachineBasicBlock &MBB, VarLocInMBB &OutLocs, VarLocInMBB &InLocs,
     SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
     SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
-    VarLocInMBB &PendingInLocs, bool mlocs) {
+    bool mlocs) {
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
 
@@ -1268,14 +1268,11 @@ bool LiveDebugValues::join(
          "Should have processed at least one predecessor");
 
   VarLocSet &ILS = getVarLocsInMBB(&MBB, InLocs);
-  VarLocSet &Pending = getVarLocsInMBB(&MBB, PendingInLocs);
 
   // New locations will have DBG_VALUE insts inserted at the start of the
-  // block, after location propagation has finished. Record the insertions
-  // that we need to perform in the Pending set.
+  // block, after location propagation has finished.
   VarLocSet Diff = InLocsT;
   Diff.intersectWithComplement(ILS);
-  Pending.set(Diff);
   ILS.set(Diff);
   NumInserted += Diff.count();
   Changed |= !Diff.empty();
@@ -1285,7 +1282,6 @@ bool LiveDebugValues::join(
   // new in-locations, and delete those.
   VarLocSet Removed = ILS;
   Removed.intersectWithComplement(InLocsT);
-  Pending.intersectWithComplement(Removed);
   ILS.intersectWithComplement(Removed);
   NumRemoved += Removed.count();
   Changed |= !Removed.empty();
@@ -1298,7 +1294,7 @@ bool LiveDebugValues::vloc_join(
    VarLocInMBB &VLOCInLocs, lolnumberingt &lolnumbering,
    SmallPtrSet<const MachineBasicBlock *, 16> &VLOCVisited,
    SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
-   VarLocInMBB &VLOCPendingInLocs, unsigned cur_bb) {
+   unsigned cur_bb) {
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
 
@@ -1375,14 +1371,11 @@ bool LiveDebugValues::vloc_join(
          "Should have processed at least one predecessor");
 
   VarLocSet &ILS = getVarLocsInMBB(&MBB, VLOCInLocs);
-  VarLocSet &Pending = getVarLocsInMBB(&MBB, VLOCPendingInLocs);
 
   // New locations will have DBG_VALUE insts inserted at the start of the
-  // block, after location propagation has finished. Record the insertions
-  // that we need to perform in the Pending set.
+  // block, after location propagation has finished.
   VarLocSet Diff = InLocsT;
   Diff.intersectWithComplement(ILS);
-  Pending.set(Diff);
   ILS.set(Diff);
   NumInserted += Diff.count();
   Changed |= !Diff.empty();
@@ -1392,7 +1385,6 @@ bool LiveDebugValues::vloc_join(
   // new in-locations, and delete those.
   VarLocSet Removed = ILS;
   Removed.intersectWithComplement(InLocsT);
-  Pending.intersectWithComplement(Removed);
   ILS.intersectWithComplement(Removed);
   NumRemoved += Removed.count();
   Changed |= !Removed.empty();
@@ -1577,11 +1569,8 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   VarLocInMBB OutLocs;        // Ranges that exist beyond bb.
   VarLocInMBB InLocs;         // Ranges that are incoming after joining.
                               // spills, copies and restores).
-  VarLocInMBB PendingInLocs;  // Ranges that are incoming after joining, but
-                              // that we have deferred creating DBG_VALUE insts
-                              // for immediately.
 
-  VarLocInMBB MLOCOutLocs, MLOCInLocs, MLOCPendingInLocs;
+  VarLocInMBB MLOCOutLocs, MLOCInLocs;
 
   VarToFragments SeenFragments;
 
@@ -1598,14 +1587,8 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
                       std::greater<unsigned int>>
       Pending;
 
-  // Set of register defines that are seen when traversing the entry block
-  // looking for debug entry value candidates.
-  DefinedRegsSet DefinedRegs;
-
   // Initialize per-block structures and scan for fragment overlaps.
   for (auto &MBB : MF) {
-    PendingInLocs.try_emplace(&MBB, Alloc);
-
     for (auto &MI : MBB) {
       if (MI.isDebugValue())
         accumulateFragmentMap(MI, SeenFragments, OverlapFragments);
@@ -1647,12 +1630,12 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
       cur_inst = 1;
       Worklist.pop();
       MBBJoined = join(*MBB, OutLocs, InLocs,  Visited,
-                       ArtificialBlocks, PendingInLocs, false);
+                       ArtificialBlocks, false);
       MBBJoined |= Visited.insert(MBB).second;
 
      // XXX jmorse
      // Also XXX, do we go around these loops too many times?
-      MBBJoined |= join(*MBB, MLOCOutLocs, MLOCInLocs,  MLOCVisited, ArtificialBlocks, MLOCPendingInLocs, true);
+      MBBJoined |= join(*MBB, MLOCOutLocs, MLOCInLocs,  MLOCVisited, ArtificialBlocks, true);
       MLOCVisited.insert(MBB);
 
       if (MBBJoined) {
@@ -1721,7 +1704,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
   // OK, we have some transfer functions. Number everything; do data flow.
   UniqueVector<std::pair<DebugVariable, ValueRec>> lolnumbering;
-  VarLocInMBB VLOCOutLocs, VLOCInLocs, VLOCPendingInLocs, VLOCTransfer;
+  VarLocInMBB VLOCOutLocs, VLOCInLocs, VLOCTransfer;
 
   for (auto &It : vlocs) {
     const MachineBasicBlock *MBB = OrderToBB[It.first];
@@ -1748,7 +1731,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
       MBBJoined = vloc_join(*MBB, VLOCOutLocs, VLOCInLocs, lolnumbering,
                        VLOCVisited,
-                       ArtificialBlocks, VLOCPendingInLocs, cur_bb);
+                       ArtificialBlocks, cur_bb);
       MBBJoined |= VLOCVisited.insert(MBB).second;
 
       if (MBBJoined) {
