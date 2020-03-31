@@ -745,18 +745,10 @@ private:
   VLocTracker *vtracker;
   TransferTracker *ttracker;
 
-  enum struct TransferKind { TransferCopy, TransferSpill, TransferRestore };
-
-
   using FragmentInfo = DIExpression::FragmentInfo;
   using OptFragmentInfo = Optional<DIExpression::FragmentInfo>;
 
   using VarLocInMBB = SmallDenseMap<const MachineBasicBlock *, VarLocSet>;
-  struct TransferDebugPair {
-    MachineInstr *TransferInst; ///< Instruction where this transfer occurs.
-    LocIndex LocationID;        ///< Location number for the transfer dest.
-  };
-  using TransferMap = SmallVector<TransferDebugPair, 4>;
 
   // Helper while building OverlapMap, a map of all fragments seen for a given
   // DILocalVariable.
@@ -802,15 +794,11 @@ private:
   SpillLoc extractSpillBaseRegAndOffset(const MachineInstr &MI);
 
   void transferDebugValue(const MachineInstr &MI);
-  void transferSpillOrRestoreInst(MachineInstr &MI,
-                                  TransferMap *Transfers);
-  void transferRegisterCopy(MachineInstr &MI,
-                            TransferMap *Transfers);
-  void transferRegisterDef(MachineInstr &MI,
-                           TransferMap *Transfers);
+  void transferSpillOrRestoreInst(MachineInstr &MI);
+  void transferRegisterCopy(MachineInstr &MI);
+  void transferRegisterDef(MachineInstr &MI);
 
-  void process(MachineInstr &MI,
-               TransferMap *Transfers);
+  void process(MachineInstr &MI);
 
   void accumulateFragmentMap(MachineInstr &MI, VarToFragments &SeenFragments,
                              OverlapMap &OLapMap);
@@ -957,8 +945,7 @@ void LiveDebugValues::transferDebugValue(const MachineInstr &MI) {
 
 /// A definition of a register may mark the end of a range.
 void LiveDebugValues::transferRegisterDef(
-    MachineInstr &MI,
-    TransferMap *Transfers) {
+    MachineInstr &MI) {
 
   // Meta Instructions do not affect the debug liveness of any register they
   // define.
@@ -1087,10 +1074,8 @@ LiveDebugValues::isRestoreInstruction(const MachineInstr &MI,
 /// A restored register may indicate the reverse situation.
 /// Any change in location will be recorded in \p OpenRanges, and \p Transfers
 /// if it is non-null.
-void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI,
-                                                 TransferMap *Transfers) {
+void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI) {
   MachineFunction *MF = MI.getMF();
-  TransferKind TKind;
   unsigned Reg;
   Optional<SpillLoc> Loc;
 
@@ -1113,28 +1098,17 @@ void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI,
   // Try to recognise spill and restore instructions that may create a new
   // variable location.
   if (isLocationSpill(MI, MF, Reg)) {
-    TKind = TransferKind::TransferSpill;
-    LLVM_DEBUG(dbgs() << "Recognized as spill: "; MI.dump(););
-    LLVM_DEBUG(dbgs() << "Register: " << Reg << " " << printReg(Reg, TRI)
-                      << "\n");
-  } else {
-    if (!(Loc = isRestoreInstruction(MI, MF, Reg)))
-      return;
-    TKind = TransferKind::TransferRestore;
-    LLVM_DEBUG(dbgs() << "Recognized as restore: "; MI.dump(););
-    LLVM_DEBUG(dbgs() << "Register: " << Reg << " " << printReg(Reg, TRI)
-                      << "\n");
-  }
-
-  Loc = extractSpillBaseRegAndOffset(MI);
-  if (TKind == TransferKind::TransferSpill) {
+    Loc = extractSpillBaseRegAndOffset(MI);
     auto id = tracker->readReg(Reg);
     tracker->setSpill(*Loc, id);
     assert(tracker->getSpillMLoc(*Loc) != 0);
     if (ttracker)
       ttracker->transferMlocs(Reg, tracker->getSpillMLoc(*Loc), MI.getIterator());
     tracker->lolwipe(Reg);
+
   } else {
+    if (!(Loc = isRestoreInstruction(MI, MF, Reg)))
+      return;
     auto id = tracker->readSpill(*Loc);
     if (id.LocNo != 0) {
       tracker->setReg(Reg, id);
@@ -1149,8 +1123,7 @@ void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI,
 /// If \p MI is a register copy instruction, that copies a previously tracked
 /// value from one register to another register that is callee saved, we
 /// create new DBG_VALUE instruction  described with copy destination register.
-void LiveDebugValues::transferRegisterCopy(MachineInstr &MI,
-                                           TransferMap *Transfers) {
+void LiveDebugValues::transferRegisterCopy(MachineInstr &MI) {
   auto DestSrc = TII->isCopyInstr(MI);
   if (!DestSrc)
     return;
@@ -1252,12 +1225,11 @@ void LiveDebugValues::accumulateFragmentMap(MachineInstr &MI,
 }
 
 /// This routine creates OpenRanges.
-void LiveDebugValues::process(MachineInstr &MI,
-                              TransferMap *Transfers) {
+void LiveDebugValues::process(MachineInstr &MI) {
   transferDebugValue(MI);
-  transferRegisterDef(MI, Transfers);
-  transferRegisterCopy(MI, Transfers);
-  transferSpillOrRestoreInst(MI, Transfers);
+  transferRegisterDef(MI);
+  transferRegisterCopy(MI);
+  transferSpillOrRestoreInst(MI);
 }
 
 /// This routine joins the analysis results of all incoming edges in @MBB by
@@ -1631,7 +1603,6 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
                               // Ranges that are open until end of bb.
   VarLocInMBB OutLocs;        // Ranges that exist beyond bb.
   VarLocInMBB InLocs;         // Ranges that are incoming after joining.
-  TransferMap Transfers;      // DBG_VALUEs associated with transfers (such as
                               // spills, copies and restores).
   VarLocInMBB PendingInLocs;  // Ranges that are incoming after joining, but
                               // that we have deferred creating DBG_VALUE insts
@@ -1720,7 +1691,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
         // First load any pending inlocs.
         tracker->loadFromVarLocSet(getVarLocsInMBB(MBB, MLOCInLocs), cur_bb);
         for (auto &MI : *MBB) {
-          process(MI,  nullptr);
+          process(MI);
           ++cur_inst;
         }
 
@@ -1769,7 +1740,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     tracker->loadFromVarLocSet(getVarLocsInMBB(MBB, MLOCInLocs), cur_bb);
     cur_inst = 1;
     for (auto &MI : *MBB) { // XXX I think the empty open ranges does nufink
-      process(MI, nullptr);
+      process(MI);
       ++cur_inst;
     }
     tracker->reset();
@@ -1859,7 +1830,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     tracker->lolremap(&MBB, mphiremap);
 
     for (auto &MI : MBB)
-      process(MI,  &Transfers);
+      process(MI);
   }
 
   for (auto &P : ttracker->Transfers) {
