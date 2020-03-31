@@ -755,11 +755,6 @@ private:
   using VarToFragments =
       DenseMap<const DILocalVariable *, SmallSet<FragmentInfo, 4>>;
 
-  /// Get the registers which are used by VarLocs of kind RegisterKind tracked
-  /// by \p CollectFrom.
-  void getUsedRegs(const VarLocSet &CollectFrom,
-                   SmallVectorImpl<uint32_t> &UsedRegs) const;
-
   VarLocSet &getVarLocsInMBB(const MachineBasicBlock *MBB, VarLocInMBB &Locs) {
     auto Result = Locs.try_emplace(MBB, Alloc);
     return Result.first->second;
@@ -867,28 +862,6 @@ LiveDebugValues::LiveDebugValues() : MachineFunctionPass(ID) {
 void LiveDebugValues::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesCFG();
   MachineFunctionPass::getAnalysisUsage(AU);
-}
-
-void LiveDebugValues::getUsedRegs(const VarLocSet &CollectFrom,
-                                  SmallVectorImpl<uint32_t> &UsedRegs) const {
-  // All register-based VarLocs are assigned indices greater than or equal to
-  // FirstRegIndex.
-  uint64_t FirstRegIndex = LocIndex::rawIndexForReg(1);
-  for (auto It = CollectFrom.find(FirstRegIndex), End = CollectFrom.end();
-       It != End;) {
-    // We found a VarLoc ID for a VarLoc that lives in a register. Figure out
-    // which register and add it to UsedRegs.
-    uint32_t FoundReg = LocIndex::fromRawInteger(*It).Location;
-    assert((UsedRegs.empty() || FoundReg != UsedRegs.back()) &&
-           "Duplicate used reg");
-    UsedRegs.push_back(FoundReg);
-
-    // Skip to the next /set/ register. Note that this finds a lower bound, so
-    // even if there aren't any VarLocs living in `FoundReg+1`, we're still
-    // guaranteed to move on to the next register (or to end()).
-    uint64_t NextRegIndex = LocIndex::rawIndexForReg(FoundReg + 1);
-    It = CollectFrom.find(NextRegIndex);
-  }
 }
 
 //===----------------------------------------------------------------------===//
