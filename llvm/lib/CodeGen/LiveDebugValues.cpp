@@ -443,7 +443,8 @@ public:
 
   unsigned getSpillMLoc(SpillLoc l) {
     unsigned SpillID = SpillsToMLocs.idFor(l);
-    assert(SpillID != 0);
+    if (SpillID == 0)
+      return 0;
     SpillID += NumRegs - 1;
     return SpillID;
   }
@@ -1808,6 +1809,15 @@ void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI,
   VarLocSet KillSet(Alloc);
   if (isSpillInstruction(MI, MF)) {
     Loc = extractSpillBaseRegAndOffset(MI);
+
+    if (ttracker) {
+      unsigned mloc = tracker->getSpillMLoc(*Loc);
+      if (mloc != 0)
+        ttracker->clobberMloc(mloc, MI.getIterator());
+    }
+
+
+
     for (uint64_t ID : OpenRanges.getVarLocs()) {
       LocIndex Idx = LocIndex::fromRawInteger(ID);
       const VarLoc &VL = VarLocIDs[Idx];
@@ -1828,10 +1838,6 @@ void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI,
         if (Transfers)
           Transfers->push_back({&MI, UndefLocID});
 
-        if (ttracker) {
-          unsigned mloc = tracker->getSpillMLoc(*Loc);
-          ttracker->clobberMloc(mloc, MI.getIterator());
-        }
       }
     }
     OpenRanges.erase(KillSet, VarLocIDs);
@@ -1857,14 +1863,15 @@ void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI,
   if (TKind == TransferKind::TransferSpill) {
     auto id = tracker->readReg(Reg);
     tracker->setSpill(*Loc, id);
+    assert(tracker->getSpillMLoc(*Loc) != 0);
     if (ttracker)
       ttracker->transferMlocs(Reg, tracker->getSpillMLoc(*Loc), MI.getIterator());
     tracker->lolwipe(Reg);
-
   } else {
     auto id = tracker->readSpill(*Loc);
     if (id.LocNo != 0) {
       tracker->setReg(Reg, id);
+      assert(tracker->getSpillMLoc(*Loc) != 0);
       if (ttracker)
         ttracker->transferMlocs(tracker->getSpillMLoc(*Loc), Reg, MI.getIterator());
       tracker->lolwipe(*Loc);
@@ -1952,19 +1959,12 @@ void LiveDebugValues::transferRegisterCopy(MachineInstr &MI,
   if (!SrcRegOp->isKill())
     return;
 
-  for (uint64_t ID : OpenRanges.getVarLocs()) {
-    LocIndex Idx = LocIndex::fromRawInteger(ID);
-    if (VarLocIDs[Idx].isDescribedByReg() == SrcReg) {
-      insertTransferDebugPair(MI, OpenRanges, Transfers, VarLocIDs, Idx,
-                              TransferKind::TransferCopy, DestReg);
       auto id = tracker->readReg(SrcReg);
       tracker->setReg(DestReg, id);
       if (ttracker)
         ttracker->transferMlocs(SrcReg, DestReg, MI.getIterator());
       tracker->lolwipe(SrcReg);
       return;
-    }
-  }
 }
 
 /// Terminate all open ranges at the end of the current basic block.
