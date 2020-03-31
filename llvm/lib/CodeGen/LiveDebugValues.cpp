@@ -1267,23 +1267,9 @@ bool LiveDebugValues::join(
 
   VarLocSet &ILS = getVarLocsInMBB(&MBB, InLocs);
 
-  // New locations will have DBG_VALUE insts inserted at the start of the
-  // block, after location propagation has finished.
-  VarLocSet Diff = InLocsT;
-  Diff.intersectWithComplement(ILS);
-  ILS.set(Diff);
-  NumInserted += Diff.count();
-  Changed |= !Diff.empty();
-
-  // We may have lost locations by learning about a predecessor that either
-  // loses or moves a variable. Find any locations in ILS that are not in the
-  // new in-locations, and delete those.
-  VarLocSet Removed = ILS;
-  Removed.intersectWithComplement(InLocsT);
-  ILS.intersectWithComplement(Removed);
-  NumRemoved += Removed.count();
-  Changed |= !Removed.empty();
-
+  Changed = ILS != InLocsT;
+  ILS = InLocsT;
+  // Uhhhhhh, reimplement NumInserted and NumRemoved pls.
   return Changed;
 }
 
@@ -1370,23 +1356,9 @@ bool LiveDebugValues::vloc_join(
 
   VarLocSet &ILS = getVarLocsInMBB(&MBB, VLOCInLocs);
 
-  // New locations will have DBG_VALUE insts inserted at the start of the
-  // block, after location propagation has finished.
-  VarLocSet Diff = InLocsT;
-  Diff.intersectWithComplement(ILS);
-  ILS.set(Diff);
-  NumInserted += Diff.count();
-  Changed |= !Diff.empty();
-
-  // We may have lost locations by learning about a predecessor that either
-  // loses or moves a variable. Find any locations in ILS that are not in the
-  // new in-locations, and delete those.
-  VarLocSet Removed = ILS;
-  Removed.intersectWithComplement(InLocsT);
-  ILS.intersectWithComplement(Removed);
-  NumRemoved += Removed.count();
-  Changed |= !Removed.empty();
-
+  Changed = ILS != InLocsT;
+  ILS = InLocsT;
+  // Uhhhhhh, reimplement NumInserted and NumRemoved pls.
   return Changed;
 }
 
