@@ -1423,6 +1423,7 @@ bool LiveDebugValues::vloc_transfer(VarLocSet &ilocs, VarLocSet &transfer, VarLo
 
 void LiveDebugValues::resolveMPHIs(mphiremapt &mphiremap, MachineBasicBlock &MBB, VarLocSet &InLocs, VarLocInMBB &MLOCOutLocs, unsigned cur_bb)
 {
+
   // Take a look at any inlocs here that are PHIs; are they really PHIS?
   tracker->reset();
   tracker->loadFromVarLocSet(InLocs, cur_bb);
@@ -1461,6 +1462,65 @@ void LiveDebugValues::resolveMPHIs(mphiremapt &mphiremap, MachineBasicBlock &MBB
 
 void LiveDebugValues::resolveVPHIs(vphitomphit &vphitomphi, const mphiremapt &mphiremap, lolnumberingt &lolnumbering, MachineBasicBlock &MBB, VarLocSet &InLocs, VarLocInMBB &VLOCOutLocs, VarLocInMBB &MLOCOutLocs, unsigned cur_bb) {
   // Take a look at each PHI in the inlocs.
+
+  unsigned NumLocs = tracker->getNumLocs();
+  unsigned NumPreds = MBB.pred_size();
+  if (NumPreds == 0)
+    return;
+
+  // Fetch all the outgoing locations of all predecessors.
+  std::vector<SmallVector<ValueIDNum, 4>> PredOutMLocs;
+  std::vector<SmallVector<ValueRec, 4>> PredOutVLocs;
+  DenseMap<DebugVariable, unsigned> PredOutVariables;
+
+  PredOutMLocs.resize(NumLocs);
+
+  for (auto p : MBB.predecessors()) {
+    const VarLocSet &mlocs = getVarLocsInMBB(p, MLOCOutLocs);
+    const VarLocSet &vlocs = getVarLocsInMBB(p, VLOCOutLocs);
+
+    for (unsigned ID : vlocs) {
+      const auto &loc = lolnumbering[ID];
+      if (loc.second.Kind != ValueRec::Def) {
+        // incoming other phis and constants can't be merged.
+        if (PredOutVariables.count(loc.first) == 0)
+          PredOutVariables[loc.first] = UINT_MAX;
+      }
+
+      if (PredOutVariables.count(loc.first) == 0) {
+        unsigned &Num = PredOutVariables[loc.first];
+        if (loc.second.Kind != ValueRec::Def) {
+          Num = UINT_MAX;
+          continue;
+        }
+        Num = PredOutVLocs.size();
+        PredOutVLocs.push_back(SmallVector<ValueRec, 4>());
+      }
+
+      unsigned Idx = PredOutVariables[loc.first];
+      if (Idx == UINT_MAX)
+        continue;
+
+      auto &VOutVec = PredOutVLocs[Idx];
+      VOutVec.push_back(loc.second);
+    }
+
+    // Not guaranteed to fill all locs? Is guaranteed to be in pred order
+    // though
+    for (uint64_t mloc : mlocs) {
+      VarLocPos n = VarLocPos::fromU64(mloc);
+      PredOutMLocs[n.CurrentLoc].push_back(n.ID);
+    }
+  }
+
+  // Index the first predecessor,
+  const VarLocSet &mlocs = getVarLocsInMBB(*MBB.pred_begin(), MLOCOutLocs);
+  DenseMap<ValueIDNum, unsigned> MBB1Idx;
+  for (uint64_t mloc : mlocs) {
+    VarLocPos n = VarLocPos::fromU64(mloc);
+    MBB1Idx[n.ID] = n.CurrentLoc;
+  }
+
   std::vector<std::pair<unsigned, unsigned>> toreplace;
   for (unsigned ID : InLocs) {
     auto &Pair = lolnumbering[ID];
@@ -1468,83 +1528,49 @@ void LiveDebugValues::resolveVPHIs(vphitomphit &vphitomphi, const mphiremapt &mp
     if (Pair.second.Kind != ValueRec::PHI)
       continue;
 
-    if (Pair.second.BlockPHI != cur_bb) {
-      auto it = vphitomphi.find(ID);
-      if (it == vphitomphi.end())
-        continue;
-      toreplace.push_back(std::make_pair(ID, it->second));
+    // We should have an index for this right?
+    if (PredOutVariables.count(Pair.first) == 0 ||
+        PredOutVariables[Pair.first] == UINT_MAX)
       continue;
+
+    auto &VOutVec = PredOutVLocs[PredOutVariables[Pair.first]];
+    if (VOutVec.size() != NumPreds)
+      continue;
+
+    // Do they all have the same meta info?
+    bool thesame = llvm::all_of(VOutVec, [&](const ValueRec &R) {
+      return R.meta == VOutVec[0].meta;
+    });
+    if (!thesame)
+      continue;
+
+    // Where do we start looking?
+    if (MBB1Idx.count(VOutVec[0].ID) == 0)
+      continue;
+    uint64_t mloc = MBB1Idx[VOutVec[0].ID];
+
+    // Alright, do all those mlocs agree?
+    auto &MOutVec = PredOutMLocs[mloc];
+    if (MOutVec.size() != NumPreds)
+      continue;
+
+    bool match = true;
+    for (unsigned Idx = 0; Idx < NumPreds; ++Idx) {
+      if (MOutVec[Idx] != VOutVec[Idx].ID)
+        match = false;
     }
+    if (!match)
+      continue;
 
-    bool valid = true;
-    unsigned overal_mloc = 0;
-    MetaVal meta;
-    for (auto p : MBB.predecessors()) {
-      const VarLocSet &mlocs = getVarLocsInMBB(p, MLOCOutLocs);
-      const VarLocSet &vlocs = getVarLocsInMBB(p, VLOCOutLocs);
+    // Success.
 
-      // Find our value num,
-      ValueIDNum n_to_find;
-      bool found = false;
-      for (unsigned ID : vlocs) {
-        auto &loc = lolnumbering[ID];
-        if (!(loc.first == Pair.first) || loc.second.Kind != ValueRec::Def)
-          continue;
-
-        if (overal_mloc != 0 && meta != loc.second.meta) {
-          found = false;
-          break;
-        }
-
-        meta = loc.second.meta;
-
-        // Any PHIs should have been previously resolved; or represent the
-        // fact that things are unresolvable.
-        n_to_find = loc.second.ID;
-        found = true;
-        break;
-      }
-      if (!found) {
-        valid = false;
-        break;
-      }
-
-      found = false;
-      unsigned the_mloc = 0;
-      for (auto it = mlocs.begin(); it != mlocs.end(); ++it) {
-        uint64_t mlocid = *it;
-        VarLocPos n = VarLocPos::fromU64(mlocid);
-        if (!(n.ID == n_to_find))
-          continue;
-        the_mloc = n.CurrentLoc;
-        found = true;
-        break;
-      }
-
-      if (!found) {
-        valid = false;
-        break;
-      }
- 
-      if (overal_mloc != 0 && overal_mloc != the_mloc) {
-        valid = false;
-        break;
-      }
-      overal_mloc = the_mloc;
-    }
-
-    if (valid && overal_mloc != 0) {
-      // Good news, everyone agrees on that mloc. Replace the PHI with an
-      // mloc PHI at that position.
-      
-      ValueIDNum newid = {cur_bb, 0, overal_mloc};
-      ValueRec r = {newid, None, meta, 0, ValueRec::Def};
-      unsigned newnum = lolnumbering.insert({Pair.first, r});
-      // Record pair to mangle later.
-      toreplace.push_back(std::make_pair(ID, newnum));
-      assert(vphitomphi.find(ID) == vphitomphi.end());
-      vphitomphi[ID] = newnum;
-    }
+    ValueIDNum newid = {cur_bb, 0, mloc};
+    ValueRec r = {newid, None, VOutVec[0].meta, 0, ValueRec::Def};
+    unsigned newnum = lolnumbering.insert({Pair.first, r});
+    // Record pair to mangle later.
+    toreplace.push_back(std::make_pair(ID, newnum));
+    assert(vphitomphi.find(ID) == vphitomphi.end());
+    vphitomphi[ID] = newnum;
   }
 
   for (auto &P : toreplace) {
