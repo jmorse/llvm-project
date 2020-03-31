@@ -1206,10 +1206,6 @@ private:
   void resolveMPHIs(mphiremapt &mphiremap, MachineBasicBlock &MBB, VarLocSet &InLocs, VarLocInMBB &MLOCOutLocs, unsigned cur_bb);
   void resolveVPHIs(vphitomphit &vphitomphi, const mphiremapt &mphiremap, lolnumberingt &lolnumbering, MachineBasicBlock &MBB, VarLocSet &InLocs, VarLocInMBB &VLOCOutLocs, VarLocInMBB &MLOCOutLocs, unsigned cur_bb);
 
-  /// Create DBG_VALUE insts for inlocs that have been propagated but
-  /// had their instruction creation deferred.
-  void flushPendingLocs(VarLocInMBB &PendingInLocs, VarLocMap &VarLocIDs);
-
   bool ExtendRanges(MachineFunction &MF);
 
 public:
@@ -2457,30 +2453,6 @@ void LiveDebugValues::resolveVPHIs(vphitomphit &vphitomphi, const mphiremapt &mp
   }
 }
 
-void LiveDebugValues::flushPendingLocs(VarLocInMBB &PendingInLocs,
-                                       VarLocMap &VarLocIDs) {
-  // PendingInLocs records all locations propagated into blocks, which have
-  // not had DBG_VALUE insts created. Go through and create those insts now.
-  for (auto &Iter : PendingInLocs) {
-    // Map is keyed on a constant pointer, unwrap it so we can insert insts.
-    auto &MBB = const_cast<MachineBasicBlock &>(*Iter.first);
-    VarLocSet &Pending = Iter.second;
-
-    for (uint64_t ID : Pending) {
-      // The ID location is live-in to MBB -- work out what kind of machine
-      // location it is and create a DBG_VALUE.
-      const VarLoc &DiffIt = VarLocIDs[LocIndex::fromRawInteger(ID)];
-      if (DiffIt.isEntryBackupLoc())
-        continue;
-      MachineInstr *MI = DiffIt.BuildDbgValue(*MBB.getParent());
-      MBB.insert(MBB.instr_begin(), MI);
-
-      (void)MI;
-      LLVM_DEBUG(dbgs() << "Inserted: "; MI->dump(););
-    }
-  }
-}
-
 bool LiveDebugValues::isEntryValueCandidate(
     const MachineInstr &MI, const DefinedRegsSet &DefinedRegs) const {
   assert(MI.isDebugValue() && "This must be DBG_VALUE.");
@@ -2823,21 +2795,6 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
       process(MI, OpenRanges, VarLocIDs, &Transfers);
     OpenRanges.clear();
   }
-
-#if 0
-  // Add any DBG_VALUE instructions created by location transfers.
-  for (auto &TR : Transfers) {
-    MachineBasicBlock *MBB = TR.TransferInst->getParent();
-    const VarLoc &VL = VarLocIDs[TR.LocationID];
-    MachineInstr *MI = VL.BuildDbgValue(MF);
-    MBB->insertAfterBundle(TR.TransferInst->getIterator(), MI);
-  }
-  Transfers.clear();
-
-  // Deferred inlocs will not have had any DBG_VALUE insts created; do
-  // that now.
-  flushPendingLocs(PendingInLocs, VarLocIDs);
-#endif
 
   for (auto &P : ttracker->Transfers) {
     MachineBasicBlock &MBB = *P.MBB;
