@@ -800,8 +800,7 @@ private:
 
   bool join(MachineBasicBlock &MBB, VarLocInMBB &OutLocs, VarLocInMBB &InLocs,
             SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
-            SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
-            bool mlocs);
+            SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks);
 
   bool vloc_join(const MachineBasicBlock &MBB, VarLocInMBB &VLOCOutLocs,
                  VarLocInMBB &VLOCInLocs, lolnumberingt &lolnumbering,
@@ -1211,8 +1210,7 @@ void LiveDebugValues::process(MachineInstr &MI) {
 bool LiveDebugValues::join(
     MachineBasicBlock &MBB, VarLocInMBB &OutLocs, VarLocInMBB &InLocs,
     SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
-    SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
-    bool mlocs) {
+    SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks) {
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
 
@@ -1617,7 +1615,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   // To solve it, we perform join() and process() using the two worklist method
   // until the ranges converge.
   // Ranges have converged when both worklists are empty.
-  SmallPtrSet<const MachineBasicBlock *, 16> Visited, MLOCVisited;
+  SmallPtrSet<const MachineBasicBlock *, 16> Visited;
   while (!Worklist.empty() || !Pending.empty()) {
     // We track what is on the pending worklist to avoid inserting the same
     // thing twice.  We could avoid this with a custom priority queue, but this
@@ -1629,14 +1627,11 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
       cur_bb = MBB->getNumber();
       cur_inst = 1;
       Worklist.pop();
-      MBBJoined = join(*MBB, OutLocs, InLocs,  Visited,
-                       ArtificialBlocks, false);
-      MBBJoined |= Visited.insert(MBB).second;
 
      // XXX jmorse
      // Also XXX, do we go around these loops too many times?
-      MBBJoined |= join(*MBB, MLOCOutLocs, MLOCInLocs,  MLOCVisited, ArtificialBlocks, true);
-      MLOCVisited.insert(MBB);
+      MBBJoined = join(*MBB, MLOCOutLocs, MLOCInLocs,  Visited, ArtificialBlocks);
+      MBBJoined |= Visited.insert(MBB).second;
 
       if (MBBJoined) {
         MBBJoined = false;
