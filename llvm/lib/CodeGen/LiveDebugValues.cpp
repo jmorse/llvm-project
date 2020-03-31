@@ -315,7 +315,7 @@ public:
 
 typedef UniqueVector<std::pair<DebugVariable, ValueRec>> lolnumberingt;
 typedef DenseMap<uint64_t, uint64_t> vphitomphit;
-typedef DenseMap<ValueIDNum, ValueIDNum> mphiremapt;
+typedef DenseMap<std::pair<const MachineBasicBlock *, ValueIDNum>, ValueIDNum> mphiremapt;
 
 class MLocTracker {
 public:
@@ -360,10 +360,10 @@ public:
     }
   }
 
-  void lolremap(const mphiremapt &mphiremap) {
+  void lolremap(const MachineBasicBlock *MBB, const mphiremapt &mphiremap) {
     for (unsigned ID = 0; ID < MachineLocsToIDNums.size(); ++ID) {
       if (MachineLocsToIDNums[ID].InstNo == 0) {
-        auto it = mphiremap.find(MachineLocsToIDNums[ID]);
+        auto it = mphiremap.find(std::make_pair(MBB, MachineLocsToIDNums[ID]));
         if (it != mphiremap.end())
           MachineLocsToIDNums[ID] = it->second;
       }
@@ -529,7 +529,7 @@ public:
 
   TransferTracker(const TargetInstrInfo *TII, MLocTracker *mlocs, MachineFunction &MF) : TII(TII), mlocs(mlocs), MF(MF) { }
 
-  void loadInlocs(MachineBasicBlock &MBB, lolnumberingt &lolnumbering, VarLocSet &mlocs, VarLocSet &vlocs, unsigned cur_bb) {  
+  void loadInlocs(MachineBasicBlock &MBB, lolnumberingt &lolnumbering, const mphiremapt &mphiremap, VarLocSet &mlocs, VarLocSet &vlocs, unsigned cur_bb) {  
     ActiveMLocs.clear();
     ActiveVLocs.clear();
 
@@ -558,23 +558,39 @@ public:
         continue;
       assert(Var.second.Kind == ValueRec::Def);
 
+      auto InsertLiveIn = [&](unsigned m) {
+        ActiveVLocs[Var.first] = std::make_pair(m, Var.second.meta);
+        ActiveMLocs[m].insert(std::make_pair(Var.first, 0));
+        assert(m != 0);
+        inlocs.push_back(emitLoc(m, Var.first, Var.second.meta));
+      };
+
+
       // Value unavailable / has no machine loc -> define no location.
-      unsigned mloc;
       auto hahait = tmpmap.find(Var.second.ID);
-      if (hahait == tmpmap.end()) {
-        // Unless this is actually an mloc phi,
-        auto &IDNum = Var.second.ID;
-        if (IDNum.BlockNo != cur_bb || IDNum.InstNo != 0)
-          continue;
-        mloc = IDNum.LocNo;
-      } else {
-        mloc = hahait->second;
+      if (hahait != tmpmap.end()) {
+        InsertLiveIn(hahait->second);
+        continue;
       }
 
-      ActiveVLocs[Var.first] = std::make_pair(mloc, Var.second.meta);
-      ActiveMLocs[mloc].insert(std::make_pair(Var.first, 0));
-      assert(mloc != 0);
-      inlocs.push_back(emitLoc(mloc, Var.first, Var.second.meta));
+      // Unless this is actually an mloc phi,
+      auto &IDNum = Var.second.ID;
+      if (IDNum.InstNo != 0)
+        continue;
+
+      // Possssiiibbblly remap it.
+      // Complete bullshit code, but just proving a point right now.
+      auto mphiit= mphiremap.find(std::make_pair(&MBB, IDNum));
+      if (mphiit != mphiremap.end()) {
+        auto again = tmpmap.find(mphiit->second);
+        if (again != tmpmap.end()) {
+          InsertLiveIn(again->second);
+        } else if (mphiit->second.BlockNo == cur_bb && mphiit->second.InstNo == 0) {
+          InsertLiveIn(mphiit->second.LocNo);
+        }
+      } else if (IDNum.BlockNo == cur_bb) {
+        InsertLiveIn(IDNum.LocNo);
+      }
     }
     if (inlocs.size() > 0)
       Transfers.push_back({MBB.begin(), &MBB, std::move(inlocs)});
@@ -2317,9 +2333,10 @@ void LiveDebugValues::resolveMPHIs(mphiremapt &mphiremap, MachineBasicBlock &MBB
     tracker->loadFromVarLocSet(getVarLocsInMBB(p, MLOCOutLocs), p->getNumber());
     for (unsigned Idx = 0; Idx < toexamine.size(); ++Idx) {
       VarLocPos outpos = tracker->getVarLocPos(toexamine[Idx].LocNo);
-      if (outpos.ID != toexamine[Idx] && outpos.ID != seen_values[Idx])
+      if (outpos.ID != seen_values[Idx] && outpos.ID != toexamine[Idx] &&
+          seen_values[Idx] != toexamine[Idx])
         seen_values[Idx].LocNo = 0;
-      else
+      else if (outpos.ID != toexamine[Idx])
         seen_values[Idx] = outpos.ID;
     }
   }
@@ -2330,7 +2347,8 @@ void LiveDebugValues::resolveMPHIs(mphiremapt &mphiremap, MachineBasicBlock &MBB
   for (unsigned Idx = 0; Idx < toexamine.size(); ++Idx) {
     if (seen_values[Idx].LocNo == 0)
       continue;
-    mphiremap.insert(std::make_pair(toexamine[Idx], seen_values[Idx]));
+    //mphiremap.insert(std::make_pair(toexamine[Idx], seen_values[Idx]));
+    mphiremap.insert(std::make_pair(std::make_pair(&MBB, seen_values[Idx]), toexamine[Idx]));
   }
 }
 
@@ -2338,12 +2356,18 @@ void LiveDebugValues::resolveVPHIs(vphitomphit &vphitomphi, const mphiremapt &mp
   // Take a look at each PHI in the inlocs.
   std::vector<std::pair<unsigned, unsigned>> toreplace;
   for (unsigned ID : InLocs) {
-    auto Pair = lolnumbering[ID];
+    auto &Pair = lolnumbering[ID];
+#if 0
     if (Pair.second.Kind == ValueRec::Def) {
       auto it = mphiremap.find(Pair.second.ID);
-      if (it != mphiremap.end())
-        Pair.second.ID = it->second;
+      if (it != mphiremap.end()) {
+        ValueRec tmp = Pair.second;
+        tmp.ID = it->second;
+        unsigned newID = lolnumbering.insert(std::make_pair(Pair.first, tmp));
+        toreplace.push_back(std::make_pair(ID, newID));
+      }
     }
+#endif
 
     if (Pair.second.Kind != ValueRec::PHI)
       continue;
@@ -2783,13 +2807,16 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   mphiremapt mphiremap;
   for (MachineBasicBlock &MBB : MF) {
     unsigned bbnum = MBB.getNumber();
-
     resolveMPHIs(mphiremap, MBB, getVarLocsInMBB(&MBB, MLOCInLocs), MLOCOutLocs, bbnum);
+  }
+
+  for (MachineBasicBlock &MBB : MF) {
+    unsigned bbnum = MBB.getNumber();
     resolveVPHIs(vphitomphi, mphiremap, lolnumbering, MBB, getVarLocsInMBB(&MBB, VLOCInLocs), VLOCOutLocs, MLOCOutLocs, bbnum);
-    ttracker->loadInlocs(MBB, lolnumbering, getVarLocsInMBB(&MBB, MLOCInLocs), getVarLocsInMBB(&MBB, VLOCInLocs), bbnum);
+    ttracker->loadInlocs(MBB, lolnumbering, mphiremap, getVarLocsInMBB(&MBB, MLOCInLocs), getVarLocsInMBB(&MBB, VLOCInLocs), bbnum);
     tracker->reset();
     tracker->loadFromVarLocSet(getVarLocsInMBB(&MBB, MLOCInLocs), bbnum);
-    tracker->lolremap(mphiremap);
+    tracker->lolremap(&MBB, mphiremap);
 
     OpenRanges.insertFromLocSet(getVarLocsInMBB(&MBB, PendingInLocs), VarLocIDs);
     for (auto &MI : MBB)
