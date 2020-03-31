@@ -1384,19 +1384,10 @@ bool LiveDebugValues::vloc_join(
     if (!NumVisited) {
       InLocsT = OL->second;
       toBecomePHIs = OL->second;
-      dbgs() << "vloc_join setting\n";
-      InLocsT.dump();
-      dbgs() << "\n";
     } else {
       InLocsT &= OL->second;
       toBecomePHIs |= OL->second;
-      dbgs() << "vloc_join anding\n";
-      OL->second.dump();
-      dbgs() << "\n";
     }
-
-    dbgs() << "to get \n";
-    InLocsT.dump();
 
     // xXX jmorse deleted debug statement
 
@@ -1538,17 +1529,6 @@ void LiveDebugValues::resolveVPHIs(vphitomphit &vphitomphi, const mphiremapt &mp
   std::vector<std::pair<unsigned, unsigned>> toreplace;
   for (unsigned ID : InLocs) {
     auto &Pair = lolnumbering[ID];
-#if 0
-    if (Pair.second.Kind == ValueRec::Def) {
-      auto it = mphiremap.find(Pair.second.ID);
-      if (it != mphiremap.end()) {
-        ValueRec tmp = Pair.second;
-        tmp.ID = it->second;
-        unsigned newID = lolnumbering.insert(std::make_pair(Pair.first, tmp));
-        toreplace.push_back(std::make_pair(ID, newID));
-      }
-    }
-#endif
 
     if (Pair.second.Kind != ValueRec::PHI)
       continue;
@@ -1893,30 +1873,6 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   LLVM_DEBUG(printVarLocInMBB(MF, OutLocs, VarLocIDs, "Final OutLocs", dbgs()));
   LLVM_DEBUG(printVarLocInMBB(MF, InLocs, VarLocIDs, "Final InLocs", dbgs()));
 #endif
-
-  LLVM_DEBUG({
-    dbgs() << "At the end of all that...\n";
-    for (auto RI = RPOT.begin(), RE = RPOT.end(); RI != RE; ++RI) {
-      unsigned id = BBToOrder[*RI];
-      MachineBasicBlock *MBB = *RI;
-      dbgs() << "In bb " << MBB->getName() << " num " << id << "\n";
-      tracker->reset();
-      tracker->loadFromVarLocSet(getVarLocsInMBB(MBB, MLOCOutLocs), cur_bb);
-      tracker->dump(TRI);
-
-      dbgs() << "variable outlocs\n";
-      auto &olocs = getVarLocsInMBB(MBB, VLOCOutLocs);
-      for (unsigned ID : olocs) {
-        dbgs() << "Var: ";
-        dbgs() << lolnumbering[ID].first.getVariable()->getName();
-        dbgs() << " locno ";
-        lolnumbering[ID].second.dump(TRI);
-        dbgs() << "\n";
-      }
-
-      dbgs() << "FIN BLOCK\n\n";
-    }
-  });
 
   return Changed;
 }
