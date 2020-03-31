@@ -44,7 +44,6 @@
 # CHECK: DBG_VALUE [[REG_A]], $noreg, [[VAR_A]]
 # CHECK: DBG_VALUE [[REG_B]], $noreg, [[VAR_B]]
 # CHECK: DBG_VALUE [[REG_C]], $noreg, [[VAR_C]]
-# CHECK: DBG_VALUE [[REG_A]], $noreg, [[VAR_I]]
 # CHECK: DBG_VALUE [[REG_I]], $noreg, [[VAR_I]]
 
 # CHECK-LABEL: bb.4.for.cond.cleanup
