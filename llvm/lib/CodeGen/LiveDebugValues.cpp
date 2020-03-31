@@ -1268,54 +1268,17 @@ void LiveDebugValues::getAnalysisUsage(AnalysisUsage &AU) const {
 /// tracking its backup entry location. Otherwise, if the VarLoc is primary
 /// location, erase the variable from the Vars set.
 void LiveDebugValues::OpenRangesSet::erase(const VarLoc &VL) {
-  // Erasure helper.
-  auto DoErase = [VL, this](DebugVariable VarToErase) {
-    auto *EraseFrom = VL.isEntryBackupLoc() ? &EntryValuesBackupVars : &Vars;
-    auto It = EraseFrom->find(VarToErase);
-    if (It != EraseFrom->end()) {
-      LocIndex ID = It->second;
-      VarLocs.reset(ID.getAsRawInteger());
-      EraseFrom->erase(It);
-    }
-  };
-
-  DebugVariable Var = VL.Var;
-
-  // Erase the variable/fragment that ends here.
-  DoErase(Var);
-
-  // Extract the fragment. Interpret an empty fragment as one that covers all
-  // possible bits.
-  FragmentInfo ThisFragment = Var.getFragmentOrDefault();
-
-  // There may be fragments that overlap the designated fragment. Look them up
-  // in the pre-computed overlap map, and erase them too.
-  auto MapIt = OverlappingFragments.find({Var.getVariable(), ThisFragment});
-  if (MapIt != OverlappingFragments.end()) {
-    for (auto Fragment : MapIt->second) {
-      LiveDebugValues::OptFragmentInfo FragmentHolder;
-      if (!DebugVariable::isDefaultFragment(Fragment))
-        FragmentHolder = LiveDebugValues::OptFragmentInfo(Fragment);
-      DoErase({Var.getVariable(), FragmentHolder, Var.getInlinedAt()});
-    }
-  }
+  return;
 }
 
 void LiveDebugValues::OpenRangesSet::erase(const VarLocSet &KillSet,
                                            const VarLocMap &VarLocIDs) {
-  VarLocs.intersectWithComplement(KillSet);
-  for (uint64_t ID : KillSet) {
-    const VarLoc *VL = &VarLocIDs[LocIndex::fromRawInteger(ID)];
-    auto *EraseFrom = VL->isEntryBackupLoc() ? &EntryValuesBackupVars : &Vars;
-    EraseFrom->erase(VL->Var);
-  }
+  return;
 }
 
 void LiveDebugValues::OpenRangesSet::insert(LocIndex VarLocID,
                                             const VarLoc &VL) {
-  auto *InsertInto = VL.isEntryBackupLoc() ? &EntryValuesBackupVars : &Vars;
-  VarLocs.set(VarLocID.getAsRawInteger());
-  InsertInto->insert({VL.Var, VarLocID});
+  return;
 }
 
 /// Return the Loc ID of an entry value backup location, if it exists for the
