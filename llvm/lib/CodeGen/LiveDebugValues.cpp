@@ -80,16 +80,6 @@ using namespace llvm;
 STATISTIC(NumInserted, "Number of DBG_VALUE instructions inserted");
 STATISTIC(NumRemoved, "Number of DBG_VALUE instructions removed");
 
-// If @MI is a DBG_VALUE with debug value described by a defined
-// register, returns the number of this register. In the other case, returns 0.
-static Register isDbgValueDescribedByReg(const MachineInstr &MI) {
-  assert(MI.isDebugValue() && "expected a DBG_VALUE");
-  assert(MI.getNumOperands() == 4 && "malformed DBG_VALUE");
-  // If location of variable is described using a register (directly
-  // or indirectly), this register is always a first operand.
-  return MI.getOperand(0).isReg() ? MI.getOperand(0).getReg() : Register();
-}
-
 /// If \p Op is a stack or frame register return true, otherwise return false.
 /// This is used to avoid basing the debug entry values on the registers, since
 /// we do not support it at the moment.
@@ -907,8 +897,10 @@ void LiveDebugValues::transferDebugValue(const MachineInstr &MI) {
   DebugVariable V(Var, Expr, InlinedAt);
 
   if (vtracker) {
-    if (isDbgValueDescribedByReg(MI)) {
-      auto ID = tracker->readReg(MI.getOperand(0).getReg());
+    const MachineOperand &MO = MI.getOperand(0);
+    if (MO.isReg()) {
+      // Should read LocNo==0 on $noreg.
+      auto ID = tracker->readReg(MO.getReg());
       vtracker->defVar(MI, ID);
     } else if (MI.getOperand(0).isImm() || MI.getOperand(0).isFPImm() ||
                MI.getOperand(0).isCImm()) {
