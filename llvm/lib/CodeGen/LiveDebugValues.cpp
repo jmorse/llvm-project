@@ -80,24 +80,6 @@ using namespace llvm;
 STATISTIC(NumInserted, "Number of DBG_VALUE instructions inserted");
 STATISTIC(NumRemoved, "Number of DBG_VALUE instructions removed");
 
-/// If \p Op is a stack or frame register return true, otherwise return false.
-/// This is used to avoid basing the debug entry values on the registers, since
-/// we do not support it at the moment.
-static bool isRegOtherThanSPAndFP(const MachineOperand &Op,
-                                  const MachineInstr &MI,
-                                  const TargetRegisterInfo *TRI) {
-  if (!Op.isReg())
-    return false;
-
-  const MachineFunction *MF = MI.getParent()->getParent();
-  const TargetLowering *TLI = MF->getSubtarget().getTargetLowering();
-  unsigned SP = TLI->getStackPointerRegisterToSaveRestore();
-  Register FP = TRI->getFrameRegister(*MF);
-  Register Reg = Op.getReg();
-
-  return Reg && Reg != SP && Reg != FP;
-}
-
 namespace {
 
 using DefinedRegsSet = SmallSet<Register, 32>;
