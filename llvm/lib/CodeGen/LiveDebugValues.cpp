@@ -82,47 +82,7 @@ STATISTIC(NumRemoved, "Number of DBG_VALUE instructions removed");
 
 namespace {
 
-using DefinedRegsSet = SmallSet<Register, 32>;
 using VarLocSet = CoalescingBitVector<uint64_t>;
-
-/// A type-checked pair of {Register Location (or 0), Index}, used to index
-/// into a \ref VarLocMap. This can be efficiently converted to a 64-bit int
-/// for insertion into a \ref VarLocSet, and efficiently converted back. The
-/// type-checker helps ensure that the conversions aren't lossy.
-///
-/// Why encode a location /into/ the VarLocMap index? This makes it possible
-/// to find the open VarLocs killed by a register def very quickly. This is a
-/// performance-critical operation for LiveDebugValues.
-///
-/// TODO: Consider adding reserved intervals for kinds of VarLocs other than
-/// RegisterKind, like SpillLocKind or EntryValueKind, to optimize iteration
-/// over open locations.
-struct LocIndex {
-  uint32_t Location; // Physical registers live in the range [1;2^30) (see
-                     // \ref MCRegister), so we have plenty of range left here
-                     // to encode non-register locations.
-  uint32_t Index;
-
-  LocIndex(uint32_t Location, uint32_t Index)
-      : Location(Location), Index(Index) {}
-
-  uint64_t getAsRawInteger() const {
-    return (static_cast<uint64_t>(Location) << 32) | Index;
-  }
-
-  template<typename IntT> static LocIndex fromRawInteger(IntT ID) {
-    static_assert(std::is_unsigned<IntT>::value &&
-                      sizeof(ID) == sizeof(uint64_t),
-                  "Cannot convert raw integer to LocIndex");
-    return {static_cast<uint32_t>(ID >> 32), static_cast<uint32_t>(ID)};
-  }
-
-  /// Get the start of the interval reserved for VarLocs of kind RegisterKind
-  /// which reside in \p Reg. The end is at rawIndexForReg(Reg+1)-1.
-  static uint64_t rawIndexForReg(uint32_t Reg) {
-    return LocIndex(Reg, 0).getAsRawInteger();
-  }
-};
 
 // The location at which a spilled variable resides. It consists of a
 // register and an offset.
