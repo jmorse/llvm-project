@@ -97,11 +97,14 @@ struct SpillLoc {
   }
 };
 
+// This is purely a number that's slightly more strongly typed.
+enum LocIdx { limin = 0, limax = UINT_MAX };
+
 class ValueIDNum {
 public:
   uint64_t BlockNo : 16;
   uint64_t InstNo : 20;
-  uint64_t LocNo : 14;
+  LocIdx LocNo : 14; // No idea why this works, it shouldn't!
 
   uint64_t asU64() const {
     uint64_t tmp_block = BlockNo;
@@ -110,7 +113,8 @@ public:
   }
 
   static ValueIDNum fromU64(uint64_t v) {
-    return {v >> 34ull, ((v >> 14) & 0xFFFFF), v & 0x3FFF};
+    LocIdx l = LocIdx(v & 0x3FFF);
+    return {v >> 34ull, ((v >> 14) & 0xFFFFF), l};
   }
 
  bool operator<(const ValueIDNum &Other) const {
@@ -126,19 +130,23 @@ public:
     return !(*this == Other);
    }
 
-  std::string asString(const TargetRegisterInfo *TRI) const {
-    std::string regname;
-    if (LocNo < TRI->getNumRegs())
-      regname = TRI->getRegAsmName(LocNo).str();
-    else
-      regname = Twine("slot ").concat(Twine(LocNo - TRI->getNumRegs())).str();
-    assert(regname != "");
+  std::string asString(const std::string &mlocname) const {
     return Twine("bb ").concat(
            Twine(BlockNo).concat(
            Twine(" inst ").concat(
            Twine(InstNo).concat(
            Twine(" loc ").concat(
-           Twine(regname)))))).str();
+           Twine(mlocname)))))).str();
+  }
+};
+
+class LocID {
+public:
+  unsigned IsSpill : 1;
+  unsigned LocNo : 31;
+
+  unsigned toInt() const {
+    return IsSpill << 31 | LocNo;
   }
 };
 } // end anon namespace
@@ -159,6 +167,39 @@ template <> struct DenseMapInfo<ValueIDNum> {
 
   static bool isEqual(const ValueIDNum &A, const ValueIDNum &B) { return A == B; }
 };
+
+// Misery.
+template <> struct DenseMapInfo<LocID> {
+  static const unsigned MaxVal = 0x7FFFFFFF;
+
+  static inline LocID getEmptyKey() { return {0, MaxVal}; }
+
+  static inline LocID getTombstoneKey() { return {1, MaxVal}; }
+
+  static unsigned getHashValue(LocID num) {
+    return hash_value(num.toInt());
+  }
+
+  static bool isEqual(const LocID &A, const LocID &B) { return A.toInt() == B.toInt(); }
+};
+
+// More misery
+template <> struct DenseMapInfo<LocIdx> {
+  static const int MaxVal = std::numeric_limits<int>::max();
+
+  static inline LocIdx getEmptyKey() { return LocIdx(MaxVal); }
+
+  static inline LocIdx getTombstoneKey() { return LocIdx(MaxVal-1); }
+
+  static unsigned getHashValue(LocIdx Num) {
+    return hash_value((unsigned)Num);
+  }
+
+  static bool isEqual(LocIdx A, LocIdx B) { return A == B; }
+};
+
+
+
 } // end namespace llvm
 
 
@@ -167,31 +208,253 @@ namespace {
 class VarLocPos {
 public:
   ValueIDNum ID;
-  uint64_t CurrentLoc : 14;
+  LocIdx CurrentLoc : 14;
 
   uint64_t asU64() const {
     return ID.asU64() << 14 | CurrentLoc;
   }
 
   static VarLocPos fromU64(uint64_t v) {
-    return {ValueIDNum::fromU64(v >> 14), v & 0x3FFF};
+    return {ValueIDNum::fromU64(v >> 14), LocIdx(v & 0x3FFF)};
   }
 
   bool operator==(const VarLocPos &Other) const {
     return std::tie(ID, CurrentLoc) == std::tie(Other.ID, Other.CurrentLoc);
   }
 
-  std::string asString(const TargetRegisterInfo *TRI) const {
-    std::string regname;
-    if (CurrentLoc < TRI->getNumRegs())
-      regname = TRI->getRegAsmName(CurrentLoc).str();
-    else
-      regname = Twine("slot ").concat(Twine(CurrentLoc - TRI->getNumRegs())).str();
-    return Twine("VLP(").concat(ID.asString(TRI)).concat(",cur ").concat(regname).concat(")").str();
+  std::string asString(const std::string &curname, const std::string &defname) const {
+    return Twine("VLP(").concat(ID.asString(defname)).concat(",cur ").concat(curname).concat(")").str();
   }
 };
 
+typedef DenseMap<uint64_t, uint64_t> vphitomphit;
+typedef DenseMap<std::pair<const MachineBasicBlock *, ValueIDNum>, ValueIDNum> mphiremapt;
+
 typedef std::pair<const DIExpression *, bool> MetaVal;
+
+class MLocTracker {
+public:
+  VarLocSet::Allocator &Alloc;
+  MachineFunction &MF;
+  const TargetInstrInfo &TII;
+
+  DenseMap<LocID, LocIdx> LocIDToLocIdx;
+  DenseMap<LocIdx, LocID> LocIdxToLocID;
+  std::vector<ValueIDNum> LocIdxToIDNum;
+  UniqueVector<SpillLoc> SpillLocs;
+
+
+  MLocTracker(VarLocSet::Allocator &Alloc, MachineFunction &MF, const TargetInstrInfo &TII)
+    : Alloc(Alloc), MF(MF), TII(TII) {
+    reset();
+    LocIdxToIDNum.push_back({0, 0, LocIdx(0)});
+    LocID id = {0, 0};
+    LocIDToLocIdx[id] = LocIdx(0);
+    LocIdxToLocID[LocIdx(0)] = id;
+  }
+
+  VarLocPos getVarLocPos(LocIdx Idx) const {
+    assert(Idx < LocIdxToIDNum.size());
+    return {LocIdxToIDNum[Idx], Idx};
+  }
+
+  unsigned getNumLocs(void) const {
+    return LocIdxToIDNum.size();
+  }
+
+  VarLocSet makeVarLocSet(void) const {
+    VarLocSet set(Alloc);
+    for (unsigned idx = 0; idx < LocIdxToIDNum.size(); ++idx) {
+      LocIdx Idx = LocIdx(idx);
+      if (LocIdxToIDNum[Idx].LocNo == 0)
+        continue;
+      set.set(getVarLocPos(Idx).asU64());
+    }
+    return set;
+  }
+
+  void loadFromVarLocSet(const VarLocSet &vls, unsigned cur_bb) {
+    // Quickly reset everything to being itself at inst 0, representing a phi.
+    for (unsigned ID = 0; ID < LocIdxToIDNum.size(); ++ID) {
+      LocIdxToIDNum[ID] = {cur_bb, 0, LocIdx(ID)};
+    }
+
+    for (auto ID : vls) {
+      auto pos = VarLocPos::fromU64(ID);
+      LocIdxToIDNum[pos.CurrentLoc] = pos.ID;
+    }
+  }
+
+  void lolremap(const MachineBasicBlock *MBB, const mphiremapt &mphiremap) {
+    for (unsigned ID = 0; ID < LocIdxToIDNum.size(); ++ID) {
+      if (LocIdxToIDNum[ID].InstNo == 0) {
+        auto it = mphiremap.find(std::make_pair(MBB, LocIdxToIDNum[ID]));
+        if (it != mphiremap.end())
+          LocIdxToIDNum[ID] = it->second;
+      }
+    }
+  }
+
+  void reset(void) {
+    memset(&LocIdxToIDNum[0], 0, LocIdxToIDNum.size() * sizeof(ValueIDNum));
+  }
+
+  void clear(void) {
+    LocIdxToIDNum.clear();
+    //SpillsToMLocs.reset(); XXX can't reset?
+    SpillLocs = decltype(SpillLocs)();
+  }
+
+  void bumpRegister(const LocID &ID, LocIdx &Ref) {
+    if (Ref == 0) {
+      LocIdx NewIdx = LocIdx(LocIdxToIDNum.size());
+      Ref = NewIdx;
+      LocIdxToIDNum.push_back({0, 0, LocIdx(0)});
+      LocIdxToLocID[NewIdx] = ID;
+    }
+  }
+
+  void defReg(Register r, unsigned bb, unsigned inst) {
+    LocID ID = {0, r};
+    LocIdx &Idx = LocIDToLocIdx[ID];
+    bumpRegister(ID, Idx);
+    ValueIDNum id = {bb, inst, Idx};
+    LocIdxToIDNum[Idx] = id;
+  }
+
+  void setReg(Register r, ValueIDNum id) {
+    LocID ID = {0, r};
+    LocIdx &Idx = LocIDToLocIdx[ID];
+    bumpRegister(ID, Idx);
+    LocIdxToIDNum[Idx] = id;
+  }
+
+  ValueIDNum readReg(Register r) {
+    LocID ID = {0, r};
+    LocIdx &Idx = LocIDToLocIdx[ID];
+    bumpRegister(ID, Idx);
+    return LocIdxToIDNum[Idx];
+  }
+
+  // Because we need to replicate values only having one location for now.
+  void lolwipe(Register r) {
+    LocID ID = {0, r};
+    unsigned Idx = LocIDToLocIdx[ID];
+    LocIdxToIDNum[Idx] = {0, 0, LocIdx(0)};
+  }
+
+  LocIdx getRegMLoc(Register r) {
+    LocID ID = {0, r};
+    return LocIDToLocIdx[ID];
+  }
+
+  void setSpill(SpillLoc l, ValueIDNum id) {
+    unsigned SpillID = SpillLocs.idFor(l);
+    if (SpillID == 0) {
+      SpillID = SpillLocs.insert(l);
+      LocID L = {1, SpillID};
+      LocIdx Idx = LocIdx(LocIdxToIDNum.size()); // New idx
+      LocIDToLocIdx[L] = Idx;
+      LocIdxToLocID[Idx] = L;
+      LocIdxToIDNum.push_back(id);
+    } else {
+      LocID L = {1, SpillID};
+      LocIdx Idx = LocIDToLocIdx[L];
+      LocIdxToIDNum[Idx] = id;
+    }
+  }
+
+  void lolwipe(SpillLoc l) {
+    unsigned SpillID = SpillLocs.idFor(l);
+    assert(SpillID != 0);
+    LocID L = {1, SpillID};
+    LocIdx Idx = LocIDToLocIdx[L];
+    LocIdxToIDNum[Idx] = {0, 0, LocIdx(0)};
+  }
+
+  ValueIDNum readSpill(SpillLoc l) {
+    unsigned pos = SpillLocs.idFor(l);
+    if (pos == 0)
+      // Returning no location -> 0 means $noreg and some hand wavey position
+      return {0, 0, LocIdx(0)};
+
+    LocID L = {1, pos};
+    unsigned LocIdx = LocIDToLocIdx[L];
+    return LocIdxToIDNum[LocIdx];
+  }
+
+  LocIdx getSpillMLoc(SpillLoc l) {
+    unsigned SpillID = SpillLocs.idFor(l);
+    if (SpillID == 0)
+      return LocIdx(0);
+    LocID L = {1, SpillID};
+    return LocIDToLocIdx[L];
+  }
+
+  bool isSpill(LocIdx Idx) const {
+    auto it = LocIdxToLocID.find(Idx);
+    assert(it != LocIdxToLocID.end());
+    return it->second.IsSpill;
+  }
+
+  std::string LocIdxToName(const TargetRegisterInfo *TRI, LocIdx Idx) const {
+    auto it = LocIdxToLocID.find(Idx);
+    assert(it != LocIdxToLocID.end());
+    const LocID &ID = it->second;
+    if (ID.IsSpill)
+      return Twine("slot ").concat(Twine(ID.LocNo)).str();
+    else
+      return TRI->getRegAsmName(ID.LocNo).str();
+  }
+
+  std::string IDAsString(const TargetRegisterInfo *TRI, const ValueIDNum &num) const {
+    std::string defname = LocIdxToName(TRI, num.LocNo);
+    return num.asString(defname);
+  }
+
+  std::string PosAsString(const TargetRegisterInfo *TRI, const VarLocPos &Pos) const {
+    std::string mlocname = LocIdxToName(TRI, Pos.CurrentLoc);
+    std::string defname = LocIdxToName(TRI, Pos.ID.LocNo);
+    return Pos.asString(mlocname, defname);
+  }
+
+  void dump(const TargetRegisterInfo *TRI) {
+    for (unsigned int ID = 0; ID < LocIdxToIDNum.size(); ++ID) {
+      auto &num = LocIdxToIDNum[ID];
+      if (num.LocNo == 0)
+        continue;
+      std::string mlocname = LocIdxToName(TRI, num.LocNo);
+      std::string defname = num.asString(mlocname);
+      dbgs() << LocIdxToName(TRI, LocIdx(ID)) << " --> " << defname << "\n";
+    }
+  }
+
+  MachineInstrBuilder 
+  emitLoc(LocIdx MLoc, const DebugVariable &Var, const MetaVal &meta) {
+    DebugLoc DL = DebugLoc::get(0, 0, Var.getVariable()->getScope(), Var.getInlinedAt());
+    auto MIB = BuildMI(MF, DL, TII.get(TargetOpcode::DBG_VALUE));
+
+    const DIExpression *Expr = meta.first;
+    const LocID &Loc = LocIdxToLocID[MLoc];
+    if (Loc.IsSpill) {
+      const SpillLoc &Spill = SpillLocs[Loc.LocNo];
+      Expr = DIExpression::prepend(Expr, DIExpression::ApplyOffset, Spill.SpillOffset);
+      unsigned Base = Spill.SpillBase;
+      MIB.addReg(Base, RegState::Debug);
+      MIB.addImm(0);
+   } else {
+      MIB.addReg(Loc.LocNo, RegState::Debug);
+      if (meta.second)
+        MIB.addImm(0);
+      else
+        MIB.addReg(0, RegState::Debug);
+    }
+
+    MIB.addMetadata(Var.getVariable());
+    MIB.addMetadata(Expr);
+    return MIB;
+  }
+};
 
 class ValueRec {
 public:
@@ -203,14 +466,14 @@ public:
   typedef enum { Def, Const, PHI } KindT;
   KindT Kind;
 
-  void dump(const TargetRegisterInfo *TRI) const {
+  void dump(const TargetRegisterInfo *TRI, const MLocTracker *MTrack) const {
     if (Kind == Const) {
       MO->dump();
     } else if (Kind == PHI) {
       dbgs() << "PHI-bb" << BlockPHI << "\n";
     } else {
       assert(Kind == Def);
-      dbgs() << ID.asString(TRI);
+      dbgs() << MTrack->IDAsString(TRI, ID);
     }
     if (meta.second)
       dbgs() << " indir";
@@ -246,163 +509,7 @@ public:
 };
 
 typedef UniqueVector<std::pair<DebugVariable, ValueRec>> lolnumberingt;
-typedef DenseMap<uint64_t, uint64_t> vphitomphit;
-typedef DenseMap<std::pair<const MachineBasicBlock *, ValueIDNum>, ValueIDNum> mphiremapt;
 
-class MLocTracker {
-public:
-  VarLocSet::Allocator &Alloc;
-  std::vector<ValueIDNum> MachineLocsToIDNums;
-  unsigned NumRegs;
-  UniqueVector<SpillLoc> SpillsToMLocs;
-
-  MLocTracker(VarLocSet::Allocator &Alloc, unsigned NumRegs)
-    : Alloc(Alloc), NumRegs(NumRegs) {
-    MachineLocsToIDNums.resize(NumRegs);
-    reset();
-  }
-
-  VarLocPos getVarLocPos(unsigned idx) const {
-    return {MachineLocsToIDNums[idx], idx};
-  }
-
-  unsigned getNumLocs(void) const {
-    return MachineLocsToIDNums.size();
-  }
-
-  VarLocSet makeVarLocSet(void) const {
-    VarLocSet set(Alloc);
-    for (unsigned idx = 0; idx < MachineLocsToIDNums.size(); ++idx) {
-      if (MachineLocsToIDNums[idx].LocNo == 0)
-        continue;
-      set.set(getVarLocPos(idx).asU64());
-    }
-    return set;
-  }
-
-  void loadFromVarLocSet(const VarLocSet &vls, unsigned cur_bb) {
-    // Quickly reset everything to being itself at inst 0, representing a phi.
-    for (unsigned ID = 0; ID < MachineLocsToIDNums.size(); ++ID) {
-      MachineLocsToIDNums[ID] = {cur_bb, 0, ID};
-    }
-
-    for (auto ID : vls) {
-      auto pos = VarLocPos::fromU64(ID);
-      MachineLocsToIDNums[pos.CurrentLoc] = pos.ID;
-    }
-  }
-
-  void lolremap(const MachineBasicBlock *MBB, const mphiremapt &mphiremap) {
-    for (unsigned ID = 0; ID < MachineLocsToIDNums.size(); ++ID) {
-      if (MachineLocsToIDNums[ID].InstNo == 0) {
-        auto it = mphiremap.find(std::make_pair(MBB, MachineLocsToIDNums[ID]));
-        if (it != mphiremap.end())
-          MachineLocsToIDNums[ID] = it->second;
-      }
-    }
-  }
-
-  void reset(void) {
-    memset(&MachineLocsToIDNums[0], 0, MachineLocsToIDNums.size() * sizeof(ValueIDNum));
-  }
-
-  void clear(void) {
-    MachineLocsToIDNums.clear();
-    //SpillsToMLocs.reset(); XXX can't reset?
-    SpillsToMLocs = decltype(SpillsToMLocs)();
-  }
-
-  void defReg(Register r, unsigned bb, unsigned inst) {
-    ValueIDNum id = {bb, inst, r};
-    MachineLocsToIDNums[r] = id;
-  }
-
-  void setReg(Register r, ValueIDNum id) {
-    MachineLocsToIDNums[r] = id;
-  }
-
-  // Because we need to replicate values only having one location for now.
-  void lolwipe(Register r) {
-    MachineLocsToIDNums[r] = {0, 0, 0};
-  }
-
-  void defSpill(SpillLoc l, unsigned bb, unsigned inst) {
-    unsigned SpillID = SpillsToMLocs.idFor(l);
-    if (SpillID == 0) {
-      SpillID = SpillsToMLocs.insert(l);
-      SpillID += NumRegs - 1;
-      ValueIDNum id = {bb, inst, SpillID};
-      MachineLocsToIDNums.push_back(id);
-      assert(MachineLocsToIDNums.size() == SpillID + 1);
-    } else {
-      ValueIDNum id = {bb, inst, SpillID + NumRegs - 1};
-      MachineLocsToIDNums[NumRegs + SpillID - 1] = id;
-    }
-  }
-
-  // xxx duplication
-  void setSpill(SpillLoc l, ValueIDNum id) {
-    unsigned SpillID = SpillsToMLocs.idFor(l);
-    if (SpillID == 0) {
-      SpillID = SpillsToMLocs.insert(l);
-      SpillID += NumRegs - 1;
-      MachineLocsToIDNums.push_back(id);
-      assert(MachineLocsToIDNums.size() == SpillID + 1);
-    } else {
-      MachineLocsToIDNums[NumRegs + SpillID - 1] = id;
-    }
-  }
-
-  void lolwipe(SpillLoc l) {
-    unsigned SpillID = SpillsToMLocs.idFor(l);
-    assert(SpillID != 0);
-    MachineLocsToIDNums[NumRegs + SpillID - 1] = {0, 0, 0};
-  }
-
-
-
-  ValueIDNum readReg(Register r) {
-    return MachineLocsToIDNums[r];
-  }
-
-  ValueIDNum readSpill(SpillLoc l) {
-    unsigned pos = SpillsToMLocs.idFor(l);
-    if (pos == 0)
-      // Returning no location -> 0 means $noreg and some hand wavey position
-      return {0, 0, 0};
-    return MachineLocsToIDNums[NumRegs + pos - 1];
-  }
-
-  unsigned getSpillMLoc(SpillLoc l) {
-    unsigned SpillID = SpillsToMLocs.idFor(l);
-    if (SpillID == 0)
-      return 0;
-    SpillID += NumRegs - 1;
-    return SpillID;
-  }
-
-  bool isSpill(unsigned mloc) const {
-    return mloc >= NumRegs;
-  }
-
-  void dump(const TargetRegisterInfo *TRI) {
-    for (unsigned int ID = 0; ID < NumRegs; ++ID) {
-      auto &num = MachineLocsToIDNums[ID];
-      if (num.LocNo == 0)
-        continue;
-      std::string defname = num.asString(TRI);
-      dbgs() << TRI->getRegAsmName(ID) << " --> " << defname << "\n";
-    }
-    for (unsigned int ID = NumRegs; ID < MachineLocsToIDNums.size(); ++ID) {
-      auto &num = MachineLocsToIDNums[ID];
-      if (num.LocNo == 0)
-        continue;
-      std::string lolslot = Twine("slot ").concat(Twine(ID - NumRegs)).str();
-      std::string defname = num.asString(TRI);
-      dbgs() << lolslot << " --> " << defname << "\n";
-    }
-  }
-};
 
 // Types for recording sets of variable fragments that overlap. For a given
 // local variable, we record all other fragments of that variable that could
@@ -437,14 +544,14 @@ public:
     DebugVariable Var(MI.getDebugVariable(), MI.getDebugExpression(),
                       MI.getDebugLoc()->getInlinedAt());
     MetaVal m = {MI.getDebugExpression(), MI.getOperand(1).isImm()};
-    Vars[Var] = {{0, 0, 0}, MO, m, 0, ValueRec::Const};
+    Vars[Var] = {{0, 0, LocIdx(0)}, MO, m, 0, ValueRec::Const};
   }
 };
 
 class TransferTracker {
 public:
   const TargetInstrInfo *TII;
-  MLocTracker *mlocs;
+  MLocTracker *mtracker;
   MachineFunction &MF;
 
   struct Transfer {
@@ -453,20 +560,20 @@ public:
     std::vector<MachineInstr *> insts;
   };
 
-  typedef std::pair<unsigned, MetaVal> hahaloc;
+  typedef std::pair<LocIdx, MetaVal> hahaloc;
   std::vector<Transfer> Transfers;
 
   // MapVector for nondeterminism
-  DenseMap<unsigned, MapVector<DebugVariable, unsigned>> ActiveMLocs;
+  DenseMap<LocIdx, MapVector<DebugVariable, unsigned>> ActiveMLocs;
   DenseMap<DebugVariable, hahaloc> ActiveVLocs;
 
-  TransferTracker(const TargetInstrInfo *TII, MLocTracker *mlocs, MachineFunction &MF) : TII(TII), mlocs(mlocs), MF(MF) { }
+  TransferTracker(const TargetInstrInfo *TII, MLocTracker *mtracker, MachineFunction &MF) : TII(TII), mtracker(mtracker), MF(MF) { }
 
   void loadInlocs(MachineBasicBlock &MBB, lolnumberingt &lolnumbering, const mphiremapt &mphiremap, VarLocSet &mlocs, VarLocSet &vlocs, unsigned cur_bb) {  
     ActiveMLocs.clear();
     ActiveVLocs.clear();
 
-    DenseMap<ValueIDNum, unsigned> tmpmap;
+    DenseMap<ValueIDNum, LocIdx> tmpmap;
 
     for (auto ID : mlocs) {
       // Each mloc is a VarLocPos
@@ -491,13 +598,12 @@ public:
         continue;
       assert(Var.second.Kind == ValueRec::Def);
 
-      auto InsertLiveIn = [&](unsigned m) {
+      auto InsertLiveIn = [&](LocIdx m) {
         ActiveVLocs[Var.first] = std::make_pair(m, Var.second.meta);
         ActiveMLocs[m].insert(std::make_pair(Var.first, 0));
         assert(m != 0);
-        inlocs.push_back(emitLoc(m, Var.first, Var.second.meta));
+        inlocs.push_back(mtracker->emitLoc(m, Var.first, Var.second.meta));
       };
-
 
       // Value unavailable / has no machine loc -> define no location.
       auto hahait = tmpmap.find(Var.second.ID);
@@ -548,19 +654,20 @@ public:
       return;
     }
 
-    unsigned Reg = MO.getReg();
+    Register Reg = MO.getReg();
+    LocIdx MLoc = mtracker->getRegMLoc(Reg);
     MetaVal meta = {MI.getDebugExpression(), MI.getOperand(1).isImm()};
 
-    ActiveMLocs[Reg].insert(std::make_pair(Var, 0));
+    ActiveMLocs[MLoc].insert(std::make_pair(Var, 0));
     if (It == ActiveVLocs.end()) {
-      ActiveVLocs.insert(std::make_pair(Var, std::make_pair(Reg, meta)));
+      ActiveVLocs.insert(std::make_pair(Var, std::make_pair(MLoc, meta)));
     } else {
-      It->second.first = Reg;
+      It->second.first = MLoc;
       It->second.second = meta;
     }
   }
 
-  void clobberMloc(unsigned mloc, MachineBasicBlock::iterator pos) {
+  void clobberMloc(LocIdx mloc, MachineBasicBlock::iterator pos) {
     auto It = ActiveMLocs.find(mloc);
     if (It == ActiveMLocs.end())
       return;
@@ -568,11 +675,13 @@ public:
     std::vector<MachineInstr *>insts;
     for (auto &Var : It->second) {
       auto ALoc = ActiveVLocs.find(Var.first);
-      if (mlocs->isSpill(mloc)) {
+      if (mtracker->isSpill(mloc)) {
         // Create an undef. We can't feed in a nullptr DIExpression alas,
         // so use the variables last expression.
         const DIExpression *Expr = ALoc->second.second.first;
-        insts.push_back(emitLoc(0, Var.first, {Expr, false}));
+        // XXX explicitly specify empty location?
+        LocIdx Idx = LocIdx(0);
+        insts.push_back(mtracker->emitLoc(Idx, Var.first, {Expr, false}));
       }
       ActiveVLocs.erase(ALoc);
     }
@@ -582,7 +691,7 @@ public:
     It->second.clear();
   }
 
-  void transferMlocs(unsigned src, unsigned dst, MachineBasicBlock::iterator pos) {
+  void transferMlocs(LocIdx src, LocIdx dst, MachineBasicBlock::iterator pos) {
     // Legitimate scenario on account of un-clobbered slot being assigned to?
     //assert(ActiveMLocs[dst].size() == 0);
     ActiveMLocs[dst] = ActiveMLocs[src];
@@ -594,7 +703,7 @@ public:
       it->second.first = dst;
 
       assert(dst != 0);
-      MachineInstr *MI = emitLoc(dst, Var.first, it->second.second);
+      MachineInstr *MI = mtracker->emitLoc(dst, Var.first, it->second.second);
       instrs.push_back(MI);
     }
     ActiveMLocs[src].clear();
@@ -614,31 +723,6 @@ public:
       MIB.addReg(0);
     MIB.addMetadata(Var.getVariable());
     MIB.addMetadata(meta.first);
-    return MIB;
-  }
-
-  MachineInstrBuilder 
-  emitLoc(unsigned MLoc, const DebugVariable &Var, const MetaVal &meta) {
-    DebugLoc DL = DebugLoc::get(0, 0, Var.getVariable()->getScope(), Var.getInlinedAt());
-    auto MIB = BuildMI(MF, DL, TII->get(TargetOpcode::DBG_VALUE));
-
-    const DIExpression *Expr = meta.first;
-    if (MLoc < mlocs->NumRegs) {
-      MIB.addReg(MLoc, RegState::Debug);
-      if (meta.second)
-        MIB.addImm(0);
-      else
-        MIB.addReg(0, RegState::Debug);
-    } else {
-      const SpillLoc &Loc = mlocs->SpillsToMLocs[MLoc - mlocs->NumRegs + 1];
-      Expr = DIExpression::prepend(Expr, DIExpression::ApplyOffset, Loc.SpillOffset);
-      unsigned Base = Loc.SpillBase;
-      MIB.addReg(Base, RegState::Debug);
-      MIB.addImm(0);
-    }
-
-    MIB.addMetadata(Var.getVariable());
-    MIB.addMetadata(Expr);
     return MIB;
   }
 };
@@ -870,8 +954,10 @@ void LiveDebugValues::transferRegisterDef(
   VarLocSet KillSet(Alloc);
   for (uint32_t DeadReg : DeadRegs) {
     tracker->defReg(DeadReg, cur_bb, cur_inst);
-    if (ttracker)
-      ttracker->clobberMloc(DeadReg, MI.getIterator());
+    if (ttracker) {
+      LocIdx Idx = tracker->getRegMLoc(DeadReg);
+      ttracker->clobberMloc(Idx, MI.getIterator());
+    }
   }
 
   auto AnyRegMaskKillsReg = [RegMasks](Register Reg) -> bool {
@@ -884,8 +970,10 @@ void LiveDebugValues::transferRegisterDef(
   for (unsigned Reg = 1; Reg < TRI->getNumRegs(); ++Reg) {
     if (Reg != SP && AnyRegMaskKillsReg(Reg)) {
       tracker->defReg(Reg, cur_bb, cur_inst);
-      if (ttracker)
-        ttracker->clobberMloc(Reg, MI.getIterator());
+      if (ttracker) {
+        LocIdx Idx = tracker->getRegMLoc(Reg);
+        ttracker->clobberMloc(Idx, MI.getIterator());
+      }
     }
   }
 }
@@ -978,7 +1066,7 @@ void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI) {
     Loc = extractSpillBaseRegAndOffset(MI);
 
     if (ttracker) {
-      unsigned mloc = tracker->getSpillMLoc(*Loc);
+      LocIdx mloc = tracker->getSpillMLoc(*Loc);
       if (mloc != 0)
         ttracker->clobberMloc(mloc, MI.getIterator());
     }
@@ -992,7 +1080,7 @@ void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI) {
     tracker->setSpill(*Loc, id);
     assert(tracker->getSpillMLoc(*Loc) != 0);
     if (ttracker)
-      ttracker->transferMlocs(Reg, tracker->getSpillMLoc(*Loc), MI.getIterator());
+      ttracker->transferMlocs(tracker->getRegMLoc(Reg), tracker->getSpillMLoc(*Loc), MI.getIterator());
     tracker->lolwipe(Reg);
 
   } else {
@@ -1003,7 +1091,7 @@ void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI) {
       tracker->setReg(Reg, id);
       assert(tracker->getSpillMLoc(*Loc) != 0);
       if (ttracker)
-        ttracker->transferMlocs(tracker->getSpillMLoc(*Loc), Reg, MI.getIterator());
+        ttracker->transferMlocs(tracker->getSpillMLoc(*Loc), tracker->getRegMLoc(Reg), MI.getIterator());
       tracker->lolwipe(*Loc);
     }
   }
@@ -1047,7 +1135,7 @@ void LiveDebugValues::transferRegisterCopy(MachineInstr &MI) {
       auto id = tracker->readReg(SrcReg);
       tracker->setReg(DestReg, id);
       if (ttracker)
-        ttracker->transferMlocs(SrcReg, DestReg, MI.getIterator());
+        ttracker->transferMlocs(tracker->getRegMLoc(SrcReg), tracker->getRegMLoc(DestReg), MI.getIterator());
       tracker->lolwipe(SrcReg);
       return;
 }
@@ -1247,7 +1335,7 @@ bool LiveDebugValues::vloc_join(
   }
 
   for (auto Var : tophi) {
-    ValueRec NewVR = {{0, 0, 0}, None, {nullptr, false}, cur_bb, ValueRec::PHI};
+    ValueRec NewVR = {{0, 0, LocIdx(0)}, None, {nullptr, false}, cur_bb, ValueRec::PHI};
     auto NewPHI = std::make_pair(Var.first, NewVR);
     unsigned PreID = lolnumbering.idFor(NewPHI);
     unsigned ID = lolnumbering.insert(NewPHI);
@@ -1313,7 +1401,7 @@ void LiveDebugValues::resolveMPHIs(mphiremapt &mphiremap, MachineBasicBlock &MBB
   tracker->loadFromVarLocSet(InLocs, cur_bb);
   std::vector<ValueIDNum> toexamine;
   for (unsigned Idx = 1; Idx < tracker->getNumLocs(); ++Idx) {
-    VarLocPos Pos = tracker->getVarLocPos(Idx);
+    VarLocPos Pos = tracker->getVarLocPos(LocIdx(Idx)); // cast, as we're explicitly iterating over number of locs.
     if (Pos.ID.BlockNo == cur_bb && Pos.ID.InstNo == 0)
       toexamine.push_back(Pos.ID);
   }
@@ -1327,7 +1415,7 @@ void LiveDebugValues::resolveMPHIs(mphiremapt &mphiremap, MachineBasicBlock &MBB
       VarLocPos outpos = tracker->getVarLocPos(toexamine[Idx].LocNo);
       if (outpos.ID != seen_values[Idx] && outpos.ID != toexamine[Idx] &&
           seen_values[Idx] != toexamine[Idx])
-        seen_values[Idx].LocNo = 0;
+        seen_values[Idx].LocNo = LocIdx(0);
       else if (outpos.ID != toexamine[Idx])
         seen_values[Idx] = outpos.ID;
     }
@@ -1399,7 +1487,7 @@ void LiveDebugValues::resolveVPHIs(vphitomphit &vphitomphi, const mphiremapt &mp
 
   // Index the first predecessor,
   const VarLocSet &mlocs = getVarLocsInMBB(*MBB.pred_begin(), MLOCOutLocs);
-  DenseMap<ValueIDNum, unsigned> MBB1Idx;
+  DenseMap<ValueIDNum, LocIdx> MBB1Idx;
   for (uint64_t mloc : mlocs) {
     VarLocPos n = VarLocPos::fromU64(mloc);
     MBB1Idx[n.ID] = n.CurrentLoc;
@@ -1431,7 +1519,7 @@ void LiveDebugValues::resolveVPHIs(vphitomphit &vphitomphi, const mphiremapt &mp
     // Where do we start looking?
     if (MBB1Idx.count(VOutVec[0].ID) == 0)
       continue;
-    uint64_t mloc = MBB1Idx[VOutVec[0].ID];
+    LocIdx mloc = MBB1Idx[VOutVec[0].ID];
 
     // Alright, do all those mlocs agree?
     auto &MOutVec = PredOutMLocs[mloc];
@@ -1756,7 +1844,7 @@ bool LiveDebugValues::runOnMachineFunction(MachineFunction &MF) {
   TFI->getCalleeSaves(MF, CalleeSavedRegs);
   LS.initialize(MF);
 
-  tracker = new MLocTracker(Alloc, TRI->getNumRegs());
+  tracker = new MLocTracker(Alloc, MF, *TII);
   vtracker = nullptr;
   ttracker = nullptr;
 
