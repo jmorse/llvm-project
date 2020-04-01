@@ -806,6 +806,7 @@ private:
                  VarLocInMBB &VLOCInLocs, lolnumberingt &lolnumbering,
                  SmallPtrSet<const MachineBasicBlock *, 16> &VLOCVisited,
                  SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
+                 VarLocInMBB &VLOCScopeMasks,
                  unsigned cur_bb);
   bool vloc_transfer(VarLocSet &ilocs, VarLocSet &transfer, VarLocSet &olocs, lolnumberingt &lolnumbering);
 
@@ -832,6 +833,10 @@ public:
 
   void emitDbgValue(MLocTracker *mlocs, ValueRec &theloc, DebugVariable &Var,
                     MachineBasicBlock::iterator pos);
+
+  void UpdateVlocMask(lolnumberingt &lolnumbering, unsigned ID,
+                      VarLocInMBB &VLOCScopeMasks,
+                 SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks);
 
   /// Calculate the liveness information for the given machine function.
   bool runOnMachineFunction(MachineFunction &MF) override;
@@ -1278,6 +1283,7 @@ bool LiveDebugValues::vloc_join(
    VarLocInMBB &VLOCInLocs, lolnumberingt &lolnumbering,
    SmallPtrSet<const MachineBasicBlock *, 16> &VLOCVisited,
    SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
+   VarLocInMBB &VLOCScopeMasks,
    unsigned cur_bb) {
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
@@ -1329,24 +1335,18 @@ bool LiveDebugValues::vloc_join(
   }
 
   for (auto Var : tophi) {
-    InLocsT.set(lolnumbering.insert({Var.first, {{0, 0, 0}, None, {nullptr, false}, cur_bb, ValueRec::PHI}}));
+    ValueRec NewVR = {{0, 0, 0}, None, {nullptr, false}, cur_bb, ValueRec::PHI};
+    auto NewPHI = std::make_pair(Var.first, NewVR);
+    unsigned PreID = lolnumbering.idFor(NewPHI);
+    unsigned ID = lolnumbering.insert(NewPHI);
+    if (PreID == 0)
+      UpdateVlocMask(lolnumbering, ID, VLOCScopeMasks, ArtificialBlocks);
+    InLocsT.set(ID);
   }
+
   // Filter out DBG_VALUES that are out of scope.
-  VarLocSet KillSet(Alloc);
-  bool IsArtificial = ArtificialBlocks.count(&MBB);
-  if (!IsArtificial) {
-    for (uint64_t ID : InLocsT) {
-      auto &lolpair = lolnumbering[ID];
-      DebugLoc dl = DebugLoc::get(0, 0, lolpair.first.getVariable()->getScope(), lolpair.first.getInlinedAt());
-      // XXX performance fail
-      UserValueScopes UVS(dl, LS);
-      if (!UVS.dominates(const_cast<MachineBasicBlock *>(&MBB))) {
-        KillSet.set(ID);
-        // XXX deleted debug statement
-      }
-    }
-  }
-  InLocsT.intersectWithComplement(KillSet);
+  auto &Mask = getVarLocsInMBB(&MBB, VLOCScopeMasks);
+  InLocsT &= Mask;
 
   // As we are processing blocks in reverse post-order we
   // should have processed at least one predecessor, unless it
@@ -1539,6 +1539,8 @@ void LiveDebugValues::resolveVPHIs(vphitomphit &vphitomphi, const mphiremapt &mp
     ValueIDNum newid = {cur_bb, 0, mloc};
     ValueRec r = {newid, None, VOutVec[0].meta, 0, ValueRec::Def};
     unsigned newnum = lolnumbering.insert({Pair.first, r});
+    // No scope masking of this lolnumbering element because we're no longer
+    // joining.
     // Record pair to mangle later.
     toreplace.push_back(std::make_pair(ID, newnum));
     assert(vphitomphi.find(ID) == vphitomphi.end());
@@ -1548,6 +1550,22 @@ void LiveDebugValues::resolveVPHIs(vphitomphit &vphitomphi, const mphiremapt &mp
   for (auto &P : toreplace) {
     InLocs.reset(P.first);
     InLocs.set(P.second);
+  }
+}
+
+void LiveDebugValues::UpdateVlocMask(lolnumberingt &lolnumbering, unsigned ID,
+                                     VarLocInMBB &VLOCScopeMasks,
+               SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks)
+{
+  // Maintain scope masking. Maybe cache in future?
+  SmallPtrSet<const MachineBasicBlock *, 32> LBlocks;
+  const DebugVariable &Var = lolnumbering[ID].first;
+  DebugLoc DL = DebugLoc::get(0, 0, Var.getVariable()->getScope(), Var.getInlinedAt());
+  LS.getMachineBasicBlocks(DL, LBlocks);
+  LBlocks.insert(ArtificialBlocks.begin(), ArtificialBlocks.end());
+  for (auto *MBB : LBlocks) {
+    VarLocSet &Mask = getVarLocsInMBB(MBB, VLOCScopeMasks);
+    Mask.set(ID);
   }
 }
 
@@ -1693,7 +1711,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
   // OK, we have some transfer functions. Number everything; do data flow.
   UniqueVector<std::pair<DebugVariable, ValueRec>> lolnumbering;
-  VarLocInMBB VLOCOutLocs, VLOCInLocs, VLOCTransfer;
+  VarLocInMBB VLOCOutLocs, VLOCInLocs, VLOCTransfer, VLOCScopeMask;
 
   for (auto &It : vlocs) {
     const MachineBasicBlock *MBB = OrderToBB[It.first];
@@ -1703,6 +1721,23 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
       const ValueRec &Rec = idx.second;
       unsigned num = lolnumbering.insert(std::make_pair(Var, Rec));
       transfer.set(num);
+
+    }
+  }
+
+  // Maintain scope masking. Maybe cache in future?
+  // Don't use UpdateVlocMask, to avoid repeated reallocation of LBlocks
+  // if there are a lot of them.
+  SmallPtrSet<const MachineBasicBlock *, 32> LBlocks;
+  // NB: UniqueVector is one-based counting.
+  for (unsigned ID = 1; ID <= lolnumbering.size(); ++ID) {
+    const DebugVariable &Var = lolnumbering[ID].first;
+    DebugLoc DL = DebugLoc::get(0, 0, Var.getVariable()->getScope(), Var.getInlinedAt());
+    LS.getMachineBasicBlocks(DL, LBlocks);
+    LBlocks.insert(ArtificialBlocks.begin(), ArtificialBlocks.end());
+    for (auto *MBB : LBlocks) {
+      VarLocSet &Mask = getVarLocsInMBB(MBB, VLOCScopeMask);
+      Mask.set(ID);
     }
   }
 
@@ -1720,7 +1755,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
       MBBJoined = vloc_join(*MBB, VLOCOutLocs, VLOCInLocs, lolnumbering,
                        VLOCVisited,
-                       ArtificialBlocks, cur_bb);
+                       ArtificialBlocks, VLOCScopeMask, cur_bb);
       MBBJoined |= VLOCVisited.insert(MBB).second;
 
       if (MBBJoined) {
