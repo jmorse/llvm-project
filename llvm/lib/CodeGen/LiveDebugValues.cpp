@@ -643,25 +643,6 @@ public:
   }
 };
 
-/// Keeps track of lexical scopes associated with a user value's source
-/// location.
-class UserValueScopes {
-  DebugLoc DL;
-  LexicalScopes &LS;
-  SmallPtrSet<const MachineBasicBlock *, 4> LBlocks;
-
-public:
-  UserValueScopes(DebugLoc D, LexicalScopes &L) : DL(std::move(D)), LS(L) {}
-
-  /// Return true if current scope dominates at least one machine
-  /// instruction in a given machine basic block.
-  bool dominates(MachineBasicBlock *MBB) {
-    if (LBlocks.empty())
-      LS.getMachineBasicBlocks(DL, LBlocks);
-    return LBlocks.count(MBB) != 0 || LS.dominates(DL, MBB);
-  }
-};
-
 class LiveDebugValues : public MachineFunctionPass {
 private:
   const TargetRegisterInfo *TRI;
