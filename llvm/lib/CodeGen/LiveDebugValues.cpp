@@ -744,9 +744,6 @@ public:
         MachineFunctionProperties::Property::NoVRegs);
   }
 
-  void emitDbgValue(MLocTracker *mlocs, ValueRec &theloc, DebugVariable &Var,
-                    MachineBasicBlock::iterator pos);
-
   void UpdateVlocMask(lolnumberingt &lolnumbering, unsigned ID,
                       VarLocInMBB &VLOCScopeMasks,
                  SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks);
