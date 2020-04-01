@@ -1561,10 +1561,6 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   bool MBBJoined = false;
 
   OverlapMap OverlapFragments; // Map of overlapping variable fragments.
-                              // Ranges that are open until end of bb.
-  VarLocInMBB OutLocs;        // Ranges that exist beyond bb.
-  VarLocInMBB InLocs;         // Ranges that are incoming after joining.
-                              // spills, copies and restores).
 
   VarLocInMBB MLOCOutLocs, MLOCInLocs;
 
