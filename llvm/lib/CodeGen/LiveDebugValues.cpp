@@ -1731,13 +1731,6 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
           tracker->setMLoc(P.first, P.second);
         }
 
-#if 0
-        LLVM_DEBUG(printVarLocInMBB(MF, OutLocs, VarLocIDs,
-                                    "OutLocs after propagating", dbgs()));
-        LLVM_DEBUG(printVarLocInMBB(MF, InLocs, VarLocIDs,
-                                    "InLocs after propagating", dbgs()));
-#endif
-
         auto tmpset = tracker->makeVarLocSet();
         auto &replaceset = getVarLocsInMBB(MBB, MLOCOutLocs);
         OLChanged |= tmpset != replaceset;
@@ -1892,11 +1885,6 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
       MBB.insert(P.pos, MI);
     }
   }
-
-#if 0
-  LLVM_DEBUG(printVarLocInMBB(MF, OutLocs, VarLocIDs, "Final OutLocs", dbgs()));
-  LLVM_DEBUG(printVarLocInMBB(MF, InLocs, VarLocIDs, "Final InLocs", dbgs()));
-#endif
 
   return Changed;
 }
