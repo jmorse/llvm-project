@@ -418,7 +418,8 @@ public:
     return Pos.asString(mlocname, defname);
   }
 
-  void dump(const TargetRegisterInfo *TRI) {
+  LLVM_DUMP_METHOD
+  void dump(const TargetRegisterInfo *TRI) const {
     for (unsigned int ID = 0; ID < LocIdxToIDNum.size(); ++ID) {
       auto &num = LocIdxToIDNum[ID];
       if (num.LocNo == 0)
