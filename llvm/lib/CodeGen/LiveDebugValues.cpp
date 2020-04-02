@@ -242,6 +242,7 @@ public:
   DenseMap<LocIdx, LocID> LocIdxToLocID;
   std::vector<ValueIDNum> LocIdxToIDNum;
   UniqueVector<SpillLoc> SpillLocs;
+  unsigned lolwat_cur_bb;
 
 
   MLocTracker(VarLocSet::Allocator &Alloc, MachineFunction &MF, const TargetInstrInfo &TII)
@@ -274,6 +275,7 @@ public:
   }
 
   void loadFromVarLocSet(const VarLocSet &vls, unsigned cur_bb) {
+    lolwat_cur_bb = cur_bb;
     // Quickly reset everything to being itself at inst 0, representing a phi.
     for (unsigned ID = 0; ID < LocIdxToIDNum.size(); ++ID) {
       LocIdxToIDNum[ID] = {cur_bb, 0, LocIdx(ID)};
@@ -305,11 +307,17 @@ public:
     SpillLocs = decltype(SpillLocs)();
   }
 
+  void setMLoc(LocIdx L, ValueIDNum Num) {
+    assert(L < LocIdxToIDNum.size());
+    LocIdxToIDNum[L] = Num;
+  }
+
   void bumpRegister(const LocID &ID, LocIdx &Ref) {
+     assert(ID.LocNo != 0);
     if (Ref == 0) {
       LocIdx NewIdx = LocIdx(LocIdxToIDNum.size());
       Ref = NewIdx;
-      LocIdxToIDNum.push_back({0, 0, LocIdx(0)});
+      LocIdxToIDNum.push_back({lolwat_cur_bb, 0, NewIdx});
       LocIdxToLocID[NewIdx] = ID;
     }
   }
@@ -339,7 +347,7 @@ public:
   // Because we need to replicate values only having one location for now.
   void lolwipe(Register r) {
     LocID ID = {0, r};
-    unsigned Idx = LocIDToLocIdx[ID];
+    LocIdx Idx = LocIDToLocIdx[ID];
     LocIdxToIDNum[Idx] = {0, 0, LocIdx(0)};
   }
 
@@ -603,6 +611,8 @@ public:
         ActiveVLocs[Var.first] = std::make_pair(m, Var.second.meta);
         ActiveMLocs[m].insert(std::make_pair(Var.first, 0));
         assert(m != 0);
+        if (mtracker->getVarLocPos(m).ID.LocNo == 0)
+          return;
         inlocs.push_back(mtracker->emitLoc(m, Var.first, Var.second.meta));
       };
 
@@ -796,8 +806,6 @@ private:
   void accumulateFragmentMap(MachineInstr &MI, VarToFragments &SeenFragments,
                              OverlapMap &OLapMap);
 
-  void addLiveInsAsPHIs(MachineBasicBlock &MBB); // to mloctracker.
-
   bool join(MachineBasicBlock &MBB, VarLocInMBB &OutLocs, VarLocInMBB &InLocs,
             SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
             SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks);
@@ -837,6 +845,10 @@ public:
 
   /// Calculate the liveness information for the given machine function.
   bool runOnMachineFunction(MachineFunction &MF) override;
+
+  typedef DenseMap<LocIdx, ValueIDNum> mloc_transfert;
+  LLVM_DUMP_METHOD
+  void dump_mloc_transfer(const mloc_transfert &mloc_transfer) const;
 };
 
 } // end anonymous namespace
@@ -903,11 +915,18 @@ void LiveDebugValues::transferDebugValue(const MachineInstr &MI) {
 
   DebugVariable V(Var, Expr, InlinedAt);
 
+  const MachineOperand &MO = MI.getOperand(0);
+
+  // MLocTracker needs to know that this register is read, even if it's only
+  // read by a debug inst.
+  if (MO.isReg() && MO.getReg() != 0)
+    tracker->readReg(MO.getReg());
+
   if (vtracker) {
-    const MachineOperand &MO = MI.getOperand(0);
     if (MO.isReg()) {
       // Should read LocNo==0 on $noreg.
-      auto ID = tracker->readReg(MO.getReg());
+      ValueIDNum undef = {0, 0, LocIdx(0)};
+      ValueIDNum ID = (MO.getReg()) ? tracker->readReg(MO.getReg()) : undef;
       vtracker->defVar(MI, ID);
     } else if (MI.getOperand(0).isImm() || MI.getOperand(0).isFPImm() ||
                MI.getOperand(0).isCImm()) {
@@ -1210,13 +1229,6 @@ void LiveDebugValues::process(MachineInstr &MI) {
   transferRegisterDef(MI);
   transferRegisterCopy(MI);
   transferSpillOrRestoreInst(MI);
-}
-
-void LiveDebugValues::addLiveInsAsPHIs(MachineBasicBlock &MBB) {
-  unsigned bbnum = MBB.getNumber();
-  for (auto &LiveIn : MBB.liveins()) {
-    tracker->defReg(LiveIn.PhysReg, bbnum, 0); 
-  }
 }
 
 /// This routine joins the analysis results of all incoming edges in @MBB by
@@ -1579,6 +1591,14 @@ void LiveDebugValues::UpdateVlocMask(lolnumberingt &lolnumbering, unsigned ID,
   }
 }
 
+void LiveDebugValues::dump_mloc_transfer(const mloc_transfert &mloc_transfer) const {
+  for (auto &P : mloc_transfer) {
+    std::string foo = tracker->LocIdxToName(TRI, P.first);
+    std::string bar = tracker->IDAsString(TRI, P.second);
+    dbgs() << "Loc " << foo << " --> " << bar << "\n";
+  }
+}
+
 /// Calculate the liveness information for the given machine function and
 /// extend ranges across basic blocks.
 bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
@@ -1607,11 +1627,38 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
                       std::greater<unsigned int>>
       Pending;
 
+  std::vector<mloc_transfert> MLocTransfer;
+  int HighestMBBNo = -1;
+  for (auto &MBB : MF)
+    HighestMBBNo = std::max(MBB.getNumber(), HighestMBBNo);
+  assert(HighestMBBNo >= 0);
+  MLocTransfer.resize(HighestMBBNo+1);
+
   // Initialize per-block structures and scan for fragment overlaps.
+  // Also other stuff.
   for (auto &MBB : MF) {
+    cur_bb = MBB.getNumber();
+    cur_inst = 1;
+
+    tracker->reset();
+    VarLocSet lolempty(Alloc); // feed in empty set, everything is an inp phi
+    tracker->loadFromVarLocSet(lolempty, cur_bb);
     for (auto &MI : MBB) {
+      process(MI);
       if (MI.isDebugValue())
         accumulateFragmentMap(MI, SeenFragments, OverlapFragments);
+      ++cur_inst;
+    }
+
+    // Look at tracker: still has input phi means no assignment. Produce
+    // a mapping if there's a movement.
+    for (unsigned IdxNum = 1; IdxNum < tracker->getNumLocs(); ++IdxNum) {
+      LocIdx Idx = LocIdx(IdxNum);
+      VarLocPos P = tracker->getVarLocPos(Idx);
+      if (P.ID.InstNo == 0 && P.ID.LocNo == P.CurrentLoc)
+        continue;
+
+      MLocTransfer[cur_bb][Idx] = P.ID;
     }
   }
 
@@ -1644,6 +1691,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     // is probably not worth it.
     SmallPtrSet<MachineBasicBlock *, 16> OnPending;
     LLVM_DEBUG(dbgs() << "Processing Worklist\n");
+    SmallVector<std::pair<LocIdx, ValueIDNum>, 32> toremap;
     while (!Worklist.empty()) {
       MachineBasicBlock *MBB = OrderToBB[Worklist.top()];
       cur_bb = MBB->getNumber();
@@ -1655,21 +1703,32 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
       MBBJoined = join(*MBB, MLOCOutLocs, MLOCInLocs,  Visited, ArtificialBlocks);
       MBBJoined |= Visited.insert(MBB).second;
 
-      // Fiddle live-ins for entry block
-      if (cur_bb == 0)
-        addLiveInsAsPHIs(*MBB);
-
       if (MBBJoined) {
         MBBJoined = false;
         Changed = true;
-        // Now that we have started to extend ranges across BBs we need to
-        // examine spill, copy and restore instructions to see whether they
-        // operate with registers that correspond to user variables.
-        // First load any pending inlocs.
+
+        // Rather than touch all insts again, read and then reset locations
+        // in the transfer function.
         tracker->loadFromVarLocSet(getVarLocsInMBB(MBB, MLOCInLocs), cur_bb);
-        for (auto &MI : *MBB) {
-          process(MI);
-          ++cur_inst;
+
+        toremap.clear();
+        for (auto &P : MLocTransfer[cur_bb]) {
+          ValueIDNum NewID = {0, 0, LocIdx(0)};
+          if (P.second.BlockNo == cur_bb && P.second.InstNo == 0) {
+            // This is a movement of whatever was live in. Read it.
+            VarLocPos Pos = tracker->getVarLocPos(P.second.LocNo);
+            NewID = Pos.ID;
+          } else {
+            // It's a def. (Has to be a def in this BB, or nullloc).
+            // Just set it.
+            assert(P.second.BlockNo == cur_bb || P.second.LocNo == 0);
+            NewID = P.second;
+          }
+          toremap.push_back(std::make_pair(P.first, NewID));
+        }
+
+        for (auto &P : toremap) {
+          tracker->setMLoc(P.first, P.second);
         }
 
 #if 0
