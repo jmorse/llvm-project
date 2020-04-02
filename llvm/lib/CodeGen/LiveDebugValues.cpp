@@ -796,6 +796,8 @@ private:
   void accumulateFragmentMap(MachineInstr &MI, VarToFragments &SeenFragments,
                              OverlapMap &OLapMap);
 
+  void addLiveInsAsPHIs(MachineBasicBlock &MBB); // to mloctracker.
+
   bool join(MachineBasicBlock &MBB, VarLocInMBB &OutLocs, VarLocInMBB &InLocs,
             SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
             SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks);
@@ -1208,6 +1210,13 @@ void LiveDebugValues::process(MachineInstr &MI) {
   transferRegisterDef(MI);
   transferRegisterCopy(MI);
   transferSpillOrRestoreInst(MI);
+}
+
+void LiveDebugValues::addLiveInsAsPHIs(MachineBasicBlock &MBB) {
+  unsigned bbnum = MBB.getNumber();
+  for (auto &LiveIn : MBB.liveins()) {
+    tracker->defReg(LiveIn.PhysReg, bbnum, 0); 
+  }
 }
 
 /// This routine joins the analysis results of all incoming edges in @MBB by
@@ -1645,6 +1654,10 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
      // Also XXX, do we go around these loops too many times?
       MBBJoined = join(*MBB, MLOCOutLocs, MLOCInLocs,  Visited, ArtificialBlocks);
       MBBJoined |= Visited.insert(MBB).second;
+
+      // Fiddle live-ins for entry block
+      if (cur_bb == 0)
+        addLiveInsAsPHIs(*MBB);
 
       if (MBBJoined) {
         MBBJoined = false;
