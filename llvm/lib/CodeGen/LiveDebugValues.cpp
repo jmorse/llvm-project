@@ -237,6 +237,7 @@ public:
   VarLocSet::Allocator &Alloc;
   MachineFunction &MF;
   const TargetInstrInfo &TII;
+  const  TargetRegisterInfo &TRI;
 
   DenseMap<LocID, LocIdx> LocIDToLocIdx;
   DenseMap<LocIdx, LocID> LocIdxToLocID;
@@ -245,8 +246,8 @@ public:
   unsigned lolwat_cur_bb;
 
 
-  MLocTracker(VarLocSet::Allocator &Alloc, MachineFunction &MF, const TargetInstrInfo &TII)
-    : Alloc(Alloc), MF(MF), TII(TII) {
+  MLocTracker(VarLocSet::Allocator &Alloc, MachineFunction &MF, const TargetInstrInfo &TII, const TargetRegisterInfo &TRI)
+    : Alloc(Alloc), MF(MF), TII(TII), TRI(TRI) {
     reset();
     LocIdxToIDNum.push_back({0, 0, LocIdx(0)});
     LocID id = {0, 0};
@@ -407,36 +408,36 @@ public:
     return it->second.IsSpill;
   }
 
-  std::string LocIdxToName(const TargetRegisterInfo *TRI, LocIdx Idx) const {
+  std::string LocIdxToName(LocIdx Idx) const {
     auto it = LocIdxToLocID.find(Idx);
     assert(it != LocIdxToLocID.end());
     const LocID &ID = it->second;
     if (ID.IsSpill)
       return Twine("slot ").concat(Twine(ID.LocNo)).str();
     else
-      return TRI->getRegAsmName(ID.LocNo).str();
+      return TRI.getRegAsmName(ID.LocNo).str();
   }
 
-  std::string IDAsString(const TargetRegisterInfo *TRI, const ValueIDNum &num) const {
-    std::string defname = LocIdxToName(TRI, num.LocNo);
+  std::string IDAsString(const ValueIDNum &num) const {
+    std::string defname = LocIdxToName(num.LocNo);
     return num.asString(defname);
   }
 
-  std::string PosAsString(const TargetRegisterInfo *TRI, const VarLocPos &Pos) const {
-    std::string mlocname = LocIdxToName(TRI, Pos.CurrentLoc);
-    std::string defname = LocIdxToName(TRI, Pos.ID.LocNo);
+  std::string PosAsString(const VarLocPos &Pos) const {
+    std::string mlocname = LocIdxToName(Pos.CurrentLoc);
+    std::string defname = LocIdxToName(Pos.ID.LocNo);
     return Pos.asString(mlocname, defname);
   }
 
   LLVM_DUMP_METHOD
-  void dump(const TargetRegisterInfo *TRI) const {
+  void dump() const {
     for (unsigned int ID = 0; ID < LocIdxToIDNum.size(); ++ID) {
       auto &num = LocIdxToIDNum[ID];
       if (num.LocNo == 0)
         continue;
-      std::string mlocname = LocIdxToName(TRI, num.LocNo);
+      std::string mlocname = LocIdxToName(num.LocNo);
       std::string defname = num.asString(mlocname);
-      dbgs() << LocIdxToName(TRI, LocIdx(ID)) << " --> " << defname << "\n";
+      dbgs() << LocIdxToName(LocIdx(ID)) << " --> " << defname << "\n";
     }
   }
 
@@ -477,14 +478,14 @@ public:
   typedef enum { Def, Const, PHI } KindT;
   KindT Kind;
 
-  void dump(const TargetRegisterInfo *TRI, const MLocTracker *MTrack) const {
+  void dump(const MLocTracker *MTrack) const {
     if (Kind == Const) {
       MO->dump();
     } else if (Kind == PHI) {
       dbgs() << "PHI-bb" << BlockPHI << "\n";
     } else {
       assert(Kind == Def);
-      dbgs() << MTrack->IDAsString(TRI, ID);
+      dbgs() << MTrack->IDAsString(ID);
     }
     if (meta.second)
       dbgs() << " indir";
@@ -1574,8 +1575,8 @@ void LiveDebugValues::UpdateVlocMask(lolnumberingt &lolnumbering, unsigned ID,
 
 void LiveDebugValues::dump_mloc_transfer(const mloc_transfert &mloc_transfer) const {
   for (auto &P : mloc_transfer) {
-    std::string foo = tracker->LocIdxToName(TRI, P.first);
-    std::string bar = tracker->IDAsString(TRI, P.second);
+    std::string foo = tracker->LocIdxToName(P.first);
+    std::string bar = tracker->IDAsString(P.second);
     dbgs() << "Loc " << foo << " --> " << bar << "\n";
   }
 }
@@ -1914,7 +1915,7 @@ bool LiveDebugValues::runOnMachineFunction(MachineFunction &MF) {
   TFI->getCalleeSaves(MF, CalleeSavedRegs);
   LS.initialize(MF);
 
-  tracker = new MLocTracker(Alloc, MF, *TII);
+  tracker = new MLocTracker(Alloc, MF, *TII, *TRI);
   vtracker = nullptr;
   ttracker = nullptr;
 
