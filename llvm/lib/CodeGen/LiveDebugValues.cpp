@@ -274,16 +274,18 @@ public:
     return set;
   }
 
-  void loadFromVarLocSet(const VarLocSet &vls, unsigned cur_bb) {
+  void setMPhis(unsigned cur_bb) {
+    lolwat_cur_bb = cur_bb;
+    for (unsigned ID = 1; ID < LocIdxToIDNum.size(); ++ID) {
+      LocIdxToIDNum[LocIdx(ID)] = {cur_bb, 0, LocIdx(ID)};
+    }
+  }
+
+  void loadFromArray(uint64_t *Locs, unsigned cur_bb) {
     lolwat_cur_bb = cur_bb;
     // Quickly reset everything to being itself at inst 0, representing a phi.
-    for (unsigned ID = 0; ID < LocIdxToIDNum.size(); ++ID) {
-      LocIdxToIDNum[ID] = {cur_bb, 0, LocIdx(ID)};
-    }
-
-    for (auto ID : vls) {
-      auto pos = VarLocPos::fromU64(ID);
-      LocIdxToIDNum[pos.CurrentLoc] = pos.ID;
+    for (unsigned ID = 1; ID < LocIdxToIDNum.size(); ++ID) {
+      LocIdxToIDNum[LocIdx(ID)] = ValueIDNum::fromU64(Locs[ID]);
     }
   }
 
@@ -578,19 +580,21 @@ public:
 
   TransferTracker(const TargetInstrInfo *TII, MLocTracker *mtracker, MachineFunction &MF) : TII(TII), mtracker(mtracker), MF(MF) { }
 
-  void loadInlocs(MachineBasicBlock &MBB, lolnumberingt &lolnumbering, const mphiremapt &mphiremap, VarLocSet &mlocs, VarLocSet &vlocs, unsigned cur_bb) {  
+  void loadInlocs(MachineBasicBlock &MBB, lolnumberingt &lolnumbering, const mphiremapt &mphiremap, uint64_t *mlocs, VarLocSet &vlocs, unsigned cur_bb, unsigned NumLocs) {  
     ActiveMLocs.clear();
     ActiveVLocs.clear();
 
     DenseMap<ValueIDNum, LocIdx> tmpmap;
 
-    for (auto ID : mlocs) {
+    for (unsigned Idx = 1; Idx < NumLocs; ++Idx) {
       // Each mloc is a VarLocPos
-      auto VLP = VarLocPos::fromU64(ID);
+      auto VNum = ValueIDNum::fromU64(mlocs[Idx]);
+      if (VNum.LocNo == 0)
+        continue;
       // Produce a map of value numbers to the current machine locs they live
       // in. There should only be one machine loc per value.
-      assert(tmpmap.find(VLP.ID) == tmpmap.end()); // XXX expensie
-      tmpmap[VLP.ID] = VLP.CurrentLoc;
+      assert(tmpmap.find(VNum) == tmpmap.end()); // XXX expensie
+      tmpmap[VNum] = LocIdx(Idx);
     }
 
     // Now map variables to their current machine locs
@@ -806,9 +810,10 @@ private:
   void accumulateFragmentMap(MachineInstr &MI, VarToFragments &SeenFragments,
                              OverlapMap &OLapMap);
 
-  bool join(MachineBasicBlock &MBB, VarLocInMBB &OutLocs, VarLocInMBB &InLocs,
+  bool join(MachineBasicBlock &MBB,
             SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
-            SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks);
+            SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
+            uint64_t **OutLocs, uint64_t *InLocs);
 
   bool vloc_join(const MachineBasicBlock &MBB, VarLocInMBB &VLOCOutLocs,
                  VarLocInMBB &VLOCInLocs, lolnumberingt &lolnumbering,
@@ -819,8 +824,8 @@ private:
   bool vloc_transfer(VarLocSet &ilocs, VarLocSet &transfer, VarLocSet &olocs, lolnumberingt &lolnumbering);
 
 
-  void resolveMPHIs(mphiremapt &mphiremap, MachineBasicBlock &MBB, VarLocSet &InLocs, VarLocInMBB &MLOCOutLocs, unsigned cur_bb);
-  void resolveVPHIs(vphitomphit &vphitomphi, const mphiremapt &mphiremap, lolnumberingt &lolnumbering, MachineBasicBlock &MBB, VarLocSet &InLocs, VarLocInMBB &VLOCOutLocs, VarLocInMBB &MLOCOutLocs, unsigned cur_bb);
+  void resolveMPHIs(mphiremapt &mphiremap, MachineBasicBlock &MBB, uint64_t *InLocs, uint64_t **MLOCOutLocs, unsigned cur_bb);
+  void resolveVPHIs(vphitomphit &vphitomphi, const mphiremapt &mphiremap, lolnumberingt &lolnumbering, MachineBasicBlock &MBB, VarLocSet &InLocs, VarLocInMBB &VLOCOutLocs, uint64_t **MLOCOutLocs, unsigned cur_bb);
 
   bool ExtendRanges(MachineFunction &MF);
 
@@ -1235,67 +1240,44 @@ void LiveDebugValues::process(MachineInstr &MI) {
 /// inserting a new DBG_VALUE instruction at the start of the @MBB - if the same
 /// source variable in all the predecessors of @MBB reside in the same location.
 bool LiveDebugValues::join(
-    MachineBasicBlock &MBB, VarLocInMBB &OutLocs, VarLocInMBB &InLocs,
+    MachineBasicBlock &MBB,
     SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
-    SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks) {
+    SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
+    uint64_t **OutLocs, uint64_t *InLocs) {
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
-
-  VarLocSet InLocsT(Alloc); // Temporary incoming locations.
 
   // For all predecessors of this MBB, find the set of VarLocs that
   // can be joined.
   int NumVisited = 0;
+  // Collect predecessors that have been visited.
+  SmallVector<unsigned, 8> VisitedBBs;
   for (auto p : MBB.predecessors()) {
-    // Ignore backedges if we have not visited the predecessor yet. As the
-    // predecessor hasn't yet had locations propagated into it, most locations
-    // will not yet be valid, so treat them as all being uninitialized and
-    // potentially valid. If a location guessed to be correct here is
-    // invalidated later, we will remove it when we revisit this block.
-    if (!Visited.count(p)) {
-      LLVM_DEBUG(dbgs() << "  ignoring unvisited pred MBB: " << p->getNumber()
-                        << "\n");
-      continue;
+    if (Visited.count(p)) {
+      VisitedBBs.push_back(p->getNumber());
     }
-    auto OL = OutLocs.find(p);
-    // Join is null in case of empty OutLocs from any of the pred.
-    if (OL == OutLocs.end())
-      return false;
-
-    // Just copy over the Out locs to incoming locs for the first visited
-    // predecessor, and for all other predecessors join the Out locs.
-    if (!NumVisited)
-      InLocsT = OL->second;
-    else
-      InLocsT &= OL->second;
-
-#if 0
- // killed off varlocids..
-    LLVM_DEBUG({
-      if (!InLocsT.empty() && !mlocs) {
-        for (uint64_t ID : InLocsT)
-          dbgs() << "  gathered candidate incoming var: "
-                 << VarLocIDs[LocIndex::fromRawInteger(ID)]
-                        .Var.getVariable()
-                        ->getName()
-                 << "\n";
-      }
-    });
-#endif
-
-    NumVisited++;
   }
 
-  // As we are processing blocks in reverse post-order we
-  // should have processed at least one predecessor, unless it
-  // is the entry block which has no predecessor.
-  assert((NumVisited || MBB.pred_empty()) &&
-         "Should have processed at least one predecessor");
+  // Skip entry
+  if (VisitedBBs.size() == 0)
+    return false;
 
-  VarLocSet &ILS = getVarLocsInMBB(&MBB, InLocs);
+  // Step through all predecessors and detect disagreements.
+  for (unsigned Idx = 1; Idx < tracker->getNumLocs(); ++Idx) {
+    uint64_t base = OutLocs[VisitedBBs[0]][Idx];
+    bool disagree = false;
+    for (unsigned BBNum = 1; BBNum < VisitedBBs.size(); ++BBNum) {
+      disagree |= base != OutLocs[VisitedBBs[BBNum]][Idx];
+    }
+    // Generate a phi...
+    ValueIDNum PHI = {(uint64_t)MBB.getNumber(), 0, LocIdx(Idx)};
+    uint64_t NewVal = disagree ? PHI.asU64() : base;
+    if (InLocs[Idx] != NewVal) {
+      Changed |= true;
+      InLocs[Idx] = NewVal;
+    }
+  }
 
-  Changed = ILS != InLocsT;
-  ILS = InLocsT;
   // Uhhhhhh, reimplement NumInserted and NumRemoved pls.
   return Changed;
 }
@@ -1415,12 +1397,12 @@ bool LiveDebugValues::vloc_transfer(VarLocSet &ilocs, VarLocSet &transfer, VarLo
   return Changed;
 }
 
-void LiveDebugValues::resolveMPHIs(mphiremapt &mphiremap, MachineBasicBlock &MBB, VarLocSet &InLocs, VarLocInMBB &MLOCOutLocs, unsigned cur_bb)
+void LiveDebugValues::resolveMPHIs(mphiremapt &mphiremap, MachineBasicBlock &MBB, uint64_t *InLocs, uint64_t **MLOCOutLocs, unsigned cur_bb)
 {
 
   // Take a look at any inlocs here that are PHIs; are they really PHIS?
   tracker->reset();
-  tracker->loadFromVarLocSet(InLocs, cur_bb);
+  tracker->loadFromArray(InLocs, cur_bb);
   std::vector<ValueIDNum> toexamine;
   for (unsigned Idx = 1; Idx < tracker->getNumLocs(); ++Idx) {
     VarLocPos Pos = tracker->getVarLocPos(LocIdx(Idx)); // cast, as we're explicitly iterating over number of locs.
@@ -1432,7 +1414,8 @@ void LiveDebugValues::resolveMPHIs(mphiremapt &mphiremap, MachineBasicBlock &MBB
   // Look over predecessors...
   for (auto &p : MBB.predecessors()) {
     tracker->reset();
-    tracker->loadFromVarLocSet(getVarLocsInMBB(p, MLOCOutLocs), p->getNumber());
+    tracker->loadFromArray(MLOCOutLocs[p->getNumber()], p->getNumber());
+    // XXX with everything being in an array now, this might be avoidable?
     for (unsigned Idx = 0; Idx < toexamine.size(); ++Idx) {
       VarLocPos outpos = tracker->getVarLocPos(toexamine[Idx].LocNo);
       if (outpos.ID != seen_values[Idx] && outpos.ID != toexamine[Idx] &&
@@ -1454,7 +1437,7 @@ void LiveDebugValues::resolveMPHIs(mphiremapt &mphiremap, MachineBasicBlock &MBB
   }
 }
 
-void LiveDebugValues::resolveVPHIs(vphitomphit &vphitomphi, const mphiremapt &mphiremap, lolnumberingt &lolnumbering, MachineBasicBlock &MBB, VarLocSet &InLocs, VarLocInMBB &VLOCOutLocs, VarLocInMBB &MLOCOutLocs, unsigned cur_bb) {
+void LiveDebugValues::resolveVPHIs(vphitomphit &vphitomphi, const mphiremapt &mphiremap, lolnumberingt &lolnumbering, MachineBasicBlock &MBB, VarLocSet &InLocs, VarLocInMBB &VLOCOutLocs, uint64_t **MLOCOutLocs, unsigned cur_bb) {
   // Take a look at each PHI in the inlocs.
 
   unsigned NumLocs = tracker->getNumLocs();
@@ -1470,7 +1453,7 @@ void LiveDebugValues::resolveVPHIs(vphitomphit &vphitomphi, const mphiremapt &mp
   PredOutMLocs.resize(NumLocs);
 
   for (auto p : MBB.predecessors()) {
-    const VarLocSet &mlocs = getVarLocsInMBB(p, MLOCOutLocs);
+    uint64_t *mlocs = MLOCOutLocs[p->getNumber()];
     const VarLocSet &vlocs = getVarLocsInMBB(p, VLOCOutLocs);
 
     for (unsigned ID : vlocs) {
@@ -1501,18 +1484,16 @@ void LiveDebugValues::resolveVPHIs(vphitomphit &vphitomphi, const mphiremapt &mp
 
     // Not guaranteed to fill all locs? Is guaranteed to be in pred order
     // though
-    for (uint64_t mloc : mlocs) {
-      VarLocPos n = VarLocPos::fromU64(mloc);
-      PredOutMLocs[n.CurrentLoc].push_back(n.ID);
+    for (unsigned Idx = 1; Idx < tracker->getNumLocs(); ++Idx) {
+      PredOutMLocs[Idx].push_back(ValueIDNum::fromU64(mlocs[Idx]));
     }
   }
 
   // Index the first predecessor,
-  const VarLocSet &mlocs = getVarLocsInMBB(*MBB.pred_begin(), MLOCOutLocs);
+  uint64_t *mlocs = MLOCOutLocs[(*MBB.pred_begin())->getNumber()];
   DenseMap<ValueIDNum, LocIdx> MBB1Idx;
-  for (uint64_t mloc : mlocs) {
-    VarLocPos n = VarLocPos::fromU64(mloc);
-    MBB1Idx[n.ID] = n.CurrentLoc;
+  for (unsigned Idx = 1; Idx < tracker->getNumLocs(); ++Idx) {
+    MBB1Idx[ValueIDNum::fromU64(mlocs[Idx])] = LocIdx(Idx);
   }
 
   std::vector<std::pair<unsigned, unsigned>> toreplace;
@@ -1610,8 +1591,6 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
   OverlapMap OverlapFragments; // Map of overlapping variable fragments.
 
-  VarLocInMBB MLOCOutLocs, MLOCInLocs;
-
   VarToFragments SeenFragments;
 
   // Blocks which are artificial, i.e. blocks which exclusively contain
@@ -1642,7 +1621,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
     tracker->reset();
     VarLocSet lolempty(Alloc); // feed in empty set, everything is an inp phi
-    tracker->loadFromVarLocSet(lolempty, cur_bb);
+    tracker->setMPhis(cur_bb);
     for (auto &MI : MBB) {
       process(MI);
       if (MI.isDebugValue())
@@ -1680,6 +1659,26 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     ++RPONumber;
   }
 
+  // Huurrrr. Store liveouts in a massive array.
+  uint64_t **MOutLocs = new uint64_t *[HighestMBBNo+1];
+  uint64_t **MInLocs = new uint64_t *[HighestMBBNo+1];
+  unsigned NumLocs = tracker->getNumLocs();
+  for (int i = 0; i < HighestMBBNo+1; ++i) {
+    MOutLocs[i] = new uint64_t[NumLocs];
+    memset(MOutLocs[i], 0xFF, sizeof(uint64_t) * NumLocs);
+    MInLocs[i] = new uint64_t[NumLocs];
+    memset(MInLocs[i], 0, sizeof(uint64_t) * NumLocs);
+  }
+
+
+  // Set inlocs for entry block,
+  tracker->setMPhis(0);
+  for (unsigned Idx = 1; Idx < tracker->getNumLocs(); ++Idx) {
+    auto VLP = tracker->getVarLocPos(LocIdx(Idx));
+    uint64_t ID = VLP.ID.asU64();
+    MInLocs[0][Idx] = ID;
+  }
+
   // This is a standard "union of predecessor outs" dataflow problem.
   // To solve it, we perform join() and process() using the two worklist method
   // until the ranges converge.
@@ -1700,7 +1699,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
      // XXX jmorse
      // Also XXX, do we go around these loops too many times?
-      MBBJoined = join(*MBB, MLOCOutLocs, MLOCInLocs,  Visited, ArtificialBlocks);
+      MBBJoined = join(*MBB, Visited, ArtificialBlocks, MOutLocs, MInLocs[cur_bb]);
       MBBJoined |= Visited.insert(MBB).second;
 
       if (MBBJoined) {
@@ -1709,8 +1708,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
         // Rather than touch all insts again, read and then reset locations
         // in the transfer function.
-        tracker->loadFromVarLocSet(getVarLocsInMBB(MBB, MLOCInLocs), cur_bb);
-
+        tracker->loadFromArray(MInLocs[cur_bb], cur_bb);
         toremap.clear();
         for (auto &P : MLocTransfer[cur_bb]) {
           ValueIDNum NewID = {0, 0, LocIdx(0)};
@@ -1731,10 +1729,14 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
           tracker->setMLoc(P.first, P.second);
         }
 
-        auto tmpset = tracker->makeVarLocSet();
-        auto &replaceset = getVarLocsInMBB(MBB, MLOCOutLocs);
-        OLChanged |= tmpset != replaceset;
-        replaceset = tmpset;
+        // could make a set-to-array method?
+        for (unsigned Idx = 1; Idx < tracker->getNumLocs(); ++Idx) {
+          auto VLP = tracker->getVarLocPos(LocIdx(Idx));
+          uint64_t ID = VLP.ID.asU64();
+          OLChanged |= MOutLocs[cur_bb][Idx] != ID;
+          MOutLocs[cur_bb][Idx] = ID;
+        }
+
         tracker->reset();
 
         if (OLChanged) {
@@ -1766,7 +1768,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     Worklist.push(Idx);
     auto *MBB = *RI;
     vtracker = vlocs[Idx];
-    tracker->loadFromVarLocSet(getVarLocsInMBB(MBB, MLOCInLocs), cur_bb);
+    tracker->loadFromArray(MInLocs[cur_bb], cur_bb);
     cur_inst = 1;
     for (auto &MI : *MBB) { // XXX I think the empty open ranges does nufink
       process(MI);
@@ -1864,15 +1866,15 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   mphiremapt mphiremap;
   for (MachineBasicBlock &MBB : MF) {
     unsigned bbnum = MBB.getNumber();
-    resolveMPHIs(mphiremap, MBB, getVarLocsInMBB(&MBB, MLOCInLocs), MLOCOutLocs, bbnum);
+    resolveMPHIs(mphiremap, MBB, MInLocs[bbnum], MOutLocs, bbnum);
   }
 
   for (MachineBasicBlock &MBB : MF) {
     unsigned bbnum = MBB.getNumber();
-    resolveVPHIs(vphitomphi, mphiremap, lolnumbering, MBB, getVarLocsInMBB(&MBB, VLOCInLocs), VLOCOutLocs, MLOCOutLocs, bbnum);
-    ttracker->loadInlocs(MBB, lolnumbering, mphiremap, getVarLocsInMBB(&MBB, MLOCInLocs), getVarLocsInMBB(&MBB, VLOCInLocs), bbnum);
+    resolveVPHIs(vphitomphi, mphiremap, lolnumbering, MBB, getVarLocsInMBB(&MBB, VLOCInLocs), VLOCOutLocs, MOutLocs, bbnum);
+    ttracker->loadInlocs(MBB, lolnumbering, mphiremap, MInLocs[bbnum], getVarLocsInMBB(&MBB, VLOCInLocs), bbnum, NumLocs);
     tracker->reset();
-    tracker->loadFromVarLocSet(getVarLocsInMBB(&MBB, MLOCInLocs), bbnum);
+    tracker->loadFromArray(MInLocs[bbnum], bbnum);
     tracker->lolremap(&MBB, mphiremap);
 
     for (auto &MI : MBB)
@@ -1885,6 +1887,13 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
       MBB.insert(P.pos, MI);
     }
   }
+
+  for (int Idx = 0; Idx < HighestMBBNo+1; ++Idx) {
+    delete[] MOutLocs[Idx];
+    delete[] MInLocs[Idx];
+  }
+  delete[] MOutLocs;
+  delete[] MInLocs;
 
   return Changed;
 }
