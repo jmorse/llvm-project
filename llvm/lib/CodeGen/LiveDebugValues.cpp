@@ -237,7 +237,8 @@ public:
   VarLocSet::Allocator &Alloc;
   MachineFunction &MF;
   const TargetInstrInfo &TII;
-  const  TargetRegisterInfo &TRI;
+  const TargetRegisterInfo &TRI;
+  const TargetLowering &TLI;
 
   DenseMap<LocID, LocIdx> LocIDToLocIdx;
   DenseMap<LocIdx, LocID> LocIdxToLocID;
@@ -245,9 +246,10 @@ public:
   UniqueVector<SpillLoc> SpillLocs;
   unsigned lolwat_cur_bb;
 
+  SmallVector<std::pair<const MachineOperand *, unsigned>, 32> Masks;
 
-  MLocTracker(VarLocSet::Allocator &Alloc, MachineFunction &MF, const TargetInstrInfo &TII, const TargetRegisterInfo &TRI)
-    : Alloc(Alloc), MF(MF), TII(TII), TRI(TRI) {
+  MLocTracker(VarLocSet::Allocator &Alloc, MachineFunction &MF, const TargetInstrInfo &TII, const TargetRegisterInfo &TRI, const TargetLowering &TLI)
+    : Alloc(Alloc), MF(MF), TII(TII), TRI(TRI), TLI(TLI) {
     reset();
     LocIdxToIDNum.push_back({0, 0, LocIdx(0)});
     LocID id = {0, 0};
@@ -302,9 +304,13 @@ public:
 
   void reset(void) {
     memset(&LocIdxToIDNum[0], 0, LocIdxToIDNum.size() * sizeof(ValueIDNum));
+    Masks.clear();
   }
 
   void clear(void) {
+    reset();
+    LocIDToLocIdx.clear();
+    LocIdxToLocID.clear();
     LocIdxToIDNum.clear();
     //SpillsToMLocs.reset(); XXX can't reset?
     SpillLocs = decltype(SpillLocs)();
@@ -320,7 +326,19 @@ public:
     if (Ref == 0) {
       LocIdx NewIdx = LocIdx(LocIdxToIDNum.size());
       Ref = NewIdx;
-      LocIdxToIDNum.push_back({lolwat_cur_bb, 0, NewIdx});
+
+      // Default: it's an mphi.
+      ValueIDNum ValNum = {lolwat_cur_bb, 0, NewIdx};
+      // Was this reg ever touched by a regmask?
+      for (auto rit = Masks.rbegin(); rit != Masks.rend(); ++rit) {
+        if (rit->first->clobbersPhysReg(ID.LocNo))  {
+          // There was an earlier def we skipped
+          ValNum = {lolwat_cur_bb, rit->second, NewIdx};
+          break;
+        }
+      }
+
+      LocIdxToIDNum.push_back(ValNum);
       LocIdxToLocID[NewIdx] = ID;
     }
   }
@@ -357,6 +375,28 @@ public:
   LocIdx getRegMLoc(Register r) {
     LocID ID = {0, r};
     return LocIDToLocIdx[ID];
+  }
+
+  void writeRegMask(const MachineOperand *MO, unsigned cur_bb, unsigned inst_id) {
+    // Def anything we already have that isn't preserved.
+    unsigned SP = TLI.getStackPointerRegisterToSaveRestore();
+    // Ensure SP exists, so that we don't override it later.
+    LocID ID = {0, SP};
+    LocIdx &Idx = LocIDToLocIdx[ID];
+    bumpRegister(ID, Idx);
+
+    for (auto &P : LocIdxToLocID) {
+      if (P.second.LocNo == 0)
+        continue;
+      if (P.second.IsSpill)
+        continue;
+      // Don't believe mask clobbering SP.
+      if (P.second.LocNo == SP)
+        continue;
+      if (MO->clobbersPhysReg(P.second.LocNo))
+        defReg(P.second.LocNo, cur_bb, inst_id);
+    }
+    Masks.push_back(std::make_pair(MO, inst_id));
   }
 
   void setSpill(SpillLoc l, ValueIDNum id) {
@@ -962,6 +1002,7 @@ void LiveDebugValues::transferRegisterDef(
   // prevents fallback to std::set::count() operations.
   SmallSet<uint32_t, 32> DeadRegs;
   SmallVector<const uint32_t *, 4> RegMasks;
+  SmallVector<const MachineOperand *, 4> RegMaskPtrs;
   for (const MachineOperand &MO : MI.operands()) {
     // Determine whether the operand is a register def.
     if (MO.isReg() && MO.isDef() && MO.getReg() &&
@@ -973,6 +1014,7 @@ void LiveDebugValues::transferRegisterDef(
         DeadRegs.insert(*RAI);
     } else if (MO.isRegMask()) {
       RegMasks.push_back(MO.getRegMask());
+      RegMaskPtrs.push_back(&MO);
     }
   }
 
@@ -994,10 +1036,14 @@ void LiveDebugValues::transferRegisterDef(
     });
   };
 
+  for (auto *MO : RegMaskPtrs) {
+    tracker->writeRegMask(MO, cur_bb, cur_inst);
+  }
+
   // All registers not in the mask may need re-deffing...
   for (unsigned Reg = 1; Reg < TRI->getNumRegs(); ++Reg) {
     if (Reg != SP && AnyRegMaskKillsReg(Reg)) {
-      tracker->defReg(Reg, cur_bb, cur_inst);
+      //tracker->defReg(Reg, cur_bb, cur_inst);
       if (ttracker) {
         LocIdx Idx = tracker->getRegMLoc(Reg);
         ttracker->clobberMloc(Idx, MI.getIterator());
@@ -1915,7 +1961,7 @@ bool LiveDebugValues::runOnMachineFunction(MachineFunction &MF) {
   TFI->getCalleeSaves(MF, CalleeSavedRegs);
   LS.initialize(MF);
 
-  tracker = new MLocTracker(Alloc, MF, *TII, *TRI);
+  tracker = new MLocTracker(Alloc, MF, *TII, *TRI, *MF.getSubtarget().getTargetLowering());
   vtracker = nullptr;
   ttracker = nullptr;
 
