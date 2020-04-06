@@ -1182,9 +1182,6 @@ void LiveDebugValues::transferRegisterCopy(MachineInstr &MI) {
   const MachineOperand *DestRegOp = DestSrc->Destination;
   const MachineOperand *SrcRegOp = DestSrc->Source;
 
-  if (!DestRegOp->isDef())
-    return;
-
   auto isCalleeSavedReg = [&](unsigned Reg) {
     for (MCRegAliasIterator RAI(Reg, TRI, true); RAI.isValid(); ++RAI)
       if (CalleeSavedRegs.test(*RAI))
