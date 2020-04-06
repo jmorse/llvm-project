@@ -1295,9 +1295,6 @@ bool LiveDebugValues::join(
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
 
-  // For all predecessors of this MBB, find the set of VarLocs that
-  // can be joined.
-  int NumVisited = 0;
   // Collect predecessors that have been visited.
   SmallVector<unsigned, 8> VisitedBBs;
   for (auto p : MBB.predecessors()) {
@@ -1306,7 +1303,7 @@ bool LiveDebugValues::join(
     }
   }
 
-  // Skip entry
+  // Skip entry block.
   if (VisitedBBs.size() == 0)
     return false;
 
