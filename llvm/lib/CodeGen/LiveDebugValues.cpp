@@ -841,9 +841,9 @@ private:
   /// address the spill location in a target independent way.
   SpillLoc extractSpillBaseRegAndOffset(const MachineInstr &MI);
 
-  void transferDebugValue(const MachineInstr &MI);
-  void transferSpillOrRestoreInst(MachineInstr &MI);
-  void transferRegisterCopy(MachineInstr &MI);
+  bool transferDebugValue(const MachineInstr &MI);
+  bool transferSpillOrRestoreInst(MachineInstr &MI);
+  bool transferRegisterCopy(MachineInstr &MI);
   void transferRegisterDef(MachineInstr &MI);
 
   void process(MachineInstr &MI);
@@ -949,9 +949,9 @@ LiveDebugValues::extractSpillBaseRegAndOffset(const MachineInstr &MI) {
 
 /// End all previous ranges related to @MI and start a new range from @MI
 /// if it is a DBG_VALUE instr.
-void LiveDebugValues::transferDebugValue(const MachineInstr &MI) {
+bool LiveDebugValues::transferDebugValue(const MachineInstr &MI) {
   if (!MI.isDebugValue())
-    return;
+    return false;
   const DILocalVariable *Var = MI.getDebugVariable();
   const DIExpression *Expr = MI.getDebugExpression();
   const DILocation *DebugLoc = MI.getDebugLoc();
@@ -982,6 +982,7 @@ void LiveDebugValues::transferDebugValue(const MachineInstr &MI) {
 
   if (ttracker)
     ttracker->redefVar(MI);
+  return true;
 }
 
 /// A definition of a register may mark the end of a range.
@@ -1125,7 +1126,7 @@ LiveDebugValues::isRestoreInstruction(const MachineInstr &MI,
 /// A restored register may indicate the reverse situation.
 /// Any change in location will be recorded in \p OpenRanges, and \p Transfers
 /// if it is non-null.
-void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI) {
+bool LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI) {
   MachineFunction *MF = MI.getMF();
   unsigned Reg;
   Optional<SpillLoc> Loc;
@@ -1156,10 +1157,9 @@ void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI) {
     if (ttracker)
       ttracker->transferMlocs(tracker->getRegMLoc(Reg), tracker->getSpillMLoc(*Loc), MI.getIterator());
     tracker->lolwipe(Reg);
-
   } else {
     if (!(Loc = isRestoreInstruction(MI, MF, Reg)))
-      return;
+      return false;
     auto id = tracker->readSpill(*Loc);
     if (id.LocNo != 0) {
       tracker->setReg(Reg, id);
@@ -1169,15 +1169,16 @@ void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI) {
       tracker->lolwipe(*Loc);
     }
   }
+  return true;
 }
 
 /// If \p MI is a register copy instruction, that copies a previously tracked
 /// value from one register to another register that is callee saved, we
 /// create new DBG_VALUE instruction  described with copy destination register.
-void LiveDebugValues::transferRegisterCopy(MachineInstr &MI) {
+bool LiveDebugValues::transferRegisterCopy(MachineInstr &MI) {
   auto DestSrc = TII->isCopyInstr(MI);
   if (!DestSrc)
-    return;
+    return false;
 
   const MachineOperand *DestRegOp = DestSrc->Destination;
   const MachineOperand *SrcRegOp = DestSrc->Source;
@@ -1198,17 +1199,17 @@ void LiveDebugValues::transferRegisterCopy(MachineInstr &MI) {
   // soon. It is more likely that previous register location, which is callee
   // saved, is going to stay unclobbered longer, even if it is killed.
   if (!isCalleeSavedReg(DestReg))
-    return;
+    return false;
 
   if (!SrcRegOp->isKill())
-    return;
+    return false;
 
       auto id = tracker->readReg(SrcReg);
       tracker->setReg(DestReg, id);
       if (ttracker)
         ttracker->transferMlocs(tracker->getRegMLoc(SrcReg), tracker->getRegMLoc(DestReg), MI.getIterator());
       tracker->lolwipe(SrcReg);
-      return;
+      return true;
 }
 
 /// Accumulate a mapping between each DILocalVariable fragment and other
@@ -1274,10 +1275,13 @@ void LiveDebugValues::accumulateFragmentMap(MachineInstr &MI,
 
 /// This routine creates OpenRanges.
 void LiveDebugValues::process(MachineInstr &MI) {
-  transferDebugValue(MI);
+  if (transferDebugValue(MI))
+    return;
+  if (transferRegisterCopy(MI))
+    return;
+  if (transferSpillOrRestoreInst(MI))
+    return;
   transferRegisterDef(MI);
-  transferRegisterCopy(MI);
-  transferSpillOrRestoreInst(MI);
 }
 
 /// This routine joins the analysis results of all incoming edges in @MBB by
