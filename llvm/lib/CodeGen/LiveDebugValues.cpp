@@ -377,6 +377,12 @@ public:
     return LocIDToLocIdx[ID];
   }
 
+  bool hasRegMLoc(Register r) {
+    LocID ID = {0, r};
+    return LocIDToLocIdx.find(ID) != LocIDToLocIdx.end();
+  }
+
+
   void writeRegMask(const MachineOperand *MO, unsigned cur_bb, unsigned inst_id) {
     // Def anything we already have that isn't preserved.
     unsigned SP = TLI.getStackPointerRegisterToSaveRestore();
@@ -723,6 +729,25 @@ public:
     }
   }
 
+  void clobberRegMasks(SmallVectorImpl<const uint32_t *> &RegMasks, MachineBasicBlock::iterator pos, unsigned NumRegs, unsigned SP) {
+
+  auto AnyRegMaskKillsReg = [&RegMasks](Register Reg) -> bool {
+      return any_of(RegMasks, [Reg](const uint32_t *RegMask) {
+        return MachineOperand::clobbersPhysReg(RegMask, Reg);
+      });
+    };
+
+  for (unsigned Reg = 1; Reg < NumRegs; ++Reg) {
+    if (!mtracker->hasRegMLoc(Reg))
+      continue;
+    if (Reg != SP && AnyRegMaskKillsReg(Reg)) {
+        LocIdx Idx = mtracker->getRegMLoc(Reg);
+        clobberMloc(Idx, pos);
+      }
+    }
+  }
+
+
   void clobberMloc(LocIdx mloc, MachineBasicBlock::iterator pos) {
     auto It = ActiveMLocs.find(mloc);
     if (It == ActiveMLocs.end())
@@ -1041,16 +1066,12 @@ void LiveDebugValues::transferRegisterDef(
     tracker->writeRegMask(MO, cur_bb, cur_inst);
   }
 
+if (RegMasks.size() == 0)
+  return;
+
   // All registers not in the mask may need re-deffing...
-  for (unsigned Reg = 1; Reg < TRI->getNumRegs(); ++Reg) {
-    if (Reg != SP && AnyRegMaskKillsReg(Reg)) {
-      //tracker->defReg(Reg, cur_bb, cur_inst);
-      if (ttracker) {
-        LocIdx Idx = tracker->getRegMLoc(Reg);
-        ttracker->clobberMloc(Idx, MI.getIterator());
-      }
-    }
-  }
+  if (ttracker)
+    ttracker->clobberRegMasks(RegMasks, MI.getIterator(), TRI->getNumRegs(), SP);
 }
 
 bool LiveDebugValues::isSpillInstruction(const MachineInstr &MI,
