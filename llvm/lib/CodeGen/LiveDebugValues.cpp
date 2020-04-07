@@ -886,8 +886,10 @@ private:
                  SmallPtrSet<const MachineBasicBlock *, 16> &VLOCVisited,
                  SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
                  VarLocInMBB &VLOCScopeMasks,
-                 unsigned cur_bb);
-  bool vloc_transfer(VarLocSet &ilocs, VarLocSet &transfer, VarLocSet &olocs, lolnumberingt &lolnumbering);
+                 unsigned cur_bb,
+                 VarLocInMBB &VLOCTransMasks,
+                 DenseMap<DebugVariable, TinyPtrVector<const MachineBasicBlock  *>> &DbgVarBlocks);
+  bool vloc_transfer(VarLocSet &ilocs, VarLocSet &transfer, VarLocSet &olocs, lolnumberingt &lolnumbering, VarLocSet &VLOCTransMasks);
 
 
   void resolveMPHIs(mphiremapt &mphiremap, MachineBasicBlock &MBB, uint64_t *InLocs, uint64_t **MLOCOutLocs, unsigned cur_bb);
@@ -912,7 +914,9 @@ public:
 
   void UpdateVlocMask(lolnumberingt &lolnumbering, unsigned ID,
                       VarLocInMBB &VLOCScopeMasks,
-                 SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks);
+                 SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
+                 VarLocInMBB &VLOCTransMasks,
+                 DenseMap<DebugVariable, TinyPtrVector<const MachineBasicBlock  *>> &DbgVarBlocks);
 
   /// Calculate the liveness information for the given machine function.
   bool runOnMachineFunction(MachineFunction &MF) override;
@@ -1354,7 +1358,9 @@ bool LiveDebugValues::vloc_join(
    SmallPtrSet<const MachineBasicBlock *, 16> &VLOCVisited,
    SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
    VarLocInMBB &VLOCScopeMasks,
-   unsigned cur_bb) {
+   unsigned cur_bb,
+   VarLocInMBB &VLOCTransMasks,
+   DenseMap<DebugVariable, TinyPtrVector<const MachineBasicBlock  *>> &DbgVarBlocks) {
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
 
@@ -1410,7 +1416,7 @@ bool LiveDebugValues::vloc_join(
     unsigned PreID = lolnumbering.idFor(NewPHI);
     unsigned ID = lolnumbering.insert(NewPHI);
     if (PreID == 0)
-      UpdateVlocMask(lolnumbering, ID, VLOCScopeMasks, ArtificialBlocks);
+      UpdateVlocMask(lolnumbering, ID, VLOCScopeMasks, ArtificialBlocks, VLOCTransMasks, DbgVarBlocks);
     InLocsT.set(ID);
   }
 
@@ -1432,28 +1438,19 @@ bool LiveDebugValues::vloc_join(
   return Changed;
 }
 
-bool LiveDebugValues::vloc_transfer(VarLocSet &ilocs, VarLocSet &transfer, VarLocSet &olocs, lolnumberingt &lolnumbering) {
+bool LiveDebugValues::vloc_transfer(VarLocSet &ilocs, VarLocSet &transfer, VarLocSet &olocs, lolnumberingt &lolnumbering,
+VarLocSet &VLOCTransMasks) {
+
   // Eeeerrmmmm...
   // quick implementation then, anything in transfer overrides ilocs. Filter
   // out anything that's been deleted in the meantime.
 
   VarLocSet new_olocs(Alloc);
-  DenseMap<DebugVariable, ValueRec> set;
-  for (auto ID : ilocs) {
-    set.insert(lolnumbering[ID]);
-  }
+  new_olocs |= ilocs;
+  new_olocs.intersectWithComplement(VLOCTransMasks);
+  new_olocs |= transfer;
 
-  for (auto ID : transfer)
-    set[lolnumbering[ID].first] = lolnumbering[ID].second;
-
-  // XXX erm, unset any empty locations.
-  // XXX XXX are there any now that everything starts with mloc phis?
-  for (auto &P : set) { if (P.second.Kind == ValueRec::Def && P.second.ID.LocNo == 0)
-      continue;
-    unsigned id = lolnumbering.idFor(P);
-    assert(id != 0);
-    new_olocs.set(id);
-  }
+  // XXX what about unsetting empty locations eh?
 
   bool Changed = new_olocs != olocs;
   olocs = new_olocs;
@@ -1621,7 +1618,9 @@ void LiveDebugValues::resolveVPHIs(vphitomphit &vphitomphi, const mphiremapt &mp
 
 void LiveDebugValues::UpdateVlocMask(lolnumberingt &lolnumbering, unsigned ID,
                                      VarLocInMBB &VLOCScopeMasks,
-               SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks)
+               SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
+                 VarLocInMBB &VLOCTransMasks,
+                 DenseMap<DebugVariable, TinyPtrVector<const MachineBasicBlock*>> &DbgVarBlocks)
 {
   // Maintain scope masking. Maybe cache in future?
   SmallPtrSet<const MachineBasicBlock *, 32> LBlocks;
@@ -1631,6 +1630,12 @@ void LiveDebugValues::UpdateVlocMask(lolnumberingt &lolnumbering, unsigned ID,
   LBlocks.insert(ArtificialBlocks.begin(), ArtificialBlocks.end());
   for (auto *MBB : LBlocks) {
     VarLocSet &Mask = getVarLocsInMBB(MBB, VLOCScopeMasks);
+    Mask.set(ID);
+  }
+
+  auto &BlockNos = DbgVarBlocks[Var];
+  for (auto *MBB : BlockNos) {
+    VarLocSet &Mask = getVarLocsInMBB(MBB, VLOCTransMasks);
     Mask.set(ID);
   }
 }
@@ -1842,7 +1847,10 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
   // OK, we have some transfer functions. Number everything; do data flow.
   UniqueVector<std::pair<DebugVariable, ValueRec>> lolnumbering;
-  VarLocInMBB VLOCOutLocs, VLOCInLocs, VLOCTransfer, VLOCScopeMask;
+  VarLocInMBB VLOCOutLocs, VLOCInLocs, VLOCTransfer, VLOCScopeMask, VLOCTransMask;
+
+  DenseMap<DebugVariable, SmallSet<uint64_t, 2>> IDsForVar;
+  DenseMap<DebugVariable, TinyPtrVector<const MachineBasicBlock  *>> DbgVarBlocks;
 
   for (auto &It : vlocs) {
     const MachineBasicBlock *MBB = OrderToBB[It.first];
@@ -1852,8 +1860,32 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
       const ValueRec &Rec = idx.second;
       unsigned num = lolnumbering.insert(std::make_pair(Var, Rec));
       transfer.set(num);
-
+      IDsForVar[Var].insert(num);
+      DbgVarBlocks[Var].push_back(MBB);
     }
+  }
+
+  // Go back over transfer functions and produce a mask of every var loc
+  // assigned.
+  for (auto &P : VLOCTransfer) {
+    VarLocSet &TransMask = getVarLocsInMBB(P.first, VLOCTransMask);
+    for (auto ID : P.second) {
+      auto &Var = lolnumbering[ID].first;
+      auto &ValR = lolnumbering[ID].second;
+      auto &Locs = IDsForVar[Var];
+      for (auto ID2 : Locs) {
+        if (ID2 == ID && !(ValR.Kind == ValueRec::Def && ValR.ID.LocNo == 0))
+          continue;
+        TransMask.set(ID2);
+      }
+    }
+  }
+
+  // Quickly unset any undef locations we ran into...
+  for (auto &MBB : MF) {
+    VarLocSet &TransMask = getVarLocsInMBB(&MBB, VLOCTransMask);
+    VarLocSet &transfer = getVarLocsInMBB(&MBB, VLOCTransfer);
+    transfer.intersectWithComplement(TransMask);
   }
 
   // Maintain scope masking. Maybe cache in future?
@@ -1872,6 +1904,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     }
   }
 
+
   SmallPtrSet<const MachineBasicBlock *, 16> VLOCVisited;
   while (!Worklist.empty() || !Pending.empty()) {
     // We track what is on the pending worklist to avoid inserting the same
@@ -1886,7 +1919,8 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
       MBBJoined = vloc_join(*MBB, VLOCOutLocs, VLOCInLocs, lolnumbering,
                        VLOCVisited,
-                       ArtificialBlocks, VLOCScopeMask, cur_bb);
+                       ArtificialBlocks, VLOCScopeMask, cur_bb,
+                       VLOCTransMask, DbgVarBlocks);
       MBBJoined |= VLOCVisited.insert(MBB).second;
 
       if (MBBJoined) {
@@ -1896,7 +1930,8 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
         auto &ilocs = getVarLocsInMBB(MBB, VLOCInLocs);
         auto &transfers = getVarLocsInMBB(MBB, VLOCTransfer);
         auto &olocs = getVarLocsInMBB(MBB, VLOCOutLocs);
-        OLChanged = vloc_transfer(ilocs, transfers, olocs, lolnumbering);
+        auto &transmask = getVarLocsInMBB(MBB, VLOCTransMask);
+        OLChanged = vloc_transfer(ilocs, transfers, olocs, lolnumbering, transmask);
 
         if (OLChanged) {
           OLChanged = false;
