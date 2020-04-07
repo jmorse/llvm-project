@@ -1443,15 +1443,12 @@ bool LiveDebugValues::vloc_transfer(VarLocSet &ilocs, VarLocSet &transfer, VarLo
     set.insert(lolnumbering[ID]);
   }
 
-  for (auto ID : transfer) {
-    set.erase(lolnumbering[ID].first);
-    set.insert(lolnumbering[ID]);
-  }
+  for (auto ID : transfer)
+    set[lolnumbering[ID].first] = lolnumbering[ID].second;
 
   // XXX erm, unset any empty locations.
   // XXX XXX are there any now that everything starts with mloc phis?
-  for (auto &P : set) {
-    if (P.second.Kind == ValueRec::Def && P.second.ID.LocNo == 0)
+  for (auto &P : set) { if (P.second.Kind == ValueRec::Def && P.second.ID.LocNo == 0)
       continue;
     unsigned id = lolnumbering.idFor(P);
     assert(id != 0);
