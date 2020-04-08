@@ -1517,7 +1517,22 @@ static bool validThroughout(LexicalScopes &LScopes,
   if (DbgValue->getOperand(0).isImm() && MBB->pred_empty())
     return true;
 
-  return false;
+  // Coalescing can cause the debug range to cover multiple blocks; reject that.
+  if (RangeEnd->getParent() != DbgValue->getParent())
+    return false;
+
+  // Does the location terminate before the end of scope?
+  MachineBasicBlock::const_iterator Next = RangeEnd->getIterator();
+  for (; Next != MBB->end(); ++Next)
+    if (&*Next == LScopeEnd)
+      return false;
+
+  // Well; there's:
+  // * One location range in one block,
+  // * which starts before this scope starts,
+  // *  and ends after the scope ends.
+  // It's valid throughout the scope.
+  return true;
 }
 
 /// Build the location list for all DBG_VALUEs in the function that
