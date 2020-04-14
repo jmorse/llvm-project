@@ -1806,6 +1806,10 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
     LS.getMachineBasicBlocks(DL.get(), LBlocks);
 
+    // Single block scope: not interesting! No propagation at all.
+    if (LBlocks.size() == 1)
+      continue;
+
     // Picks out their RPOT order and sort it.
     for (auto *MBB : LBlocks)
       BlockOrders.push_back(const_cast<MachineBasicBlock *>(MBB));
