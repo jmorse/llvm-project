@@ -902,7 +902,7 @@ private:
                  LiveIdxT &VLOCInLocs,
                  SmallPtrSet<const MachineBasicBlock *, 16> &VLOCVisited,
                  unsigned cur_bb,
-                 const SmallVector<DebugVariable, 4> &AllVars,
+                 const SmallSet<DebugVariable, 4> &AllVars,
                  uint64_t **MInLocs, uint64_t **MOutLocs);
   bool vloc_transfer(VarLocSet &ilocs, VarLocSet &transfer, VarLocSet &olocs, lolnumberingt &lolnumbering, VarLocSet &VLOCTransMasks);
 
@@ -1371,7 +1371,7 @@ bool LiveDebugValues::vloc_join(
    LiveIdxT &VLOCInLocs,
    SmallPtrSet<const MachineBasicBlock *, 16> &VLOCVisited,
    unsigned cur_bb,
-   const SmallVector<DebugVariable, 4> &AllVars,
+   const SmallSet<DebugVariable, 4> &AllVars,
    uint64_t **MInLocs, uint64_t **MOutLocs) {
    
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
@@ -1773,7 +1773,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
   // Produce a set of all variables.
   DenseSet<DebugVariable> AllVars;
-  DenseMap<const LexicalScope *, SmallVector<DebugVariable, 4>> ScopeToVars;
+  DenseMap<const LexicalScope *, SmallSet<DebugVariable, 4>> ScopeToVars;
   for (auto &It : vlocs) {
     for (auto &idx : It.second->Vars) {
       const auto &Var = idx.first;
@@ -1781,7 +1781,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
       DebugLoc DL = DebugLoc::get(0, 0, Var.getVariable()->getScope(), Var.getInlinedAt());
       auto *Scope = LS.findLexicalScope(DL.get());
       assert(Scope);
-      ScopeToVars[Scope].push_back(Var);
+      ScopeToVars[Scope].insert(Var);
 #warning transmit through artificial blocks
     }
   }
@@ -1800,7 +1800,8 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
   for (auto &P : ScopeToVars) {
     // Determine which blocks we're dealing with.
-    auto AVar = P.second[0];
+    assert(P.second.size() != 0);
+    auto AVar = *P.second.begin();
     DebugLoc DL = DebugLoc::get(0, 0, AVar.getVariable()->getScope(), AVar.getInlinedAt());
 
     LS.getMachineBasicBlocks(DL.get(), LBlocks);
