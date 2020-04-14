@@ -539,6 +539,23 @@ public:
       dbgs() << " " << *meta.first;
   }
 
+  bool operator==(const ValueRec &Other) const {
+    if (Kind != Other.Kind)
+      return false;
+    if (Kind == Const && MO->isIdenticalTo(*Other.MO))
+      return false;
+    else if (Kind == Def && ID != Other.ID)
+      return false;
+    else if (Kind == PHI && BlockPHI != Other.BlockPHI)
+      return false;
+
+    return meta == Other.meta;
+  }
+
+  bool operator!=(const ValueRec &Other) const {
+    return !(*this == Other);
+  }
+
   bool operator<(const ValueRec &Other) const {
     if (meta != Other.meta)
       return meta < Other.meta;
@@ -627,7 +644,7 @@ public:
 
   TransferTracker(const TargetInstrInfo *TII, MLocTracker *mtracker, MachineFunction &MF) : TII(TII), mtracker(mtracker), MF(MF) { }
 
-  void loadInlocs(MachineBasicBlock &MBB, lolnumberingt &lolnumbering, const mphiremapt &mphiremap, uint64_t *mlocs, VarLocSet &vlocs, unsigned cur_bb, unsigned NumLocs) {  
+  void loadInlocs(MachineBasicBlock &MBB, const mphiremapt &mphiremap, uint64_t *mlocs, SmallVectorImpl<std::pair<DebugVariable, ValueRec>> &vlocs, unsigned cur_bb, unsigned NumLocs) {  
     ActiveMLocs.clear();
     ActiveVLocs.clear();
 
@@ -646,8 +663,7 @@ public:
 
     // Now map variables to their current machine locs
     std::vector<MachineInstr *> inlocs;
-    for (auto ID : vlocs) {
-      auto &Var = lolnumbering[ID];
+    for (auto Var : vlocs) {
       if (Var.second.Kind == ValueRec::Const) {
         inlocs.push_back(emitMOLoc(*Var.second.MO, Var.first, Var.second.meta));
         continue;
@@ -881,19 +897,17 @@ private:
             SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
             uint64_t **OutLocs, uint64_t *InLocs);
 
-  bool vloc_join(const MachineBasicBlock &MBB, VarLocInMBB &VLOCOutLocs,
-                 VarLocInMBB &VLOCInLocs, lolnumberingt &lolnumbering,
+  typedef DenseMap<const MachineBasicBlock *, DenseMap<DebugVariable, ValueRec> *> LiveIdxT;
+  bool vloc_join(const MachineBasicBlock &MBB, LiveIdxT &VLOCOutLocs,
+                 LiveIdxT &VLOCInLocs,
                  SmallPtrSet<const MachineBasicBlock *, 16> &VLOCVisited,
-                 SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
-                 VarLocInMBB &VLOCScopeMasks,
                  unsigned cur_bb,
-                 VarLocInMBB &VLOCTransMasks,
-                 DenseMap<DebugVariable, TinyPtrVector<const MachineBasicBlock  *>> &DbgVarBlocks);
+                 const SmallVector<DebugVariable, 4> &AllVars,
+                 uint64_t **MInLocs, uint64_t **MOutLocs);
   bool vloc_transfer(VarLocSet &ilocs, VarLocSet &transfer, VarLocSet &olocs, lolnumberingt &lolnumbering, VarLocSet &VLOCTransMasks);
 
 
   void resolveMPHIs(mphiremapt &mphiremap, MachineBasicBlock &MBB, uint64_t *InLocs, uint64_t **MLOCOutLocs, unsigned cur_bb);
-  void resolveVPHIs(vphitomphit &vphitomphi, const mphiremapt &mphiremap, lolnumberingt &lolnumbering, MachineBasicBlock &MBB, VarLocSet &InLocs, VarLocInMBB &VLOCOutLocs, uint64_t **MLOCOutLocs, unsigned cur_bb);
 
   bool ExtendRanges(MachineFunction &MF);
 
@@ -1353,23 +1367,34 @@ bool LiveDebugValues::join(
 }
 
 bool LiveDebugValues::vloc_join(
-  const MachineBasicBlock &MBB, VarLocInMBB &VLOCOutLocs,
-   VarLocInMBB &VLOCInLocs, lolnumberingt &lolnumbering,
+  const MachineBasicBlock &MBB, LiveIdxT &VLOCOutLocs,
+   LiveIdxT &VLOCInLocs,
    SmallPtrSet<const MachineBasicBlock *, 16> &VLOCVisited,
-   SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
-   VarLocInMBB &VLOCScopeMasks,
    unsigned cur_bb,
-   VarLocInMBB &VLOCTransMasks,
-   DenseMap<DebugVariable, TinyPtrVector<const MachineBasicBlock  *>> &DbgVarBlocks) {
+   const SmallVector<DebugVariable, 4> &AllVars,
+   uint64_t **MInLocs, uint64_t **MOutLocs) {
+   
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
 
-  VarLocSet InLocsT(Alloc); // Temporary incoming locations.
-  VarLocSet toBecomePHIs(Alloc);
+  DenseMap<DebugVariable, ValueRec> InLocsT;
+  SmallSet<DebugVariable, 8> Disagreements;
+
+  auto FindLocOfDef = [&](unsigned BBNum, const ValueIDNum &ID) -> LocIdx {
+    unsigned NumLocs = tracker->getNumLocs();
+    uint64_t *OutLocs = MOutLocs[BBNum];
+    for (unsigned i = 0; i < NumLocs; ++i) {
+      if (OutLocs[i] == ID.asU64())
+        // XXX assert that there are not more than one?
+        return LocIdx(i);
+    }
+    abort();
+  };
 
   // For all predecessors of this MBB, find the set of VarLocs that
   // can be joined.
   int NumVisited = 0;
+  unsigned FirstVisited = 0;
   for (auto p : MBB.predecessors()) {
     // Ignore backedges if we have not visited the predecessor yet. As the
     // predecessor hasn't yet had locations propagated into it, most locations
@@ -1389,11 +1414,51 @@ bool LiveDebugValues::vloc_join(
     // Just copy over the Out locs to incoming locs for the first visited
     // predecessor, and for all other predecessors join the Out locs.
     if (!NumVisited) {
-      InLocsT = OL->second;
-      toBecomePHIs = OL->second;
+      InLocsT = *OL->second;
+      FirstVisited = p->getNumber();
     } else {
-      InLocsT &= OL->second;
-      toBecomePHIs |= OL->second;
+      // XXX insert join here.
+      for (auto &Var : AllVars) {
+        auto InLocsIt = InLocsT.find(Var);
+
+        auto OLIt = OL->second->find(Var);
+        if (InLocsIt == InLocsT.end())
+          // Regardless of what's being joined in, an empty predecessor means
+          // there can be no incoming location here.
+          continue;
+
+        // Do these things agree?
+        if (InLocsIt->second == OLIt->second)
+          continue; // Live through.
+
+        // Alright, there's a disagreement, try to join on location.
+        if (InLocsIt->second.Kind == ValueRec::Const) {
+          // Definitely can't do this.
+          InLocsT.erase(InLocsIt);
+          continue;
+        }
+
+        // Is the inlocs loc an mphi yet?
+        assert(InLocsIt->second.Kind == ValueRec::Def);
+        ValueIDNum &ID = InLocsIt->second.ID;
+        if (ID.BlockNo != cur_bb || ID.InstNo != 0) {
+          // Turn it into an mphi.
+          LocIdx Idx = FindLocOfDef(FirstVisited, ID);
+          ID = ValueIDNum{cur_bb, 0, Idx};
+          // XXX assert that it's in MInLocs?
+        }
+
+        // And now: is this new incoming location in the right place?
+        LocIdx Idx = ID.LocNo;
+        if (OLIt->second.Kind != ValueRec::Def ||
+            MOutLocs[p->getNumber()][Idx] != OLIt->second.ID.asU64()) {
+          // No. Erase.
+          InLocsT.erase(InLocsIt);
+          continue;
+        }
+
+        // Successful join!
+      }
     }
 
     // xXX jmorse deleted debug statement
@@ -1401,39 +1466,20 @@ bool LiveDebugValues::vloc_join(
     NumVisited++;
   }
 
-  // Erm. We need to produce PHI nodes for vlocs that aren't in the same
-  // location. Pick out variables that aren't in InLocsT.
-  toBecomePHIs.intersectWithComplement(InLocsT);
-  // set for nondeterminism
-  MapVector<DebugVariable, unsigned> tophi;
-  for (auto ID : toBecomePHIs) {
-    tophi.insert(std::make_pair(lolnumbering[ID].first, 0));
-  }
-
-  for (auto Var : tophi) {
-    ValueRec NewVR = {{0, 0, LocIdx(0)}, None, {nullptr, false}, cur_bb, ValueRec::PHI};
-    auto NewPHI = std::make_pair(Var.first, NewVR);
-    unsigned PreID = lolnumbering.idFor(NewPHI);
-    unsigned ID = lolnumbering.insert(NewPHI);
-    if (PreID == 0)
-      UpdateVlocMask(lolnumbering, ID, VLOCScopeMasks, ArtificialBlocks, VLOCTransMasks, DbgVarBlocks);
-    InLocsT.set(ID);
-  }
-
-  // Filter out DBG_VALUES that are out of scope.
-  auto &Mask = getVarLocsInMBB(&MBB, VLOCScopeMasks);
-  InLocsT &= Mask;
-
   // As we are processing blocks in reverse post-order we
   // should have processed at least one predecessor, unless it
   // is the entry block which has no predecessor.
+#if 0
   assert((NumVisited || MBB.pred_empty()) &&
          "Should have processed at least one predecessor");
+#endif
 
-  VarLocSet &ILS = getVarLocsInMBB(&MBB, VLOCInLocs);
+  auto ILSIt = VLOCInLocs.find(&MBB);
+  assert(ILSIt != VLOCInLocs.end());
+  auto &ILS = *ILSIt->second;
 
   Changed = ILS != InLocsT;
-  ILS = InLocsT;
+  ILS = std::move(InLocsT);
   // Uhhhhhh, reimplement NumInserted and NumRemoved pls.
   return Changed;
 }
@@ -1494,125 +1540,6 @@ void LiveDebugValues::resolveMPHIs(mphiremapt &mphiremap, MachineBasicBlock &MBB
       continue;
     //mphiremap.insert(std::make_pair(toexamine[Idx], seen_values[Idx]));
     mphiremap.insert(std::make_pair(std::make_pair(&MBB, seen_values[Idx]), toexamine[Idx]));
-  }
-}
-
-void LiveDebugValues::resolveVPHIs(vphitomphit &vphitomphi, const mphiremapt &mphiremap, lolnumberingt &lolnumbering, MachineBasicBlock &MBB, VarLocSet &InLocs, VarLocInMBB &VLOCOutLocs, uint64_t **MLOCOutLocs, unsigned cur_bb) {
-  // Take a look at each PHI in the inlocs.
-
-  unsigned NumLocs = tracker->getNumLocs();
-  unsigned NumPreds = MBB.pred_size();
-  if (NumPreds == 0)
-    return;
-
-  // Fetch all the outgoing locations of all predecessors.
-  std::vector<SmallVector<ValueIDNum, 4>> PredOutMLocs;
-  std::vector<SmallVector<ValueRec, 4>> PredOutVLocs;
-  DenseMap<DebugVariable, unsigned> PredOutVariables;
-
-  PredOutMLocs.resize(NumLocs);
-
-  for (auto p : MBB.predecessors()) {
-    uint64_t *mlocs = MLOCOutLocs[p->getNumber()];
-    const VarLocSet &vlocs = getVarLocsInMBB(p, VLOCOutLocs);
-
-    for (unsigned ID : vlocs) {
-      const auto &loc = lolnumbering[ID];
-      if (loc.second.Kind != ValueRec::Def) {
-        // incoming other phis and constants can't be merged.
-        if (PredOutVariables.count(loc.first) == 0)
-          PredOutVariables[loc.first] = UINT_MAX;
-      }
-
-      if (PredOutVariables.count(loc.first) == 0) {
-        unsigned &Num = PredOutVariables[loc.first];
-        if (loc.second.Kind != ValueRec::Def) {
-          Num = UINT_MAX;
-          continue;
-        }
-        Num = PredOutVLocs.size();
-        PredOutVLocs.push_back(SmallVector<ValueRec, 4>());
-      }
-
-      unsigned Idx = PredOutVariables[loc.first];
-      if (Idx == UINT_MAX)
-        continue;
-
-      auto &VOutVec = PredOutVLocs[Idx];
-      VOutVec.push_back(loc.second);
-    }
-
-    // Not guaranteed to fill all locs? Is guaranteed to be in pred order
-    // though
-    for (unsigned Idx = 1; Idx < tracker->getNumLocs(); ++Idx) {
-      PredOutMLocs[Idx].push_back(ValueIDNum::fromU64(mlocs[Idx]));
-    }
-  }
-
-  // Index the first predecessor,
-  uint64_t *mlocs = MLOCOutLocs[(*MBB.pred_begin())->getNumber()];
-  DenseMap<ValueIDNum, LocIdx> MBB1Idx;
-  for (unsigned Idx = 1; Idx < tracker->getNumLocs(); ++Idx) {
-    MBB1Idx[ValueIDNum::fromU64(mlocs[Idx])] = LocIdx(Idx);
-  }
-
-  std::vector<std::pair<unsigned, unsigned>> toreplace;
-  for (unsigned ID : InLocs) {
-    auto &Pair = lolnumbering[ID];
-
-    if (Pair.second.Kind != ValueRec::PHI)
-      continue;
-
-    // We should have an index for this right?
-    if (PredOutVariables.count(Pair.first) == 0 ||
-        PredOutVariables[Pair.first] == UINT_MAX)
-      continue;
-
-    auto &VOutVec = PredOutVLocs[PredOutVariables[Pair.first]];
-    if (VOutVec.size() != NumPreds)
-      continue;
-
-    // Do they all have the same meta info?
-    bool thesame = llvm::all_of(VOutVec, [&](const ValueRec &R) {
-      return R.meta == VOutVec[0].meta;
-    });
-    if (!thesame)
-      continue;
-
-    // Where do we start looking?
-    if (MBB1Idx.count(VOutVec[0].ID) == 0)
-      continue;
-    LocIdx mloc = MBB1Idx[VOutVec[0].ID];
-
-    // Alright, do all those mlocs agree?
-    auto &MOutVec = PredOutMLocs[mloc];
-    if (MOutVec.size() != NumPreds)
-      continue;
-
-    bool match = true;
-    for (unsigned Idx = 0; Idx < NumPreds; ++Idx) {
-      if (MOutVec[Idx] != VOutVec[Idx].ID)
-        match = false;
-    }
-    if (!match)
-      continue;
-
-    // Success.
-
-    ValueIDNum newid = {cur_bb, 0, mloc};
-    ValueRec r = {newid, None, VOutVec[0].meta, 0, ValueRec::Def};
-    unsigned newnum = lolnumbering.insert({Pair.first, r});
-    // No scope masking of this lolnumbering element because we're no longer
-    // joining.
-    // Record pair to mangle later.
-    toreplace.push_back(std::make_pair(ID, newnum));
-    assert(vphitomphi.find(ID) == vphitomphi.end());
-    vphitomphi[ID] = newnum;
-  }
-
-  for (auto &P : toreplace) {
-    InLocs.reset(P.first);
-    InLocs.set(P.second);
   }
 }
 
@@ -1833,7 +1760,6 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   for (auto RI = RPOT.begin(), RE = RPOT.end(); RI != RE; ++RI) {
     unsigned Idx = BBToOrder[*RI];
     cur_bb = (*RI)->getNumber();
-    Worklist.push(Idx);
     auto *MBB = *RI;
     vtracker = vlocs[Idx];
     tracker->loadFromArray(MInLocs[cur_bb], cur_bb);
@@ -1845,114 +1771,109 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     tracker->reset();
   }
 
-  // OK, we have some transfer functions. Number everything; do data flow.
-  UniqueVector<std::pair<DebugVariable, ValueRec>> lolnumbering;
-  VarLocInMBB VLOCOutLocs, VLOCInLocs, VLOCTransfer, VLOCScopeMask, VLOCTransMask;
-
-  DenseMap<DebugVariable, SmallSet<uint64_t, 2>> IDsForVar;
-  DenseMap<DebugVariable, TinyPtrVector<const MachineBasicBlock  *>> DbgVarBlocks;
-
+  // Produce a set of all variables.
+  DenseSet<DebugVariable> AllVars;
+  DenseMap<const LexicalScope *, SmallVector<DebugVariable, 4>> ScopeToVars;
   for (auto &It : vlocs) {
-    const MachineBasicBlock *MBB = OrderToBB[It.first];
-    VarLocSet &transfer = getVarLocsInMBB(MBB, VLOCTransfer);
     for (auto &idx : It.second->Vars) {
-      const DebugVariable &Var = idx.first;
-      const ValueRec &Rec = idx.second;
-      unsigned num = lolnumbering.insert(std::make_pair(Var, Rec));
-      transfer.set(num);
-      IDsForVar[Var].insert(num);
-      DbgVarBlocks[Var].push_back(MBB);
+      const auto &Var = idx.first;
+      AllVars.insert(Var);
+      DebugLoc DL = DebugLoc::get(0, 0, Var.getVariable()->getScope(), Var.getInlinedAt());
+      auto *Scope = LS.findLexicalScope(DL.get());
+      assert(Scope);
+      ScopeToVars[Scope].push_back(Var);
+#warning transmit through artificial blocks
     }
   }
 
-  // Go back over transfer functions and produce a mask of every var loc
-  // assigned.
-  for (auto &P : VLOCTransfer) {
-    VarLocSet &TransMask = getVarLocsInMBB(P.first, VLOCTransMask);
-    for (auto ID : P.second) {
-      auto &Var = lolnumbering[ID].first;
-      auto &ValR = lolnumbering[ID].second;
-      auto &Locs = IDsForVar[Var];
-      for (auto ID2 : Locs) {
-        if (ID2 == ID && !(ValR.Kind == ValueRec::Def && ValR.ID.LocNo == 0))
-          continue;
-        TransMask.set(ID2);
-      }
+  // OK. Iterate over scopes: there might be something to be said for
+  // ordering them by size/locality, but that's for the future.
+  SmallPtrSet<const MachineBasicBlock *, 8> LBlocks;
+  SmallVector<MachineBasicBlock *, 8> BlockOrders;
+  auto Cmp = [&BBToOrder](MachineBasicBlock *A, MachineBasicBlock *B)
+   {
+     return BBToOrder[A] < BBToOrder[B];
+   };
+
+  SmallVector<SmallVector<std::pair<DebugVariable, ValueRec>, 8>, 16> SavedLiveIns;
+  SavedLiveIns.resize(HighestMBBNo+1);
+
+  for (auto &P : ScopeToVars) {
+    // Determine which blocks we're dealing with.
+    auto AVar = P.second[0];
+    DebugLoc DL = DebugLoc::get(0, 0, AVar.getVariable()->getScope(), AVar.getInlinedAt());
+
+    LS.getMachineBasicBlocks(DL.get(), LBlocks);
+
+    // Picks out their RPOT order and sort it.
+    for (auto *MBB : LBlocks)
+      BlockOrders.push_back(const_cast<MachineBasicBlock *>(MBB));
+
+    llvm::sort(BlockOrders.begin(), BlockOrders.end(), Cmp);
+
+    std::vector<DenseMap<DebugVariable, ValueRec>> LiveIns, LiveOuts;
+    LiveIns.resize(BlockOrders.size());
+    LiveOuts.resize(BlockOrders.size());
+    LiveIdxT LiveOutIdx, LiveInIdx;
+    for (unsigned I = 0; I < LiveOuts.size(); ++I) {
+      LiveOutIdx[BlockOrders[I]] = &LiveOuts[I];
+      LiveInIdx[BlockOrders[I]] = &LiveIns[I];
     }
-  }
 
-  // Quickly unset any undef locations we ran into...
-  for (auto &MBB : MF) {
-    VarLocSet &TransMask = getVarLocsInMBB(&MBB, VLOCTransMask);
-    VarLocSet &transfer = getVarLocsInMBB(&MBB, VLOCTransfer);
-    transfer.intersectWithComplement(TransMask);
-  }
+    for (auto *MBB : BlockOrders)
+      Worklist.push(BBToOrder[MBB]);
 
-  // Maintain scope masking. Maybe cache in future?
-  // Don't use UpdateVlocMask, to avoid repeated reallocation of LBlocks
-  // if there are a lot of them.
-  SmallPtrSet<const MachineBasicBlock *, 32> LBlocks;
-  // NB: UniqueVector is one-based counting.
-  for (unsigned ID = 1; ID <= lolnumbering.size(); ++ID) {
-    const DebugVariable &Var = lolnumbering[ID].first;
-    DebugLoc DL = DebugLoc::get(0, 0, Var.getVariable()->getScope(), Var.getInlinedAt());
-    LS.getMachineBasicBlocks(DL, LBlocks);
-    LBlocks.insert(ArtificialBlocks.begin(), ArtificialBlocks.end());
-    for (auto *MBB : LBlocks) {
-      VarLocSet &Mask = getVarLocsInMBB(MBB, VLOCScopeMask);
-      Mask.set(ID);
-    }
-  }
+    SmallPtrSet<const MachineBasicBlock *, 16> VLOCVisited;
+    while (!Worklist.empty() || !Pending.empty()) {
+      SmallPtrSet<MachineBasicBlock *, 16> OnPending;
+      while (!Worklist.empty()) {
+        auto *MBB = OrderToBB[Worklist.top()];
+        cur_bb = MBB->getNumber();
+        Worklist.pop();
 
+        MBBJoined = vloc_join(*MBB, LiveOutIdx, LiveInIdx, VLOCVisited, cur_bb, P.second, MInLocs, MOutLocs);
 
-  SmallPtrSet<const MachineBasicBlock *, 16> VLOCVisited;
-  while (!Worklist.empty() || !Pending.empty()) {
-    // We track what is on the pending worklist to avoid inserting the same
-    // thing twice.  We could avoid this with a custom priority queue, but this
-    // is probably not worth it.
-    SmallPtrSet<MachineBasicBlock *, 16> OnPending;
-    LLVM_DEBUG(dbgs() << "Processing Worklist\n");
-    while (!Worklist.empty()) {
-      MachineBasicBlock *MBB = OrderToBB[Worklist.top()];
-      cur_bb = MBB->getNumber();
-      Worklist.pop();
+        MBBJoined |= VLOCVisited.insert(MBB).second;
+        if (MBBJoined) {
+          MBBJoined = false;
+          Changed = true;
 
-      MBBJoined = vloc_join(*MBB, VLOCOutLocs, VLOCInLocs, lolnumbering,
-                       VLOCVisited,
-                       ArtificialBlocks, VLOCScopeMask, cur_bb,
-                       VLOCTransMask, DbgVarBlocks);
-      MBBJoined |= VLOCVisited.insert(MBB).second;
+          // Do transfer function.
+          // DenseMap copy.
+          decltype(*LiveInIdx[MBB]) Cpy = *LiveInIdx[MBB];
+          auto *vtracker = vlocs[BBToOrder[MBB]];
+          for (auto &P : vtracker->Vars) {
+            Cpy[P.first] = P.second;
+          }
 
-      if (MBBJoined) {
-        MBBJoined = false;
-        Changed = true;
+          OLChanged = Cpy == *LiveOutIdx[MBB];
+          *LiveOutIdx[MBB] = Cpy;
 
-        auto &ilocs = getVarLocsInMBB(MBB, VLOCInLocs);
-        auto &transfers = getVarLocsInMBB(MBB, VLOCTransfer);
-        auto &olocs = getVarLocsInMBB(MBB, VLOCOutLocs);
-        auto &transmask = getVarLocsInMBB(MBB, VLOCTransMask);
-        OLChanged = vloc_transfer(ilocs, transfers, olocs, lolnumbering, transmask);
-
-        if (OLChanged) {
-          OLChanged = false;
-          for (auto s : MBB->successors())
-            if (OnPending.insert(s).second) {
-              Pending.push(BBToOrder[s]);
+          if (OLChanged) {
+            OLChanged = false;
+            for (auto s : MBB->successors()) {
+              if (OnPending.insert(s).second) {
+                Pending.push(BBToOrder[s]);
+              }
             }
+          }
         }
       }
+      Worklist.swap(Pending);
+      assert(Pending.empty());
     }
-    Worklist.swap(Pending);
-    // At this point, pending must be empty, since it was just the empty
-    // worklist
-    assert(Pending.empty() && "Pending should be empty");
-  }
 
-  for (auto &It : VLOCInLocs) {
-    for (auto lala : It.second) {
-      auto &var = lolnumbering[lala];
-      assert(var.second.Kind != ValueRec::Def || var.second.ID.LocNo != 0);
+    // Dataflow done. Now what? Save live-ins.
+    for (unsigned I = 0; I < LiveIns.size(); ++I) {
+      auto &VarMap = LiveIns[I];
+      auto *MBB = BlockOrders[I];
+      for (auto &P : VarMap) {
+        SavedLiveIns[MBB->getNumber()].push_back(P);
+      }
     }
+
+    BlockOrders.clear();
+    LBlocks.clear();
   }
 
   // mloc argument only needs the posish -> spills map and the like.
@@ -1969,8 +1890,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
   for (MachineBasicBlock &MBB : MF) {
     unsigned bbnum = MBB.getNumber();
-    resolveVPHIs(vphitomphi, mphiremap, lolnumbering, MBB, getVarLocsInMBB(&MBB, VLOCInLocs), VLOCOutLocs, MOutLocs, bbnum);
-    ttracker->loadInlocs(MBB, lolnumbering, mphiremap, MInLocs[bbnum], getVarLocsInMBB(&MBB, VLOCInLocs), bbnum, NumLocs);
+    ttracker->loadInlocs(MBB, mphiremap, MInLocs[bbnum], SavedLiveIns[MBB.getNumber()], bbnum, NumLocs);
     tracker->reset();
     tracker->loadFromArray(MInLocs[bbnum], bbnum);
     tracker->lolremap(&MBB, mphiremap);
