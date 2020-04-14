@@ -1840,13 +1840,13 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
           // Do transfer function.
           // DenseMap copy.
-          decltype(*LiveInIdx[MBB]) Cpy = *LiveInIdx[MBB];
+          DenseMap<DebugVariable, ValueRec> Cpy = *LiveInIdx[MBB];
           auto *vtracker = vlocs[BBToOrder[MBB]];
           for (auto &P : vtracker->Vars) {
             Cpy[P.first] = P.second;
           }
 
-          OLChanged = Cpy == *LiveOutIdx[MBB];
+          OLChanged = Cpy != *LiveOutIdx[MBB];
           *LiveOutIdx[MBB] = Cpy;
 
           if (OLChanged) {
