@@ -1853,6 +1853,10 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
           if (OLChanged) {
             OLChanged = false;
             for (auto s : MBB->successors()) {
+              // A successor that is out of scope, ignore it.
+              if (LiveInIdx.find(s) == LiveInIdx.end())
+                continue;
+
               if (OnPending.insert(s).second) {
                 Pending.push(BBToOrder[s]);
               }
