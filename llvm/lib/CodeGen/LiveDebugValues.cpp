@@ -1861,8 +1861,11 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
           // DenseMap copy.
           DenseMap<DebugVariable, ValueRec> Cpy = *LiveInIdx[MBB];
           auto *vtracker = vlocs[BBToOrder[MBB]];
-          for (auto &P : vtracker->Vars) {
-            Cpy[P.first] = P.second;
+          for (auto &Transfer : vtracker->Vars) {
+            // Is this var we're mangling in this scope?
+            if (P.first->getDesc() == Transfer.first.getVariable()->getScope()
+                && P.first->getInlinedAt() == Transfer.first.getInlinedAt())
+              Cpy[Transfer.first] = Transfer.second;
           }
 
           OLChanged = Cpy != *LiveOutIdx[MBB];
