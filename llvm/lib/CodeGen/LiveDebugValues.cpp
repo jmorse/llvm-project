@@ -1433,6 +1433,12 @@ bool LiveDebugValues::vloc_join(
         if (InLocsIt->second == OLIt->second)
           continue; // Live through.
 
+        // Meta disagreement -> bail early.
+        if (InLocsIt->second.meta != OLIt->second.meta) {
+          InLocsT.erase(InLocsIt);
+          continue;
+        }
+
         // Alright, there's a disagreement, try to join on location.
         if (InLocsIt->second.Kind == ValueRec::Const) {
           if (OLIt->second.Kind != ValueRec::Const) {
