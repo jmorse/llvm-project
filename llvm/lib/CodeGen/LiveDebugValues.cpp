@@ -1424,7 +1424,8 @@ bool LiveDebugValues::vloc_join(
         auto InLocsIt = InLocsT.find(Var);
 
         auto OLIt = OL->second->find(Var);
-        if (InLocsIt == InLocsT.end())
+        if (InLocsIt == InLocsT.end() ||
+            OLIt == OL->second->end())
           // Regardless of what's being joined in, an empty predecessor means
           // there can be no incoming location here.
           continue;
