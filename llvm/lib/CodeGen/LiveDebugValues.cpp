@@ -1388,7 +1388,9 @@ bool LiveDebugValues::vloc_join(
         // XXX assert that there are not more than one?
         return LocIdx(i);
     }
-    abort();
+    // It's possible that that value simply isn't availble, coming out of the
+    // designated block.
+    return LocIdx(0);
   };
 
   // For all predecessors of this MBB, find the set of VarLocs that
@@ -1442,8 +1444,14 @@ bool LiveDebugValues::vloc_join(
         assert(InLocsIt->second.Kind == ValueRec::Def);
         ValueIDNum &ID = InLocsIt->second.ID;
         if (ID.BlockNo != cur_bb || ID.InstNo != 0) {
-          // Turn it into an mphi.
           LocIdx Idx = FindLocOfDef(FirstVisited, ID);
+          if (Idx == 0) {
+            // Actually this value doesn't survive to any live-out. Oops.
+            InLocsT.erase(InLocsIt);
+            continue;
+          }
+
+          // Turn it into an mphi.
           ID = ValueIDNum{cur_bb, 0, Idx};
           // XXX assert that it's in MInLocs?
         }
