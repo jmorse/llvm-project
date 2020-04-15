@@ -1422,13 +1422,17 @@ bool LiveDebugValues::vloc_join(
       // XXX insert join here.
       for (auto &Var : AllVars) {
         auto InLocsIt = InLocsT.find(Var);
-
         auto OLIt = OL->second->find(Var);
-        if (InLocsIt == InLocsT.end() ||
-            OLIt == OL->second->end())
-          // Regardless of what's being joined in, an empty predecessor means
-          // there can be no incoming location here.
+
+        // Regardless of what's being joined in, an empty predecessor means
+        // there can be no incoming location here.
+        if (InLocsIt == InLocsT.end())
           continue;
+
+        if (OLIt == OL->second->end()) {
+          InLocsT.erase(InLocsIt);
+          continue;
+        }
 
         // Do these things agree?
         if (InLocsIt->second == OLIt->second)
