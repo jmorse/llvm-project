@@ -1831,6 +1831,11 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     if (LBlocks.size() == 1)
       continue;
 
+    // Add all artifical blocks. This might be inefficient; lets deal with
+    // that later. They won't contribute a lot unless they connect to a
+    // meaningful non-artificial block.
+    LBlocks.insert(ArtificialBlocks.begin(), ArtificialBlocks.end());
+
     // Picks out their RPOT order and sort it.
     for (auto *MBB : LBlocks)
       BlockOrders.push_back(const_cast<MachineBasicBlock *>(MBB));
