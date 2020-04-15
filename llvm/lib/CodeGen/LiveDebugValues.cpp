@@ -1435,8 +1435,15 @@ bool LiveDebugValues::vloc_join(
 
         // Alright, there's a disagreement, try to join on location.
         if (InLocsIt->second.Kind == ValueRec::Const) {
-          // Definitely can't do this.
-          InLocsT.erase(InLocsIt);
+          if (OLIt->second.Kind != ValueRec::Const) {
+            // Definite no.
+            InLocsT.erase(InLocsIt);
+            continue;
+          }
+
+          // Plain join on the constant value.
+          if (!InLocsIt->second.MO->isIdenticalTo(*OLIt->second.MO))
+            InLocsT.erase(InLocsIt);
           continue;
         }
 
