@@ -542,7 +542,7 @@ public:
   bool operator==(const ValueRec &Other) const {
     if (Kind != Other.Kind)
       return false;
-    if (Kind == Const && MO->isIdenticalTo(*Other.MO))
+    if (Kind == Const && !MO->isIdenticalTo(*Other.MO))
       return false;
     else if (Kind == Def && ID != Other.ID)
       return false;
