@@ -1777,10 +1777,16 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   for (auto &It : vlocs) {
     for (auto &idx : It.second->Vars) {
       const auto &Var = idx.first;
-      AllVars.insert(Var);
       DebugLoc DL = DebugLoc::get(0, 0, Var.getVariable()->getScope(), Var.getInlinedAt());
       auto *Scope = LS.findLexicalScope(DL.get());
-      assert(Scope);
+
+      // It's possible that there are DBG_VALUEs for a scope, but that there
+      // are no instructions that _belong_ to that scope. If so, propagating
+      // locations between blocks is pointless.
+      if (Scope == nullptr)
+        continue;
+
+      AllVars.insert(Var);
       ScopeToVars[Scope].insert(Var);
 #warning transmit through artificial blocks
     }
