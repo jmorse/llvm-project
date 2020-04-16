@@ -900,7 +900,7 @@ private:
   typedef DenseMap<const MachineBasicBlock *, DenseMap<DebugVariable, ValueRec> *> LiveIdxT;
   bool vloc_join(const MachineBasicBlock &MBB, LiveIdxT &VLOCOutLocs,
                  LiveIdxT &VLOCInLocs,
-                 SmallPtrSet<const MachineBasicBlock *, 16> &VLOCVisited,
+                 SmallPtrSet<const MachineBasicBlock *, 16> *VLOCVisited,
                  unsigned cur_bb,
                  const SmallSet<DebugVariable, 4> &AllVars,
                  uint64_t **MInLocs, uint64_t **MOutLocs);
@@ -1369,7 +1369,7 @@ bool LiveDebugValues::join(
 bool LiveDebugValues::vloc_join(
   const MachineBasicBlock &MBB, LiveIdxT &VLOCOutLocs,
    LiveIdxT &VLOCInLocs,
-   SmallPtrSet<const MachineBasicBlock *, 16> &VLOCVisited,
+   SmallPtrSet<const MachineBasicBlock *, 16> *VLOCVisited,
    unsigned cur_bb,
    const SmallSet<DebugVariable, 4> &AllVars,
    uint64_t **MInLocs, uint64_t **MOutLocs) {
@@ -1403,7 +1403,7 @@ bool LiveDebugValues::vloc_join(
     // will not yet be valid, so treat them as all being uninitialized and
     // potentially valid. If a location guessed to be correct here is
     // invalidated later, we will remove it when we revisit this block.
-    if (!VLOCVisited.count(p)) {
+    if (VLOCVisited && !VLOCVisited->count(p)) {
       LLVM_DEBUG(dbgs() << "  ignoring unvisited pred MBB: " << p->getNumber()
                         << "\n");
       continue;
@@ -1865,6 +1865,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     for (auto *MBB : BlockOrders)
       Worklist.push(BBToOrder[MBB]);
 
+    bool firsttrip = true;
     SmallPtrSet<const MachineBasicBlock *, 16> VLOCVisited;
     while (!Worklist.empty() || !Pending.empty()) {
       SmallPtrSet<MachineBasicBlock *, 16> OnPending;
@@ -1873,7 +1874,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
         cur_bb = MBB->getNumber();
         Worklist.pop();
 
-        MBBJoined = vloc_join(*MBB, LiveOutIdx, LiveInIdx, VLOCVisited, cur_bb, P.second, MInLocs, MOutLocs);
+        MBBJoined = vloc_join(*MBB, LiveOutIdx, LiveInIdx, (firsttrip) ? &VLOCVisited : nullptr, cur_bb, P.second, MInLocs, MOutLocs);
 
         MBBJoined |= VLOCVisited.insert(MBB).second;
         if (MBBJoined) {
@@ -1910,6 +1911,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
       }
       Worklist.swap(Pending);
       assert(Pending.empty());
+      firsttrip = false;
     }
 
     // Dataflow done. Now what? Save live-ins.
