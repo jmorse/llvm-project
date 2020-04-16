@@ -1802,6 +1802,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   // Produce a set of all variables.
   DenseSet<DebugVariable> AllVars;
   DenseMap<const LexicalScope *, SmallSet<DebugVariable, 4>> ScopeToVars;
+  DenseMap<const LexicalScope *, SmallSet<MachineBasicBlock *, 4>> ScopeToBlocks;
   for (auto &It : vlocs) {
     for (auto &idx : It.second->Vars) {
       const auto &Var = idx.first;
@@ -1816,6 +1817,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
       AllVars.insert(Var);
       ScopeToVars[Scope].insert(Var);
+      ScopeToBlocks[Scope].insert(OrderToBB[It.first]);
 #warning transmit through artificial blocks
     }
   }
@@ -1840,14 +1842,20 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
     LS.getMachineBasicBlocks(DL.get(), LBlocks);
 
-    // Single block scope: not interesting! No propagation at all.
-    if (LBlocks.size() == 1)
-      continue;
+    // Also any blocks that contain a DBG_VALUE.
+    LBlocks.insert(ScopeToBlocks[P.first].begin(), ScopeToBlocks[P.first].end());
 
     // Add all artifical blocks. This might be inefficient; lets deal with
     // that later. They won't contribute a lot unless they connect to a
     // meaningful non-artificial block.
     LBlocks.insert(ArtificialBlocks.begin(), ArtificialBlocks.end());
+
+    // Single block scope: not interesting! No propagation at all. Note that
+    // this could probably go above ArtificialBlocks without damage, but
+    // that then produces output differences from original-live-debug-values,
+    // which propagates from a single block into many artificial ones.
+    if (LBlocks.size() == 1)
+      continue;
 
     // Picks out their RPOT order and sort it.
     for (auto *MBB : LBlocks)
