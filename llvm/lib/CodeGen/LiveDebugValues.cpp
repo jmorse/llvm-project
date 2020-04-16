@@ -1410,8 +1410,10 @@ bool LiveDebugValues::vloc_join(
     }
     auto OL = VLOCOutLocs.find(p);
     // Join is null in case of empty OutLocs from any of the pred.
-    if (OL == VLOCOutLocs.end())
-      return false;
+    if (OL == VLOCOutLocs.end()) {
+      InLocsT.clear();
+      break;
+    }
 
     // Just copy over the Out locs to incoming locs for the first visited
     // predecessor, and for all other predecessors join the Out locs.
