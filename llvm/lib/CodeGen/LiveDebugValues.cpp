@@ -1507,7 +1507,8 @@ bool LiveDebugValues::vloc_join(
   auto &ILS = *ILSIt->second;
 
   Changed = ILS != InLocsT;
-  ILS = std::move(InLocsT);
+  if (Changed)
+    ILS = std::move(InLocsT);
   // Uhhhhhh, reimplement NumInserted and NumRemoved pls.
   return Changed;
 }
