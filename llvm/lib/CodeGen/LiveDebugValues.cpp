@@ -1859,7 +1859,6 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
       AllVars.insert(Var);
       ScopeToVars[Scope].insert(Var);
       ScopeToBlocks[Scope].insert(OrderToBB[It.first]);
-#warning transmit through artificial blocks
     }
   }
 
