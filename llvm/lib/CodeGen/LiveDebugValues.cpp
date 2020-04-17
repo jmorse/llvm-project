@@ -892,10 +892,12 @@ private:
   void accumulateFragmentMap(MachineInstr &MI, VarToFragments &SeenFragments,
                              OverlapMap &OLapMap);
 
-  bool join(MachineBasicBlock &MBB,
+  bool mloc_join(MachineBasicBlock &MBB,
             SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
             SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
-            uint64_t **OutLocs, uint64_t *InLocs);
+            uint64_t **OutLocs, uint64_t *InLocs,
+            const DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder,
+            const std::vector<MachineBasicBlock *> &NumToBlock);
 
   typedef DenseMap<const MachineBasicBlock *, DenseMap<DebugVariable, ValueRec> *> LiveIdxT;
   bool vloc_join(const MachineBasicBlock &MBB, LiveIdxT &VLOCOutLocs,
@@ -1326,36 +1328,69 @@ void LiveDebugValues::process(MachineInstr &MI) {
 /// This routine joins the analysis results of all incoming edges in @MBB by
 /// inserting a new DBG_VALUE instruction at the start of the @MBB - if the same
 /// source variable in all the predecessors of @MBB reside in the same location.
-bool LiveDebugValues::join(
+bool LiveDebugValues::mloc_join(
     MachineBasicBlock &MBB,
     SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
     SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
-    uint64_t **OutLocs, uint64_t *InLocs) {
+    uint64_t **OutLocs, uint64_t *InLocs,
+    const DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder,
+    const std::vector<MachineBasicBlock *> &NumToBlock) {
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
 
   // Collect predecessors that have been visited.
-  SmallVector<unsigned, 8> VisitedBBs;
+  SmallVector<const MachineBasicBlock *, 8> BlockOrders;
   for (auto p : MBB.predecessors()) {
     if (Visited.count(p)) {
-      VisitedBBs.push_back(p->getNumber());
+      BlockOrders.push_back(p);
     }
   }
 
+  auto Cmp = [&BBToOrder](const MachineBasicBlock *A, const MachineBasicBlock *B) {
+   return BBToOrder.find(A)->second < BBToOrder.find(B)->second;
+  };
+  llvm::sort(BlockOrders.begin(), BlockOrders.end(), Cmp);
+
   // Skip entry block.
-  if (VisitedBBs.size() == 0)
+  if (BlockOrders.size() == 0)
     return false;
 
-  // Step through all predecessors and detect disagreements.
+    // Step through all predecessors and detect disagreements.
+  unsigned this_rpot = BBToOrder.find(&MBB)->second;
   for (unsigned Idx = 1; Idx < tracker->getNumLocs(); ++Idx) {
-    uint64_t base = OutLocs[VisitedBBs[0]][Idx];
+    uint64_t base = OutLocs[BlockOrders[0]->getNumber()][Idx];
     bool disagree = false;
-    for (unsigned BBNum = 1; BBNum < VisitedBBs.size(); ++BBNum) {
-      disagree |= base != OutLocs[VisitedBBs[BBNum]][Idx];
+    bool pred_disagree = false;
+    for (auto *MBB : BlockOrders) {
+      if (base != OutLocs[MBB->getNumber()][Idx]) {
+        disagree = true;
+        if (BBToOrder.find(MBB)->second < this_rpot)
+          pred_disagree = true;
+      }
     }
+
+    bool over_ride = false;
+    if (disagree && !pred_disagree && ValueIDNum::fromU64(InLocs[Idx]).LocNo != 0) {
+      // It's only the backedges that disagree. Consider demoting. Order is
+      // that non-phis have the minimum priority, and phis "closer" to this
+      // one.
+      ValueIDNum base_id = ValueIDNum::fromU64(base);
+      ValueIDNum inloc_id = ValueIDNum::fromU64(InLocs[Idx]);
+      unsigned base_block = base_id.BlockNo + 1;
+      if (base_id.InstNo != 0)
+        base_block = 0;
+      unsigned inloc_block = base_id.BlockNo + 1;
+      if (inloc_id.InstNo != 0)
+        inloc_block = 0;
+      if (base_block > inloc_block) {
+        // Override.
+        over_ride = true;
+      }
+    }
+
     // Generate a phi...
     ValueIDNum PHI = {(uint64_t)MBB.getNumber(), 0, LocIdx(Idx)};
-    uint64_t NewVal = disagree ? PHI.asU64() : base;
+    uint64_t NewVal = (disagree && !over_ride) ? PHI.asU64() : base;
     if (InLocs[Idx] != NewVal) {
       Changed |= true;
       InLocs[Idx] = NewVal;
@@ -1637,6 +1672,11 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   assert(HighestMBBNo >= 0);
   MLocTransfer.resize(HighestMBBNo+1);
 
+  std::vector<MachineBasicBlock *> NumToBlock;
+  NumToBlock.resize(HighestMBBNo+1);
+  for (auto &MBB : MF)
+    NumToBlock[MBB.getNumber()] = &MBB;
+
   // Initialize per-block structures and scan for fragment overlaps.
   // Also other stuff.
   for (auto &MBB : MF) {
@@ -1723,7 +1763,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
      // XXX jmorse
      // Also XXX, do we go around these loops too many times?
-      MBBJoined = join(*MBB, Visited, ArtificialBlocks, MOutLocs, MInLocs[cur_bb]);
+      MBBJoined = mloc_join(*MBB, Visited, ArtificialBlocks, MOutLocs, MInLocs[cur_bb], BBToOrder, NumToBlock);
       MBBJoined |= Visited.insert(MBB).second;
 
       if (MBBJoined) {
