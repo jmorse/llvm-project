@@ -2003,10 +2003,10 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
   for (MachineBasicBlock &MBB : MF) {
     unsigned bbnum = MBB.getNumber();
-    ttracker->loadInlocs(MBB, mphiremap, MInLocs[bbnum], SavedLiveIns[MBB.getNumber()], bbnum, NumLocs);
     tracker->reset();
     tracker->loadFromArray(MInLocs[bbnum], bbnum);
     tracker->lolremap(&MBB, mphiremap);
+    ttracker->loadInlocs(MBB, MInLocs[bbnum], SavedLiveIns[MBB.getNumber()], bbnum, NumLocs);
 
     for (auto &MI : MBB)
       process(MI);
