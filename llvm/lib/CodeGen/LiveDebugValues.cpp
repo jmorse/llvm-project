@@ -928,12 +928,6 @@ public:
         MachineFunctionProperties::Property::NoVRegs);
   }
 
-  void UpdateVlocMask(lolnumberingt &lolnumbering, unsigned ID,
-                      VarLocInMBB &VLOCScopeMasks,
-                 SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
-                 VarLocInMBB &VLOCTransMasks,
-                 DenseMap<DebugVariable, TinyPtrVector<const MachineBasicBlock  *>> &DbgVarBlocks);
-
   /// Calculate the liveness information for the given machine function.
   bool runOnMachineFunction(MachineFunction &MF) override;
 
@@ -1604,30 +1598,6 @@ void LiveDebugValues::resolveMPHIs(mphiremapt &mphiremap, MachineBasicBlock &MBB
       continue;
     //mphiremap.insert(std::make_pair(toexamine[Idx], seen_values[Idx]));
     mphiremap.insert(std::make_pair(std::make_pair(&MBB, seen_values[Idx]), toexamine[Idx]));
-  }
-}
-
-void LiveDebugValues::UpdateVlocMask(lolnumberingt &lolnumbering, unsigned ID,
-                                     VarLocInMBB &VLOCScopeMasks,
-               SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
-                 VarLocInMBB &VLOCTransMasks,
-                 DenseMap<DebugVariable, TinyPtrVector<const MachineBasicBlock*>> &DbgVarBlocks)
-{
-  // Maintain scope masking. Maybe cache in future?
-  SmallPtrSet<const MachineBasicBlock *, 32> LBlocks;
-  const DebugVariable &Var = lolnumbering[ID].first;
-  DebugLoc DL = DebugLoc::get(0, 0, Var.getVariable()->getScope(), Var.getInlinedAt());
-  LS.getMachineBasicBlocks(DL, LBlocks);
-  LBlocks.insert(ArtificialBlocks.begin(), ArtificialBlocks.end());
-  for (auto *MBB : LBlocks) {
-    VarLocSet &Mask = getVarLocsInMBB(MBB, VLOCScopeMasks);
-    Mask.set(ID);
-  }
-
-  auto &BlockNos = DbgVarBlocks[Var];
-  for (auto *MBB : BlockNos) {
-    VarLocSet &Mask = getVarLocsInMBB(MBB, VLOCTransMasks);
-    Mask.set(ID);
   }
 }
 
