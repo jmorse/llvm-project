@@ -227,9 +227,6 @@ public:
   }
 };
 
-typedef DenseMap<uint64_t, uint64_t> vphitomphit;
-typedef DenseMap<std::pair<const MachineBasicBlock *, ValueIDNum>, ValueIDNum> mphiremapt;
-
 typedef std::pair<const DIExpression *, bool> MetaVal;
 
 class MLocTracker {
@@ -289,16 +286,6 @@ public:
     // Quickly reset everything to being itself at inst 0, representing a phi.
     for (unsigned ID = 1; ID < LocIdxToIDNum.size(); ++ID) {
       LocIdxToIDNum[LocIdx(ID)] = ValueIDNum::fromU64(Locs[ID]);
-    }
-  }
-
-  void lolremap(const MachineBasicBlock *MBB, const mphiremapt &mphiremap) {
-    for (unsigned ID = 0; ID < LocIdxToIDNum.size(); ++ID) {
-      if (LocIdxToIDNum[ID].InstNo == 0) {
-        auto it = mphiremap.find(std::make_pair(MBB, LocIdxToIDNum[ID]));
-        if (it != mphiremap.end())
-          LocIdxToIDNum[ID] = it->second;
-      }
     }
   }
 
@@ -644,7 +631,7 @@ public:
 
   TransferTracker(const TargetInstrInfo *TII, MLocTracker *mtracker, MachineFunction &MF) : TII(TII), mtracker(mtracker), MF(MF) { }
 
-  void loadInlocs(MachineBasicBlock &MBB, const mphiremapt &mphiremap, uint64_t *mlocs, SmallVectorImpl<std::pair<DebugVariable, ValueRec>> &vlocs, unsigned cur_bb, unsigned NumLocs) {  
+  void loadInlocs(MachineBasicBlock &MBB, uint64_t *mlocs, SmallVectorImpl<std::pair<DebugVariable, ValueRec>> &vlocs, unsigned cur_bb, unsigned NumLocs) {  
     ActiveMLocs.clear();
     ActiveVLocs.clear();
 
@@ -695,17 +682,7 @@ public:
       if (IDNum.InstNo != 0)
         continue;
 
-      // Possssiiibbblly remap it.
-      // Complete bullshit code, but just proving a point right now.
-      auto mphiit= mphiremap.find(std::make_pair(&MBB, IDNum));
-      if (mphiit != mphiremap.end()) {
-        auto again = tmpmap.find(mphiit->second);
-        if (again != tmpmap.end()) {
-          InsertLiveIn(again->second);
-        } else if (mphiit->second.BlockNo == cur_bb && mphiit->second.InstNo == 0) {
-          InsertLiveIn(mphiit->second.LocNo);
-        }
-      } else if (IDNum.BlockNo == cur_bb) {
+      if (IDNum.BlockNo == cur_bb) {
         InsertLiveIn(IDNum.LocNo);
       }
     }
@@ -907,9 +884,6 @@ private:
                  const SmallSet<DebugVariable, 4> &AllVars,
                  uint64_t **MInLocs, uint64_t **MOutLocs);
   bool vloc_transfer(VarLocSet &ilocs, VarLocSet &transfer, VarLocSet &olocs, lolnumberingt &lolnumbering, VarLocSet &VLOCTransMasks);
-
-
-  void resolveMPHIs(mphiremapt &mphiremap, MachineBasicBlock &MBB, uint64_t *InLocs, uint64_t **MLOCOutLocs, unsigned cur_bb);
 
   bool ExtendRanges(MachineFunction &MF);
 
@@ -1561,46 +1535,6 @@ VarLocSet &VLOCTransMasks) {
   return Changed;
 }
 
-void LiveDebugValues::resolveMPHIs(mphiremapt &mphiremap, MachineBasicBlock &MBB, uint64_t *InLocs, uint64_t **MLOCOutLocs, unsigned cur_bb)
-{
-
-  // Take a look at any inlocs here that are PHIs; are they really PHIS?
-  tracker->reset();
-  tracker->loadFromArray(InLocs, cur_bb);
-  std::vector<ValueIDNum> toexamine;
-  for (unsigned Idx = 1; Idx < tracker->getNumLocs(); ++Idx) {
-    VarLocPos Pos = tracker->getVarLocPos(LocIdx(Idx)); // cast, as we're explicitly iterating over number of locs.
-    if (Pos.ID.BlockNo == cur_bb && Pos.ID.InstNo == 0)
-      toexamine.push_back(Pos.ID);
-  }
-
-  std::vector<ValueIDNum> seen_values = toexamine;
-  // Look over predecessors...
-  for (auto &p : MBB.predecessors()) {
-    tracker->reset();
-    tracker->loadFromArray(MLOCOutLocs[p->getNumber()], p->getNumber());
-    // XXX with everything being in an array now, this might be avoidable?
-    for (unsigned Idx = 0; Idx < toexamine.size(); ++Idx) {
-      VarLocPos outpos = tracker->getVarLocPos(toexamine[Idx].LocNo);
-      if (outpos.ID != seen_values[Idx] && outpos.ID != toexamine[Idx] &&
-          seen_values[Idx] != toexamine[Idx])
-        seen_values[Idx].LocNo = LocIdx(0);
-      else if (outpos.ID != toexamine[Idx])
-        seen_values[Idx] = outpos.ID;
-    }
-  }
-
-  // Any seen values that aren't nulled out means that the only incoming
-  // values were the mphi value or one other value. We can remap to that other
-  // value.
-  for (unsigned Idx = 0; Idx < toexamine.size(); ++Idx) {
-    if (seen_values[Idx].LocNo == 0)
-      continue;
-    //mphiremap.insert(std::make_pair(toexamine[Idx], seen_values[Idx]));
-    mphiremap.insert(std::make_pair(std::make_pair(&MBB, seen_values[Idx]), toexamine[Idx]));
-  }
-}
-
 void LiveDebugValues::dump_mloc_transfer(const mloc_transfert &mloc_transfer) const {
   for (auto &P : mloc_transfer) {
     std::string foo = tracker->LocIdxToName(P.first);
@@ -1962,20 +1896,10 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   // mloc argument only needs the posish -> spills map and the like.
   ttracker = new TransferTracker(TII, tracker, MF);
 
-  // Reprocess all instructions a final time and record transfers. The live-in
-  // locations should not change as we've reached a fixedpoint.
-  vphitomphit vphitomphi;
-  mphiremapt mphiremap;
-  for (MachineBasicBlock &MBB : MF) {
-    unsigned bbnum = MBB.getNumber();
-    resolveMPHIs(mphiremap, MBB, MInLocs[bbnum], MOutLocs, bbnum);
-  }
-
   for (MachineBasicBlock &MBB : MF) {
     unsigned bbnum = MBB.getNumber();
     tracker->reset();
     tracker->loadFromArray(MInLocs[bbnum], bbnum);
-    tracker->lolremap(&MBB, mphiremap);
     ttracker->loadInlocs(MBB, MInLocs[bbnum], SavedLiveIns[MBB.getNumber()], bbnum, NumLocs);
 
     for (auto &MI : MBB)
