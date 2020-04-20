@@ -1842,8 +1842,9 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
   // Produce a set of all variables.
   DenseSet<DebugVariable> AllVars;
-  DenseMap<const LexicalScope *, SmallSet<DebugVariable, 4>> ScopeToVars;
-  DenseMap<const LexicalScope *, SmallSet<MachineBasicBlock *, 4>> ScopeToBlocks;
+  DenseMap<DebugVariable, unsigned> AllVarsNumbering;
+  MapVector<const LexicalScope *, SmallSet<DebugVariable, 4>> ScopeToVars;
+  MapVector<const LexicalScope *, SmallSet<MachineBasicBlock *, 4>> ScopeToBlocks;
   for (auto &It : vlocs) {
     for (auto &idx : It.second->Vars) {
       const auto &Var = idx.first;
@@ -1857,6 +1858,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
         continue;
 
       AllVars.insert(Var);
+      AllVarsNumbering.insert(std::make_pair(Var, AllVarsNumbering.size()));
       ScopeToVars[Scope].insert(Var);
       ScopeToBlocks[Scope].insert(OrderToBB[It.first]);
     }
@@ -1975,6 +1977,16 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
     BlockOrders.clear();
     LBlocks.clear();
+  }
+
+  typedef std::pair<DebugVariable, ValueRec> LiveInPair;
+  auto OrderVariable = [&](const LiveInPair &A, const LiveInPair &B) -> bool {
+    return AllVarsNumbering.find(A.first)->second < AllVarsNumbering.find(B.first)->second;
+  };
+
+
+  for (auto &Vec : SavedLiveIns) {
+    llvm::sort(Vec.begin(), Vec.end(), OrderVariable);
   }
 
   // mloc argument only needs the posish -> spills map and the like.
