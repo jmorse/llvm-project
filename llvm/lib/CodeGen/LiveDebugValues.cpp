@@ -1356,7 +1356,7 @@ bool LiveDebugValues::mloc_join(
       unsigned base_block = base_id.BlockNo + 1;
       if (base_id.InstNo != 0)
         base_block = 0;
-      unsigned inloc_block = base_id.BlockNo + 1;
+      unsigned inloc_block = inloc_id.BlockNo + 1;
       if (inloc_id.InstNo != 0)
         inloc_block = 0;
       if (base_block > inloc_block) {
