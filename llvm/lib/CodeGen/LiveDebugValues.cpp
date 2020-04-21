@@ -1222,12 +1222,12 @@ bool LiveDebugValues::transferRegisterCopy(MachineInstr &MI) {
   if (!SrcRegOp->isKill())
     return false;
 
-      auto id = tracker->readReg(SrcReg);
-      tracker->setReg(DestReg, id);
-      if (ttracker)
-        ttracker->transferMlocs(tracker->getRegMLoc(SrcReg), tracker->getRegMLoc(DestReg), MI.getIterator());
-      tracker->lolwipe(SrcReg);
-      return true;
+  auto id = tracker->readReg(SrcReg);
+  tracker->setReg(DestReg, id);
+  if (ttracker)
+    ttracker->transferMlocs(tracker->getRegMLoc(SrcReg), tracker->getRegMLoc(DestReg), MI.getIterator());
+  tracker->lolwipe(SrcReg);
+  return true;
 }
 
 /// Accumulate a mapping between each DILocalVariable fragment and other
