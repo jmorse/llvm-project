@@ -474,6 +474,14 @@ public:
     }
   }
 
+  LLVM_DUMP_METHOD
+  void dump_mloc_map() const {
+    for (unsigned I = 0; I < LocIdxToIDNum.size(); ++I) {
+      std::string foo = LocIdxToName(LocIdx(I));
+      dbgs() << "Idx " << I << " " << foo << "\n";
+    }
+  }
+
   MachineInstrBuilder 
   emitLoc(LocIdx MLoc, const DebugVariable &Var, const MetaVal &meta) {
     DebugLoc DL = DebugLoc::get(0, 0, Var.getVariable()->getScope(), Var.getInlinedAt());
