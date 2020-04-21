@@ -882,7 +882,8 @@ private:
                  SmallPtrSet<const MachineBasicBlock *, 16> *VLOCVisited,
                  unsigned cur_bb,
                  const SmallSet<DebugVariable, 4> &AllVars,
-                 uint64_t **MInLocs, uint64_t **MOutLocs);
+                 uint64_t **MInLocs, uint64_t **MOutLocs,
+  SmallPtrSet<const MachineBasicBlock *, 8> &NonAssignBlocks);
   bool vloc_transfer(VarLocSet &ilocs, VarLocSet &transfer, VarLocSet &olocs, lolnumberingt &lolnumbering, VarLocSet &VLOCTransMasks);
 
   bool ExtendRanges(MachineFunction &MF);
@@ -1375,8 +1376,16 @@ bool LiveDebugValues::vloc_join(
    SmallPtrSet<const MachineBasicBlock *, 16> *VLOCVisited,
    unsigned cur_bb,
    const SmallSet<DebugVariable, 4> &AllVars,
-   uint64_t **MInLocs, uint64_t **MOutLocs) {
+   uint64_t **MInLocs, uint64_t **MOutLocs,
+  SmallPtrSet<const MachineBasicBlock *, 8> &NonAssignBlocks) {
    
+  if (NonAssignBlocks.count(&MBB) == 0) {
+    // Wipe all inlocs. By never assigning to them.
+    if (VLOCVisited)
+      return true;
+    return false;
+  }
+
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
 
@@ -1787,6 +1796,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     DebugLoc DL = DebugLoc::get(0, 0, AVar.getVariable()->getScope(), AVar.getInlinedAt());
 
     LS.getMachineBasicBlocks(DL.get(), LBlocks);
+    SmallPtrSet<const MachineBasicBlock *, 8> NonAssignBlocks = LBlocks;
 
     // Also any blocks that contain a DBG_VALUE.
     LBlocks.insert(ScopeToBlocks[P.first].begin(), ScopeToBlocks[P.first].end());
@@ -1795,6 +1805,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     // that later. They won't contribute a lot unless they connect to a
     // meaningful non-artificial block.
     LBlocks.insert(ArtificialBlocks.begin(), ArtificialBlocks.end());
+    NonAssignBlocks.insert(ArtificialBlocks.begin(), ArtificialBlocks.end());
 
     // Single block scope: not interesting! No propagation at all. Note that
     // this could probably go above ArtificialBlocks without damage, but
@@ -1830,7 +1841,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
         cur_bb = MBB->getNumber();
         Worklist.pop();
 
-        MBBJoined = vloc_join(*MBB, LiveOutIdx, LiveInIdx, (firsttrip) ? &VLOCVisited : nullptr, cur_bb, P.second, MInLocs, MOutLocs);
+        MBBJoined = vloc_join(*MBB, LiveOutIdx, LiveInIdx, (firsttrip) ? &VLOCVisited : nullptr, cur_bb, P.second, MInLocs, MOutLocs, NonAssignBlocks);
 
         MBBJoined |= VLOCVisited.insert(MBB).second;
         if (MBBJoined) {
