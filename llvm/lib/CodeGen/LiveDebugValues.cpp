@@ -1832,6 +1832,8 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     for (auto *MBB : BlockOrders)
       Worklist.push(BBToOrder[MBB]);
 
+    SmallSet<DebugVariable, 4> &VarsWeCareAbout = P.second;
+
     bool firsttrip = true;
     SmallPtrSet<const MachineBasicBlock *, 16> VLOCVisited;
     while (!Worklist.empty() || !Pending.empty()) {
@@ -1854,8 +1856,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
           auto *vtracker = vlocs[BBToOrder[MBB]];
           for (auto &Transfer : vtracker->Vars) {
             // Is this var we're mangling in this scope?
-            if (P.first->getDesc() == Transfer.first.getVariable()->getScope()
-                && P.first->getInlinedAt() == Transfer.first.getInlinedAt())
+            if (VarsWeCareAbout.count(Transfer.first))
               Cpy[Transfer.first] = Transfer.second;
           }
 
