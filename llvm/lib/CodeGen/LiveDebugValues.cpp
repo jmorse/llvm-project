@@ -1479,9 +1479,12 @@ bool LiveDebugValues::vloc_join(
           continue;
         }
 
-        // Do these things agree?
-        if (InLocsIt->second == OLIt->second)
-          continue; // Live through.
+        // Check for plain live through, but only for non backedges. For
+        // backedges, we still need to check whether the value comes back
+        // round the loop in the correct location.
+        if (InLocsIt->second == OLIt->second &&
+           this_rpot > BBToOrder[p])
+          continue;
 
         // Meta disagreement -> bail early.
         if (InLocsIt->second.meta != OLIt->second.meta) {
