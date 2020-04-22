@@ -1222,11 +1222,15 @@ bool LiveDebugValues::transferRegisterCopy(MachineInstr &MI) {
   if (!SrcRegOp->isKill())
     return false;
 
+  // We have to follow identity copies, as DbgEntityHistoryCalculator only
+  // sees the defs.
   auto id = tracker->readReg(SrcReg);
   tracker->setReg(DestReg, id);
   if (ttracker)
     ttracker->transferMlocs(tracker->getRegMLoc(SrcReg), tracker->getRegMLoc(DestReg), MI.getIterator());
-  tracker->lolwipe(SrcReg);
+
+  if (SrcReg != DestReg)
+    tracker->lolwipe(SrcReg);
   return true;
 }
 
