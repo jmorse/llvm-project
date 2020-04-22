@@ -1345,7 +1345,7 @@ bool LiveDebugValues::mloc_join(
     for (auto *MBB : BlockOrders) {
       if (base != OutLocs[MBB->getNumber()][Idx]) {
         disagree = true;
-        if (BBToOrder.find(MBB)->second < this_rpot)
+        if (BBToOrder.find(MBB)->second <= this_rpot) // might be self b/e
           pred_disagree = true;
       }
     }
