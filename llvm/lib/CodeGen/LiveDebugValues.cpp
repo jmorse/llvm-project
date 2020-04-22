@@ -885,13 +885,14 @@ private:
             const std::vector<MachineBasicBlock *> &NumToBlock);
 
   typedef DenseMap<const MachineBasicBlock *, DenseMap<DebugVariable, ValueRec> *> LiveIdxT;
-  bool vloc_join(const MachineBasicBlock &MBB, LiveIdxT &VLOCOutLocs,
+  bool vloc_join(MachineBasicBlock &MBB, LiveIdxT &VLOCOutLocs,
                  LiveIdxT &VLOCInLocs,
                  SmallPtrSet<const MachineBasicBlock *, 16> *VLOCVisited,
                  unsigned cur_bb,
                  const SmallSet<DebugVariable, 4> &AllVars,
                  uint64_t **MInLocs, uint64_t **MOutLocs,
-  SmallPtrSet<const MachineBasicBlock *, 8> &NonAssignBlocks);
+  SmallPtrSet<const MachineBasicBlock *, 8> &NonAssignBlocks,
+  DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder);
   bool vloc_transfer(VarLocSet &ilocs, VarLocSet &transfer, VarLocSet &olocs, lolnumberingt &lolnumbering, VarLocSet &VLOCTransMasks);
 
   bool ExtendRanges(MachineFunction &MF);
@@ -1383,13 +1384,14 @@ bool LiveDebugValues::mloc_join(
 }
 
 bool LiveDebugValues::vloc_join(
-  const MachineBasicBlock &MBB, LiveIdxT &VLOCOutLocs,
+  MachineBasicBlock &MBB, LiveIdxT &VLOCOutLocs,
    LiveIdxT &VLOCInLocs,
    SmallPtrSet<const MachineBasicBlock *, 16> *VLOCVisited,
    unsigned cur_bb,
    const SmallSet<DebugVariable, 4> &AllVars,
    uint64_t **MInLocs, uint64_t **MOutLocs,
-  SmallPtrSet<const MachineBasicBlock *, 8> &NonAssignBlocks) {
+  SmallPtrSet<const MachineBasicBlock *, 8> &NonAssignBlocks,
+  DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder) {
    
   if (NonAssignBlocks.count(&MBB) == 0) {
     // Wipe all inlocs. By never assigning to them.
@@ -1404,6 +1406,10 @@ bool LiveDebugValues::vloc_join(
   DenseMap<DebugVariable, ValueRec> InLocsT;
   SmallSet<DebugVariable, 8> Disagreements;
 
+  auto ILSIt = VLOCInLocs.find(&MBB);
+  assert(ILSIt != VLOCInLocs.end());
+  auto &ILS = *ILSIt->second;
+
   auto FindLocOfDef = [&](unsigned BBNum, const ValueIDNum &ID) -> LocIdx {
     unsigned NumLocs = tracker->getNumLocs();
     uint64_t *OutLocs = MOutLocs[BBNum];
@@ -1417,11 +1423,24 @@ bool LiveDebugValues::vloc_join(
     return LocIdx(0);
   };
 
+  // Order predecessors by RPOT order. Fundemental right now.
+  SmallVector<MachineBasicBlock *, 8> BlockOrders;
+  for (auto p : MBB.predecessors())
+    BlockOrders.push_back(p);
+
+  auto Cmp = [&BBToOrder](MachineBasicBlock *A, MachineBasicBlock *B)
+     {
+       return BBToOrder[A] < BBToOrder[B];
+     };
+
+  llvm::sort(BlockOrders.begin(), BlockOrders.end(), Cmp);
+  unsigned this_rpot = BBToOrder[&MBB];
+
   // For all predecessors of this MBB, find the set of VarLocs that
   // can be joined.
   int NumVisited = 0;
   unsigned FirstVisited = 0;
-  for (auto p : MBB.predecessors()) {
+  for (auto p : BlockOrders) {
     // Ignore backedges if we have not visited the predecessor yet. As the
     // predecessor hasn't yet had locations propagated into it, most locations
     // will not yet be valid, so treat them as all being uninitialized and
@@ -1484,29 +1503,60 @@ bool LiveDebugValues::vloc_join(
           continue;
         }
 
-        // Is the inlocs loc an mphi yet?
+        // Is the inlocs loc an mphi yet? If it's not a backedge, consider
+        // joining on the location and producing an mphi. If it's a backedge,
+        // consider over-rideing it.
         assert(InLocsIt->second.Kind == ValueRec::Def);
-        ValueIDNum &ID = InLocsIt->second.ID;
-        if (ID.BlockNo != cur_bb || ID.InstNo != 0) {
-          LocIdx Idx = FindLocOfDef(FirstVisited, ID);
-          if (Idx == 0) {
-            // Actually this value doesn't survive to any live-out. Oops.
+        ValueIDNum &OLID = OLIt->second.ID;
+        ValueIDNum &InLocsID = InLocsIt->second.ID;
+        if (OLID != InLocsID) {
+          // Try to join on location.
+          // XXX is now always inlocst
+          LocIdx Idx = FindLocOfDef(FirstVisited, InLocsID);
+          if (InLocsID.BlockNo == cur_bb && InLocsID.InstNo == 0)
+            Idx = InLocsID.LocNo; // We've previously made this an mphi.
+          LocIdx OLIdx = FindLocOfDef(p->getNumber(), OLID);
+          if (OLID.BlockNo == cur_bb && InLocsID.InstNo == 0)
+            OLIdx = OLID.LocNo; // We've previously made this an mphi.
+          if (Idx != 0 && Idx == OLIdx) {
+            // Turn ID into an mphi, if it isn't already.
+            InLocsID = ValueIDNum{cur_bb, 0, Idx};
+            // XXX assert that it's in MInLocs?
+          } else if (this_rpot <= BBToOrder[p]) {
+            // Backedge: consider overriding.
+            auto ILS_It = ILS.find(Var);
+            if (ILS_It == ILS.end() || ILS_It->second.Kind != ValueRec::Def) {
+              // First time around, if there are disagreements, they won't
+              // be due to back edges, thus it's immediately fatal.
+              InLocsT.erase(InLocsIt);
+              continue;
+            }
+
+            ValueIDNum &ILS_ID = ILS_It->second.ID;
+            unsigned NewInOrder = (InLocsID.InstNo) ? 0 : InLocsID.BlockNo + 1;
+            unsigned OldOrder = (ILS_ID.InstNo) ? 0 : ILS_ID.BlockNo + 1;
+            if (OldOrder >= NewInOrder) {
+              InLocsT.erase(InLocsIt);
+              continue;
+            }
+            // Silently ignore OL's location: we'll propagate the incoming
+            // new mphi to see if it replaces it.
+//            InLocsID = ValueIDNum{cur_bb, 0, Idx};
+// what goes wrong here again?
+          } else {
+            // They conflict and are in the wrong location. Incompatible.
             InLocsT.erase(InLocsIt);
             continue;
           }
-
-          // Turn it into an mphi.
-          ID = ValueIDNum{cur_bb, 0, Idx};
-          // XXX assert that it's in MInLocs?
-        }
-
-        // And now: is this new incoming location in the right place?
-        LocIdx Idx = ID.LocNo;
-        if (OLIt->second.Kind != ValueRec::Def ||
-            MOutLocs[p->getNumber()][Idx] != OLIt->second.ID.asU64()) {
-          // No. Erase.
-          InLocsT.erase(InLocsIt);
-          continue;
+        } else {
+          // And now: is this new incoming location in the right place?
+          LocIdx Idx = InLocsID.LocNo;
+          if (OLIt->second.Kind != ValueRec::Def ||
+              MOutLocs[p->getNumber()][Idx] != OLIt->second.ID.asU64()) {
+            // No. Erase.
+            InLocsT.erase(InLocsIt);
+            continue;
+          }
         }
 
         // Successful join!
@@ -1525,10 +1575,6 @@ bool LiveDebugValues::vloc_join(
   assert((NumVisited || MBB.pred_empty()) &&
          "Should have processed at least one predecessor");
 #endif
-
-  auto ILSIt = VLOCInLocs.find(&MBB);
-  assert(ILSIt != VLOCInLocs.end());
-  auto &ILS = *ILSIt->second;
 
   Changed = ILS != InLocsT;
   if (Changed)
@@ -1855,7 +1901,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
         cur_bb = MBB->getNumber();
         Worklist.pop();
 
-        MBBJoined = vloc_join(*MBB, LiveOutIdx, LiveInIdx, (firsttrip) ? &VLOCVisited : nullptr, cur_bb, P.second, MInLocs, MOutLocs, NonAssignBlocks);
+        MBBJoined = vloc_join(*MBB, LiveOutIdx, LiveInIdx, (firsttrip) ? &VLOCVisited : nullptr, cur_bb, P.second, MInLocs, MOutLocs, NonAssignBlocks, BBToOrder);
 
         MBBJoined |= VLOCVisited.insert(MBB).second;
         if (MBBJoined) {
