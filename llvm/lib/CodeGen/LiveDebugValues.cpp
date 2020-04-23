@@ -1175,6 +1175,9 @@ bool LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI) {
   if (isLocationSpill(MI, MF, Reg)) {
     Loc = extractSpillBaseRegAndOffset(MI);
     auto id = tracker->readReg(Reg);
+    // If this is empty, produce an mphi.
+    if (id.LocNo == 0)
+      id = {cur_bb, 0, tracker->getRegMLoc(Reg)};
     tracker->setSpill(*Loc, id);
     assert(tracker->getSpillMLoc(*Loc) != 0);
     if (ttracker)
@@ -1200,6 +1203,10 @@ bool LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI) {
       // Well, def this register anyway.
       for (MCRegAliasIterator RAI(Reg, TRI, true); RAI.isValid(); ++RAI)
         tracker->defReg(*RAI, cur_bb, cur_inst);
+      // Make an mphi for the spill, to read it in the future.
+      LocIdx l = tracker->getSpillMLoc(*Loc);
+      id = {cur_bb, 0, l};
+      tracker->setReg(Reg, id);
     }
   }
   return true;
