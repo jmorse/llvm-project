@@ -1179,17 +1179,27 @@ bool LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI) {
     assert(tracker->getSpillMLoc(*Loc) != 0);
     if (ttracker)
       ttracker->transferMlocs(tracker->getRegMLoc(Reg), tracker->getSpillMLoc(*Loc), MI.getIterator());
-    tracker->lolwipe(Reg);
+    for (MCRegAliasIterator RAI(Reg, TRI, true); RAI.isValid(); ++RAI)
+      tracker->defReg(*RAI, cur_bb, cur_inst);
   } else {
     if (!(Loc = isRestoreInstruction(MI, MF, Reg)))
       return false;
     auto id = tracker->readSpill(*Loc);
     if (id.LocNo != 0) {
+      // XXX -- how do we go about tracking sub-values, one wonders?
+      for (MCRegAliasIterator RAI(Reg, TRI, true); RAI.isValid(); ++RAI)
+        tracker->defReg(*RAI, cur_bb, cur_inst);
+      // Override the reg we're restoring to. It's subregs go away. As they
+      // do in old LDV.
       tracker->setReg(Reg, id);
       assert(tracker->getSpillMLoc(*Loc) != 0);
       if (ttracker)
         ttracker->transferMlocs(tracker->getSpillMLoc(*Loc), tracker->getRegMLoc(Reg), MI.getIterator());
       tracker->lolwipe(*Loc);
+    } else {
+      // Well, def this register anyway.
+      for (MCRegAliasIterator RAI(Reg, TRI, true); RAI.isValid(); ++RAI)
+        tracker->defReg(*RAI, cur_bb, cur_inst);
     }
   }
   return true;
