@@ -984,6 +984,10 @@ bool LiveDebugValues::transferDebugValue(const MachineInstr &MI) {
 
   DebugVariable V(Var, Expr, InlinedAt);
 
+  auto *Scope = LS.findLexicalScope(MI.getDebugLoc().get());
+  if (Scope == nullptr)
+    return true; // handled it; by doing nothing
+
   const MachineOperand &MO = MI.getOperand(0);
 
   // MLocTracker needs to know that this register is read, even if it's only
@@ -1828,6 +1832,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
       // It's possible that there are DBG_VALUEs for a scope, but that there
       // are no instructions that _belong_ to that scope. If so, propagating
       // locations between blocks is pointless.
+      // XXX moved this up to transferDebugValue?
       if (Scope == nullptr)
         continue;
 
