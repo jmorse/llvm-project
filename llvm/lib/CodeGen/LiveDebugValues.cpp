@@ -768,7 +768,7 @@ public:
       ActiveVLocs.erase(ALoc);
     }
     if (insts.size() != 0)
-      Transfers.push_back({std::next(pos), pos->getParent(), std::move(insts)});
+      Transfers.push_back({pos, nullptr, std::move(insts)});
 
     It->second.clear();
   }
@@ -790,7 +790,7 @@ public:
     }
     ActiveMLocs[src].clear();
     if (instrs.size() > 0)
-      Transfers.push_back({std::next(pos), pos->getParent(), std::move(instrs)});
+      Transfers.push_back({pos, nullptr, std::move(instrs)});
   }
 
   MachineInstrBuilder 
@@ -1979,10 +1979,27 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
       process(MI);
   }
 
+  // XXX remove earlier LiveIn ordering and see whether it's needed now.
+  auto OrderDbgValues = [&](const MachineInstr *A, const MachineInstr *B) -> bool{
+    DebugVariable VarA(A->getDebugVariable(), A->getDebugExpression(),
+                      A->getDebugLoc()->getInlinedAt());
+    DebugVariable VarB(B->getDebugVariable(), B->getDebugExpression(),
+                      B->getDebugLoc()->getInlinedAt());
+    return AllVarsNumbering.find(VarA)->second < AllVarsNumbering.find(VarB)->second;
+  };
+
   for (auto &P : ttracker->Transfers) {
-    MachineBasicBlock &MBB = *P.MBB;
-    for (auto *MI : P.insts) {
-      MBB.insert(P.pos, MI);
+    llvm::sort(P.insts.begin(), P.insts.end(), OrderDbgValues);
+    if (P.MBB) {
+      MachineBasicBlock &MBB = *P.MBB;
+      for (auto *MI : P.insts) {
+        MBB.insert(P.pos, MI);
+      }
+    } else {
+      MachineBasicBlock &MBB = *P.pos->getParent();
+      for (auto *MI : P.insts) {
+        MBB.insertAfter(P.pos, MI);
+      }
     }
   }
 
