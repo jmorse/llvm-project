@@ -1510,12 +1510,18 @@ bool LiveDebugValues::vloc_join(
           continue;
         }
 
-        // Check for plain live through, but only for non backedges. For
-        // backedges, we still need to check whether the value comes back
-        // round the loop in the correct location.
-        if (InLocsIt->second == OLIt->second &&
-           this_rpot > BBToOrder[p])
-          continue;
+        // Check for plain live through, but only for non backedges when this
+        // is a PHI. For backedges, we still need to check whether the value
+        // comes back round the loop in the correct location.
+        if (InLocsIt->second == OLIt->second) {
+          if (InLocsIt->second.Kind == ValueRec::Def) {
+            // don't continue if it's a backedge mphi from thsi block
+            if (this_rpot > BBToOrder[p])
+              continue;
+          } else {
+            continue;
+          }
+        }
 
         // Meta disagreement -> bail early.
         if (InLocsIt->second.meta != OLIt->second.meta) {
