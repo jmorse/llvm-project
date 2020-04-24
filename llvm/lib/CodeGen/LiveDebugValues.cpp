@@ -1152,6 +1152,7 @@ LiveDebugValues::isRestoreInstruction(const MachineInstr &MI,
 /// Any change in location will be recorded in \p OpenRanges, and \p Transfers
 /// if it is non-null.
 bool LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI) {
+return false;
   MachineFunction *MF = MI.getMF();
   unsigned Reg;
   Optional<SpillLoc> Loc;
