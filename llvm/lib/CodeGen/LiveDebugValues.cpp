@@ -652,8 +652,10 @@ public:
         continue;
       // Produce a map of value numbers to the current machine locs they live
       // in. There should only be one machine loc per value.
-      assert(tmpmap.find(VNum) == tmpmap.end()); // XXX expensie
-      tmpmap[VNum] = LocIdx(Idx);
+      //assert(tmpmap.find(VNum) == tmpmap.end()); // XXX expensie
+      auto it = tmpmap.find(VNum);
+      if(it == tmpmap.end() || mtracker->isSpill(it->second))
+        tmpmap[VNum] = LocIdx(Idx);
     }
 
     // Now map variables to their current machine locs
@@ -1198,7 +1200,7 @@ bool LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI) {
       assert(tracker->getSpillMLoc(*Loc) != 0);
       if (ttracker)
         ttracker->transferMlocs(tracker->getSpillMLoc(*Loc), tracker->getRegMLoc(Reg), MI.getIterator());
-      tracker->lolwipe(*Loc);
+//      tracker->lolwipe(*Loc);
     } else {
       // Well, def this register anyway.
       for (MCRegAliasIterator RAI(Reg, TRI, true); RAI.isValid(); ++RAI)
@@ -1434,14 +1436,21 @@ bool LiveDebugValues::vloc_join(
   auto FindLocOfDef = [&](unsigned BBNum, const ValueIDNum &ID) -> LocIdx {
     unsigned NumLocs = tracker->getNumLocs();
     uint64_t *OutLocs = MOutLocs[BBNum];
+    LocIdx theloc = LocIdx(0);
     for (unsigned i = 0; i < NumLocs; ++i) {
-      if (OutLocs[i] == ID.asU64())
-        // XXX assert that there are not more than one?
-        return LocIdx(i);
+      if (OutLocs[i] == ID.asU64()) {
+        if (theloc != 0) {
+          // Prefer non-spills
+          if (tracker->isSpill(theloc))
+            theloc = LocIdx(i);
+        } else {
+          theloc = LocIdx(i);
+        }
+      }
     }
     // It's possible that that value simply isn't availble, coming out of the
     // designated block.
-    return LocIdx(0);
+    return theloc;
   };
 
   // Order predecessors by RPOT order. Fundemental right now.
