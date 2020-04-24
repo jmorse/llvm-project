@@ -1590,7 +1590,9 @@ bool LiveDebugValues::vloc_join(
           }
         } else {
           // And now: is this new incoming location in the right place?
-          LocIdx Idx = InLocsID.LocNo;
+          LocIdx Idx = FindLocOfDef(FirstVisited, InLocsID);
+          if (InLocsID.BlockNo == cur_bb && InLocsID.InstNo == 0)
+            Idx = InLocsID.LocNo; // We've previously made this an mphi.
           if (OLIt->second.Kind != ValueRec::Def ||
               MOutLocs[p->getNumber()][Idx] != OLIt->second.ID.asU64()) {
             // No. Erase.
