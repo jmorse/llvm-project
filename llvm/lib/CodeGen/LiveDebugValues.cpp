@@ -1682,6 +1682,13 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   for (auto &MBB : MF)
     NumToBlock[MBB.getNumber()] = &MBB;
 
+  unsigned BVWords = MachineOperand::getRegMaskSize(TRI->getNumRegs());
+  std::vector<BitVector> BlockMasks;
+  BlockMasks.resize(HighestMBBNo+1);
+  for (auto &BV : BlockMasks) {
+    BV.resize(TRI->getNumRegs(), true);
+  }
+
   // Initialize per-block structures and scan for fragment overlaps.
   // Also other stuff.
   for (auto &MBB : MF) {
@@ -1707,6 +1714,43 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
         continue;
 
       MLocTransfer[cur_bb][Idx] = P.ID;
+    }
+
+    // Accumulate any bitmask operands.
+    for (auto &P : tracker->Masks) {
+      BlockMasks[cur_bb].clearBitsNotInMask(P.first->getRegMask(), BVWords);
+    }
+  }
+
+  const TargetLowering *TLI = MF.getSubtarget().getTargetLowering();
+  unsigned SP = TLI->getStackPointerRegisterToSaveRestore();
+  BitVector UsedRegs(TRI->getNumRegs());
+  for (auto &P : tracker->LocIdxToLocID) {
+    if (P.first == 0 || P.second.IsSpill || P.second.LocNo == SP)
+      continue;
+    UsedRegs.set(P.second.LocNo);
+  }
+
+  // For each block that we looked at, are there any clobbered registers that
+  // are used, and that don't appear as 'clobbered' in the transfer func?
+  // Overwrite them. XXX, this doesn't account for setting a reg and then
+  // clobbering it afterwards, although I guess then the reg would be known
+  // about?
+  for (int I = 0; I < HighestMBBNo+1; ++I) {
+    BitVector &BV = BlockMasks[I];
+    BV.flip();
+    BV &= UsedRegs;
+    // This produces all the bits that we clobber, but also use. Check that
+    // they're all clobbered or at least set in the designated transfer
+    // elem.
+    for (unsigned Bit : BV.set_bits()) {
+      LocID ID{false, Bit};
+      LocIdx Idx = tracker->LocIDToLocIdx[ID];
+      assert(Idx != 0);
+      ValueIDNum &ValueID = MLocTransfer[I][Idx];
+      if (ValueID.BlockNo == I && ValueID.InstNo == 0)
+        // it was left as live-through. Set it to clobbered.
+        ValueID = ValueIDNum{0, 0, LocIdx(0)};
     }
   }
 
