@@ -613,31 +613,31 @@ private:
   /// address the spill location in a target independent way.
   VarLoc::SpillLoc extractSpillBaseRegAndOffset(const MachineInstr &MI);
   void insertTransferDebugPair(MachineInstr &MI, OpenRangesSet &OpenRanges,
-                               TransferMap &Transfers, VarLocMap &VarLocIDs,
+                               TransferMap *Transfers, VarLocMap &VarLocIDs,
                                LocIndex OldVarID, TransferKind Kind,
                                unsigned NewReg = 0);
 
   void transferDebugValue(const MachineInstr &MI, OpenRangesSet &OpenRanges,
                           VarLocMap &VarLocIDs);
   void transferSpillOrRestoreInst(MachineInstr &MI, OpenRangesSet &OpenRanges,
-                                  VarLocMap &VarLocIDs, TransferMap &Transfers);
+                                  VarLocMap &VarLocIDs, TransferMap *Transfers);
   bool removeEntryValue(const MachineInstr &MI, OpenRangesSet &OpenRanges,
                         VarLocMap &VarLocIDs, const VarLoc &EntryVL);
   void emitEntryValues(MachineInstr &MI, OpenRangesSet &OpenRanges,
-                       VarLocMap &VarLocIDs, TransferMap &Transfers,
+                       VarLocMap &VarLocIDs, TransferMap *Transfers,
                        VarLocSet &KillSet);
   void recordEntryValue(const MachineInstr &MI,
                         const DefinedRegsSet &DefinedRegs,
                         OpenRangesSet &OpenRanges, VarLocMap &VarLocIDs);
-  void transferRegisterCopy(MachineInstr &MI, OpenRangesSet &OpenRanges,
-                            VarLocMap &VarLocIDs, TransferMap &Transfers);
+  bool transferRegisterCopy(MachineInstr &MI, OpenRangesSet &OpenRanges,
+                            VarLocMap &VarLocIDs, TransferMap *Transfers);
   void transferRegisterDef(MachineInstr &MI, OpenRangesSet &OpenRanges,
-                           VarLocMap &VarLocIDs, TransferMap &Transfers);
+                           VarLocMap &VarLocIDs, TransferMap *Transfers);
   bool transferTerminator(MachineBasicBlock *MBB, OpenRangesSet &OpenRanges,
                           VarLocInMBB &OutLocs, const VarLocMap &VarLocIDs);
 
   void process(MachineInstr &MI, OpenRangesSet &OpenRanges,
-               VarLocMap &VarLocIDs, TransferMap &Transfers);
+               VarLocMap &VarLocIDs, TransferMap *Transfers);
 
   void accumulateFragmentMap(MachineInstr &MI, VarToFragments &SeenFragments,
                              OverlapMap &OLapMap);
@@ -650,7 +650,8 @@ private:
 
   /// Create DBG_VALUE insts for inlocs that have been propagated but
   /// had their instruction creation deferred.
-  void flushPendingLocs(VarLocInMBB &PendingInLocs, VarLocMap &VarLocIDs);
+  void flushPendingLocs(VarLocInMBB &PendingInLocs, VarLocMap &VarLocIDs,
+                        const DenseMap<DebugVariable, unsigned> &Orders);
 
   bool ExtendRanges(MachineFunction &MF);
 
@@ -918,6 +919,10 @@ void LiveDebugValues::transferDebugValue(const MachineInstr &MI,
   assert(Var->isValidLocationForIntrinsic(DebugLoc) &&
          "Expected inlined-at fields to agree");
 
+  auto *Scope = LS.findLexicalScope(MI.getDebugLoc().get());
+  if (Scope == nullptr)
+    return;
+
   DebugVariable V(Var, Expr, InlinedAt);
 
   // Check if this DBG_VALUE indicates a parameter's value changing.
@@ -959,7 +964,7 @@ void LiveDebugValues::transferDebugValue(const MachineInstr &MI,
 void LiveDebugValues::emitEntryValues(MachineInstr &MI,
                                       OpenRangesSet &OpenRanges,
                                       VarLocMap &VarLocIDs,
-                                      TransferMap &Transfers,
+                                      TransferMap *Transfers,
                                       VarLocSet &KillSet) {
   for (uint64_t ID : KillSet) {
     LocIndex Idx = LocIndex::fromRawInteger(ID);
@@ -980,7 +985,8 @@ void LiveDebugValues::emitEntryValues(MachineInstr &MI,
     VarLoc EntryLoc =
         VarLoc::CreateEntryLoc(EntryVL.MI, LS, EntryVL.Expr, EntryVL.Loc.RegNo);
     LocIndex EntryValueID = VarLocIDs.insert(EntryLoc);
-    Transfers.push_back({&MI, EntryValueID});
+    if (Transfers)
+      Transfers->push_back({&MI, EntryValueID});
     OpenRanges.insert(EntryValueID, EntryLoc);
   }
 }
@@ -991,12 +997,12 @@ void LiveDebugValues::emitEntryValues(MachineInstr &MI,
 /// new location will be register location created by the copy like instruction,
 /// otherwise it is variable's location on the stack.
 void LiveDebugValues::insertTransferDebugPair(
-    MachineInstr &MI, OpenRangesSet &OpenRanges, TransferMap &Transfers,
+    MachineInstr &MI, OpenRangesSet &OpenRanges, TransferMap *Transfers,
     VarLocMap &VarLocIDs, LocIndex OldVarID, TransferKind Kind,
     unsigned NewReg) {
   const MachineInstr *DebugInstr = &VarLocIDs[OldVarID].MI;
 
-  auto ProcessVarLoc = [&MI, &OpenRanges, &Transfers, &VarLocIDs](VarLoc &VL) {
+  auto ProcessVarLoc = [&MI, &OpenRanges, Transfers, &VarLocIDs](VarLoc &VL) {
     LocIndex LocId = VarLocIDs.insert(VL);
 
     // Close this variable's previous location range.
@@ -1005,8 +1011,10 @@ void LiveDebugValues::insertTransferDebugPair(
     // Record the new location as an open range, and a postponed transfer
     // inserting a DBG_VALUE for this location.
     OpenRanges.insert(LocId, VL);
-    TransferDebugPair MIP = {&MI, LocId};
-    Transfers.push_back(MIP);
+    if (Transfers) {
+      TransferDebugPair MIP = {&MI, LocId};
+      Transfers->push_back(MIP);
+    }
   };
 
   // End all previous ranges of VL.Var.
@@ -1058,7 +1066,7 @@ void LiveDebugValues::insertTransferDebugPair(
 /// A definition of a register may mark the end of a range.
 void LiveDebugValues::transferRegisterDef(
     MachineInstr &MI, OpenRangesSet &OpenRanges, VarLocMap &VarLocIDs,
-    TransferMap &Transfers) {
+    TransferMap *Transfers) {
 
   // Meta Instructions do not affect the debug liveness of any register they
   // define.
@@ -1198,14 +1206,13 @@ LiveDebugValues::isRestoreInstruction(const MachineInstr &MI,
 /// A spilled register may indicate that we have to end the current range of
 /// a variable and create a new one for the spill location.
 /// A restored register may indicate the reverse situation.
-/// We don't want to insert any instructions in process(), so we just create
-/// the DBG_VALUE without inserting it and keep track of it in \p Transfers.
-/// It will be inserted into the BB when we're done iterating over the
-/// instructions.
+/// Any change in location will be recorded in \p OpenRanges, and \p Transfers
+/// if it is non-null.
 void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI,
                                                  OpenRangesSet &OpenRanges,
                                                  VarLocMap &VarLocIDs,
-                                                 TransferMap &Transfers) {
+                                                 TransferMap *Transfers) {
+return;
   MachineFunction *MF = MI.getMF();
   TransferKind TKind;
   unsigned Reg;
@@ -1236,8 +1243,9 @@ void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI,
         KillSet.set(ID);
         VarLoc UndefVL = VarLoc::CreateCopyLoc(VL.MI, LS, 0);
         LocIndex UndefLocID = VarLocIDs.insert(UndefVL);
-        Transfers.push_back({&MI, UndefLocID});
-      }
+        if (Transfers)
+          Transfers->push_back({&MI, UndefLocID});
+        }
     }
     OpenRanges.erase(KillSet, VarLocIDs);
   }
@@ -1258,6 +1266,7 @@ void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI,
                       << "\n");
   }
   // Check if the register or spill location is the location of a debug value.
+  SmallVector<LocIndex, 8> ToMove;
   for (uint64_t ID : OpenRanges.getVarLocs()) {
     LocIndex Idx = LocIndex::fromRawInteger(ID);
     const VarLoc &VL = VarLocIDs[Idx];
@@ -1271,28 +1280,30 @@ void LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI,
                         << VL.Var.getVariable()->getName() << ")\n");
     } else
       continue;
+    ToMove.push_back(Idx);
+  }
+
+  for (LocIndex &Idx : ToMove)
     insertTransferDebugPair(MI, OpenRanges, Transfers, VarLocIDs, Idx, TKind,
                             Reg);
-    return;
-  }
 }
 
 /// If \p MI is a register copy instruction, that copies a previously tracked
 /// value from one register to another register that is callee saved, we
 /// create new DBG_VALUE instruction  described with copy destination register.
-void LiveDebugValues::transferRegisterCopy(MachineInstr &MI,
+bool LiveDebugValues::transferRegisterCopy(MachineInstr &MI,
                                            OpenRangesSet &OpenRanges,
                                            VarLocMap &VarLocIDs,
-                                           TransferMap &Transfers) {
+                                           TransferMap *Transfers) {
   auto DestSrc = TII->isCopyInstr(MI);
   if (!DestSrc)
-    return;
+    return false;
 
   const MachineOperand *DestRegOp = DestSrc->Destination;
   const MachineOperand *SrcRegOp = DestSrc->Source;
 
   if (!DestRegOp->isDef())
-    return;
+    return false;
 
   auto isCalleeSavedReg = [&](unsigned Reg) {
     for (MCRegAliasIterator RAI(Reg, TRI, true); RAI.isValid(); ++RAI)
@@ -1310,7 +1321,7 @@ void LiveDebugValues::transferRegisterCopy(MachineInstr &MI,
   // soon. It is more likely that previous register location, which is callee
   // saved, is going to stay unclobbered longer, even if it is killed.
   if (!isCalleeSavedReg(DestReg))
-    return;
+    return false;
 
   // Remember an entry value movement. If we encounter a new debug value of
   // a parameter describing only a moving of the value around, rather then
@@ -1336,16 +1347,27 @@ void LiveDebugValues::transferRegisterCopy(MachineInstr &MI,
   }
 
   if (!SrcRegOp->isKill())
-    return;
+    return false;
 
+  SmallVector<LocIndex, 8> SrcLocs;
+  VarLocSet DstLocs(Alloc);
   for (uint64_t ID : OpenRanges.getVarLocs()) {
     LocIndex Idx = LocIndex::fromRawInteger(ID);
     if (VarLocIDs[Idx].isDescribedByReg() == SrcReg) {
-      insertTransferDebugPair(MI, OpenRanges, Transfers, VarLocIDs, Idx,
-                              TransferKind::TransferCopy, DestReg);
-      return;
+      SrcLocs.push_back(Idx);
+    } else if (VarLocIDs[Idx].isDescribedByReg() == DestReg) {
+      DstLocs.set(ID);
     }
   }
+
+  for (LocIndex &Idx : SrcLocs) {
+    insertTransferDebugPair(MI, OpenRanges, Transfers, VarLocIDs, Idx,
+                            TransferKind::TransferCopy, DestReg);
+  }
+
+  OpenRanges.erase(DstLocs, VarLocIDs);
+
+  return true;
 }
 
 /// Terminate all open ranges at the end of the current basic block.
@@ -1434,10 +1456,11 @@ void LiveDebugValues::accumulateFragmentMap(MachineInstr &MI,
 
 /// This routine creates OpenRanges.
 void LiveDebugValues::process(MachineInstr &MI, OpenRangesSet &OpenRanges,
-                              VarLocMap &VarLocIDs, TransferMap &Transfers) {
+                              VarLocMap &VarLocIDs, TransferMap *Transfers) {
   transferDebugValue(MI, OpenRanges, VarLocIDs);
+  if (transferRegisterCopy(MI, OpenRanges, VarLocIDs, Transfers))
+    return;
   transferRegisterDef(MI, OpenRanges, VarLocIDs, Transfers);
-  transferRegisterCopy(MI, OpenRanges, VarLocIDs, Transfers);
   transferSpillOrRestoreInst(MI, OpenRanges, VarLocIDs, Transfers);
 }
 
@@ -1545,7 +1568,15 @@ bool LiveDebugValues::join(
 }
 
 void LiveDebugValues::flushPendingLocs(VarLocInMBB &PendingInLocs,
-                                       VarLocMap &VarLocIDs) {
+                                       VarLocMap &VarLocIDs,
+                       const DenseMap<DebugVariable, unsigned> &Orders) {
+  typedef std::pair<DebugVariable, uint64_t> PendingInT;
+  SmallVector<PendingInT, 8> GoingIn;
+
+  auto OrderVariable = [&](const PendingInT &A, const PendingInT &B) -> bool {
+    return Orders.find(A.first)->second > Orders.find(B.first)->second;
+  };
+
   // PendingInLocs records all locations propagated into blocks, which have
   // not had DBG_VALUE insts created. Go through and create those insts now.
   for (auto &Iter : PendingInLocs) {
@@ -1554,6 +1585,17 @@ void LiveDebugValues::flushPendingLocs(VarLocInMBB &PendingInLocs,
     VarLocSet &Pending = Iter.second;
 
     for (uint64_t ID : Pending) {
+      const VarLoc &DiffIt = VarLocIDs[LocIndex::fromRawInteger(ID)];
+      if (DiffIt.isEntryBackupLoc())
+        continue;
+
+      GoingIn.push_back(std::make_pair(DiffIt.Var, ID));
+    }
+
+    llvm::sort(GoingIn.begin(), GoingIn.end(), OrderVariable);
+
+    for (auto &P : GoingIn) {
+      uint64_t ID = P.second;
       // The ID location is live-in to MBB -- work out what kind of machine
       // location it is and create a DBG_VALUE.
       const VarLoc &DiffIt = VarLocIDs[LocIndex::fromRawInteger(ID)];
@@ -1565,6 +1607,8 @@ void LiveDebugValues::flushPendingLocs(VarLocInMBB &PendingInLocs,
       (void)MI;
       LLVM_DEBUG(dbgs() << "Inserted: "; MI->dump(););
     }
+
+    GoingIn.clear();
   }
 }
 
@@ -1719,6 +1763,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
   LLVM_DEBUG(printVarLocInMBB(MF, OutLocs, VarLocIDs,
                               "OutLocs after initialization", dbgs()));
+  DenseMap<DebugVariable, unsigned> VarOrdering;
 
   ReversePostOrderTraversal<MachineFunction *> RPOT(&MF);
   unsigned int RPONumber = 0;
@@ -1726,6 +1771,16 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     OrderToBB[RPONumber] = *RI;
     BBToOrder[*RI] = RPONumber;
     Worklist.push(RPONumber);
+
+    // LOLORDERING
+    for (auto &MI : **RI) {
+      if (MI.isDebugValue()) {
+        DebugVariable Var(MI.getDebugVariable(), MI.getDebugExpression(),
+                          MI.getDebugLoc()->getInlinedAt());
+        VarOrdering.insert(std::make_pair(Var, VarOrdering.size()));
+      }
+    }
+
     ++RPONumber;
   }
   // This is a standard "union of predecessor outs" dataflow problem.
@@ -1755,7 +1810,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
         OpenRanges.insertFromLocSet(getVarLocsInMBB(MBB, PendingInLocs),
                                     VarLocIDs);
         for (auto &MI : *MBB)
-          process(MI, OpenRanges, VarLocIDs, Transfers);
+          process(MI, OpenRanges, VarLocIDs, nullptr);
         OLChanged |= transferTerminator(MBB, OpenRanges, OutLocs, VarLocIDs);
 
         LLVM_DEBUG(printVarLocInMBB(MF, OutLocs, VarLocIDs,
@@ -1778,18 +1833,42 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     assert(Pending.empty() && "Pending should be empty");
   }
 
+  // Reprocess all instructions a final time and record transfers. The live-in
+  // locations should not change as we've reached a fixedpoint.
+  for (MachineBasicBlock &MBB : MF) {
+    OpenRanges.insertFromLocSet(getVarLocsInMBB(&MBB, PendingInLocs), VarLocIDs);
+    for (auto &MI : MBB)
+      process(MI, OpenRanges, VarLocIDs, &Transfers);
+    OpenRanges.clear();
+  }
+
   // Add any DBG_VALUE instructions created by location transfers.
+  // XXX and order them.
+  DenseMap<MachineInstr *, SmallVector<const VarLoc *, 2>> ToTransfer;
   for (auto &TR : Transfers) {
-    MachineBasicBlock *MBB = TR.TransferInst->getParent();
-    const VarLoc &VL = VarLocIDs[TR.LocationID];
-    MachineInstr *MI = VL.BuildDbgValue(MF);
-    MBB->insertAfterBundle(TR.TransferInst->getIterator(), MI);
+    ToTransfer[TR.TransferInst].push_back(&VarLocIDs[TR.LocationID]);
+  }
+
+  auto CmpVarLoc = [&](const VarLoc *A, const VarLoc *B) -> bool {
+    return VarOrdering[A->Var] < VarOrdering[B->Var];
+  };
+
+  for (auto &TD : ToTransfer) {
+    llvm::sort(TD.second.begin(), TD.second.end(), CmpVarLoc);
+  }
+
+  for (auto &TD : ToTransfer) {
+    MachineBasicBlock *MBB = TD.first->getParent();
+    for (auto *VL : TD.second) {
+      MachineInstr *MI = VL->BuildDbgValue(MF);
+      MBB->insertAfterBundle(TD.first->getIterator(), MI);
+    }
   }
   Transfers.clear();
 
   // Deferred inlocs will not have had any DBG_VALUE insts created; do
   // that now.
-  flushPendingLocs(PendingInLocs, VarLocIDs);
+  flushPendingLocs(PendingInLocs, VarLocIDs, VarOrdering);
 
   LLVM_DEBUG(printVarLocInMBB(MF, OutLocs, VarLocIDs, "Final OutLocs", dbgs()));
   LLVM_DEBUG(printVarLocInMBB(MF, InLocs, VarLocIDs, "Final InLocs", dbgs()));
