@@ -1494,6 +1494,24 @@ bool LiveDebugValues::vloc_join(
     if (!NumVisited) {
       InLocsT = *OL->second;
       FirstVisited = p->getNumber();
+
+// XXX maaayyybbeeee downgrade to an mphi
+for (auto &It : InLocsT) {
+  // Where does it come out...
+  if (It.second.Kind != ValueRec::Def)
+    continue;
+  LocIdx Idx = FindLocOfDef(FirstVisited, It.second.ID);
+  if (Idx == 0)
+    continue;
+  // Is that what comes in?
+  ValueIDNum LiveInID = ValueIDNum::fromU64(MInLocs[cur_bb][Idx]);
+  if (It.second.ID != LiveInID) {
+    // Ooops. It became an mphi. Convert it to one and check other things later.
+    assert(LiveInID.BlockNo == cur_bb && LiveInID.InstNo == 0);
+    It.second.ID = LiveInID;
+  }
+}
+
     } else {
       // XXX insert join here.
       for (auto &Var : AllVars) {
@@ -1510,19 +1528,81 @@ bool LiveDebugValues::vloc_join(
           continue;
         }
 
-        // Check for plain live through, but only for non backedges when this
-        // is a PHI. For backedges, we still need to check whether the value
-        // comes back round the loop in the correct location.
-        if (InLocsIt->second == OLIt->second) {
-          if (InLocsIt->second.Kind == ValueRec::Def) {
-            // don't continue if it's a backedge mphi from thsi block
-            if (this_rpot > BBToOrder[p])
-              continue;
-          } else {
-            continue;
-          }
+        // Different kinds?
+        if (InLocsIt->second.Kind != OLIt->second.Kind) {
+          // Definite no.
+          InLocsT.erase(InLocsIt);
+          continue;
         }
 
+        // Trying to join constants is very simple.
+        if (InLocsIt->second.Kind == ValueRec::Const) {
+          // Plain join on the constant value.
+          if (!InLocsIt->second.MO->isIdenticalTo(*OLIt->second.MO))
+            InLocsT.erase(InLocsIt);
+          continue;
+        }
+
+        assert(InLocsIt->second.Kind == ValueRec::Def);
+        // Everything is massively different for backedges. Try not-be's first.
+        if (this_rpot > BBToOrder[p]) {
+          ValueIDNum &InLocsID = InLocsIt->second.ID;
+
+          // XXX is now always inlocst
+          LocIdx Idx = FindLocOfDef(FirstVisited, InLocsID);
+          if (Idx == 0 && InLocsID.BlockNo == cur_bb && InLocsID.InstNo == 0)
+            Idx = InLocsID.LocNo; // We've previously made this an mphi.
+          // XXX XXX XXX, Idx isn't necessarily anywhere!
+
+          ValueIDNum LiveInID = ValueIDNum::fromU64(MInLocs[cur_bb][Idx]);
+          bool LiveInMPHI = LiveInID.BlockNo == cur_bb && LiveInID.InstNo == 0;
+
+          // Identical? Then we simply agree. Unless there's an mphi, in which
+          // case we risk the mloc values not lining up being missed. Apply
+          // harder checks to force this to become an mphi location, or croak.
+          if (InLocsIt->second == OLIt->second && !LiveInMPHI)
+            continue;
+
+          // Meta disagreement -> bail early.
+          if (InLocsIt->second.meta != OLIt->second.meta) {
+            InLocsT.erase(InLocsIt);
+            continue;
+          }
+
+          // We have non-identical defs. Try to join on location.
+          ValueIDNum &OLID = OLIt->second.ID;
+//assert (OLID != InLocsID);
+// XXX we now check that the same locations feed in, in case all preds
+// agree, but backeges force mphiness. And to distinguish that from
+// "all preds agree but one of the edges is clobbered".
+
+          if (OLID.LocNo == 0) {
+            // Nope
+            InLocsT.erase(InLocsIt);
+            continue;
+          }
+
+          // Try to join on location.
+          LocIdx OLIdx = FindLocOfDef(p->getNumber(), OLID);
+          if (OLIdx == 0 && OLID.BlockNo == cur_bb && InLocsID.InstNo == 0)
+            OLIdx = OLID.LocNo; // We've previously made this an mphi.
+
+          // Also necessary: the vloc out-loc for the edge matches the mloc
+          // out-loc.
+          bool HasMOutLoc = MOutLocs[p->getNumber()][OLIdx] == OLID.asU64();
+
+          if (Idx != 0 && Idx == OLIdx && HasMOutLoc) {
+            // Turn ID into an mphi, if it isn't already.
+            InLocsID = ValueIDNum{cur_bb, 0, Idx};
+            // XXX assert that it's in MInLocs?
+          } else {
+            // They conflict and are in the wrong location. Incompatible.
+            InLocsT.erase(InLocsIt);
+          }
+          continue;
+        }
+
+        // This is a backedge.
         // Meta disagreement -> bail early.
         if (InLocsIt->second.meta != OLIt->second.meta) {
           InLocsT.erase(InLocsIt);
@@ -1530,78 +1610,73 @@ bool LiveDebugValues::vloc_join(
         }
 
         // Alright, there's a disagreement, try to join on location.
-        if (InLocsIt->second.Kind == ValueRec::Const) {
-          if (OLIt->second.Kind != ValueRec::Const) {
-            // Definite no.
-            InLocsT.erase(InLocsIt);
-            continue;
-          }
-
-          // Plain join on the constant value.
-          if (!InLocsIt->second.MO->isIdenticalTo(*OLIt->second.MO))
-            InLocsT.erase(InLocsIt);
-          continue;
-        }
-
-        // Is the inlocs loc an mphi yet? If it's not a backedge, consider
-        // joining on the location and producing an mphi. If it's a backedge,
-        // consider over-rideing it.
         assert(InLocsIt->second.Kind == ValueRec::Def);
         ValueIDNum &OLID = OLIt->second.ID;
         ValueIDNum &InLocsID = InLocsIt->second.ID;
-        if (OLID != InLocsID) {
-          // Try to join on location.
-          // XXX is now always inlocst
-          LocIdx Idx = FindLocOfDef(FirstVisited, InLocsID);
-          if (InLocsID.BlockNo == cur_bb && InLocsID.InstNo == 0)
-            Idx = InLocsID.LocNo; // We've previously made this an mphi.
-          LocIdx OLIdx = FindLocOfDef(p->getNumber(), OLID);
-          if (OLID.BlockNo == cur_bb && InLocsID.InstNo == 0)
-            OLIdx = OLID.LocNo; // We've previously made this an mphi.
-          if (Idx != 0 && Idx == OLIdx) {
-            // Turn ID into an mphi, if it isn't already.
-            InLocsID = ValueIDNum{cur_bb, 0, Idx};
-            // XXX assert that it's in MInLocs?
-          } else if (this_rpot <= BBToOrder[p]) {
-            // Backedge: consider overriding.
-            auto ILS_It = ILS.find(Var);
-            if (ILS_It == ILS.end() || ILS_It->second.Kind != ValueRec::Def) {
-              // First time around, if there are disagreements, they won't
-              // be due to back edges, thus it's immediately fatal.
-              InLocsT.erase(InLocsIt);
-              continue;
-            }
 
-            ValueIDNum &ILS_ID = ILS_It->second.ID;
-            unsigned NewInOrder = (InLocsID.InstNo) ? 0 : InLocsID.BlockNo + 1;
-            unsigned OldOrder = (ILS_ID.InstNo) ? 0 : ILS_ID.BlockNo + 1;
-            if (OldOrder >= NewInOrder) {
-              InLocsT.erase(InLocsIt);
-              continue;
-            }
-            // Silently ignore OL's location: we'll propagate the incoming
-            // new mphi to see if it replaces it.
-//            InLocsID = ValueIDNum{cur_bb, 0, Idx};
-// what goes wrong here again?
-          } else {
-            // They conflict and are in the wrong location. Incompatible.
-            InLocsT.erase(InLocsIt);
-            continue;
-          }
-        } else {
-          // And now: is this new incoming location in the right place?
+        // If we're still an identical vloc, this is a backedge (always?),
+        // check if we come back around in the same location. If not, move
+        // on to mphi checking.
+        if (OLID == InLocsID) {
+          // Is this new incoming location in the right place?
           LocIdx Idx = FindLocOfDef(FirstVisited, InLocsID);
-          if (InLocsID.BlockNo == cur_bb && InLocsID.InstNo == 0)
+          if (Idx == 0 && InLocsID.BlockNo == cur_bb && InLocsID.InstNo == 0)
             Idx = InLocsID.LocNo; // We've previously made this an mphi.
-          if (OLIt->second.Kind != ValueRec::Def ||
-              MOutLocs[p->getNumber()][Idx] != OLIt->second.ID.asU64()) {
-            // No. Erase.
-            InLocsT.erase(InLocsIt);
+          if (OLIt->second.Kind == ValueRec::Def &&
+              MOutLocs[p->getNumber()][Idx] == OLIt->second.ID.asU64()) {
             continue;
           }
         }
 
-        // Successful join!
+        // Try to join on location.
+        // XXX is now always inlocst
+        LocIdx Idx = FindLocOfDef(FirstVisited, InLocsID);
+        if (Idx == 0 && InLocsID.BlockNo == cur_bb && InLocsID.InstNo == 0)
+          Idx = InLocsID.LocNo; // We've previously made this an mphi.
+        LocIdx OLIdx = FindLocOfDef(p->getNumber(), OLID);
+        if (OLIdx == 0 && OLID.BlockNo == cur_bb && OLID.InstNo == 0)
+          OLIdx = OLID.LocNo; // We've previously made this an mphi.
+
+        // If we feed the same mphi value around, then we're live-through.
+        if (MOutLocs[p->getNumber()][Idx] == 
+            ValueIDNum{cur_bb, 0, Idx}.asU64()) {
+          // If a backedge, what'll come around is an mphi.
+          InLocsID = ValueIDNum{cur_bb, 0, Idx};
+          continue;
+        }
+
+        ValueIDNum ThisInLocValue =
+           ValueIDNum::fromU64(MInLocs[cur_bb][Idx]);
+
+        // So the backedge doesn't join with the same value. Is the join
+        // position an mphi, and does the backedge feed it back in?
+        if (ThisInLocValue == ValueIDNum{cur_bb, 0, Idx} &&
+            OLIdx == Idx &&
+            MOutLocs[p->getNumber()][OLIdx] == OLID.asU64()) {
+          InLocsID = ValueIDNum{cur_bb, 0, Idx};
+          continue;
+        }
+
+        // consider overriding.
+        auto ILS_It = ILS.find(Var);
+        if (ILS_It == ILS.end() || ILS_It->second.Kind != ValueRec::Def) {
+          // First time around, if there are disagreements, they won't
+          // be due to back edges, thus it's immediately fatal.
+          InLocsT.erase(InLocsIt);
+          continue;
+        }
+
+        ValueIDNum &ILS_ID = ILS_It->second.ID;
+        unsigned NewInOrder = (InLocsID.InstNo) ? 0 : InLocsID.BlockNo + 1;
+        unsigned OldOrder = (ILS_ID.InstNo) ? 0 : ILS_ID.BlockNo + 1;
+        if (OldOrder >= NewInOrder) {
+          InLocsT.erase(InLocsIt);
+          continue;
+        }
+        // Silently ignore OL's location: we'll propagate the incoming
+        // new mphi to see if it replaces it.
+//            InLocsID = ValueIDNum{cur_bb, 0, Idx};
+// what goes wrong here again?
       }
     }
 
@@ -1790,7 +1865,6 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     MInLocs[i] = new uint64_t[NumLocs];
     memset(MInLocs[i], 0, sizeof(uint64_t) * NumLocs);
   }
-
 
   // Set inlocs for entry block,
   tracker->setMPhis(0);
