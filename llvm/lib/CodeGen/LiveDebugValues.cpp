@@ -1567,12 +1567,6 @@ for (auto &It : InLocsT) {
         bool ThisIsAnMPHI = InLocsID.BlockNo == cur_bb && InLocsID.InstNo == 0;
         // Everything is massively different for backedges. Try not-be's first.
         if (!ThisIsABackEdge) {
-          // XXX is now always inlocst
-          LocIdx Idx = FindLocOfDef(FirstVisited, InLocsID);
-          if (Idx == 0 && InLocsID.BlockNo == cur_bb && InLocsID.InstNo == 0)
-            Idx = InLocsID.LocNo; // We've previously made this an mphi.
-          // XXX XXX XXX, Idx isn't necessarily anywhere!
-
           // Identical? Then we simply agree. Unless there's an mphi, in which
           // case we risk the mloc values not lining up being missed. Apply
           // harder checks to force this to become an mphi location, or croak.
