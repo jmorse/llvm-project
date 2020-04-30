@@ -1565,6 +1565,19 @@ for (auto &It : InLocsT) {
         ValueIDNum &InLocsID = InLocsIt->second.ID;
         ValueIDNum &OLID = OLIt->second.ID;
         bool ThisIsAnMPHI = InLocsID.BlockNo == cur_bb && InLocsID.InstNo == 0;
+
+        // Pick out whether the OLID is in the backedge location or not.
+        LocIdx OLIdx = FindLocOfDef(p->getNumber(), OLID);
+        if (OLIdx == 0 && OLID.BlockNo == cur_bb && OLID.InstNo == 0)
+          OLIdx = OLID.LocNo; // We've previously made this an mphi.
+
+        // If it isn't, this location is invalidated _in_ the block on the
+        // other end of the backedge.
+        if (MOutLocs[p->getNumber()][OLIdx] != OLID.asU64()) {
+          InLocsT.erase(InLocsIt);
+          continue;
+        }
+
         // Everything is massively different for backedges. Try not-be's first.
         if (!ThisIsABackEdge) {
           // Identical? Then we simply agree. Unless there's an mphi, in which
@@ -1592,19 +1605,6 @@ for (auto &It : InLocsT) {
           }
           continue;
         }
-
-        // Pick out whether the OLID is in the backedge location or not.
-        LocIdx OLIdx = FindLocOfDef(p->getNumber(), OLID);
-        if (OLIdx == 0 && OLID.BlockNo == cur_bb && OLID.InstNo == 0)
-          OLIdx = OLID.LocNo; // We've previously made this an mphi.
-
-        // If it isn't, this location is invalidated _in_ the block on the
-        // other end of the backedge.
-        if (MOutLocs[p->getNumber()][OLIdx] != OLID.asU64()) {
-          InLocsT.erase(InLocsIt);
-          continue;
-        } 
-
 
         LocIdx Idx = FindLocOfDef(FirstVisited, InLocsID);
         if (Idx == 0 && InLocsID.BlockNo == cur_bb && InLocsID.InstNo == 0)
