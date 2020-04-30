@@ -1543,6 +1543,12 @@ for (auto &It : InLocsT) {
           continue;
         }
 
+        // Meta disagreement -> bail early.
+        if (InLocsIt->second.meta != OLIt->second.meta) {
+          InLocsT.erase(InLocsIt);
+          continue;
+        }
+
         assert(InLocsIt->second.Kind == ValueRec::Def);
         // Everything is massively different for backedges. Try not-be's first.
         if (this_rpot > BBToOrder[p]) {
@@ -1562,12 +1568,6 @@ for (auto &It : InLocsT) {
           // harder checks to force this to become an mphi location, or croak.
           if (InLocsIt->second == OLIt->second && !LiveInMPHI)
             continue;
-
-          // Meta disagreement -> bail early.
-          if (InLocsIt->second.meta != OLIt->second.meta) {
-            InLocsT.erase(InLocsIt);
-            continue;
-          }
 
           // We have non-identical defs. Try to join on location.
           ValueIDNum &OLID = OLIt->second.ID;
@@ -1599,13 +1599,6 @@ for (auto &It : InLocsT) {
             // They conflict and are in the wrong location. Incompatible.
             InLocsT.erase(InLocsIt);
           }
-          continue;
-        }
-
-        // This is a backedge.
-        // Meta disagreement -> bail early.
-        if (InLocsIt->second.meta != OLIt->second.meta) {
-          InLocsT.erase(InLocsIt);
           continue;
         }
 
