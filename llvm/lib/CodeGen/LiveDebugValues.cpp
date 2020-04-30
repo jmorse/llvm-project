@@ -1542,6 +1542,12 @@ for (auto &It : InLocsT) {
         // Meta disagreement -> bail early.
         EarlyBail |= (InLocsIt->second.meta != OLIt->second.meta);
 
+        // Clobbered location -> bail early.
+        EarlyBail |=
+           (InLocsIt->second.Kind == OLIt->second.Kind &&
+            InLocsIt->second.Kind == ValueRec::Def &&
+            OLIt->second.ID.LocNo == 0);
+
         // Bail out if early bail signalled.
         if (EarlyBail) {
           InLocsT.erase(InLocsIt);
