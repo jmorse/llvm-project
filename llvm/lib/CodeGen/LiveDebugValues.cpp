@@ -1599,51 +1599,39 @@ for (auto &It : InLocsT) {
           continue;
         }
 
-        // Alright, there's a disagreement, try to join on location.
-// XXX there isn't, we still need extra checks
-
-        // If we're still an identical vloc, this is a backedge (always?),
-        // check if we come back around in the same location. If not, move
-        // on to mphi checking.
-        if (OLID == InLocsID) {
-          // Is this new incoming location in the right place?
-          LocIdx Idx = FindLocOfDef(FirstVisited, InLocsID);
-          if (Idx == 0 && InLocsID.BlockNo == cur_bb && InLocsID.InstNo == 0)
-            Idx = InLocsID.LocNo; // We've previously made this an mphi.
-          if (OLIt->second.Kind == ValueRec::Def &&
-              MOutLocs[p->getNumber()][Idx] == OLIt->second.ID.asU64()) {
-            continue;
-          }
-        }
-
-        // Try to join on location.
-        // XXX is now always inlocst
-        LocIdx Idx = FindLocOfDef(FirstVisited, InLocsID);
-        if (Idx == 0 && InLocsID.BlockNo == cur_bb && InLocsID.InstNo == 0)
-          Idx = InLocsID.LocNo; // We've previously made this an mphi.
+        // Pick out whether the OLID is in the backedge location or not.
         LocIdx OLIdx = FindLocOfDef(p->getNumber(), OLID);
         if (OLIdx == 0 && OLID.BlockNo == cur_bb && OLID.InstNo == 0)
           OLIdx = OLID.LocNo; // We've previously made this an mphi.
 
-        // If we feed the same mphi value around, then we're live-through.
-        if (MOutLocs[p->getNumber()][Idx] == 
-            ValueIDNum{cur_bb, 0, Idx}.asU64()) {
-          // If a backedge, what'll come around is an mphi.
-          InLocsID = ValueIDNum{cur_bb, 0, Idx};
+        // If it isn't, this location is invalidated _in_ the block on the
+        // other end of the backedge.
+        if (MOutLocs[p->getNumber()][OLIdx] != OLID.asU64()) {
+          InLocsT.erase(InLocsIt);
+          continue;
+        } 
+
+
+        LocIdx Idx = FindLocOfDef(FirstVisited, InLocsID);
+        if (Idx == 0 && InLocsID.BlockNo == cur_bb && InLocsID.InstNo == 0)
+          Idx = InLocsID.LocNo; // We've previously made this an mphi.
+
+        // OK, the value is fed back around. If it's the same, it must be
+        // the same in the same location.
+        if (InLocsID == OLID) {
+          if (Idx != OLIdx)
+            InLocsT.erase(InLocsIt);
           continue;
         }
 
-        ValueIDNum ThisInLocValue =
-           ValueIDNum::fromU64(MInLocs[cur_bb][Idx]);
-
-        // So the backedge doesn't join with the same value. Is the join
-        // position an mphi, and does the backedge feed it back in?
-        if (ThisInLocValue == ValueIDNum{cur_bb, 0, Idx} &&
-            OLIdx == Idx &&
-            MOutLocs[p->getNumber()][OLIdx] == OLID.asU64()) {
-          InLocsID = ValueIDNum{cur_bb, 0, Idx};
+        // Values aren't equal: filter for they're coming back around to an
+        // mphi starting at this block.
+        if (Idx == OLIdx && ThisIsAnMPHI)
           continue;
-        }
+
+        // We're not identical, values are merging and there's no an mphi
+        // starting at this block. Check for something where we're being
+        // overridden by an mphi found earlier in the tree.
 
         // consider overriding.
         auto ILS_It = ILS.find(Var);
@@ -1661,10 +1649,6 @@ for (auto &It : InLocsT) {
           InLocsT.erase(InLocsIt);
           continue;
         }
-        // Silently ignore OL's location: we'll propagate the incoming
-        // new mphi to see if it replaces it.
-//            InLocsID = ValueIDNum{cur_bb, 0, Idx};
-// what goes wrong here again?
       }
     }
 
