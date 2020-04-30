@@ -1564,51 +1564,35 @@ for (auto &It : InLocsT) {
         bool ThisIsABackEdge = this_rpot <= BBToOrder[p];
         ValueIDNum &InLocsID = InLocsIt->second.ID;
         ValueIDNum &OLID = OLIt->second.ID;
-        bool ThisIsAnMPhi = InLocsID.BlockNo == cur_bb && InLocsID.InstNo == 0;
+        bool ThisIsAnMPHI = InLocsID.BlockNo == cur_bb && InLocsID.InstNo == 0;
         // Everything is massively different for backedges. Try not-be's first.
         if (!ThisIsABackEdge) {
-
           // XXX is now always inlocst
           LocIdx Idx = FindLocOfDef(FirstVisited, InLocsID);
           if (Idx == 0 && InLocsID.BlockNo == cur_bb && InLocsID.InstNo == 0)
             Idx = InLocsID.LocNo; // We've previously made this an mphi.
           // XXX XXX XXX, Idx isn't necessarily anywhere!
 
-          ValueIDNum LiveInID = ValueIDNum::fromU64(MInLocs[cur_bb][Idx]);
-          bool LiveInMPHI = LiveInID.BlockNo == cur_bb && LiveInID.InstNo == 0;
-
           // Identical? Then we simply agree. Unless there's an mphi, in which
           // case we risk the mloc values not lining up being missed. Apply
           // harder checks to force this to become an mphi location, or croak.
-          if (InLocsIt->second == OLIt->second && !LiveInMPHI)
+          if (InLocsIt->second == OLIt->second && !ThisIsAnMPHI)
             continue;
 
-          // We have non-identical defs. Try to join on location.
-//assert (OLID != InLocsID);
-// XXX we now check that the same locations feed in, in case all preds
-// agree, but backeges force mphiness. And to distinguish that from
-// "all preds agree but one of the edges is clobbered".
-
-          if (OLID.LocNo == 0) {
-            // Nope
+          // If we're non-identical and there's no mphi, definitely can't merge.
+          if (InLocsIt->second != OLIt->second && !ThisIsAnMPHI) {
             InLocsT.erase(InLocsIt);
-            continue;
-          }
+	    continue;
+	  }
 
-          // Try to join on location.
-          LocIdx OLIdx = FindLocOfDef(p->getNumber(), OLID);
-          if (OLIdx == 0 && OLID.BlockNo == cur_bb && InLocsID.InstNo == 0)
-            OLIdx = OLID.LocNo; // We've previously made this an mphi.
-
+          // Otherwise, we're definitely an mphi, and need to prove that the
+	  // location from olit goes into it. Because we're an mphi, we know
+	  // our location...
+	  LocIdx InLoc = InLocsID.LocNo;
           // Also necessary: the vloc out-loc for the edge matches the mloc
           // out-loc.
-          bool HasMOutLoc = MOutLocs[p->getNumber()][OLIdx] == OLID.asU64();
-
-          if (Idx != 0 && Idx == OLIdx && HasMOutLoc) {
-            // Turn ID into an mphi, if it isn't already.
-            InLocsID = ValueIDNum{cur_bb, 0, Idx};
-            // XXX assert that it's in MInLocs?
-          } else {
+          bool HasMOutLoc = MOutLocs[p->getNumber()][InLoc] == OLID.asU64();
+          if (!HasMOutLoc) {
             // They conflict and are in the wrong location. Incompatible.
             InLocsT.erase(InLocsIt);
           }
