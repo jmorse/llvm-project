@@ -887,6 +887,12 @@ private:
             const std::vector<MachineBasicBlock *> &NumToBlock);
 
   typedef DenseMap<const MachineBasicBlock *, DenseMap<DebugVariable, ValueRec> *> LiveIdxT;
+  bool vloc_join_location(MachineBasicBlock &MBB,
+                          ValueRec &InLoc,
+                          ValueRec &OLoc, uint64_t *InLocOutLocs,
+                          uint64_t *OLOutlocs,
+                          const LiveIdxT::mapped_type PrevInLocs, // is ptr
+                          const DebugVariable &CurVar,  bool ThisIsABackEdge);
   bool vloc_join(MachineBasicBlock &MBB, LiveIdxT &VLOCOutLocs,
                  LiveIdxT &VLOCInLocs,
                  SmallPtrSet<const MachineBasicBlock *, 16> *VLOCVisited,
@@ -1407,6 +1413,146 @@ bool LiveDebugValues::mloc_join(
   return Changed;
 }
 
+bool LiveDebugValues::vloc_join_location(MachineBasicBlock &MBB,
+                        ValueRec &InLoc,
+                        ValueRec &OLoc, uint64_t *InLocOutLocs,
+                        uint64_t *OLOutLocs,
+                        const LiveIdxT::mapped_type PrevInLocs, // ptr
+                        const DebugVariable &CurVar, bool ThisIsABackEdge)
+{
+  unsigned cur_bb = MBB.getNumber();
+  bool EarlyBail = false;
+
+  auto FindLocInLocs = [&](uint64_t *OutLocs, const ValueIDNum &ID) -> LocIdx {
+    unsigned NumLocs = tracker->getNumLocs();
+    LocIdx theloc = LocIdx(0);
+    for (unsigned i = 0; i < NumLocs; ++i) {
+      if (OutLocs[i] == ID.asU64()) {
+        if (theloc != 0) {
+          // Prefer non-spills
+          if (tracker->isSpill(theloc))
+            theloc = LocIdx(i);
+        } else {
+          theloc = LocIdx(i);
+        }
+      }
+    }
+    // It's possible that that value simply isn't availble, coming out of the
+    // designated block.
+    return theloc;
+  };
+  auto FindInInLocs = [&](const ValueIDNum &ID) -> LocIdx {
+    return FindLocInLocs(InLocOutLocs, ID);
+  };
+  auto FindInOLocs = [&](const ValueIDNum &ID) -> LocIdx {
+    return FindLocInLocs(OLOutLocs, ID);
+  };
+
+  // Different kinds? Definite no.
+  EarlyBail |= InLoc.Kind != OLoc.Kind;
+
+  // Trying to join constants is very simple. Plain join on the constant
+  // value.
+  EarlyBail |=
+     (InLoc.Kind == OLoc.Kind && InLoc.Kind == ValueRec::Const &&
+      !InLoc.MO->isIdenticalTo(*OLoc.MO));
+
+  // Meta disagreement -> bail early.
+  EarlyBail |= (InLoc.meta != OLoc.meta);
+
+  // Clobbered location -> bail early.
+  EarlyBail |=
+     (InLoc.Kind == OLoc.Kind && InLoc.Kind == ValueRec::Def &&
+      OLoc.ID.LocNo == 0);
+
+  // Bail out if early bail signalled.
+  if (EarlyBail) {
+    return false;
+  } else if (InLoc.Kind == ValueRec::Const) {
+    // If both are constants, we've satisfied constraints.
+    return true;
+  }
+
+  // This is a join for "values". Two important facts: is this a
+  // backedge, and does the machine-location we're joining on contain
+  // an mphi? (InlocsIt will be the mphi if there is one).
+  assert(InLoc.Kind == ValueRec::Def);
+  ValueIDNum &InLocsID = InLoc.ID;
+  ValueIDNum &OLID = OLoc.ID;
+  bool ThisIsAnMPHI = InLocsID.BlockNo == cur_bb && InLocsID.InstNo == 0;
+
+  // Pick out whether the OLID is in the backedge location or not.
+  LocIdx OLIdx = FindInOLocs(OLID);
+  if (OLIdx == 0 && OLID.BlockNo == cur_bb && OLID.InstNo == 0)
+    OLIdx = OLID.LocNo; // We've previously made this an mphi.
+
+  // If it isn't, this location is invalidated _in_ the block on the
+  // other end of the backedge.
+  if (OLOutLocs[OLIdx] != OLID.asU64())
+    return false;
+
+  // Everything is massively different for backedges. Try not-be's first.
+  if (!ThisIsABackEdge) {
+    // Identical? Then we simply agree. Unless there's an mphi, in which
+    // case we risk the mloc values not lining up being missed. Apply
+    // harder checks to force this to become an mphi location, or croak.
+    if (InLoc == OLoc && !ThisIsAnMPHI)
+      return true;
+
+    // If we're non-identical and there's no mphi, definitely can't merge.
+    if (InLoc != OLoc && !ThisIsAnMPHI)
+      return false;
+
+    // Otherwise, we're definitely an mphi, and need to prove that the
+    // location from olit goes into it. Because we're an mphi, we know
+    // our location...
+    LocIdx InLocIdx = InLocsID.LocNo;
+    // Also necessary: the vloc out-loc for the edge matches the mloc
+    // out-loc.
+    bool HasMOutLoc = OLOutLocs[InLocIdx] == OLID.asU64();
+    if (!HasMOutLoc)
+      // They conflict and are in the wrong location. Incompatible.
+      return false;
+    return true;
+  }
+
+  LocIdx Idx = FindInInLocs(InLocsID);
+  if (Idx == 0 && InLocsID.BlockNo == cur_bb && InLocsID.InstNo == 0)
+    Idx = InLocsID.LocNo; // We've previously made this an mphi.
+
+  // OK, the value is fed back around. If it's the same, it must be
+  // the same in the same location.
+  if (InLocsID == OLID) {
+    if (Idx != OLIdx)
+      return false;
+    return true;
+  }
+
+  // Values aren't equal: filter for they're coming back around to an
+  // mphi starting at this block.
+  if (Idx == OLIdx && ThisIsAnMPHI)
+    return true;
+
+  // We're not identical, values are merging and there's no an mphi
+  // starting at this block. Check for something where we're being
+  // overridden by an mphi found earlier in the tree.
+
+  // consider overriding.
+  auto ILS_It = PrevInLocs->find(CurVar);
+  if (ILS_It == PrevInLocs->end() || ILS_It->second.Kind != ValueRec::Def)
+    // First time around, if there are disagreements, they won't
+    // be due to back edges, thus it's immediately fatal.
+    return false;
+
+  ValueIDNum &ILS_ID = ILS_It->second.ID;
+  unsigned NewInOrder = (InLocsID.InstNo) ? 0 : InLocsID.BlockNo + 1;
+  unsigned OldOrder = (ILS_ID.InstNo) ? 0 : ILS_ID.BlockNo + 1;
+  if (OldOrder >= NewInOrder)
+    return false;
+
+  return true;
+}
+
 bool LiveDebugValues::vloc_join(
   MachineBasicBlock &MBB, LiveIdxT &VLOCOutLocs,
    LiveIdxT &VLOCInLocs,
@@ -1528,121 +1674,15 @@ for (auto &It : InLocsT) {
           continue;
         }
 
-        bool EarlyBail = false;
-        // Different kinds? Definite no.
-        EarlyBail |= InLocsIt->second.Kind != OLIt->second.Kind;
 
-        // Trying to join constants is very simple. Plain join on the constant
-        // value.
-        EarlyBail |=
-           (InLocsIt->second.Kind == OLIt->second.Kind &&
-            InLocsIt->second.Kind == ValueRec::Const &&
-            !InLocsIt->second.MO->isIdenticalTo(*OLIt->second.MO));
-
-        // Meta disagreement -> bail early.
-        EarlyBail |= (InLocsIt->second.meta != OLIt->second.meta);
-
-        // Clobbered location -> bail early.
-        EarlyBail |=
-           (InLocsIt->second.Kind == OLIt->second.Kind &&
-            InLocsIt->second.Kind == ValueRec::Def &&
-            OLIt->second.ID.LocNo == 0);
-
-        // Bail out if early bail signalled.
-        if (EarlyBail) {
-          InLocsT.erase(InLocsIt);
-          continue;
-        } else if (InLocsIt->second.Kind == ValueRec::Const) {
-          // If both are constants, we've satisfied constraints.
-          continue;
-        }
-
-        // This is a join for "values". Two important facts: is this a
-        // backedge, and does the machine-location we're joining on contain
-        // an mphi? (InlocsIt will be the mphi if there is one).
-        assert(InLocsIt->second.Kind == ValueRec::Def);
         bool ThisIsABackEdge = this_rpot <= BBToOrder[p];
-        ValueIDNum &InLocsID = InLocsIt->second.ID;
-        ValueIDNum &OLID = OLIt->second.ID;
-        bool ThisIsAnMPHI = InLocsID.BlockNo == cur_bb && InLocsID.InstNo == 0;
+        bool joins = vloc_join_location(MBB, InLocsIt->second, 
+                        OLIt->second, MOutLocs[FirstVisited],
+                        MOutLocs[p->getNumber()], &ILS, InLocsIt->first,
+                        ThisIsABackEdge);
 
-        // Pick out whether the OLID is in the backedge location or not.
-        LocIdx OLIdx = FindLocOfDef(p->getNumber(), OLID);
-        if (OLIdx == 0 && OLID.BlockNo == cur_bb && OLID.InstNo == 0)
-          OLIdx = OLID.LocNo; // We've previously made this an mphi.
-
-        // If it isn't, this location is invalidated _in_ the block on the
-        // other end of the backedge.
-        if (MOutLocs[p->getNumber()][OLIdx] != OLID.asU64()) {
+        if (!joins)
           InLocsT.erase(InLocsIt);
-          continue;
-        }
-
-        // Everything is massively different for backedges. Try not-be's first.
-        if (!ThisIsABackEdge) {
-          // Identical? Then we simply agree. Unless there's an mphi, in which
-          // case we risk the mloc values not lining up being missed. Apply
-          // harder checks to force this to become an mphi location, or croak.
-          if (InLocsIt->second == OLIt->second && !ThisIsAnMPHI)
-            continue;
-
-          // If we're non-identical and there's no mphi, definitely can't merge.
-          if (InLocsIt->second != OLIt->second && !ThisIsAnMPHI) {
-            InLocsT.erase(InLocsIt);
-	    continue;
-	  }
-
-          // Otherwise, we're definitely an mphi, and need to prove that the
-	  // location from olit goes into it. Because we're an mphi, we know
-	  // our location...
-	  LocIdx InLoc = InLocsID.LocNo;
-          // Also necessary: the vloc out-loc for the edge matches the mloc
-          // out-loc.
-          bool HasMOutLoc = MOutLocs[p->getNumber()][InLoc] == OLID.asU64();
-          if (!HasMOutLoc) {
-            // They conflict and are in the wrong location. Incompatible.
-            InLocsT.erase(InLocsIt);
-          }
-          continue;
-        }
-
-        LocIdx Idx = FindLocOfDef(FirstVisited, InLocsID);
-        if (Idx == 0 && InLocsID.BlockNo == cur_bb && InLocsID.InstNo == 0)
-          Idx = InLocsID.LocNo; // We've previously made this an mphi.
-
-        // OK, the value is fed back around. If it's the same, it must be
-        // the same in the same location.
-        if (InLocsID == OLID) {
-          if (Idx != OLIdx)
-            InLocsT.erase(InLocsIt);
-          continue;
-        }
-
-        // Values aren't equal: filter for they're coming back around to an
-        // mphi starting at this block.
-        if (Idx == OLIdx && ThisIsAnMPHI)
-          continue;
-
-        // We're not identical, values are merging and there's no an mphi
-        // starting at this block. Check for something where we're being
-        // overridden by an mphi found earlier in the tree.
-
-        // consider overriding.
-        auto ILS_It = ILS.find(Var);
-        if (ILS_It == ILS.end() || ILS_It->second.Kind != ValueRec::Def) {
-          // First time around, if there are disagreements, they won't
-          // be due to back edges, thus it's immediately fatal.
-          InLocsT.erase(InLocsIt);
-          continue;
-        }
-
-        ValueIDNum &ILS_ID = ILS_It->second.ID;
-        unsigned NewInOrder = (InLocsID.InstNo) ? 0 : InLocsID.BlockNo + 1;
-        unsigned OldOrder = (ILS_ID.InstNo) ? 0 : ILS_ID.BlockNo + 1;
-        if (OldOrder >= NewInOrder) {
-          InLocsT.erase(InLocsIt);
-          continue;
-        }
       }
     }
 
