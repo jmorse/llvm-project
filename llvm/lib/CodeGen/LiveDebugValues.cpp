@@ -1535,7 +1535,7 @@ for (auto &It : InLocsT) {
         // Trying to join constants is very simple. Plain join on the constant
         // value.
         EarlyBail |=
-           (InLocsIt->second.Kind != OLIt->second.Kind &&
+           (InLocsIt->second.Kind == OLIt->second.Kind &&
             InLocsIt->second.Kind == ValueRec::Const &&
             !InLocsIt->second.MO->isIdenticalTo(*OLIt->second.MO));
 
