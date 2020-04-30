@@ -514,16 +514,13 @@ public:
   ValueIDNum ID;
   Optional<MachineOperand> MO;
   MetaVal meta;
-  unsigned BlockPHI = 0;
 
-  typedef enum { Def, Const, PHI } KindT;
+  typedef enum { Def, Const } KindT;
   KindT Kind;
 
   void dump(const MLocTracker *MTrack) const {
     if (Kind == Const) {
       MO->dump();
-    } else if (Kind == PHI) {
-      dbgs() << "PHI-bb" << BlockPHI << "\n";
     } else {
       assert(Kind == Def);
       dbgs() << MTrack->IDAsString(ID);
@@ -540,8 +537,6 @@ public:
     if (Kind == Const && !MO->isIdenticalTo(*Other.MO))
       return false;
     else if (Kind == Def && ID != Other.ID)
-      return false;
-    else if (Kind == PHI && BlockPHI != Other.BlockPHI)
       return false;
 
     return meta == Other.meta;
@@ -568,8 +563,6 @@ public:
       } else {
         return MO->getType() < Other.MO->getType();
       }
-    } else if (Kind == PHI && Other.Kind == PHI) {
-      return BlockPHI < Other.BlockPHI;
     } else if (Kind == Def && Other.Kind == Def) {
       return ID < Other.ID;
     } else {
@@ -605,7 +598,7 @@ public:
     DebugVariable Var(MI.getDebugVariable(), MI.getDebugExpression(),
                       MI.getDebugLoc()->getInlinedAt());
     MetaVal m = {MI.getDebugExpression(), MI.getOperand(1).isImm()};
-    Vars[Var] = {ID, None, m, 0, ValueRec::Def};
+    Vars[Var] = {ID, None, m, ValueRec::Def};
   }
 
   void defVar(const MachineInstr &MI, const MachineOperand &MO) {
@@ -614,7 +607,7 @@ public:
     DebugVariable Var(MI.getDebugVariable(), MI.getDebugExpression(),
                       MI.getDebugLoc()->getInlinedAt());
     MetaVal m = {MI.getDebugExpression(), MI.getOperand(1).isImm()};
-    Vars[Var] = {{0, 0, LocIdx(0)}, MO, m, 0, ValueRec::Const};
+    Vars[Var] = {{0, 0, LocIdx(0)}, MO, m, ValueRec::Const};
   }
 };
 
@@ -666,9 +659,6 @@ public:
         continue;
       }
 
-      // Unresolved PHI -> skip
-      if (Var.second.Kind == ValueRec::PHI)
-        continue;
       assert(Var.second.Kind == ValueRec::Def);
 
       auto InsertLiveIn = [&](LocIdx m) {
