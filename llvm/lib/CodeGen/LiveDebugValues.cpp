@@ -1528,31 +1528,39 @@ for (auto &It : InLocsT) {
           continue;
         }
 
-        // Different kinds?
-        if (InLocsIt->second.Kind != OLIt->second.Kind) {
-          // Definite no.
-          InLocsT.erase(InLocsIt);
-          continue;
-        }
+        bool EarlyBail = false;
+        // Different kinds? Definite no.
+        EarlyBail |= InLocsIt->second.Kind != OLIt->second.Kind;
 
-        // Trying to join constants is very simple.
-        if (InLocsIt->second.Kind == ValueRec::Const) {
-          // Plain join on the constant value.
-          if (!InLocsIt->second.MO->isIdenticalTo(*OLIt->second.MO))
-            InLocsT.erase(InLocsIt);
-          continue;
-        }
+        // Trying to join constants is very simple. Plain join on the constant
+        // value.
+        EarlyBail |=
+           (InLocsIt->second.Kind != OLIt->second.Kind &&
+            InLocsIt->second.Kind == ValueRec::Const &&
+            !InLocsIt->second.MO->isIdenticalTo(*OLIt->second.MO));
 
         // Meta disagreement -> bail early.
-        if (InLocsIt->second.meta != OLIt->second.meta) {
+        EarlyBail |= (InLocsIt->second.meta != OLIt->second.meta);
+
+        // Bail out if early bail signalled.
+        if (EarlyBail) {
           InLocsT.erase(InLocsIt);
+          continue;
+        } else if (InLocsIt->second.Kind == ValueRec::Const) {
+          // If both are constants, we've satisfied constraints.
           continue;
         }
 
+        // This is a join for "values". Two important facts: is this a
+        // backedge, and does the machine-location we're joining on contain
+        // an mphi? (InlocsIt will be the mphi if there is one).
         assert(InLocsIt->second.Kind == ValueRec::Def);
+        bool ThisIsABackEdge = this_rpot <= BBToOrder[p];
+        ValueIDNum &InLocsID = InLocsIt->second.ID;
+        ValueIDNum &OLID = OLIt->second.ID;
+        bool ThisIsAnMPhi = InLocsID.BlockNo == cur_bb && InLocsID.InstNo == 0;
         // Everything is massively different for backedges. Try not-be's first.
-        if (this_rpot > BBToOrder[p]) {
-          ValueIDNum &InLocsID = InLocsIt->second.ID;
+        if (!ThisIsABackEdge) {
 
           // XXX is now always inlocst
           LocIdx Idx = FindLocOfDef(FirstVisited, InLocsID);
@@ -1570,7 +1578,6 @@ for (auto &It : InLocsT) {
             continue;
 
           // We have non-identical defs. Try to join on location.
-          ValueIDNum &OLID = OLIt->second.ID;
 //assert (OLID != InLocsID);
 // XXX we now check that the same locations feed in, in case all preds
 // agree, but backeges force mphiness. And to distinguish that from
@@ -1603,9 +1610,7 @@ for (auto &It : InLocsT) {
         }
 
         // Alright, there's a disagreement, try to join on location.
-        assert(InLocsIt->second.Kind == ValueRec::Def);
-        ValueIDNum &OLID = OLIt->second.ID;
-        ValueIDNum &InLocsID = InLocsIt->second.ID;
+// XXX there isn't, we still need extra checks
 
         // If we're still an identical vloc, this is a backedge (always?),
         // check if we come back around in the same location. If not, move
