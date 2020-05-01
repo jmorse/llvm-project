@@ -889,7 +889,6 @@ private:
 SmallVectorImpl<SmallVector<std::pair<DebugVariable, ValueRec>, 8>> &Output,
 uint64_t **MOutLocs, uint64_t **MInLocs,
 MapVector<unsigned, VLocTracker *> &AllTheVLocs);
-  bool vloc_transfer(VarLocSet &ilocs, VarLocSet &transfer, VarLocSet &olocs, lolnumberingt &lolnumbering, VarLocSet &VLOCTransMasks);
 
   bool ExtendRanges(MachineFunction &MF);
 
@@ -1691,25 +1690,6 @@ for (auto &It : InLocsT) {
   if (Changed)
     ILS = std::move(InLocsT);
   // Uhhhhhh, reimplement NumInserted and NumRemoved pls.
-  return Changed;
-}
-
-bool LiveDebugValues::vloc_transfer(VarLocSet &ilocs, VarLocSet &transfer, VarLocSet &olocs, lolnumberingt &lolnumbering,
-VarLocSet &VLOCTransMasks) {
-
-  // Eeeerrmmmm...
-  // quick implementation then, anything in transfer overrides ilocs. Filter
-  // out anything that's been deleted in the meantime.
-
-  VarLocSet new_olocs(Alloc);
-  new_olocs |= ilocs;
-  new_olocs.intersectWithComplement(VLOCTransMasks);
-  new_olocs |= transfer;
-
-  // XXX what about unsetting empty locations eh?
-
-  bool Changed = new_olocs != olocs;
-  olocs = new_olocs;
   return Changed;
 }
 
