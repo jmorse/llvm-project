@@ -630,6 +630,8 @@ public:
   DenseMap<LocIdx, SmallSet<DebugVariable, 4>> ActiveMLocs;
   DenseMap<DebugVariable, hahaloc> ActiveVLocs;
 
+  std::vector<MachineInstr *> PendingDbgValues;
+
   TransferTracker(const TargetInstrInfo *TII, MLocTracker *mtracker, MachineFunction &MF) : TII(TII), mtracker(mtracker), MF(MF) { }
 
   void loadInlocs(MachineBasicBlock &MBB, uint64_t *mlocs, SmallVectorImpl<std::pair<DebugVariable, ValueRec>> &vlocs, unsigned cur_bb, unsigned NumLocs) {  
@@ -655,10 +657,9 @@ public:
     }
 
     // Now map variables to their current machine locs
-    std::vector<MachineInstr *> inlocs;
     for (auto Var : vlocs) {
       if (Var.second.Kind == ValueRec::Const) {
-        inlocs.push_back(emitMOLoc(*Var.second.MO, Var.first, Var.second.meta));
+        PendingDbgValues.push_back(emitMOLoc(*Var.second.MO, Var.first, Var.second.meta));
         continue;
       }
 
@@ -674,10 +675,15 @@ public:
       ActiveVLocs[Var.first] = std::make_pair(m, Var.second.meta);
       ActiveMLocs[m].insert(Var.first);
       assert(m != 0);
-      inlocs.push_back(mtracker->emitLoc(m, Var.first, Var.second.meta));
+      PendingDbgValues.push_back(mtracker->emitLoc(m, Var.first, Var.second.meta));
     }
-    if (inlocs.size() > 0)
-      Transfers.push_back({MBB.begin(), &MBB, std::move(inlocs)});
+    flushDbgValues(MBB.begin(), &MBB);
+  }
+
+  void flushDbgValues(MachineBasicBlock::iterator pos,
+                      MachineBasicBlock *MBB) {
+    if (PendingDbgValues.size() > 0)
+      Transfers.push_back({pos, MBB, PendingDbgValues});
   }
 
   void redefVar(const MachineInstr &MI) {
@@ -729,7 +735,6 @@ public:
 
     VarLocs[mloc] = ValueIDNum{0, 0, LocIdx(0)};
 
-    std::vector<MachineInstr *>insts;
     for (auto &Var : It->second) {
       auto ALoc = ActiveVLocs.find(Var);
       // Create an undef. We can't feed in a nullptr DIExpression alas,
@@ -737,11 +742,10 @@ public:
       const DIExpression *Expr = ALoc->second.second.first;
       // XXX explicitly specify empty location?
       LocIdx Idx = LocIdx(0);
-      insts.push_back(mtracker->emitLoc(Idx, Var, {Expr, false}));
+      PendingDbgValues.push_back(mtracker->emitLoc(Idx, Var, {Expr, false}));
       ActiveVLocs.erase(ALoc);
     }
-    if (insts.size() != 0)
-      Transfers.push_back({pos, nullptr, std::move(insts)});
+    flushDbgValues(pos, nullptr);
 
     It->second.clear();
   }
@@ -757,7 +761,6 @@ public:
     ActiveMLocs[dst] = ActiveMLocs[src];
     VarLocs[dst] = VarLocs[src];
 
-    std::vector<MachineInstr *> instrs;
     for (auto &Var : ActiveMLocs[src]) {
       auto it = ActiveVLocs.find(Var);
       assert(it != ActiveVLocs.end());
@@ -765,11 +768,10 @@ public:
 
       assert(dst != 0);
       MachineInstr *MI = mtracker->emitLoc(dst, Var, it->second.second);
-      instrs.push_back(MI);
+      PendingDbgValues.push_back(MI);
     }
     ActiveMLocs[src].clear();
-    if (instrs.size() > 0)
-      Transfers.push_back({pos, nullptr, std::move(instrs)});
+    flushDbgValues(pos, nullptr);
 
     // XXX XXX XXX "pretend to be old LDV".
     VarLocs[src] = ValueIDNum{0, 0, LocIdx(0)};
