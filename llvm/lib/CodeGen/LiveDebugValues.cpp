@@ -663,9 +663,6 @@ public:
         continue;
       }
 
-      assert(Var.second.Kind == ValueRec::Def);
-
-
       // Value unavailable / has no machine loc -> define no location.
       auto hahait = tmpmap.find(Var.second.ID);
       if (hahait == tmpmap.end())
