@@ -679,8 +679,10 @@ public:
 
   void flushDbgValues(MachineBasicBlock::iterator pos,
                       MachineBasicBlock *MBB) {
-    if (PendingDbgValues.size() > 0)
+    if (PendingDbgValues.size() > 0) {
       Transfers.push_back({pos, MBB, PendingDbgValues});
+      PendingDbgValues.clear();
+    }
   }
 
   void redefVar(const MachineInstr &MI) {
