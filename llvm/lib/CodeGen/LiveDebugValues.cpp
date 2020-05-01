@@ -674,8 +674,6 @@ public:
       ActiveVLocs[Var.first] = std::make_pair(m, Var.second.meta);
       ActiveMLocs[m].insert(Var.first);
       assert(m != 0);
-      if (mtracker->getVarLocPos(m).ID.LocNo == 0)
-        continue;
       inlocs.push_back(mtracker->emitLoc(m, Var.first, Var.second.meta));
     }
     if (inlocs.size() > 0)
