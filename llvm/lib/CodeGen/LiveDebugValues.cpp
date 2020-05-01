@@ -661,30 +661,19 @@ public:
 
       assert(Var.second.Kind == ValueRec::Def);
 
-      auto InsertLiveIn = [&](LocIdx m) {
-        ActiveVLocs[Var.first] = std::make_pair(m, Var.second.meta);
-        ActiveMLocs[m].insert(std::make_pair(Var.first, 0));
-        assert(m != 0);
-        if (mtracker->getVarLocPos(m).ID.LocNo == 0)
-          return;
-        inlocs.push_back(mtracker->emitLoc(m, Var.first, Var.second.meta));
-      };
 
       // Value unavailable / has no machine loc -> define no location.
       auto hahait = tmpmap.find(Var.second.ID);
-      if (hahait != tmpmap.end()) {
-        InsertLiveIn(hahait->second);
-        continue;
-      }
-
-      // Unless this is actually an mloc phi,
-      auto &IDNum = Var.second.ID;
-      if (IDNum.InstNo != 0)
+      if (hahait == tmpmap.end())
         continue;
 
-      if (IDNum.BlockNo == cur_bb) {
-        InsertLiveIn(IDNum.LocNo);
-      }
+      LocIdx m = hahait->second;
+      ActiveVLocs[Var.first] = std::make_pair(m, Var.second.meta);
+      ActiveMLocs[m].insert(std::make_pair(Var.first, 0));
+      assert(m != 0);
+      if (mtracker->getVarLocPos(m).ID.LocNo == 0)
+        continue;
+      inlocs.push_back(mtracker->emitLoc(m, Var.first, Var.second.meta));
     }
     if (inlocs.size() > 0)
       Transfers.push_back({MBB.begin(), &MBB, std::move(inlocs)});
@@ -891,6 +880,15 @@ private:
                  uint64_t **MInLocs, uint64_t **MOutLocs,
   SmallPtrSet<const MachineBasicBlock *, 8> &NonAssignBlocks,
   DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder);
+  void vloc_dataflow(const LexicalScope *Scope,
+                     const SmallSet<DebugVariable, 4> &VarsWeCareAbout,
+              SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
+              SmallPtrSetImpl<MachineBasicBlock *> &AssignBlocks,
+              DenseMap<unsigned int, MachineBasicBlock *> &OrderToBB,
+              DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder,
+SmallVectorImpl<SmallVector<std::pair<DebugVariable, ValueRec>, 8>> &Output,
+uint64_t **MOutLocs, uint64_t **MInLocs,
+MapVector<unsigned, VLocTracker *> &AllTheVLocs);
   bool vloc_transfer(VarLocSet &ilocs, VarLocSet &transfer, VarLocSet &olocs, lolnumberingt &lolnumbering, VarLocSet &VLOCTransMasks);
 
   bool ExtendRanges(MachineFunction &MF);
@@ -1715,6 +1713,133 @@ VarLocSet &VLOCTransMasks) {
   return Changed;
 }
 
+void LiveDebugValues::vloc_dataflow(const LexicalScope *Scope,
+                     const SmallSet<DebugVariable, 4> &VarsWeCareAbout,
+              SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
+              SmallPtrSetImpl<MachineBasicBlock *> &AssignBlocks,
+              DenseMap<unsigned int, MachineBasicBlock *> &OrderToBB,
+              DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder,
+SmallVectorImpl<SmallVector<std::pair<DebugVariable, ValueRec>, 8>> &Output,
+uint64_t **MOutLocs, uint64_t **MInLocs,
+MapVector<unsigned, VLocTracker *> &AllTheVLocs)
+{
+  std::priority_queue<unsigned int, std::vector<unsigned int>,
+                      std::greater<unsigned int>>
+      Worklist;
+  std::priority_queue<unsigned int, std::vector<unsigned int>,
+                      std::greater<unsigned int>>
+      Pending;
+
+
+
+  SmallPtrSet<const MachineBasicBlock *, 8> LBlocks;
+  SmallVector<MachineBasicBlock *, 8> BlockOrders;
+  auto Cmp = [&BBToOrder](MachineBasicBlock *A, MachineBasicBlock *B)
+   {
+     return BBToOrder[A] < BBToOrder[B];
+   };
+
+  // Determine which blocks we're dealing with.
+  assert(VarsWeCareAbout.size() != 0);
+  auto AVar = *VarsWeCareAbout.begin();
+  DebugLoc DL = DebugLoc::get(0, 0, AVar.getVariable()->getScope(), AVar.getInlinedAt());
+
+  LS.getMachineBasicBlocks(DL.get(), LBlocks);
+  SmallPtrSet<const MachineBasicBlock *, 8> NonAssignBlocks = LBlocks;
+
+  // Also any blocks that contain a DBG_VALUE.
+  LBlocks.insert(AssignBlocks.begin(), AssignBlocks.end());
+
+  // Add all artifical blocks. This might be inefficient; lets deal with
+  // that later. They won't contribute a lot unless they connect to a
+  // meaningful non-artificial block.
+  LBlocks.insert(ArtificialBlocks.begin(), ArtificialBlocks.end());
+  NonAssignBlocks.insert(ArtificialBlocks.begin(), ArtificialBlocks.end());
+
+  // Single block scope: not interesting! No propagation at all. Note that
+  // this could probably go above ArtificialBlocks without damage, but
+  // that then produces output differences from original-live-debug-values,
+  // which propagates from a single block into many artificial ones.
+  if (LBlocks.size() == 1)
+    return;
+
+  // Picks out their RPOT order and sort it.
+  for (auto *MBB : LBlocks)
+    BlockOrders.push_back(const_cast<MachineBasicBlock *>(MBB));
+
+  llvm::sort(BlockOrders.begin(), BlockOrders.end(), Cmp);
+
+  std::vector<DenseMap<DebugVariable, ValueRec>> LiveIns, LiveOuts;
+  LiveIns.resize(BlockOrders.size());
+  LiveOuts.resize(BlockOrders.size());
+  LiveIdxT LiveOutIdx, LiveInIdx;
+  for (unsigned I = 0; I < LiveOuts.size(); ++I) {
+    LiveOutIdx[BlockOrders[I]] = &LiveOuts[I];
+    LiveInIdx[BlockOrders[I]] = &LiveIns[I];
+  }
+
+  for (auto *MBB : BlockOrders)
+    Worklist.push(BBToOrder[MBB]);
+
+  bool firsttrip = true;
+  SmallPtrSet<const MachineBasicBlock *, 16> VLOCVisited;
+  while (!Worklist.empty() || !Pending.empty()) {
+    SmallPtrSet<MachineBasicBlock *, 16> OnPending;
+    while (!Worklist.empty()) {
+      auto *MBB = OrderToBB[Worklist.top()];
+      cur_bb = MBB->getNumber(); // XXX ldv state
+      Worklist.pop();
+
+      bool MBBJoined = vloc_join(*MBB, LiveOutIdx, LiveInIdx, (firsttrip) ? &VLOCVisited : nullptr, cur_bb, VarsWeCareAbout, MInLocs, MOutLocs, NonAssignBlocks, BBToOrder);
+
+      MBBJoined |= VLOCVisited.insert(MBB).second;
+      if (MBBJoined) {
+        MBBJoined = false;
+
+        // Do transfer function.
+        // DenseMap copy.
+        DenseMap<DebugVariable, ValueRec> Cpy = *LiveInIdx[MBB];
+        auto *vtracker = AllTheVLocs[BBToOrder[MBB]];
+        for (auto &Transfer : vtracker->Vars) {
+          // Is this var we're mangling in this scope?
+          if (VarsWeCareAbout.count(Transfer.first))
+            Cpy[Transfer.first] = Transfer.second;
+        }
+
+        bool OLChanged = Cpy != *LiveOutIdx[MBB];
+        *LiveOutIdx[MBB] = Cpy;
+
+        if (OLChanged) {
+          for (auto s : MBB->successors()) {
+            // A successor that is out of scope, ignore it.
+            if (LiveInIdx.find(s) == LiveInIdx.end())
+              continue;
+
+            if (OnPending.insert(s).second) {
+              Pending.push(BBToOrder[s]);
+            }
+          }
+        }
+      }
+    }
+    Worklist.swap(Pending);
+    assert(Pending.empty());
+    firsttrip = false;
+  }
+
+  // Dataflow done. Now what? Save live-ins.
+  for (unsigned I = 0; I < LiveIns.size(); ++I) {
+    auto &VarMap = LiveIns[I];
+    auto *MBB = BlockOrders[I];
+    for (auto &P : VarMap) {
+      Output[MBB->getNumber()].push_back(P);
+    }
+  }
+
+  BlockOrders.clear();
+  LBlocks.clear();
+}
+
 void LiveDebugValues::dump_mloc_transfer(const mloc_transfert &mloc_transfer) const {
   for (auto &P : mloc_transfer) {
     std::string foo = tracker->LocIdxToName(P.first);
@@ -1971,7 +2096,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   DenseSet<DebugVariable> AllVars;
   DenseMap<DebugVariable, unsigned> AllVarsNumbering;
   MapVector<const LexicalScope *, SmallSet<DebugVariable, 4>> ScopeToVars;
-  MapVector<const LexicalScope *, SmallSet<MachineBasicBlock *, 4>> ScopeToBlocks;
+  MapVector<const LexicalScope *, SmallPtrSet<MachineBasicBlock *, 4>> ScopeToBlocks;
   for (auto &It : vlocs) {
     for (auto &idx : It.second->Vars) {
       const auto &Var = idx.first;
@@ -1994,120 +2119,13 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
   // OK. Iterate over scopes: there might be something to be said for
   // ordering them by size/locality, but that's for the future.
-  SmallPtrSet<const MachineBasicBlock *, 8> LBlocks;
-  SmallVector<MachineBasicBlock *, 8> BlockOrders;
-  auto Cmp = [&BBToOrder](MachineBasicBlock *A, MachineBasicBlock *B)
-   {
-     return BBToOrder[A] < BBToOrder[B];
-   };
-
   SmallVector<SmallVector<std::pair<DebugVariable, ValueRec>, 8>, 16> SavedLiveIns;
   SavedLiveIns.resize(HighestMBBNo+1);
 
   for (auto &P : ScopeToVars) {
-    // Determine which blocks we're dealing with.
-    assert(P.second.size() != 0);
-    auto AVar = *P.second.begin();
-    DebugLoc DL = DebugLoc::get(0, 0, AVar.getVariable()->getScope(), AVar.getInlinedAt());
-
-    LS.getMachineBasicBlocks(DL.get(), LBlocks);
-    SmallPtrSet<const MachineBasicBlock *, 8> NonAssignBlocks = LBlocks;
-
-    // Also any blocks that contain a DBG_VALUE.
-    LBlocks.insert(ScopeToBlocks[P.first].begin(), ScopeToBlocks[P.first].end());
-
-    // Add all artifical blocks. This might be inefficient; lets deal with
-    // that later. They won't contribute a lot unless they connect to a
-    // meaningful non-artificial block.
-    LBlocks.insert(ArtificialBlocks.begin(), ArtificialBlocks.end());
-    NonAssignBlocks.insert(ArtificialBlocks.begin(), ArtificialBlocks.end());
-
-    // Single block scope: not interesting! No propagation at all. Note that
-    // this could probably go above ArtificialBlocks without damage, but
-    // that then produces output differences from original-live-debug-values,
-    // which propagates from a single block into many artificial ones.
-    if (LBlocks.size() == 1)
-      continue;
-
-    // Picks out their RPOT order and sort it.
-    for (auto *MBB : LBlocks)
-      BlockOrders.push_back(const_cast<MachineBasicBlock *>(MBB));
-
-    llvm::sort(BlockOrders.begin(), BlockOrders.end(), Cmp);
-
-    std::vector<DenseMap<DebugVariable, ValueRec>> LiveIns, LiveOuts;
-    LiveIns.resize(BlockOrders.size());
-    LiveOuts.resize(BlockOrders.size());
-    LiveIdxT LiveOutIdx, LiveInIdx;
-    for (unsigned I = 0; I < LiveOuts.size(); ++I) {
-      LiveOutIdx[BlockOrders[I]] = &LiveOuts[I];
-      LiveInIdx[BlockOrders[I]] = &LiveIns[I];
-    }
-
-    for (auto *MBB : BlockOrders)
-      Worklist.push(BBToOrder[MBB]);
-
-    SmallSet<DebugVariable, 4> &VarsWeCareAbout = P.second;
-
-    bool firsttrip = true;
-    SmallPtrSet<const MachineBasicBlock *, 16> VLOCVisited;
-    while (!Worklist.empty() || !Pending.empty()) {
-      SmallPtrSet<MachineBasicBlock *, 16> OnPending;
-      while (!Worklist.empty()) {
-        auto *MBB = OrderToBB[Worklist.top()];
-        cur_bb = MBB->getNumber();
-        Worklist.pop();
-
-        MBBJoined = vloc_join(*MBB, LiveOutIdx, LiveInIdx, (firsttrip) ? &VLOCVisited : nullptr, cur_bb, P.second, MInLocs, MOutLocs, NonAssignBlocks, BBToOrder);
-
-        MBBJoined |= VLOCVisited.insert(MBB).second;
-        if (MBBJoined) {
-          MBBJoined = false;
-          Changed = true;
-
-          // Do transfer function.
-          // DenseMap copy.
-          DenseMap<DebugVariable, ValueRec> Cpy = *LiveInIdx[MBB];
-          auto *vtracker = vlocs[BBToOrder[MBB]];
-          for (auto &Transfer : vtracker->Vars) {
-            // Is this var we're mangling in this scope?
-            if (VarsWeCareAbout.count(Transfer.first))
-              Cpy[Transfer.first] = Transfer.second;
-          }
-
-          OLChanged = Cpy != *LiveOutIdx[MBB];
-          *LiveOutIdx[MBB] = Cpy;
-
-          if (OLChanged) {
-            OLChanged = false;
-            for (auto s : MBB->successors()) {
-              // A successor that is out of scope, ignore it.
-              if (LiveInIdx.find(s) == LiveInIdx.end())
-                continue;
-
-              if (OnPending.insert(s).second) {
-                Pending.push(BBToOrder[s]);
-              }
-            }
-          }
-        }
-      }
-      Worklist.swap(Pending);
-      assert(Pending.empty());
-      firsttrip = false;
-    }
-
-    // Dataflow done. Now what? Save live-ins.
-    for (unsigned I = 0; I < LiveIns.size(); ++I) {
-      auto &VarMap = LiveIns[I];
-      auto *MBB = BlockOrders[I];
-      for (auto &P : VarMap) {
-        SavedLiveIns[MBB->getNumber()].push_back(P);
-      }
-    }
-
-    BlockOrders.clear();
-    LBlocks.clear();
+    vloc_dataflow(P.first, P.second, ArtificialBlocks, ScopeToBlocks[P.first],
+                  OrderToBB, BBToOrder, SavedLiveIns, MOutLocs, MInLocs,
+                  vlocs);
   }
 
   typedef std::pair<DebugVariable, ValueRec> LiveInPair;
