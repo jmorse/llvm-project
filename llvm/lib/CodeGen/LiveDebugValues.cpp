@@ -626,8 +626,7 @@ public:
   typedef std::pair<LocIdx, MetaVal> hahaloc;
   std::vector<Transfer> Transfers;
 
-  // MapVector for nondeterminism
-  DenseMap<LocIdx, MapVector<DebugVariable, unsigned>> ActiveMLocs;
+  DenseMap<LocIdx, SmallSet<DebugVariable, 4>> ActiveMLocs;
   DenseMap<DebugVariable, hahaloc> ActiveVLocs;
 
   TransferTracker(const TargetInstrInfo *TII, MLocTracker *mtracker, MachineFunction &MF) : TII(TII), mtracker(mtracker), MF(MF) { }
@@ -669,7 +668,7 @@ public:
 
       LocIdx m = hahait->second;
       ActiveVLocs[Var.first] = std::make_pair(m, Var.second.meta);
-      ActiveMLocs[m].insert(std::make_pair(Var.first, 0));
+      ActiveMLocs[m].insert(Var.first);
       assert(m != 0);
       if (mtracker->getVarLocPos(m).ID.LocNo == 0)
         continue;
@@ -702,7 +701,7 @@ public:
     LocIdx MLoc = mtracker->getRegMLoc(Reg);
     MetaVal meta = {MI.getDebugExpression(), MI.getOperand(1).isImm()};
 
-    ActiveMLocs[MLoc].insert(std::make_pair(Var, 0));
+    ActiveMLocs[MLoc].insert(Var);
     if (It == ActiveVLocs.end()) {
       ActiveVLocs.insert(std::make_pair(Var, std::make_pair(MLoc, meta)));
     } else {
@@ -737,14 +736,14 @@ public:
 
     std::vector<MachineInstr *>insts;
     for (auto &Var : It->second) {
-      auto ALoc = ActiveVLocs.find(Var.first);
+      auto ALoc = ActiveVLocs.find(Var);
       if (mtracker->isSpill(mloc)) {
         // Create an undef. We can't feed in a nullptr DIExpression alas,
         // so use the variables last expression.
         const DIExpression *Expr = ALoc->second.second.first;
         // XXX explicitly specify empty location?
         LocIdx Idx = LocIdx(0);
-        insts.push_back(mtracker->emitLoc(Idx, Var.first, {Expr, false}));
+        insts.push_back(mtracker->emitLoc(Idx, Var, {Expr, false}));
       }
       ActiveVLocs.erase(ALoc);
     }
@@ -761,12 +760,12 @@ public:
 
     std::vector<MachineInstr *> instrs;
     for (auto &Var : ActiveMLocs[src]) {
-      auto it = ActiveVLocs.find(Var.first);
+      auto it = ActiveVLocs.find(Var);
       assert(it != ActiveVLocs.end());
       it->second.first = dst;
 
       assert(dst != 0);
-      MachineInstr *MI = mtracker->emitLoc(dst, Var.first, it->second.second);
+      MachineInstr *MI = mtracker->emitLoc(dst, Var, it->second.second);
       instrs.push_back(MI);
     }
     ActiveMLocs[src].clear();
