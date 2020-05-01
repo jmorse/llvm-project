@@ -645,8 +645,6 @@ public:
     for (unsigned Idx = 1; Idx < NumLocs; ++Idx) {
       // Each mloc is a VarLocPos
       auto VNum = ValueIDNum::fromU64(mlocs[Idx]);
-      if (VNum.LocNo == 0)
-        continue;
       VarLocs[Idx] = VNum;
       // Produce a map of value numbers to the current machine locs they live
       // in. There should only be one machine loc per value.
