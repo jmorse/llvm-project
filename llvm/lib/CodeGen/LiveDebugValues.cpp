@@ -625,6 +625,7 @@ public:
 
   typedef std::pair<LocIdx, MetaVal> hahaloc;
   std::vector<Transfer> Transfers;
+  std::vector<ValueIDNum> VarLocs;
 
   DenseMap<LocIdx, SmallSet<DebugVariable, 4>> ActiveMLocs;
   DenseMap<DebugVariable, hahaloc> ActiveVLocs;
@@ -634,6 +635,8 @@ public:
   void loadInlocs(MachineBasicBlock &MBB, uint64_t *mlocs, SmallVectorImpl<std::pair<DebugVariable, ValueRec>> &vlocs, unsigned cur_bb, unsigned NumLocs) {  
     ActiveMLocs.clear();
     ActiveVLocs.clear();
+    VarLocs.clear();
+    VarLocs.resize(NumLocs);
 
     DenseMap<ValueIDNum, LocIdx> tmpmap;
 
@@ -642,6 +645,7 @@ public:
       auto VNum = ValueIDNum::fromU64(mlocs[Idx]);
       if (VNum.LocNo == 0)
         continue;
+      VarLocs[Idx] = VNum;
       // Produce a map of value numbers to the current machine locs they live
       // in. There should only be one machine loc per value.
       //assert(tmpmap.find(VNum) == tmpmap.end()); // XXX expensie
@@ -701,6 +705,15 @@ public:
     LocIdx MLoc = mtracker->getRegMLoc(Reg);
     MetaVal meta = {MI.getDebugExpression(), MI.getOperand(1).isImm()};
 
+    // If that loc has been clobbered in the meantime, wipe its contents.
+    if (mtracker->getVarLocPos(MLoc).ID != VarLocs[MLoc]) {
+      for (auto &P : ActiveMLocs[MLoc]) {
+        ActiveVLocs.erase(P);
+      }
+      ActiveMLocs[MLoc].clear();
+      VarLocs[MLoc] = mtracker->getVarLocPos(MLoc).ID;
+    }
+
     ActiveMLocs[MLoc].insert(Var);
     if (It == ActiveVLocs.end()) {
       ActiveVLocs.insert(std::make_pair(Var, std::make_pair(MLoc, meta)));
@@ -710,41 +723,23 @@ public:
     }
   }
 
-  void clobberRegMasks(SmallVectorImpl<const uint32_t *> &RegMasks, MachineBasicBlock::iterator pos, unsigned NumRegs, unsigned SP) {
-
-  auto AnyRegMaskKillsReg = [&RegMasks](Register Reg) -> bool {
-      return any_of(RegMasks, [Reg](const uint32_t *RegMask) {
-        return MachineOperand::clobbersPhysReg(RegMask, Reg);
-      });
-    };
-
-  for (unsigned Reg = 1; Reg < NumRegs; ++Reg) {
-    if (!mtracker->hasRegMLoc(Reg))
-      continue;
-    if (Reg != SP && AnyRegMaskKillsReg(Reg)) {
-        LocIdx Idx = mtracker->getRegMLoc(Reg);
-        clobberMloc(Idx, pos);
-      }
-    }
-  }
-
-
   void clobberMloc(LocIdx mloc, MachineBasicBlock::iterator pos) {
+    assert(mtracker->isSpill(mloc));
     auto It = ActiveMLocs.find(mloc);
     if (It == ActiveMLocs.end())
       return;
 
+    VarLocs[mloc] = ValueIDNum{0, 0, LocIdx(0)};
+
     std::vector<MachineInstr *>insts;
     for (auto &Var : It->second) {
       auto ALoc = ActiveVLocs.find(Var);
-      if (mtracker->isSpill(mloc)) {
-        // Create an undef. We can't feed in a nullptr DIExpression alas,
-        // so use the variables last expression.
-        const DIExpression *Expr = ALoc->second.second.first;
-        // XXX explicitly specify empty location?
-        LocIdx Idx = LocIdx(0);
-        insts.push_back(mtracker->emitLoc(Idx, Var, {Expr, false}));
-      }
+      // Create an undef. We can't feed in a nullptr DIExpression alas,
+      // so use the variables last expression.
+      const DIExpression *Expr = ALoc->second.second.first;
+      // XXX explicitly specify empty location?
+      LocIdx Idx = LocIdx(0);
+      insts.push_back(mtracker->emitLoc(Idx, Var, {Expr, false}));
       ActiveVLocs.erase(ALoc);
     }
     if (insts.size() != 0)
@@ -754,9 +749,15 @@ public:
   }
 
   void transferMlocs(LocIdx src, LocIdx dst, MachineBasicBlock::iterator pos) {
+    // Does src still contain the value num we expect? If not, it's been
+    // clobbered in the meantime.
+    if (VarLocs[src] != mtracker->getVarLocPos(src).ID)
+      return;
+
     // Legitimate scenario on account of un-clobbered slot being assigned to?
     //assert(ActiveMLocs[dst].size() == 0);
     ActiveMLocs[dst] = ActiveMLocs[src];
+    VarLocs[dst] = VarLocs[src];
 
     std::vector<MachineInstr *> instrs;
     for (auto &Var : ActiveMLocs[src]) {
@@ -771,6 +772,9 @@ public:
     ActiveMLocs[src].clear();
     if (instrs.size() > 0)
       Transfers.push_back({pos, nullptr, std::move(instrs)});
+
+    // XXX XXX XXX "pretend to be old LDV".
+    VarLocs[src] = ValueIDNum{0, 0, LocIdx(0)};
   }
 
   MachineInstrBuilder 
@@ -1044,13 +1048,8 @@ void LiveDebugValues::transferRegisterDef(
   // reasons, it's critical to not iterate over the full set of open VarLocs.
   // Iterate over the set of dying/used regs instead.
   VarLocSet KillSet(Alloc);
-  for (uint32_t DeadReg : DeadRegs) {
+  for (uint32_t DeadReg : DeadRegs)
     tracker->defReg(DeadReg, cur_bb, cur_inst);
-    if (ttracker) {
-      LocIdx Idx = tracker->getRegMLoc(DeadReg);
-      ttracker->clobberMloc(Idx, MI.getIterator());
-    }
-  }
 
   auto AnyRegMaskKillsReg = [RegMasks](Register Reg) -> bool {
     return any_of(RegMasks, [Reg](const uint32_t *RegMask) {
@@ -1061,13 +1060,6 @@ void LiveDebugValues::transferRegisterDef(
   for (auto *MO : RegMaskPtrs) {
     tracker->writeRegMask(MO, cur_bb, cur_inst);
   }
-
-if (RegMasks.size() == 0)
-  return;
-
-  // All registers not in the mask may need re-deffing...
-  if (ttracker)
-    ttracker->clobberRegMasks(RegMasks, MI.getIterator(), TRI->getNumRegs(), SP);
 }
 
 bool LiveDebugValues::isSpillInstruction(const MachineInstr &MI,
@@ -2126,8 +2118,12 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     tracker->loadFromArray(MInLocs[bbnum], bbnum);
     ttracker->loadInlocs(MBB, MInLocs[bbnum], SavedLiveIns[MBB.getNumber()], bbnum, NumLocs);
 
-    for (auto &MI : MBB)
+    cur_bb = bbnum;
+    cur_inst = 1;
+    for (auto &MI : MBB) {
       process(MI);
+      ++cur_inst;
+    }
   }
 
   // XXX remove earlier LiveIn ordering and see whether it's needed now.
