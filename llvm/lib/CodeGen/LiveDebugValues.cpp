@@ -640,7 +640,7 @@ public:
     VarLocs.clear();
     VarLocs.resize(NumLocs);
 
-    DenseMap<ValueIDNum, LocIdx> tmpmap;
+    DenseMap<ValueIDNum, LocIdx> ValueToLoc;
 
     for (unsigned Idx = 1; Idx < NumLocs; ++Idx) {
       // Each mloc is a VarLocPos
@@ -648,10 +648,10 @@ public:
       VarLocs[Idx] = VNum;
       // Produce a map of value numbers to the current machine locs they live
       // in. There should only be one machine loc per value.
-      //assert(tmpmap.find(VNum) == tmpmap.end()); // XXX expensie
-      auto it = tmpmap.find(VNum);
-      if(it == tmpmap.end() || mtracker->isSpill(it->second))
-        tmpmap[VNum] = LocIdx(Idx);
+      //assert(ValueToLoc.find(VNum) == ValueToLoc.end()); // XXX expensie
+      auto it = ValueToLoc.find(VNum);
+      if (it == ValueToLoc.end() || mtracker->isSpill(it->second))
+        ValueToLoc[VNum] = LocIdx(Idx);
     }
 
     // Now map variables to their current machine locs
