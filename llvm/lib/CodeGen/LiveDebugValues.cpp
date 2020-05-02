@@ -361,12 +361,8 @@ public:
     bumpRegister(ID, Idx);
 
     for (auto &P : LocIdxToLocID) {
-      if (P.second.LocNo == 0)
-        continue;
-      if (P.second.IsSpill)
-        continue;
       // Don't believe mask clobbering SP.
-      if (P.second.LocNo == SP)
+      if (P.second.LocNo == 0 || P.second.IsSpill || P.second.LocNo == SP)
         continue;
       if (MO->clobbersPhysReg(P.second.LocNo))
         defReg(P.second.LocNo, cur_bb, inst_id);
