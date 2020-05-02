@@ -757,18 +757,6 @@ private:
   using VarToFragments =
       DenseMap<const DILocalVariable *, SmallSet<FragmentInfo, 4>>;
 
-  VarLocSet &getVarLocsInMBB(const MachineBasicBlock *MBB, VarLocInMBB &Locs) {
-    auto Result = Locs.try_emplace(MBB, Alloc);
-    return Result.first->second;
-  }
-
-  const VarLocSet &getVarLocsInMBB(const MachineBasicBlock *MBB,
-                                   const VarLocInMBB &Locs) const {
-    auto It = Locs.find(MBB);
-    assert(It != Locs.end() && "MBB not in map");
-    return It->second;
-  }
-
   /// Tests whether this instruction is a spill to a stack location.
   bool isSpillInstruction(const MachineInstr &MI, MachineFunction *MF);
 
