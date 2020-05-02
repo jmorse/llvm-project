@@ -352,12 +352,6 @@ public:
     return LocIDToLocIdx[ID];
   }
 
-  bool hasRegMLoc(Register r) {
-    LocID ID = {0, r};
-    return LocIDToLocIdx.find(ID) != LocIDToLocIdx.end();
-  }
-
-
   void writeRegMask(const MachineOperand *MO, unsigned cur_bb, unsigned inst_id) {
     // Def anything we already have that isn't preserved.
     unsigned SP = TLI.getStackPointerRegisterToSaveRestore();
