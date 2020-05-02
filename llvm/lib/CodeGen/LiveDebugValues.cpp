@@ -362,9 +362,8 @@ public:
 
     for (auto &P : LocIdxToLocID) {
       // Don't believe mask clobbering SP.
-      if (P.second.LocNo == 0 || P.second.IsSpill || P.second.LocNo == SP)
-        continue;
-      if (MO->clobbersPhysReg(P.second.LocNo))
+      if (P.second.LocNo != 0 && !P.second.IsSpill && P.second.LocNo != SP &&
+          MO->clobbersPhysReg(P.second.LocNo))
         defReg(P.second.LocNo, cur_bb, inst_id);
     }
     Masks.push_back(std::make_pair(MO, inst_id));
