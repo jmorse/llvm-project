@@ -584,7 +584,7 @@ public:
   // Map the DebugVariable to recent primary location ID.
   // xxx determinism?
   // This is the one that actually reduces things :o
-  MapVector<DebugVariable, ValueRec> Vars;
+  DenseMap<DebugVariable, ValueRec> Vars;
 
 public:
   VLocTracker() {}
