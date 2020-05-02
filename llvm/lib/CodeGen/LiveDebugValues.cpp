@@ -974,7 +974,6 @@ void LiveDebugValues::transferRegisterDef(
   // Erase VarLocs which reside in one of the dead registers. For performance
   // reasons, it's critical to not iterate over the full set of open VarLocs.
   // Iterate over the set of dying/used regs instead.
-  VarLocSet KillSet(Alloc);
   for (uint32_t DeadReg : DeadRegs)
     tracker->defReg(DeadReg, cur_bb, cur_inst);
 
