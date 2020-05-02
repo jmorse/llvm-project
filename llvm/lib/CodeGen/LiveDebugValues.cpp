@@ -978,12 +978,6 @@ void LiveDebugValues::transferRegisterDef(
   for (uint32_t DeadReg : DeadRegs)
     tracker->defReg(DeadReg, cur_bb, cur_inst);
 
-  auto AnyRegMaskKillsReg = [RegMasks](Register Reg) -> bool {
-    return any_of(RegMasks, [Reg](const uint32_t *RegMask) {
-      return MachineOperand::clobbersPhysReg(RegMask, Reg);
-    });
-  };
-
   for (auto *MO : RegMaskPtrs) {
     tracker->writeRegMask(MO, cur_bb, cur_inst);
   }
