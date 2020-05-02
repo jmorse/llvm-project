@@ -396,14 +396,6 @@ public:
     }
   }
 
-  void lolwipe(SpillLoc l) {
-    unsigned SpillID = SpillLocs.idFor(l);
-    assert(SpillID != 0);
-    LocID L = {1, SpillID};
-    LocIdx Idx = LocIDToLocIdx[L];
-    LocIdxToIDNum[Idx] = {0, 0, LocIdx(0)};
-  }
-
   ValueIDNum readSpill(SpillLoc l) {
     unsigned pos = SpillLocs.idFor(l);
     if (pos == 0)
@@ -1143,7 +1135,6 @@ return false;
       assert(tracker->getSpillMLoc(*Loc) != 0);
       if (ttracker)
         ttracker->transferMlocs(tracker->getSpillMLoc(*Loc), tracker->getRegMLoc(Reg), MI.getIterator());
-//      tracker->lolwipe(*Loc);
     } else {
       // Well, def this register anyway.
       for (MCRegAliasIterator RAI(Reg, TRI, true); RAI.isValid(); ++RAI)
