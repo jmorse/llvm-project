@@ -571,9 +571,6 @@ public:
   }
 };
 
-typedef UniqueVector<std::pair<DebugVariable, ValueRec>> lolnumberingt;
-
-
 // Types for recording sets of variable fragments that overlap. For a given
 // local variable, we record all other fragments of that variable that could
 // overlap it, to reduce search time.
