@@ -231,7 +231,6 @@ typedef std::pair<const DIExpression *, bool> MetaVal;
 
 class MLocTracker {
 public:
-  VarLocSet::Allocator &Alloc;
   MachineFunction &MF;
   const TargetInstrInfo &TII;
   const TargetRegisterInfo &TRI;
@@ -245,8 +244,8 @@ public:
 
   SmallVector<std::pair<const MachineOperand *, unsigned>, 32> Masks;
 
-  MLocTracker(VarLocSet::Allocator &Alloc, MachineFunction &MF, const TargetInstrInfo &TII, const TargetRegisterInfo &TRI, const TargetLowering &TLI)
-    : Alloc(Alloc), MF(MF), TII(TII), TRI(TRI), TLI(TLI) {
+  MLocTracker(MachineFunction &MF, const TargetInstrInfo &TII, const TargetRegisterInfo &TRI, const TargetLowering &TLI)
+    : MF(MF), TII(TII), TRI(TRI), TLI(TLI) {
     reset();
     LocIdxToIDNum.push_back({0, 0, LocIdx(0)});
     LocID id = {0, 0};
@@ -261,17 +260,6 @@ public:
 
   unsigned getNumLocs(void) const {
     return LocIdxToIDNum.size();
-  }
-
-  VarLocSet makeVarLocSet(void) const {
-    VarLocSet set(Alloc);
-    for (unsigned idx = 0; idx < LocIdxToIDNum.size(); ++idx) {
-      LocIdx Idx = LocIdx(idx);
-      if (LocIdxToIDNum[Idx].LocNo == 0)
-        continue;
-      set.set(getVarLocPos(Idx).asU64());
-    }
-    return set;
   }
 
   void setMPhis(unsigned cur_bb) {
@@ -2146,7 +2134,7 @@ bool LiveDebugValues::runOnMachineFunction(MachineFunction &MF) {
   TFI->getCalleeSaves(MF, CalleeSavedRegs);
   LS.initialize(MF);
 
-  tracker = new MLocTracker(Alloc, MF, *TII, *TRI, *MF.getSubtarget().getTargetLowering());
+  tracker = new MLocTracker(MF, *TII, *TRI, *MF.getSubtarget().getTargetLowering());
   vtracker = nullptr;
   ttracker = nullptr;
 
