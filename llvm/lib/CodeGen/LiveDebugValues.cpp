@@ -659,8 +659,8 @@ public:
       }
 
       // Value unavailable / has no machine loc -> define no location.
-      auto hahait = tmpmap.find(Var.second.ID);
-      if (hahait == tmpmap.end())
+      auto hahait = ValueToLoc.find(Var.second.ID);
+      if (hahait == ValueToLoc.end())
         continue;
 
       LocIdx m = hahait->second;
