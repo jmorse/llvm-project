@@ -545,30 +545,6 @@ public:
   bool operator!=(const ValueRec &Other) const {
     return !(*this == Other);
   }
-
-  bool operator<(const ValueRec &Other) const {
-    if (meta != Other.meta)
-      return meta < Other.meta;
-
-    if (Kind == Const && Other.Kind == Const) {
-      if (MO->getType() == Other.MO->getType()) {
-        if (MO->isImm())
-          return MO->getImm() < Other.MO->getImm(); 
-        else if (MO->isCImm())
-          return MO->getCImm() < Other.MO->getCImm(); 
-        else if (MO->isFPImm())
-          return MO->getFPImm() < Other.MO->getFPImm(); 
-        else
-          abort();
-      } else {
-        return MO->getType() < Other.MO->getType();
-      }
-    } else if (Kind == Def && Other.Kind == Def) {
-      return ID < Other.ID;
-    } else {
-      return Kind < Other.Kind;
-    }
-  }
 };
 
 // Types for recording sets of variable fragments that overlap. For a given
