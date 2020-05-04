@@ -1783,8 +1783,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     BV.resize(TRI->getNumRegs(), true);
   }
 
-  // Initialize per-block structures and scan for fragment overlaps.
-  // Also other stuff.
+  // Step through all instructions and inhale the transfer function.
   for (auto &MBB : MF) {
     cur_bb = MBB.getNumber();
     cur_inst = 1;
@@ -1794,6 +1793,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     tracker->setMPhis(cur_bb);
     for (auto &MI : MBB) {
       process(MI);
+      // Also accumulate fragment map.
       if (MI.isDebugValue())
         accumulateFragmentMap(MI, SeenFragments, OverlapFragments);
       ++cur_inst;
