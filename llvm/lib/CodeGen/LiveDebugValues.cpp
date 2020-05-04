@@ -789,36 +789,38 @@ private:
                              OverlapMap &OLapMap);
 
   bool mloc_join(MachineBasicBlock &MBB,
-            SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
-            SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
-            uint64_t **OutLocs, uint64_t *InLocs,
-            const DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder,
-            const std::vector<MachineBasicBlock *> &NumToBlock);
+                 SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
+                 SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
+                 uint64_t **OutLocs, uint64_t *InLocs,
+                 const DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder,
+                 const std::vector<MachineBasicBlock *> &NumToBlock);
 
-  typedef DenseMap<const MachineBasicBlock *, DenseMap<DebugVariable, ValueRec> *> LiveIdxT;
-  bool vloc_join_location(MachineBasicBlock &MBB,
-                          ValueRec &InLoc,
+  typedef DenseMap<const MachineBasicBlock *,
+                   DenseMap<DebugVariable, ValueRec> *>
+      LiveIdxT;
+  bool vloc_join_location(MachineBasicBlock &MBB, ValueRec &InLoc,
                           ValueRec &OLoc, uint64_t *InLocOutLocs,
                           uint64_t *OLOutlocs,
                           const LiveIdxT::mapped_type PrevInLocs, // is ptr
-                          const DebugVariable &CurVar,  bool ThisIsABackEdge);
+                          const DebugVariable &CurVar, bool ThisIsABackEdge);
   bool vloc_join(MachineBasicBlock &MBB, LiveIdxT &VLOCOutLocs,
                  LiveIdxT &VLOCInLocs,
                  SmallPtrSet<const MachineBasicBlock *, 16> *VLOCVisited,
-                 unsigned cur_bb,
-                 const SmallSet<DebugVariable, 4> &AllVars,
+                 unsigned cur_bb, const SmallSet<DebugVariable, 4> &AllVars,
                  uint64_t **MInLocs, uint64_t **MOutLocs,
-  SmallPtrSet<const MachineBasicBlock *, 8> &NonAssignBlocks,
-  DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder);
-  void vloc_dataflow(const LexicalScope *Scope,
-                     const SmallSet<DebugVariable, 4> &VarsWeCareAbout,
-              SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
-              SmallPtrSetImpl<MachineBasicBlock *> &AssignBlocks,
-              DenseMap<unsigned int, MachineBasicBlock *> &OrderToBB,
-              DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder,
-SmallVectorImpl<SmallVector<std::pair<DebugVariable, ValueRec>, 8>> &Output,
-uint64_t **MOutLocs, uint64_t **MInLocs,
-MapVector<unsigned, VLocTracker *> &AllTheVLocs);
+                 SmallPtrSet<const MachineBasicBlock *, 8> &NonAssignBlocks,
+                 DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder);
+  void vloc_dataflow(
+      const LexicalScope *Scope,
+      const SmallSet<DebugVariable, 4> &VarsWeCareAbout,
+      SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
+      SmallPtrSetImpl<MachineBasicBlock *> &AssignBlocks,
+      DenseMap<unsigned int, MachineBasicBlock *> &OrderToBB,
+      DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder,
+      SmallVectorImpl<SmallVector<std::pair<DebugVariable, ValueRec>, 8>>
+          &Output,
+      uint64_t **MOutLocs, uint64_t **MInLocs,
+      MapVector<unsigned, VLocTracker *> &AllTheVLocs);
 
   bool ExtendRanges(MachineFunction &MF);
 
