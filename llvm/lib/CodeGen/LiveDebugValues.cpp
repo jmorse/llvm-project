@@ -1755,12 +1755,13 @@ SmallVectorImpl<VLocTracker> &AllTheVLocs)
     BlockOrders.push_back(const_cast<MachineBasicBlock *>(MBB));
 
   llvm::sort(BlockOrders.begin(), BlockOrders.end(), Cmp);
+  unsigned NumBlocks = BlockOrders.size();
 
   std::vector<DenseMap<DebugVariable, ValueRec>> LiveIns, LiveOuts;
-  LiveIns.resize(BlockOrders.size());
-  LiveOuts.resize(BlockOrders.size());
+  LiveIns.resize(NumBlocks);
+  LiveOuts.resize(NumBlocks);
   LiveIdxT LiveOutIdx, LiveInIdx;
-  for (unsigned I = 0; I < LiveOuts.size(); ++I) {
+  for (unsigned I = 0; I < NumBlocks; ++I) {
     LiveOutIdx[BlockOrders[I]] = &LiveOuts[I];
     LiveInIdx[BlockOrders[I]] = &LiveIns[I];
   }
