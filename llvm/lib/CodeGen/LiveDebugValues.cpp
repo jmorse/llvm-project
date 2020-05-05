@@ -1998,8 +1998,8 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
   // Produce a set of all variables.
   DenseMap<DebugVariable, unsigned> AllVarsNumbering;
-  MapVector<const LexicalScope *, SmallSet<DebugVariable, 4>> ScopeToVars;
-  MapVector<const LexicalScope *, SmallPtrSet<MachineBasicBlock *, 4>> ScopeToBlocks;
+  DenseMap<const LexicalScope *, SmallSet<DebugVariable, 4>> ScopeToVars;
+  DenseMap<const LexicalScope *, SmallPtrSet<MachineBasicBlock *, 4>> ScopeToBlocks;
   for (auto &It : vlocs) {
     for (auto &idx : It.Vars) {
       const auto &Var = idx.first;
