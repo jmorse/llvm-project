@@ -1997,7 +1997,6 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   }
 
   // Produce a set of all variables.
-  DenseSet<DebugVariable> AllVars;
   DenseMap<DebugVariable, unsigned> AllVarsNumbering;
   MapVector<const LexicalScope *, SmallSet<DebugVariable, 4>> ScopeToVars;
   MapVector<const LexicalScope *, SmallPtrSet<MachineBasicBlock *, 4>> ScopeToBlocks;
@@ -2014,7 +2013,6 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
       if (Scope == nullptr)
         continue;
 
-      AllVars.insert(Var);
       AllVarsNumbering.insert(std::make_pair(Var, AllVarsNumbering.size()));
       ScopeToVars[Scope].insert(Var);
       ScopeToBlocks[Scope].insert(It.MBB);
