@@ -1780,39 +1780,38 @@ SmallVectorImpl<VLocTracker> &AllTheVLocs)
       bool MBBJoined = vloc_join(*MBB, LiveOutIdx, LiveInIdx, (firsttrip) ? &VLOCVisited : nullptr, cur_bb, VarsWeCareAbout, MInLocs, MOutLocs, NonAssignBlocks, BBToOrder);
 
       MBBJoined |= VLOCVisited.insert(MBB).second;
-      if (MBBJoined) {
-        MBBJoined = false;
+      if (!MBBJoined)
+        continue;
 
-        // Do transfer function.
-        // DenseMap copy.
-        DenseMap<DebugVariable, ValueRec> Cpy = *LiveInIdx[MBB];
-        auto &vtracker = AllTheVLocs[MBB->getNumber()];
-        for (auto &Transfer : vtracker.Vars) {
-          // Is this var we're mangling in this scope?
-          if (VarsWeCareAbout.count(Transfer.first)) {
-            // Erase on empty transfer (DBG_VALUE $noreg).
-            if (Transfer.second.Kind == ValueRec::Def &&
-                Transfer.second.ID.LocNo == 0)
-              Cpy.erase(Transfer.first);
-            else
-              Cpy[Transfer.first] = Transfer.second;
-          }
+      // Do transfer function.
+      // DenseMap copy.
+      DenseMap<DebugVariable, ValueRec> Cpy = *LiveInIdx[MBB];
+      auto &vtracker = AllTheVLocs[MBB->getNumber()];
+      for (auto &Transfer : vtracker.Vars) {
+        // Is this var we're mangling in this scope?
+        if (VarsWeCareAbout.count(Transfer.first)) {
+          // Erase on empty transfer (DBG_VALUE $noreg).
+          if (Transfer.second.Kind == ValueRec::Def &&
+              Transfer.second.ID.LocNo == 0)
+            Cpy.erase(Transfer.first);
+          else
+            Cpy[Transfer.first] = Transfer.second;
         }
+      }
 
-        bool OLChanged = Cpy != *LiveOutIdx[MBB];
-        *LiveOutIdx[MBB] = Cpy;
+      bool OLChanged = Cpy != *LiveOutIdx[MBB];
+      *LiveOutIdx[MBB] = Cpy;
 
-        if (!OLChanged)
+      if (!OLChanged)
+        continue;
+
+      for (auto s : MBB->successors()) {
+        // A successor that is out of scope, ignore it.
+        if (LiveInIdx.find(s) == LiveInIdx.end())
           continue;
 
-        for (auto s : MBB->successors()) {
-          // A successor that is out of scope, ignore it.
-          if (LiveInIdx.find(s) == LiveInIdx.end())
-            continue;
-
-          if (OnPending.insert(s).second) {
-            Pending.push(BBToOrder[s]);
-          }
+        if (OnPending.insert(s).second) {
+          Pending.push(BBToOrder[s]);
         }
       }
     }
