@@ -1793,8 +1793,14 @@ MapVector<unsigned, VLocTracker *> &AllTheVLocs)
         auto *vtracker = AllTheVLocs[BBToOrder[MBB]];
         for (auto &Transfer : vtracker->Vars) {
           // Is this var we're mangling in this scope?
-          if (VarsWeCareAbout.count(Transfer.first))
-            Cpy[Transfer.first] = Transfer.second;
+          if (VarsWeCareAbout.count(Transfer.first)) {
+            // Erase on empty transfer (DBG_VALUE $noreg).
+            if (Transfer.second.Kind == ValueRec::Def &&
+                Transfer.second.ID.LocNo == 0)
+              Cpy.erase(Transfer.first);
+            else
+              Cpy[Transfer.first] = Transfer.second;
+          }
         }
 
         bool OLChanged = Cpy != *LiveOutIdx[MBB];
