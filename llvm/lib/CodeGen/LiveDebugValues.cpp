@@ -725,6 +725,20 @@ public:
 
 class LiveDebugValues : public MachineFunctionPass {
 private:
+  using FragmentInfo = DIExpression::FragmentInfo;
+  using OptFragmentInfo = Optional<DIExpression::FragmentInfo>;
+
+  // Helper while building OverlapMap, a map of all fragments seen for a given
+  // DILocalVariable.
+  using VarToFragments =
+      DenseMap<const DILocalVariable *, SmallSet<FragmentInfo, 4>>;
+
+  typedef DenseMap<LocIdx, ValueIDNum> mloc_transfert;
+
+  typedef DenseMap<const MachineBasicBlock *,
+                   DenseMap<DebugVariable, ValueRec> *>
+      LiveIdxT;
+
   const TargetRegisterInfo *TRI;
   const TargetInstrInfo *TII;
   const TargetFrameLowering *TFI;
@@ -745,19 +759,8 @@ private:
   DenseMap<unsigned int, MachineBasicBlock *> OrderToBB;
   DenseMap<MachineBasicBlock *, unsigned int> BBToOrder;
 
-  using FragmentInfo = DIExpression::FragmentInfo;
-  using OptFragmentInfo = Optional<DIExpression::FragmentInfo>;
-
-  // Helper while building OverlapMap, a map of all fragments seen for a given
-  // DILocalVariable.
-  using VarToFragments =
-      DenseMap<const DILocalVariable *, SmallSet<FragmentInfo, 4>>;
-
-  typedef DenseMap<LocIdx, ValueIDNum> mloc_transfert;
-
-  typedef DenseMap<const MachineBasicBlock *,
-                   DenseMap<DebugVariable, ValueRec> *>
-      LiveIdxT;
+  OverlapMap OverlapFragments; // Map of overlapping variable fragments.
+  VarToFragments SeenFragments;
 
   /// Tests whether this instruction is a spill to a stack location.
   bool isSpillInstruction(const MachineInstr &MI, MachineFunction *MF);
@@ -787,8 +790,11 @@ private:
 
   void process(MachineInstr &MI);
 
-  void accumulateFragmentMap(MachineInstr &MI, VarToFragments &SeenFragments,
-                             OverlapMap &OLapMap);
+  void accumulateFragmentMap(MachineInstr &MI);
+
+  void produce_mloc_transfer_function(MachineFunction &MF,
+                           std::vector<mloc_transfert> &MLocTransfer,
+                           unsigned MaxNumBlocks);
 
   bool mloc_join(MachineBasicBlock &MBB,
                  SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
@@ -1162,13 +1168,7 @@ bool LiveDebugValues::transferRegisterCopy(MachineInstr &MI) {
 /// known-to-overlap fragments are present".
 /// \param MI A previously unprocessed DEBUG_VALUE instruction to analyze for
 ///           fragment usage.
-/// \param SeenFragments Map from DILocalVariable to all fragments of that
-///           Variable which are known to exist.
-/// \param OverlappingFragments The overlap map being constructed, from one
-///           Var/Fragment pair to a vector of fragments known to overlap.
-void LiveDebugValues::accumulateFragmentMap(MachineInstr &MI,
-                                            VarToFragments &SeenFragments,
-                                            OverlapMap &OverlappingFragments) {
+void LiveDebugValues::accumulateFragmentMap(MachineInstr &MI) {
   DebugVariable MIVar(MI.getDebugVariable(), MI.getDebugExpression(),
                       MI.getDebugLoc()->getInlinedAt());
   FragmentInfo ThisFragment = MIVar.getFragmentOrDefault();
@@ -1182,14 +1182,14 @@ void LiveDebugValues::accumulateFragmentMap(MachineInstr &MI,
     OneFragment.insert(ThisFragment);
     SeenFragments.insert({MIVar.getVariable(), OneFragment});
 
-    OverlappingFragments.insert({{MIVar.getVariable(), ThisFragment}, {}});
+    OverlapFragments.insert({{MIVar.getVariable(), ThisFragment}, {}});
     return;
   }
 
   // If this particular Variable/Fragment pair already exists in the overlap
   // map, it has already been accounted for.
   auto IsInOLapMap =
-      OverlappingFragments.insert({{MIVar.getVariable(), ThisFragment}, {}});
+      OverlapFragments.insert({{MIVar.getVariable(), ThisFragment}, {}});
   if (!IsInOLapMap.second)
     return;
 
@@ -1207,8 +1207,8 @@ void LiveDebugValues::accumulateFragmentMap(MachineInstr &MI,
       // Mark the previously seen fragment as being overlapped by the current
       // one.
       auto ASeenFragmentsOverlaps =
-          OverlappingFragments.find({MIVar.getVariable(), ASeenFragment});
-      assert(ASeenFragmentsOverlaps != OverlappingFragments.end() &&
+          OverlapFragments.find({MIVar.getVariable(), ASeenFragment});
+      assert(ASeenFragmentsOverlaps != OverlapFragments.end() &&
              "Previously seen var fragment has no vector of overlaps");
       ASeenFragmentsOverlaps->second.push_back(ThisFragment);
     }
@@ -1226,6 +1226,82 @@ void LiveDebugValues::process(MachineInstr &MI) {
   if (transferSpillOrRestoreInst(MI))
     return;
   transferRegisterDef(MI);
+}
+
+void LiveDebugValues::produce_mloc_transfer_function(MachineFunction &MF,
+                           std::vector<mloc_transfert> &MLocTransfer,
+                           unsigned MaxNumBlocks)
+{
+  std::vector<BitVector> BlockMasks;
+  BlockMasks.resize(MaxNumBlocks);
+
+  unsigned BVWords = MachineOperand::getRegMaskSize(TRI->getNumRegs());
+  for (auto &BV : BlockMasks)
+    BV.resize(TRI->getNumRegs(), true);
+
+  // Step through all instructions and inhale the transfer function.
+  for (auto &MBB : MF) {
+    cur_bb = MBB.getNumber();
+    cur_inst = 1;
+
+    tracker->reset();
+    tracker->setMPhis(cur_bb);
+    for (auto &MI : MBB) {
+      process(MI);
+      // Also accumulate fragment map.
+      if (MI.isDebugValue())
+        accumulateFragmentMap(MI);
+      ++cur_inst;
+    }
+
+    // Look at tracker: still has input phi means no assignment. Produce
+    // a mapping if there's a movement.
+    for (unsigned IdxNum = 1; IdxNum < tracker->getNumLocs(); ++IdxNum) {
+      LocIdx Idx = LocIdx(IdxNum);
+      VarLocPos P = tracker->getVarLocPos(Idx);
+      if (P.ID.InstNo == 0 && P.ID.LocNo == P.CurrentLoc)
+        continue;
+
+      MLocTransfer[cur_bb][Idx] = P.ID;
+    }
+
+    // Accumulate any bitmask operands.
+    for (auto &P : tracker->Masks) {
+      BlockMasks[cur_bb].clearBitsNotInMask(P.first->getRegMask(), BVWords);
+    }
+  }
+
+  const TargetLowering *TLI = MF.getSubtarget().getTargetLowering();
+  unsigned SP = TLI->getStackPointerRegisterToSaveRestore();
+  BitVector UsedRegs(TRI->getNumRegs());
+  for (auto &P : tracker->LocIdxToLocID) {
+    if (P.first == 0 || P.second >= TRI->getNumRegs() || P.second == SP)
+      continue;
+    UsedRegs.set(P.second);
+  }
+
+  // For each block that we looked at, are there any clobbered registers that
+  // are used, and that don't appear as 'clobbered' in the transfer func?
+  // Overwrite them. XXX, this doesn't account for setting a reg and then
+  // clobbering it afterwards, although I guess then the reg would be known
+  // about?
+  for (unsigned int I = 0; I < MaxNumBlocks; ++I) {
+    BitVector &BV = BlockMasks[I];
+    BV.flip();
+    BV &= UsedRegs;
+    // This produces all the bits that we clobber, but also use. Check that
+    // they're all clobbered or at least set in the designated transfer
+    // elem.
+    for (unsigned Bit : BV.set_bits()) {
+      unsigned ID = tracker->getLocID(Bit, false);
+      LocIdx Idx = tracker->LocIDToLocIdx[ID];
+      assert(Idx != 0);
+      ValueIDNum &ValueID = MLocTransfer[I][Idx];
+      if (ValueID.BlockNo == I && ValueID.InstNo == 0)
+        // it was left as live-through. Set it to clobbered.
+        ValueID = ValueIDNum{0, 0, LocIdx(0)};
+    }
+  }
 }
 
 /// This routine joins the analysis results of all incoming edges in @MBB by
@@ -1824,12 +1900,7 @@ void LiveDebugValues::dump_mloc_transfer(const mloc_transfert &mloc_transfer) co
 bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   LLVM_DEBUG(dbgs() << "\nDebug Range Extension\n");
 
-  OverlapMap OverlapFragments; // Map of overlapping variable fragments.
-
-  VarToFragments SeenFragments;
-
   std::vector<mloc_transfert> MLocTransfer;
-  std::vector<BitVector> BlockMasks;
   SmallVector<VLocTracker, 8> vlocs;
   SmallVector<SmallVector<std::pair<DebugVariable, ValueRec>, 8>, 16> SavedLiveIns;
 
@@ -1840,7 +1911,6 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   ++MaxNumBlocks;
 
   MLocTransfer.resize(MaxNumBlocks);
-  BlockMasks.resize(MaxNumBlocks);
   vlocs.resize(MaxNumBlocks);
   SavedLiveIns.resize(MaxNumBlocks);
 
@@ -1861,73 +1931,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     ++RPONumber;
   }
 
-  unsigned BVWords = MachineOperand::getRegMaskSize(TRI->getNumRegs());
-  for (auto &BV : BlockMasks)
-    BV.resize(TRI->getNumRegs(), true);
-
-  // Step through all instructions and inhale the transfer function.
-  for (auto &MBB : MF) {
-    cur_bb = MBB.getNumber();
-    cur_inst = 1;
-
-    tracker->reset();
-    tracker->setMPhis(cur_bb);
-    for (auto &MI : MBB) {
-      process(MI);
-      // Also accumulate fragment map.
-      if (MI.isDebugValue())
-        accumulateFragmentMap(MI, SeenFragments, OverlapFragments);
-      ++cur_inst;
-    }
-
-    // Look at tracker: still has input phi means no assignment. Produce
-    // a mapping if there's a movement.
-    for (unsigned IdxNum = 1; IdxNum < tracker->getNumLocs(); ++IdxNum) {
-      LocIdx Idx = LocIdx(IdxNum);
-      VarLocPos P = tracker->getVarLocPos(Idx);
-      if (P.ID.InstNo == 0 && P.ID.LocNo == P.CurrentLoc)
-        continue;
-
-      MLocTransfer[cur_bb][Idx] = P.ID;
-    }
-
-    // Accumulate any bitmask operands.
-    for (auto &P : tracker->Masks) {
-      BlockMasks[cur_bb].clearBitsNotInMask(P.first->getRegMask(), BVWords);
-    }
-  }
-
-  const TargetLowering *TLI = MF.getSubtarget().getTargetLowering();
-  unsigned SP = TLI->getStackPointerRegisterToSaveRestore();
-  BitVector UsedRegs(TRI->getNumRegs());
-  for (auto &P : tracker->LocIdxToLocID) {
-    if (P.first == 0 || P.second >= TRI->getNumRegs() || P.second == SP)
-      continue;
-    UsedRegs.set(P.second);
-  }
-
-  // For each block that we looked at, are there any clobbered registers that
-  // are used, and that don't appear as 'clobbered' in the transfer func?
-  // Overwrite them. XXX, this doesn't account for setting a reg and then
-  // clobbering it afterwards, although I guess then the reg would be known
-  // about?
-  for (int I = 0; I < MaxNumBlocks; ++I) {
-    BitVector &BV = BlockMasks[I];
-    BV.flip();
-    BV &= UsedRegs;
-    // This produces all the bits that we clobber, but also use. Check that
-    // they're all clobbered or at least set in the designated transfer
-    // elem.
-    for (unsigned Bit : BV.set_bits()) {
-      unsigned ID = tracker->getLocID(Bit, false);
-      LocIdx Idx = tracker->LocIDToLocIdx[ID];
-      assert(Idx != 0);
-      ValueIDNum &ValueID = MLocTransfer[I][Idx];
-      if (ValueID.BlockNo == I && ValueID.InstNo == 0)
-        // it was left as live-through. Set it to clobbered.
-        ValueID = ValueIDNum{0, 0, LocIdx(0)};
-    }
-  }
+  produce_mloc_transfer_function(MF, MLocTransfer, MaxNumBlocks);
 
   // Huurrrr. Store liveouts in a massive array.
   uint64_t **MOutLocs = new uint64_t *[MaxNumBlocks];
