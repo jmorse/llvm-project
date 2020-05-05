@@ -2038,14 +2038,6 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   }
 
   typedef std::pair<DebugVariable, ValueRec> LiveInPair;
-  auto OrderVariable = [&](const LiveInPair &A, const LiveInPair &B) -> bool {
-    return AllVarsNumbering.find(A.first)->second < AllVarsNumbering.find(B.first)->second;
-  };
-
-
-  for (auto &Vec : SavedLiveIns) {
-    llvm::sort(Vec.begin(), Vec.end(), OrderVariable);
-  }
 
   // mloc argument only needs the posish -> spills map and the like.
   ttracker = new TransferTracker(TII, tracker, MF);
