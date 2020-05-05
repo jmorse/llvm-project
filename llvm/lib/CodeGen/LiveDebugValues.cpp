@@ -530,6 +530,7 @@ public:
   // Needs to be a mapvector because we determine order-in-the-input-MIR from
   // the order in this thing.
   MapVector<DebugVariable, ValueRec> Vars;
+  MachineBasicBlock *MBB;
 
 public:
   VLocTracker() {}
@@ -826,7 +827,7 @@ private:
       SmallVectorImpl<SmallVector<std::pair<DebugVariable, ValueRec>, 8>>
           &Output,
       uint64_t **MOutLocs, uint64_t **MInLocs,
-      MapVector<unsigned, VLocTracker *> &AllTheVLocs);
+      SmallVectorImpl<VLocTracker> &AllTheVLocs);
 
   bool ExtendRanges(MachineFunction &MF);
 
@@ -1712,7 +1713,7 @@ void LiveDebugValues::vloc_dataflow(const LexicalScope *Scope,
               DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder,
 SmallVectorImpl<SmallVector<std::pair<DebugVariable, ValueRec>, 8>> &Output,
 uint64_t **MOutLocs, uint64_t **MInLocs,
-MapVector<unsigned, VLocTracker *> &AllTheVLocs)
+SmallVectorImpl<VLocTracker> &AllTheVLocs)
 {
   std::priority_queue<unsigned int, std::vector<unsigned int>,
                       std::greater<unsigned int>>
@@ -1790,8 +1791,8 @@ MapVector<unsigned, VLocTracker *> &AllTheVLocs)
         // Do transfer function.
         // DenseMap copy.
         DenseMap<DebugVariable, ValueRec> Cpy = *LiveInIdx[MBB];
-        auto *vtracker = AllTheVLocs[BBToOrder[MBB]];
-        for (auto &Transfer : vtracker->Vars) {
+        auto &vtracker = AllTheVLocs[MBB->getNumber()];
+        for (auto &Transfer : vtracker.Vars) {
           // Is this var we're mangling in this scope?
           if (VarsWeCareAbout.count(Transfer.first)) {
             // Erase on empty transfer (DBG_VALUE $noreg).
@@ -1982,16 +1983,15 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   // vlocs and mlocs: go back over each block, this time tracking the vlocs
   // and building a transfer function between each block. 
   // XXX mv for nondeterminism
-  MapVector<unsigned, VLocTracker *> vlocs;
-  for (unsigned I = 0; I < MF.size(); ++I)
-    vlocs[I] = new VLocTracker();
+  SmallVector<VLocTracker, 8> vlocs;
+  vlocs.resize(HighestMBBNo+1);
 
   // Accumulate things into the vloc tracker.
   for (auto RI = RPOT.begin(), RE = RPOT.end(); RI != RE; ++RI) {
-    unsigned Idx = BBToOrder[*RI];
     cur_bb = (*RI)->getNumber();
     auto *MBB = *RI;
-    vtracker = vlocs[Idx];
+    vtracker = &vlocs[cur_bb];
+    vtracker->MBB = MBB;
     tracker->loadFromArray(MInLocs[cur_bb], cur_bb);
     cur_inst = 1;
     for (auto &MI : *MBB) {
@@ -2007,7 +2007,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   MapVector<const LexicalScope *, SmallSet<DebugVariable, 4>> ScopeToVars;
   MapVector<const LexicalScope *, SmallPtrSet<MachineBasicBlock *, 4>> ScopeToBlocks;
   for (auto &It : vlocs) {
-    for (auto &idx : It.second->Vars) {
+    for (auto &idx : It.Vars) {
       const auto &Var = idx.first;
       DebugLoc DL = DebugLoc::get(0, 0, Var.getVariable()->getScope(), Var.getInlinedAt());
       auto *Scope = LS.findLexicalScope(DL.get());
@@ -2022,7 +2022,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
       AllVars.insert(Var);
       AllVarsNumbering.insert(std::make_pair(Var, AllVarsNumbering.size()));
       ScopeToVars[Scope].insert(Var);
-      ScopeToBlocks[Scope].insert(OrderToBB[It.first]);
+      ScopeToBlocks[Scope].insert(It.MBB);
     }
   }
 
