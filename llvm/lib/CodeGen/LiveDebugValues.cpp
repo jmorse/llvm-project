@@ -805,15 +805,11 @@ private:
                  SmallPtrSet<const MachineBasicBlock *, 16> *VLOCVisited,
                  unsigned cur_bb, const SmallSet<DebugVariable, 4> &AllVars,
                  uint64_t **MInLocs, uint64_t **MOutLocs,
-                 SmallPtrSet<const MachineBasicBlock *, 8> &NonAssignBlocks,
-                 DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder);
+                 SmallPtrSet<const MachineBasicBlock *, 8> &NonAssignBlocks);
   void vloc_dataflow(
       const LexicalScope *Scope,
       const SmallSet<DebugVariable, 4> &VarsWeCareAbout,
-      SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
       SmallPtrSetImpl<MachineBasicBlock *> &AssignBlocks,
-      DenseMap<unsigned int, MachineBasicBlock *> &OrderToBB,
-      DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder,
       SmallVectorImpl<SmallVector<std::pair<DebugVariable, ValueRec>, 8>>
           &Output,
       uint64_t **MOutLocs, uint64_t **MInLocs,
@@ -1540,8 +1536,7 @@ bool LiveDebugValues::vloc_join(
    unsigned cur_bb,
    const SmallSet<DebugVariable, 4> &AllVars,
    uint64_t **MInLocs, uint64_t **MOutLocs,
-  SmallPtrSet<const MachineBasicBlock *, 8> &NonAssignBlocks,
-  DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder) {
+  SmallPtrSet<const MachineBasicBlock *, 8> &NonAssignBlocks) {
    
   if (NonAssignBlocks.count(&MBB) == 0) {
     // Wipe all inlocs. By never assigning to them.
@@ -1585,10 +1580,9 @@ bool LiveDebugValues::vloc_join(
   for (auto p : MBB.predecessors())
     BlockOrders.push_back(p);
 
-  auto Cmp = [&BBToOrder](MachineBasicBlock *A, MachineBasicBlock *B)
-     {
-       return BBToOrder[A] < BBToOrder[B];
-     };
+  auto Cmp = [&](MachineBasicBlock *A, MachineBasicBlock *B) {
+    return BBToOrder[A] < BBToOrder[B];
+  };
 
   llvm::sort(BlockOrders.begin(), BlockOrders.end(), Cmp);
   unsigned this_rpot = BBToOrder[&MBB];
@@ -1689,10 +1683,7 @@ for (auto &It : InLocsT) {
 void LiveDebugValues::vloc_dataflow(
     const LexicalScope *Scope,
     const SmallSet<DebugVariable, 4> &VarsWeCareAbout,
-    SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
     SmallPtrSetImpl<MachineBasicBlock *> &AssignBlocks,
-    DenseMap<unsigned int, MachineBasicBlock *> &OrderToBB,
-    DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder,
     SmallVectorImpl<SmallVector<std::pair<DebugVariable, ValueRec>, 8>> &Output,
     uint64_t **MOutLocs, uint64_t **MInLocs,
     SmallVectorImpl<VLocTracker> &AllTheVLocs) {
@@ -1702,7 +1693,7 @@ void LiveDebugValues::vloc_dataflow(
 
   SmallPtrSet<const MachineBasicBlock *, 8> LBlocks;
   SmallVector<MachineBasicBlock *, 8> BlockOrders;
-  auto Cmp = [&BBToOrder](MachineBasicBlock *A, MachineBasicBlock *B) {
+  auto Cmp = [&](MachineBasicBlock *A, MachineBasicBlock *B) {
     return BBToOrder[A] < BBToOrder[B];
   };
 
@@ -1763,7 +1754,7 @@ void LiveDebugValues::vloc_dataflow(
       bool InlocsChanged = vloc_join(*MBB, LiveOutIdx, LiveInIdx,
                                      (firsttrip) ? &VLOCVisited : nullptr,
                                      cur_bb, VarsWeCareAbout, MInLocs, MOutLocs,
-                                     NonAssignBlocks, BBToOrder);
+                                     NonAssignBlocks);
 
       // Always explore transfer function if inlocs changed, or if we've not
       // visited this block before.
@@ -1989,9 +1980,8 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   // OK. Iterate over scopes: there might be something to be said for
   // ordering them by size/locality, but that's for the future.
   for (auto &P : ScopeToVars) {
-    vloc_dataflow(P.first, P.second, ArtificialBlocks, ScopeToBlocks[P.first],
-                  OrderToBB, BBToOrder, SavedLiveIns, MOutLocs, MInLocs,
-                  vlocs);
+    vloc_dataflow(P.first, P.second, ScopeToBlocks[P.first],
+                  SavedLiveIns, MOutLocs, MInLocs, vlocs);
   }
 
   // mloc argument only needs the posish -> spills map and the like.
