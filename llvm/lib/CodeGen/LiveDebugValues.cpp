@@ -737,6 +737,14 @@ private:
   VLocTracker *vtracker;
   TransferTracker *ttracker;
 
+  // Blocks which are artificial, i.e. blocks which exclusively contain
+  // instructions without locations, or with line 0 locations.
+  SmallPtrSet<const MachineBasicBlock *, 16> ArtificialBlocks;
+
+  // Mapping of blocks to and from their RPOT order.
+  DenseMap<unsigned int, MachineBasicBlock *> OrderToBB;
+  DenseMap<MachineBasicBlock *, unsigned int> BBToOrder;
+
   using FragmentInfo = DIExpression::FragmentInfo;
   using OptFragmentInfo = Optional<DIExpression::FragmentInfo>;
 
@@ -780,14 +788,9 @@ private:
 
   bool mloc_join(MachineBasicBlock &MBB,
                  SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
-                 SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
-                 uint64_t **OutLocs, uint64_t *InLocs,
-                 const DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder);
-  void mloc_dataflow(DenseMap<unsigned int, MachineBasicBlock *> &OrderToBB,
-                     DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder,
-                     uint64_t **MInLocs, uint64_t **MOutLocs,
-                     std::vector<mloc_transfert> &MLocTransfer,
-                  SmallPtrSet<const MachineBasicBlock *, 16> &ArtificialBlocks);
+                 uint64_t **OutLocs, uint64_t *InLocs);
+  void mloc_dataflow(uint64_t **MInLocs, uint64_t **MOutLocs,
+                     std::vector<mloc_transfert> &MLocTransfer);
 
   typedef DenseMap<const MachineBasicBlock *,
                    DenseMap<DebugVariable, ValueRec> *>
@@ -1234,9 +1237,7 @@ void LiveDebugValues::process(MachineInstr &MI) {
 bool LiveDebugValues::mloc_join(
     MachineBasicBlock &MBB,
     SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
-    SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
-    uint64_t **OutLocs, uint64_t *InLocs,
-    const DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder) {
+    uint64_t **OutLocs, uint64_t *InLocs) {
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
 
@@ -1248,7 +1249,7 @@ bool LiveDebugValues::mloc_join(
     }
   }
 
-  auto Cmp = [&BBToOrder](const MachineBasicBlock *A, const MachineBasicBlock *B) {
+  auto Cmp = [&](const MachineBasicBlock *A, const MachineBasicBlock *B) {
    return BBToOrder.find(A)->second < BBToOrder.find(B)->second;
   };
   llvm::sort(BlockOrders.begin(), BlockOrders.end(), Cmp);
@@ -1303,11 +1304,8 @@ bool LiveDebugValues::mloc_join(
   return Changed;
 }
 
-void LiveDebugValues::mloc_dataflow(
-    DenseMap<unsigned int, MachineBasicBlock *> &OrderToBB,
-    DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder, uint64_t **MInLocs,
-    uint64_t **MOutLocs, std::vector<mloc_transfert> &MLocTransfer,
-    SmallPtrSet<const MachineBasicBlock *, 16> &ArtificialBlocks) {
+void LiveDebugValues::mloc_dataflow(uint64_t **MInLocs,
+    uint64_t **MOutLocs, std::vector<mloc_transfert> &MLocTransfer) {
   std::priority_queue<unsigned int, std::vector<unsigned int>,
                       std::greater<unsigned int>>
       Worklist, Pending;
@@ -1336,8 +1334,7 @@ void LiveDebugValues::mloc_dataflow(
       cur_bb = MBB->getNumber();
       Worklist.pop();
 
-      bool InLocsChanged = mloc_join(*MBB, Visited, ArtificialBlocks, MOutLocs,
-                                     MInLocs[cur_bb], BBToOrder);
+      bool InLocsChanged = mloc_join(*MBB, Visited, MOutLocs, MInLocs[cur_bb]);
       InLocsChanged |= Visited.insert(MBB).second;
 
       // Don't examine transfer function if we've visited this loc at least
@@ -1839,13 +1836,6 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
   VarToFragments SeenFragments;
 
-  // Blocks which are artificial, i.e. blocks which exclusively contain
-  // instructions without locations, or with line 0 locations.
-  SmallPtrSet<const MachineBasicBlock *, 16> ArtificialBlocks;
-
-  DenseMap<unsigned int, MachineBasicBlock *> OrderToBB;
-  DenseMap<MachineBasicBlock *, unsigned int> BBToOrder;
-
   std::vector<mloc_transfert> MLocTransfer;
   int HighestMBBNo = -1;
   for (auto &MBB : MF)
@@ -1952,7 +1942,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     memset(MInLocs[i], 0, sizeof(uint64_t) * NumLocs);
   }
 
-  mloc_dataflow(OrderToBB, BBToOrder, MInLocs, MOutLocs, MLocTransfer, ArtificialBlocks);
+  mloc_dataflow(MInLocs, MOutLocs, MLocTransfer);
 
   // vlocs and mlocs: go back over each block, this time tracking the vlocs
   // and building a transfer function between each block. 
@@ -2086,5 +2076,10 @@ bool LiveDebugValues::runOnMachineFunction(MachineFunction &MF) {
   delete tracker;
   vtracker = nullptr;
   ttracker = nullptr;
+
+  ArtificialBlocks.clear();
+  OrderToBB.clear();
+  BBToOrder.clear();
+
   return Changed;
 }
