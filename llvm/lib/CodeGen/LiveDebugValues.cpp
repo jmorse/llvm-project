@@ -1802,15 +1802,16 @@ SmallVectorImpl<VLocTracker> &AllTheVLocs)
         bool OLChanged = Cpy != *LiveOutIdx[MBB];
         *LiveOutIdx[MBB] = Cpy;
 
-        if (OLChanged) {
-          for (auto s : MBB->successors()) {
-            // A successor that is out of scope, ignore it.
-            if (LiveInIdx.find(s) == LiveInIdx.end())
-              continue;
+        if (!OLChanged)
+          continue;
 
-            if (OnPending.insert(s).second) {
-              Pending.push(BBToOrder[s]);
-            }
+        for (auto s : MBB->successors()) {
+          // A successor that is out of scope, ignore it.
+          if (LiveInIdx.find(s) == LiveInIdx.end())
+            continue;
+
+          if (OnPending.insert(s).second) {
+            Pending.push(BBToOrder[s]);
           }
         }
       }
