@@ -1354,55 +1354,52 @@ std::vector<mloc_transfert> &MLocTransfer,
 
      // XXX jmorse
      // Also XXX, do we go around these loops too many times?
-      bool MBBJoined = mloc_join(*MBB, Visited, ArtificialBlocks, MOutLocs, MInLocs[cur_bb], BBToOrder);
-      MBBJoined |= Visited.insert(MBB).second;
+      bool InLocsChanged = mloc_join(*MBB, Visited, ArtificialBlocks, MOutLocs, MInLocs[cur_bb], BBToOrder);
+      InLocsChanged |= Visited.insert(MBB).second;
 
-      bool Changed = false;
-      if (MBBJoined) {
-        MBBJoined = false;
-        Changed = true;
+      if (!InLocsChanged)
+        continue;
 
-        // Rather than touch all insts again, read and then reset locations
-        // in the transfer function.
-        tracker->loadFromArray(MInLocs[cur_bb], cur_bb);
-        toremap.clear();
-        for (auto &P : MLocTransfer[cur_bb]) {
-          ValueIDNum NewID = {0, 0, LocIdx(0)};
-          if (P.second.BlockNo == cur_bb && P.second.InstNo == 0) {
-            // This is a movement of whatever was live in. Read it.
-            VarLocPos Pos = tracker->getVarLocPos(P.second.LocNo);
-            NewID = Pos.ID;
-          } else {
-            // It's a def. (Has to be a def in this BB, or nullloc).
-            // Just set it.
-            assert(P.second.BlockNo == cur_bb || P.second.LocNo == 0);
-            NewID = P.second;
+      // Rather than touch all insts again, read and then reset locations
+      // in the transfer function.
+      tracker->loadFromArray(MInLocs[cur_bb], cur_bb);
+      toremap.clear();
+      for (auto &P : MLocTransfer[cur_bb]) {
+        ValueIDNum NewID = {0, 0, LocIdx(0)};
+        if (P.second.BlockNo == cur_bb && P.second.InstNo == 0) {
+          // This is a movement of whatever was live in. Read it.
+          VarLocPos Pos = tracker->getVarLocPos(P.second.LocNo);
+          NewID = Pos.ID;
+        } else {
+          // It's a def. (Has to be a def in this BB, or nullloc).
+          // Just set it.
+          assert(P.second.BlockNo == cur_bb || P.second.LocNo == 0);
+          NewID = P.second;
+        }
+        toremap.push_back(std::make_pair(P.first, NewID));
+      }
+
+      for (auto &P : toremap) {
+        tracker->setMLoc(P.first, P.second);
+      }
+
+      // could make a set-to-array method?
+      bool OLChanged = false;
+      for (unsigned Idx = 1; Idx < tracker->getNumLocs(); ++Idx) {
+        auto VLP = tracker->getVarLocPos(LocIdx(Idx));
+        uint64_t ID = VLP.ID.asU64();
+        OLChanged |= MOutLocs[cur_bb][Idx] != ID;
+        MOutLocs[cur_bb][Idx] = ID;
+      }
+
+      tracker->reset();
+
+      if (OLChanged) {
+        OLChanged = false;
+        for (auto s : MBB->successors())
+          if (OnPending.insert(s).second) {
+            Pending.push(BBToOrder[s]);
           }
-          toremap.push_back(std::make_pair(P.first, NewID));
-        }
-
-        for (auto &P : toremap) {
-          tracker->setMLoc(P.first, P.second);
-        }
-
-        // could make a set-to-array method?
-        bool OLChanged = false;
-        for (unsigned Idx = 1; Idx < tracker->getNumLocs(); ++Idx) {
-          auto VLP = tracker->getVarLocPos(LocIdx(Idx));
-          uint64_t ID = VLP.ID.asU64();
-          OLChanged |= MOutLocs[cur_bb][Idx] != ID;
-          MOutLocs[cur_bb][Idx] = ID;
-        }
-
-        tracker->reset();
-
-        if (OLChanged) {
-          OLChanged = false;
-          for (auto s : MBB->successors())
-            if (OnPending.insert(s).second) {
-              Pending.push(BBToOrder[s]);
-            }
-        }
       }
     }
     Worklist.swap(Pending);
