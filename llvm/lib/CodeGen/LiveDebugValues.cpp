@@ -1785,7 +1785,7 @@ void LiveDebugValues::vloc_dataflow(
       // Always explore transfer function if inlocs changed, or if we've not
       // visited this block before.
       InlocsChanged |= VLOCVisited.insert(MBB).second;
-      if (InlocsChanged)
+      if (!InlocsChanged)
         continue;
 
       // Do transfer function.
