@@ -1837,19 +1837,24 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   VarToFragments SeenFragments;
 
   std::vector<mloc_transfert> MLocTransfer;
+  std::vector<BitVector> BlockMasks;
+  SmallVector<VLocTracker, 8> vlocs;
+  SmallVector<SmallVector<std::pair<DebugVariable, ValueRec>, 8>, 16> SavedLiveIns;
+
   int MaxNumBlocks = -1;
   for (auto &MBB : MF)
     MaxNumBlocks = std::max(MBB.getNumber(), MaxNumBlocks);
   assert(MaxNumBlocks >= 0);
   ++MaxNumBlocks;
+
   MLocTransfer.resize(MaxNumBlocks);
+  BlockMasks.resize(MaxNumBlocks);
+  vlocs.resize(MaxNumBlocks);
+  SavedLiveIns.resize(MaxNumBlocks);
 
   unsigned BVWords = MachineOperand::getRegMaskSize(TRI->getNumRegs());
-  std::vector<BitVector> BlockMasks;
-  BlockMasks.resize(MaxNumBlocks);
-  for (auto &BV : BlockMasks) {
+  for (auto &BV : BlockMasks)
     BV.resize(TRI->getNumRegs(), true);
-  }
 
   // Step through all instructions and inhale the transfer function.
   for (auto &MBB : MF) {
@@ -1945,12 +1950,6 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
   mloc_dataflow(MInLocs, MOutLocs, MLocTransfer);
 
-  // vlocs and mlocs: go back over each block, this time tracking the vlocs
-  // and building a transfer function between each block. 
-  // XXX mv for nondeterminism
-  SmallVector<VLocTracker, 8> vlocs;
-  vlocs.resize(MaxNumBlocks);
-
   // Accumulate things into the vloc tracker.
   for (auto RI = RPOT.begin(), RE = RPOT.end(); RI != RE; ++RI) {
     cur_bb = (*RI)->getNumber();
@@ -1989,9 +1988,6 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
   // OK. Iterate over scopes: there might be something to be said for
   // ordering them by size/locality, but that's for the future.
-  SmallVector<SmallVector<std::pair<DebugVariable, ValueRec>, 8>, 16> SavedLiveIns;
-  SavedLiveIns.resize(MaxNumBlocks);
-
   for (auto &P : ScopeToVars) {
     vloc_dataflow(P.first, P.second, ArtificialBlocks, ScopeToBlocks[P.first],
                   OrderToBB, BBToOrder, SavedLiveIns, MOutLocs, MInLocs,
