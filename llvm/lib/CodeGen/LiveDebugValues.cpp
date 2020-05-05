@@ -1348,11 +1348,8 @@ void LiveDebugValues::mloc_dataflow(
     while (!Worklist.empty()) {
       MachineBasicBlock *MBB = OrderToBB[Worklist.top()];
       cur_bb = MBB->getNumber();
-      cur_inst = 1;
       Worklist.pop();
 
-      // XXX jmorse
-      // Also XXX, do we go around these loops too many times?
       bool InLocsChanged = mloc_join(*MBB, Visited, ArtificialBlocks, MOutLocs,
                                      MInLocs[cur_bb], BBToOrder);
       InLocsChanged |= Visited.insert(MBB).second;
