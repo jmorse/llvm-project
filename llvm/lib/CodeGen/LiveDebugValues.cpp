@@ -825,6 +825,8 @@ private:
       uint64_t **MOutLocs, uint64_t **MInLocs,
       SmallVectorImpl<VLocTracker> &AllTheVLocs);
 
+  void emit_locations(MachineFunction &MF, LiveInsT SavedLiveIns, uint64_t **MInLocs, DenseMap<DebugVariable, unsigned> &AllVarsNumbering);
+
   bool ExtendRanges(MachineFunction &MF);
 
 public:
@@ -1898,6 +1900,52 @@ void LiveDebugValues::dump_mloc_transfer(const mloc_transfert &mloc_transfer) co
   }
 }
 
+void LiveDebugValues::emit_locations(MachineFunction &MF, LiveInsT SavedLiveIns, uint64_t **MInLocs,
+DenseMap<DebugVariable, unsigned> &AllVarsNumbering)
+{
+  // mloc argument only needs the posish -> spills map and the like.
+  ttracker = new TransferTracker(TII, tracker, MF);
+  unsigned NumLocs = tracker->getNumLocs();
+
+  for (MachineBasicBlock &MBB : MF) {
+    unsigned bbnum = MBB.getNumber();
+    tracker->reset();
+    tracker->loadFromArray(MInLocs[bbnum], bbnum);
+    ttracker->loadInlocs(MBB, MInLocs[bbnum], SavedLiveIns[MBB.getNumber()], bbnum, NumLocs);
+
+    cur_bb = bbnum;
+    cur_inst = 1;
+    for (auto &MI : MBB) {
+      process(MI);
+      ++cur_inst;
+    }
+  }
+
+  // XXX remove earlier LiveIn ordering and see whether it's needed now.
+  auto OrderDbgValues = [&](const MachineInstr *A, const MachineInstr *B) -> bool{
+    DebugVariable VarA(A->getDebugVariable(), A->getDebugExpression(),
+                      A->getDebugLoc()->getInlinedAt());
+    DebugVariable VarB(B->getDebugVariable(), B->getDebugExpression(),
+                      B->getDebugLoc()->getInlinedAt());
+    return AllVarsNumbering.find(VarA)->second < AllVarsNumbering.find(VarB)->second;
+  };
+
+  for (auto &P : ttracker->Transfers) {
+    llvm::sort(P.insts.begin(), P.insts.end(), OrderDbgValues);
+    if (P.MBB) {
+      MachineBasicBlock &MBB = *P.MBB;
+      for (auto *MI : P.insts) {
+        MBB.insert(P.pos, MI);
+      }
+    } else {
+      MachineBasicBlock &MBB = *P.pos->getParent();
+      for (auto *MI : P.insts) {
+        MBB.insertAfter(P.pos, MI);
+      }
+    }
+  }
+}
+
 /// Calculate the liveness information for the given machine function and
 /// extend ranges across basic blocks.
 bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
@@ -1992,46 +2040,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
                   SavedLiveIns, MOutLocs, MInLocs, vlocs);
   }
 
-  // mloc argument only needs the posish -> spills map and the like.
-  ttracker = new TransferTracker(TII, tracker, MF);
-
-  for (MachineBasicBlock &MBB : MF) {
-    unsigned bbnum = MBB.getNumber();
-    tracker->reset();
-    tracker->loadFromArray(MInLocs[bbnum], bbnum);
-    ttracker->loadInlocs(MBB, MInLocs[bbnum], SavedLiveIns[MBB.getNumber()], bbnum, NumLocs);
-
-    cur_bb = bbnum;
-    cur_inst = 1;
-    for (auto &MI : MBB) {
-      process(MI);
-      ++cur_inst;
-    }
-  }
-
-  // XXX remove earlier LiveIn ordering and see whether it's needed now.
-  auto OrderDbgValues = [&](const MachineInstr *A, const MachineInstr *B) -> bool{
-    DebugVariable VarA(A->getDebugVariable(), A->getDebugExpression(),
-                      A->getDebugLoc()->getInlinedAt());
-    DebugVariable VarB(B->getDebugVariable(), B->getDebugExpression(),
-                      B->getDebugLoc()->getInlinedAt());
-    return AllVarsNumbering.find(VarA)->second < AllVarsNumbering.find(VarB)->second;
-  };
-
-  for (auto &P : ttracker->Transfers) {
-    llvm::sort(P.insts.begin(), P.insts.end(), OrderDbgValues);
-    if (P.MBB) {
-      MachineBasicBlock &MBB = *P.MBB;
-      for (auto *MI : P.insts) {
-        MBB.insert(P.pos, MI);
-      }
-    } else {
-      MachineBasicBlock &MBB = *P.pos->getParent();
-      for (auto *MI : P.insts) {
-        MBB.insertAfter(P.pos, MI);
-      }
-    }
-  }
+  emit_locations(MF, SavedLiveIns, MInLocs, AllVarsNumbering);
 
   for (int Idx = 0; Idx < MaxNumBlocks; ++Idx) {
     delete[] MOutLocs[Idx];
