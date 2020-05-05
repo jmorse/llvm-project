@@ -1994,7 +1994,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     vtracker = vlocs[Idx];
     tracker->loadFromArray(MInLocs[cur_bb], cur_bb);
     cur_inst = 1;
-    for (auto &MI : *MBB) { // XXX I think the empty open ranges does nufink
+    for (auto &MI : *MBB) {
       process(MI);
       ++cur_inst;
     }
