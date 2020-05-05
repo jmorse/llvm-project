@@ -1393,13 +1393,12 @@ std::vector<mloc_transfert> &MLocTransfer,
 
       tracker->reset();
 
-      if (OLChanged) {
-        OLChanged = false;
-        for (auto s : MBB->successors())
-          if (OnPending.insert(s).second) {
-            Pending.push(BBToOrder[s]);
-          }
-      }
+      if (!OLChanged)
+        continue;
+
+      for (auto s : MBB->successors())
+        if (OnPending.insert(s).second)
+          Pending.push(BBToOrder[s]);
     }
     Worklist.swap(Pending);
     // At this point, pending must be empty, since it was just the empty
