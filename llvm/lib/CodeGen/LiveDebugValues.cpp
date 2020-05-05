@@ -827,6 +827,8 @@ private:
 
   void emit_locations(MachineFunction &MF, LiveInsT SavedLiveIns, uint64_t **MInLocs, DenseMap<DebugVariable, unsigned> &AllVarsNumbering);
 
+  void initial_setup(MachineFunction &MF);
+
   bool ExtendRanges(MachineFunction &MF);
 
 public:
@@ -1946,6 +1948,25 @@ DenseMap<DebugVariable, unsigned> &AllVarsNumbering)
   }
 }
 
+void LiveDebugValues::initial_setup(MachineFunction &MF) {
+  auto hasNonArtificialLocation = [](const MachineInstr &MI) -> bool {
+    if (const DebugLoc &DL = MI.getDebugLoc())
+      return DL.getLine() != 0;
+    return false;
+  };
+  for (auto &MBB : MF)
+    if (none_of(MBB.instrs(), hasNonArtificialLocation))
+      ArtificialBlocks.insert(&MBB);
+
+  ReversePostOrderTraversal<MachineFunction *> RPOT(&MF);
+  unsigned int RPONumber = 0;
+  for (auto RI = RPOT.begin(), RE = RPOT.end(); RI != RE; ++RI) {
+    OrderToBB[RPONumber] = *RI;
+    BBToOrder[*RI] = RPONumber;
+    ++RPONumber;
+  }
+}
+
 /// Calculate the liveness information for the given machine function and
 /// extend ranges across basic blocks.
 bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
@@ -1965,22 +1986,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   vlocs.resize(MaxNumBlocks);
   SavedLiveIns.resize(MaxNumBlocks);
 
-  auto hasNonArtificialLocation = [](const MachineInstr &MI) -> bool {
-    if (const DebugLoc &DL = MI.getDebugLoc())
-      return DL.getLine() != 0;
-    return false;
-  };
-  for (auto &MBB : MF)
-    if (none_of(MBB.instrs(), hasNonArtificialLocation))
-      ArtificialBlocks.insert(&MBB);
-
-  ReversePostOrderTraversal<MachineFunction *> RPOT(&MF);
-  unsigned int RPONumber = 0;
-  for (auto RI = RPOT.begin(), RE = RPOT.end(); RI != RE; ++RI) {
-    OrderToBB[RPONumber] = *RI;
-    BBToOrder[*RI] = RPONumber;
-    ++RPONumber;
-  }
+  initial_setup(MF);
 
   produce_mloc_transfer_function(MF, MLocTransfer, MaxNumBlocks);
 
@@ -1998,14 +2004,13 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   mloc_dataflow(MInLocs, MOutLocs, MLocTransfer);
 
   // Accumulate things into the vloc tracker.
-  for (auto RI = RPOT.begin(), RE = RPOT.end(); RI != RE; ++RI) {
-    cur_bb = (*RI)->getNumber();
-    auto *MBB = *RI;
+  for (auto &MBB : MF) {
+    cur_bb = MBB.getNumber();
     vtracker = &vlocs[cur_bb];
-    vtracker->MBB = MBB;
+    vtracker->MBB = &MBB;
     tracker->loadFromArray(MInLocs[cur_bb], cur_bb);
     cur_inst = 1;
-    for (auto &MI : *MBB) {
+    for (auto &MI : MBB) {
       process(MI);
       ++cur_inst;
     }
@@ -2017,8 +2022,9 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   DenseMap<const LexicalScope *, SmallSet<DebugVariable, 4>> ScopeToVars;
   DenseMap<const LexicalScope *, SmallPtrSet<MachineBasicBlock *, 4>> ScopeToBlocks;
   // To match old LDV, enumerate variables in RPOT order.
-  for (auto RI = RPOT.begin(), RE = RPOT.end(); RI != RE; ++RI) {
-    auto *vtracker = &vlocs[(*RI)->getNumber()];
+  for (unsigned int I = 0; I < OrderToBB.size(); ++I) {
+    auto *MBB = OrderToBB[I];
+    auto *vtracker = &vlocs[MBB->getNumber()];
     for (auto &idx : vtracker->Vars) {
       const auto &Var = idx.first;
       DebugLoc DL = DebugLoc::get(0, 0, Var.getVariable()->getScope(), Var.getInlinedAt());
