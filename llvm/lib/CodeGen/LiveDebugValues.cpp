@@ -2032,8 +2032,6 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
                   vlocs);
   }
 
-  typedef std::pair<DebugVariable, ValueRec> LiveInPair;
-
   // mloc argument only needs the posish -> spills map and the like.
   ttracker = new TransferTracker(TII, tracker, MF);
 
