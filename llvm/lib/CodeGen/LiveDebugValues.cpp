@@ -1805,15 +1805,12 @@ SmallVectorImpl<VLocTracker> &AllTheVLocs)
       if (!OLChanged)
         continue;
 
-      for (auto s : MBB->successors()) {
-        // A successor that is out of scope, ignore it.
-        if (LiveInIdx.find(s) == LiveInIdx.end())
-          continue;
-
-        if (OnPending.insert(s).second) {
+      // Ignore out of scope successors and those already on the list. All
+      // others should be on the pending list next time around.
+      for (auto s : MBB->successors())
+        if (LiveInIdx.find(s) != LiveInIdx.end() && OnPending.insert(s).second)
           Pending.push(BBToOrder[s]);
-        }
-      }
+
     }
     Worklist.swap(Pending);
     assert(Pending.empty());
