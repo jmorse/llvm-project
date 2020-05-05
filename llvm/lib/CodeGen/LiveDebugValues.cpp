@@ -527,9 +527,9 @@ using OverlapMap =
 class VLocTracker {
 public:
   // Map the DebugVariable to recent primary location ID.
-  // xxx determinism?
-  // This is the one that actually reduces things :o
-  DenseMap<DebugVariable, ValueRec> Vars;
+  // Needs to be a mapvector because we determine order-in-the-input-MIR from
+  // the order in this thing.
+  MapVector<DebugVariable, ValueRec> Vars;
 
 public:
   VLocTracker() {}
