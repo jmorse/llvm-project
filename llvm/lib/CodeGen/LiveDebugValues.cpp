@@ -739,6 +739,10 @@ private:
                    DenseMap<DebugVariable, ValueRec> *>
       LiveIdxT;
 
+  typedef std::pair<DebugVariable, ValueRec> VarAndLoc;
+  // Vector (per block) of a collection (inner smallvector) of live-ins.
+  typedef SmallVector<SmallVector<VarAndLoc, 8>, 8> LiveInsT;
+
   const TargetRegisterInfo *TRI;
   const TargetInstrInfo *TII;
   const TargetFrameLowering *TFI;
@@ -817,8 +821,7 @@ private:
       const LexicalScope *Scope,
       const SmallSet<DebugVariable, 4> &VarsWeCareAbout,
       SmallPtrSetImpl<MachineBasicBlock *> &AssignBlocks,
-      SmallVectorImpl<SmallVector<std::pair<DebugVariable, ValueRec>, 8>>
-          &Output,
+      LiveInsT &Output,
       uint64_t **MOutLocs, uint64_t **MInLocs,
       SmallVectorImpl<VLocTracker> &AllTheVLocs);
 
@@ -1761,7 +1764,7 @@ void LiveDebugValues::vloc_dataflow(
     const LexicalScope *Scope,
     const SmallSet<DebugVariable, 4> &VarsWeCareAbout,
     SmallPtrSetImpl<MachineBasicBlock *> &AssignBlocks,
-    SmallVectorImpl<SmallVector<std::pair<DebugVariable, ValueRec>, 8>> &Output,
+    LiveInsT &Output,
     uint64_t **MOutLocs, uint64_t **MInLocs,
     SmallVectorImpl<VLocTracker> &AllTheVLocs) {
   std::priority_queue<unsigned int, std::vector<unsigned int>,
@@ -1902,7 +1905,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
   std::vector<mloc_transfert> MLocTransfer;
   SmallVector<VLocTracker, 8> vlocs;
-  SmallVector<SmallVector<std::pair<DebugVariable, ValueRec>, 8>, 16> SavedLiveIns;
+  LiveInsT SavedLiveIns;
 
   int MaxNumBlocks = -1;
   for (auto &MBB : MF)
