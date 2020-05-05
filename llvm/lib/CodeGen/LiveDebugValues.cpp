@@ -1837,15 +1837,16 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   VarToFragments SeenFragments;
 
   std::vector<mloc_transfert> MLocTransfer;
-  int HighestMBBNo = -1;
+  int MaxNumBlocks = -1;
   for (auto &MBB : MF)
-    HighestMBBNo = std::max(MBB.getNumber(), HighestMBBNo);
-  assert(HighestMBBNo >= 0);
-  MLocTransfer.resize(HighestMBBNo+1);
+    MaxNumBlocks = std::max(MBB.getNumber(), MaxNumBlocks);
+  assert(MaxNumBlocks >= 0);
+  ++MaxNumBlocks;
+  MLocTransfer.resize(MaxNumBlocks);
 
   unsigned BVWords = MachineOperand::getRegMaskSize(TRI->getNumRegs());
   std::vector<BitVector> BlockMasks;
-  BlockMasks.resize(HighestMBBNo+1);
+  BlockMasks.resize(MaxNumBlocks);
   for (auto &BV : BlockMasks) {
     BV.resize(TRI->getNumRegs(), true);
   }
@@ -1896,7 +1897,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   // Overwrite them. XXX, this doesn't account for setting a reg and then
   // clobbering it afterwards, although I guess then the reg would be known
   // about?
-  for (int I = 0; I < HighestMBBNo+1; ++I) {
+  for (int I = 0; I < MaxNumBlocks; ++I) {
     BitVector &BV = BlockMasks[I];
     BV.flip();
     BV &= UsedRegs;
@@ -1932,10 +1933,10 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   }
 
   // Huurrrr. Store liveouts in a massive array.
-  uint64_t **MOutLocs = new uint64_t *[HighestMBBNo+1];
-  uint64_t **MInLocs = new uint64_t *[HighestMBBNo+1];
+  uint64_t **MOutLocs = new uint64_t *[MaxNumBlocks];
+  uint64_t **MInLocs = new uint64_t *[MaxNumBlocks];
   unsigned NumLocs = tracker->getNumLocs();
-  for (int i = 0; i < HighestMBBNo+1; ++i) {
+  for (int i = 0; i < MaxNumBlocks; ++i) {
     MOutLocs[i] = new uint64_t[NumLocs];
     memset(MOutLocs[i], 0xFF, sizeof(uint64_t) * NumLocs);
     MInLocs[i] = new uint64_t[NumLocs];
@@ -1948,7 +1949,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   // and building a transfer function between each block. 
   // XXX mv for nondeterminism
   SmallVector<VLocTracker, 8> vlocs;
-  vlocs.resize(HighestMBBNo+1);
+  vlocs.resize(MaxNumBlocks);
 
   // Accumulate things into the vloc tracker.
   for (auto RI = RPOT.begin(), RE = RPOT.end(); RI != RE; ++RI) {
@@ -1989,7 +1990,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   // OK. Iterate over scopes: there might be something to be said for
   // ordering them by size/locality, but that's for the future.
   SmallVector<SmallVector<std::pair<DebugVariable, ValueRec>, 8>, 16> SavedLiveIns;
-  SavedLiveIns.resize(HighestMBBNo+1);
+  SavedLiveIns.resize(MaxNumBlocks);
 
   for (auto &P : ScopeToVars) {
     vloc_dataflow(P.first, P.second, ArtificialBlocks, ScopeToBlocks[P.first],
@@ -2038,7 +2039,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     }
   }
 
-  for (int Idx = 0; Idx < HighestMBBNo+1; ++Idx) {
+  for (int Idx = 0; Idx < MaxNumBlocks; ++Idx) {
     delete[] MOutLocs[Idx];
     delete[] MInLocs[Idx];
   }
