@@ -87,8 +87,6 @@ static cl::opt<bool> EmulateOldLDV(
 
 namespace {
 
-using VarLocSet = CoalescingBitVector<uint64_t>;
-
 // The location at which a spilled variable resides. It consists of a
 // register and an offset.
 struct SpillLoc {
@@ -745,7 +743,6 @@ private:
   const TargetFrameLowering *TFI;
   BitVector CalleeSavedRegs;
   LexicalScopes LS;
-  VarLocSet::Allocator Alloc;
 
   MLocTracker *tracker;
   unsigned cur_bb;
@@ -755,8 +752,6 @@ private:
 
   using FragmentInfo = DIExpression::FragmentInfo;
   using OptFragmentInfo = Optional<DIExpression::FragmentInfo>;
-
-  using VarLocInMBB = SmallDenseMap<const MachineBasicBlock *, VarLocSet>;
 
   // Helper while building OverlapMap, a map of all fragments seen for a given
   // DILocalVariable.
@@ -1079,7 +1074,6 @@ return false;
   // First, if there are any DBG_VALUEs pointing at a spill slot that is
   // written to, then close the variable location. The value in memory
   // will have changed.
-  VarLocSet KillSet(Alloc);
   if (isSpillInstruction(MI, MF)) {
     Loc = extractSpillBaseRegAndOffset(MI);
 
@@ -1891,7 +1885,6 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     cur_inst = 1;
 
     tracker->reset();
-    VarLocSet lolempty(Alloc); // feed in empty set, everything is an inp phi
     tracker->setMPhis(cur_bb);
     for (auto &MI : MBB) {
       process(MI);
