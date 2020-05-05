@@ -80,6 +80,11 @@ using namespace llvm;
 STATISTIC(NumInserted, "Number of DBG_VALUE instructions inserted");
 STATISTIC(NumRemoved, "Number of DBG_VALUE instructions removed");
 
+static cl::opt<bool> EmulateOldLDV(
+    "word-wrap-like-word97", cl::Hidden,
+    cl::desc("Act like old LiveDebugValues did"),
+    cl::init(true));
+
 namespace {
 
 using VarLocSet = CoalescingBitVector<uint64_t>;
