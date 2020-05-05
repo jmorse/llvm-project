@@ -143,15 +143,6 @@ public:
   }
 };
 
-class LocID {
-public:
-  unsigned IsSpill : 1;
-  unsigned LocNo : 31;
-
-  unsigned toInt() const {
-    return IsSpill << 31 | LocNo;
-  }
-};
 } // end anon namespace
 
 namespace llvm {
@@ -171,22 +162,7 @@ template <> struct DenseMapInfo<ValueIDNum> {
   static bool isEqual(const ValueIDNum &A, const ValueIDNum &B) { return A == B; }
 };
 
-// Misery.
-template <> struct DenseMapInfo<LocID> {
-  static const unsigned MaxVal = 0x7FFFFFFF;
-
-  static inline LocID getEmptyKey() { return {0, MaxVal}; }
-
-  static inline LocID getTombstoneKey() { return {1, MaxVal}; }
-
-  static unsigned getHashValue(LocID num) {
-    return hash_value(num.toInt());
-  }
-
-  static bool isEqual(const LocID &A, const LocID &B) { return A.toInt() == B.toInt(); }
-};
-
-// More misery
+// Misery
 template <> struct DenseMapInfo<LocIdx> {
   static const int MaxVal = std::numeric_limits<int>::max();
 
@@ -239,21 +215,28 @@ public:
   const TargetRegisterInfo &TRI;
   const TargetLowering &TLI;
 
-  DenseMap<LocID, LocIdx> LocIDToLocIdx;
-  DenseMap<LocIdx, LocID> LocIdxToLocID;
+  std::vector<LocIdx> LocIDToLocIdx;
+  DenseMap<LocIdx, unsigned> LocIdxToLocID;
   std::vector<ValueIDNum> LocIdxToIDNum;
   UniqueVector<SpillLoc> SpillLocs;
   unsigned lolwat_cur_bb;
+  unsigned NumRegs;
 
   SmallVector<std::pair<const MachineOperand *, unsigned>, 32> Masks;
 
   MLocTracker(MachineFunction &MF, const TargetInstrInfo &TII, const TargetRegisterInfo &TRI, const TargetLowering &TLI)
     : MF(MF), TII(TII), TRI(TRI), TLI(TLI) {
+    NumRegs = TRI.getNumRegs();
     reset();
     LocIdxToIDNum.push_back({0, 0, LocIdx(0)});
-    LocID id = {0, 0};
-    LocIDToLocIdx[id] = LocIdx(0);
-    LocIdxToLocID[LocIdx(0)] = id;
+    LocIDToLocIdx.resize(NumRegs);
+    memset(&LocIDToLocIdx[0], 0, NumRegs * sizeof(LocIdx));
+    LocIDToLocIdx[0] = LocIdx(0);
+    LocIdxToLocID[LocIdx(0)] = 0;
+  }
+
+  unsigned getLocID(unsigned RegOrSpill, bool isSpill) {
+    return (isSpill) ? RegOrSpill + NumRegs : RegOrSpill;
   }
 
   VarLocPos getVarLocPos(LocIdx Idx) const {
@@ -292,6 +275,9 @@ public:
     LocIdxToIDNum.clear();
     //SpillsToMLocs.reset(); XXX can't reset?
     SpillLocs = decltype(SpillLocs)();
+
+    LocIDToLocIdx.resize(NumRegs);
+    memset(&LocIDToLocIdx[0], 0, NumRegs * sizeof(LocIdx));
   }
 
   void setMLoc(LocIdx L, ValueIDNum Num) {
@@ -299,8 +285,8 @@ public:
     LocIdxToIDNum[L] = Num;
   }
 
-  void bumpRegister(const LocID &ID, LocIdx &Ref) {
-     assert(ID.LocNo != 0);
+  void bumpRegister(unsigned ID, LocIdx &Ref) {
+     assert(ID != 0);
     if (Ref == 0) {
       LocIdx NewIdx = LocIdx(LocIdxToIDNum.size());
       Ref = NewIdx;
@@ -309,7 +295,7 @@ public:
       ValueIDNum ValNum = {lolwat_cur_bb, 0, NewIdx};
       // Was this reg ever touched by a regmask?
       for (auto rit = Masks.rbegin(); rit != Masks.rend(); ++rit) {
-        if (rit->first->clobbersPhysReg(ID.LocNo))  {
+        if (rit->first->clobbersPhysReg(ID))  {
           // There was an earlier def we skipped
           ValNum = {lolwat_cur_bb, rit->second, NewIdx};
           break;
@@ -322,7 +308,7 @@ public:
   }
 
   void defReg(Register r, unsigned bb, unsigned inst) {
-    LocID ID = {0, r};
+    unsigned ID = getLocID(r, false);
     LocIdx &Idx = LocIDToLocIdx[ID];
     bumpRegister(ID, Idx);
     ValueIDNum id = {bb, inst, Idx};
@@ -330,14 +316,14 @@ public:
   }
 
   void setReg(Register r, ValueIDNum id) {
-    LocID ID = {0, r};
+    unsigned ID = getLocID(r, false);
     LocIdx &Idx = LocIDToLocIdx[ID];
     bumpRegister(ID, Idx);
     LocIdxToIDNum[Idx] = id;
   }
 
   ValueIDNum readReg(Register r) {
-    LocID ID = {0, r};
+    unsigned ID = getLocID(r, false);
     LocIdx &Idx = LocIDToLocIdx[ID];
     bumpRegister(ID, Idx);
     return LocIdxToIDNum[Idx];
@@ -345,13 +331,13 @@ public:
 
   // Because we need to replicate values only having one location for now.
   void lolwipe(Register r) {
-    LocID ID = {0, r};
+    unsigned ID = getLocID(r, false);
     LocIdx Idx = LocIDToLocIdx[ID];
     LocIdxToIDNum[Idx] = {0, 0, LocIdx(0)};
   }
 
   LocIdx getRegMLoc(Register r) {
-    LocID ID = {0, r};
+    unsigned ID = getLocID(r, false);
     return LocIDToLocIdx[ID];
   }
 
@@ -359,15 +345,15 @@ public:
     // Def anything we already have that isn't preserved.
     unsigned SP = TLI.getStackPointerRegisterToSaveRestore();
     // Ensure SP exists, so that we don't override it later.
-    LocID ID = {0, SP};
+    unsigned ID = getLocID(SP, false);
     LocIdx &Idx = LocIDToLocIdx[ID];
     bumpRegister(ID, Idx);
 
     for (auto &P : LocIdxToLocID) {
       // Don't believe mask clobbering SP.
-      if (P.second.LocNo != 0 && !P.second.IsSpill && P.second.LocNo != SP &&
-          MO->clobbersPhysReg(P.second.LocNo))
-        defReg(P.second.LocNo, cur_bb, inst_id);
+      if (P.second != 0 && P.second < NumRegs && P.second != SP &&
+          MO->clobbersPhysReg(P.second))
+        defReg(P.second, cur_bb, inst_id);
     }
     Masks.push_back(std::make_pair(MO, inst_id));
   }
@@ -376,13 +362,14 @@ public:
     unsigned SpillID = SpillLocs.idFor(l);
     if (SpillID == 0) {
       SpillID = SpillLocs.insert(l);
-      LocID L = {1, SpillID};
+      LocIDToLocIdx.push_back(LocIdx(0));
+      unsigned L = getLocID(SpillID, true);
       LocIdx Idx = LocIdx(LocIdxToIDNum.size()); // New idx
       LocIDToLocIdx[L] = Idx;
       LocIdxToLocID[Idx] = L;
       LocIdxToIDNum.push_back(id);
     } else {
-      LocID L = {1, SpillID};
+      unsigned L = getLocID(SpillID, true);
       LocIdx Idx = LocIDToLocIdx[L];
       LocIdxToIDNum[Idx] = id;
     }
@@ -394,7 +381,7 @@ public:
       // Returning no location -> 0 means $noreg and some hand wavey position
       return {0, 0, LocIdx(0)};
 
-    LocID L = {1, pos};
+    unsigned L = getLocID(pos, true);
     unsigned LocIdx = LocIDToLocIdx[L];
     return LocIdxToIDNum[LocIdx];
   }
@@ -403,24 +390,24 @@ public:
     unsigned SpillID = SpillLocs.idFor(l);
     if (SpillID == 0)
       return LocIdx(0);
-    LocID L = {1, SpillID};
+    unsigned L = getLocID(SpillID, true);
     return LocIDToLocIdx[L];
   }
 
   bool isSpill(LocIdx Idx) const {
     auto it = LocIdxToLocID.find(Idx);
     assert(it != LocIdxToLocID.end());
-    return it->second.IsSpill;
+    return it->second >= NumRegs;
   }
 
   std::string LocIdxToName(LocIdx Idx) const {
     auto it = LocIdxToLocID.find(Idx);
     assert(it != LocIdxToLocID.end());
-    const LocID &ID = it->second;
-    if (ID.IsSpill)
-      return Twine("slot ").concat(Twine(ID.LocNo)).str();
+    unsigned ID = it->second;
+    if (ID >= NumRegs)
+      return Twine("slot ").concat(Twine(ID - NumRegs)).str();
     else
-      return TRI.getRegAsmName(ID.LocNo).str();
+      return TRI.getRegAsmName(ID).str();
   }
 
   std::string IDAsString(const ValueIDNum &num) const {
@@ -460,15 +447,15 @@ public:
     auto MIB = BuildMI(MF, DL, TII.get(TargetOpcode::DBG_VALUE));
 
     const DIExpression *Expr = meta.first;
-    const LocID &Loc = LocIdxToLocID[MLoc];
-    if (Loc.IsSpill) {
-      const SpillLoc &Spill = SpillLocs[Loc.LocNo];
+    unsigned Loc = LocIdxToLocID[MLoc];
+    if (Loc >= NumRegs) {
+      const SpillLoc &Spill = SpillLocs[Loc - NumRegs];
       Expr = DIExpression::prepend(Expr, DIExpression::ApplyOffset, Spill.SpillOffset);
       unsigned Base = Spill.SpillBase;
       MIB.addReg(Base, RegState::Debug);
       MIB.addImm(0);
    } else {
-      MIB.addReg(Loc.LocNo, RegState::Debug);
+      MIB.addReg(Loc, RegState::Debug);
       if (meta.second)
         MIB.addImm(0);
       else
@@ -1915,9 +1902,9 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   unsigned SP = TLI->getStackPointerRegisterToSaveRestore();
   BitVector UsedRegs(TRI->getNumRegs());
   for (auto &P : tracker->LocIdxToLocID) {
-    if (P.first == 0 || P.second.IsSpill || P.second.LocNo == SP)
+    if (P.first == 0 || P.second >= TRI->getNumRegs() || P.second == SP)
       continue;
-    UsedRegs.set(P.second.LocNo);
+    UsedRegs.set(P.second);
   }
 
   // For each block that we looked at, are there any clobbered registers that
@@ -1933,7 +1920,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     // they're all clobbered or at least set in the designated transfer
     // elem.
     for (unsigned Bit : BV.set_bits()) {
-      LocID ID{false, Bit};
+      unsigned ID = tracker->getLocID(Bit, false);
       LocIdx Idx = tracker->LocIDToLocIdx[ID];
       assert(Idx != 0);
       ValueIDNum &ValueID = MLocTransfer[I][Idx];
