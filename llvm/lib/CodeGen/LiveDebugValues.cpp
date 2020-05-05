@@ -1317,12 +1317,11 @@ bool LiveDebugValues::mloc_join(
   return Changed;
 }
 
-void LiveDebugValues::mloc_dataflow( DenseMap<unsigned int, MachineBasicBlock *> &OrderToBB,
-                     DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder,
- uint64_t **MInLocs, uint64_t **MOutLocs,
-std::vector<mloc_transfert> &MLocTransfer,
-                  SmallPtrSet<const MachineBasicBlock *, 16> &ArtificialBlocks)
-{
+void LiveDebugValues::mloc_dataflow(
+    DenseMap<unsigned int, MachineBasicBlock *> &OrderToBB,
+    DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder, uint64_t **MInLocs,
+    uint64_t **MOutLocs, std::vector<mloc_transfert> &MLocTransfer,
+    SmallPtrSet<const MachineBasicBlock *, 16> &ArtificialBlocks) {
   std::priority_queue<unsigned int, std::vector<unsigned int>,
                       std::greater<unsigned int>>
       Worklist, Pending;
@@ -1352,9 +1351,10 @@ std::vector<mloc_transfert> &MLocTransfer,
       cur_inst = 1;
       Worklist.pop();
 
-     // XXX jmorse
-     // Also XXX, do we go around these loops too many times?
-      bool InLocsChanged = mloc_join(*MBB, Visited, ArtificialBlocks, MOutLocs, MInLocs[cur_bb], BBToOrder);
+      // XXX jmorse
+      // Also XXX, do we go around these loops too many times?
+      bool InLocsChanged = mloc_join(*MBB, Visited, ArtificialBlocks, MOutLocs,
+                                     MInLocs[cur_bb], BBToOrder);
       InLocsChanged |= Visited.insert(MBB).second;
 
       // Don't examine transfer function if we've visited this loc at least
