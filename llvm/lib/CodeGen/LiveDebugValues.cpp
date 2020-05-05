@@ -1778,10 +1778,13 @@ SmallVectorImpl<VLocTracker> &AllTheVLocs)
       cur_bb = MBB->getNumber(); // XXX ldv state
       Worklist.pop();
 
-      bool MBBJoined = vloc_join(*MBB, LiveOutIdx, LiveInIdx, (firsttrip) ? &VLOCVisited : nullptr, cur_bb, VarsWeCareAbout, MInLocs, MOutLocs, NonAssignBlocks, BBToOrder);
+      // Join locations from predecessors.
+      bool InlocsChanged = vloc_join(*MBB, LiveOutIdx, LiveInIdx, (firsttrip) ? &VLOCVisited : nullptr, cur_bb, VarsWeCareAbout, MInLocs, MOutLocs, NonAssignBlocks, BBToOrder);
 
-      MBBJoined |= VLOCVisited.insert(MBB).second;
-      if (!MBBJoined)
+      // Always explore transfer function if inlocs changed, or if we've not
+      // visited this block before.
+      InlocsChanged |= VLOCVisited.insert(MBB).second;
+      if (InlocsChanged)
         continue;
 
       // Do transfer function.
@@ -1800,9 +1803,11 @@ SmallVectorImpl<VLocTracker> &AllTheVLocs)
         }
       }
 
+      // Commit newly calculated live-outs, nothing whether they changed.
       bool OLChanged = Cpy != *LiveOutIdx[MBB];
       *LiveOutIdx[MBB] = Cpy;
 
+      // If they haven't changed, there's no need to explore further.
       if (!OLChanged)
         continue;
 
