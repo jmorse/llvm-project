@@ -757,6 +757,8 @@ private:
   using VarToFragments =
       DenseMap<const DILocalVariable *, SmallSet<FragmentInfo, 4>>;
 
+  typedef DenseMap<LocIdx, ValueIDNum> mloc_transfert;
+
   /// Tests whether this instruction is a spill to a stack location.
   bool isSpillInstruction(const MachineInstr &MI, MachineFunction *MF);
 
@@ -792,8 +794,12 @@ private:
                  SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
                  SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
                  uint64_t **OutLocs, uint64_t *InLocs,
-                 const DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder,
-                 const std::vector<MachineBasicBlock *> &NumToBlock);
+                 const DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder);
+  void mloc_dataflow(DenseMap<unsigned int, MachineBasicBlock *> &OrderToBB,
+                     DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder,
+                     uint64_t **MInLocs, uint64_t **MOutLocs,
+                     std::vector<mloc_transfert> &MLocTransfer,
+                  SmallPtrSet<const MachineBasicBlock *, 16> &ArtificialBlocks);
 
   typedef DenseMap<const MachineBasicBlock *,
                    DenseMap<DebugVariable, ValueRec> *>
@@ -842,7 +848,6 @@ public:
   /// Calculate the liveness information for the given machine function.
   bool runOnMachineFunction(MachineFunction &MF) override;
 
-  typedef DenseMap<LocIdx, ValueIDNum> mloc_transfert;
   LLVM_DUMP_METHOD
   void dump_mloc_transfer(const mloc_transfert &mloc_transfer) const;
 };
@@ -1244,8 +1249,7 @@ bool LiveDebugValues::mloc_join(
     SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
     SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
     uint64_t **OutLocs, uint64_t *InLocs,
-    const DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder,
-    const std::vector<MachineBasicBlock *> &NumToBlock) {
+    const DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder) {
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
 
@@ -1310,6 +1314,101 @@ bool LiveDebugValues::mloc_join(
 
   // Uhhhhhh, reimplement NumInserted and NumRemoved pls.
   return Changed;
+}
+
+void LiveDebugValues::mloc_dataflow( DenseMap<unsigned int, MachineBasicBlock *> &OrderToBB,
+                     DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder,
+ uint64_t **MInLocs, uint64_t **MOutLocs,
+std::vector<mloc_transfert> &MLocTransfer,
+                  SmallPtrSet<const MachineBasicBlock *, 16> &ArtificialBlocks)
+{
+  std::priority_queue<unsigned int, std::vector<unsigned int>,
+                      std::greater<unsigned int>>
+      Worklist, Pending;
+
+  for (unsigned int I = 0; I < BBToOrder.size(); ++I)
+    Worklist.push(I);
+
+  tracker->reset();
+  // Set inlocs for entry block,
+  tracker->setMPhis(0);
+  for (unsigned Idx = 1; Idx < tracker->getNumLocs(); ++Idx) {
+    auto VLP = tracker->getVarLocPos(LocIdx(Idx));
+    uint64_t ID = VLP.ID.asU64();
+    MInLocs[0][Idx] = ID;
+  }
+
+  SmallPtrSet<const MachineBasicBlock *, 16> Visited;
+  while (!Worklist.empty() || !Pending.empty()) {
+    // We track what is on the pending worklist to avoid inserting the same
+    // thing twice.  We could avoid this with a custom priority queue, but this
+    // is probably not worth it.
+    SmallPtrSet<MachineBasicBlock *, 16> OnPending;
+    SmallVector<std::pair<LocIdx, ValueIDNum>, 32> toremap;
+    while (!Worklist.empty()) {
+      MachineBasicBlock *MBB = OrderToBB[Worklist.top()];
+      cur_bb = MBB->getNumber();
+      cur_inst = 1;
+      Worklist.pop();
+
+     // XXX jmorse
+     // Also XXX, do we go around these loops too many times?
+      bool MBBJoined = mloc_join(*MBB, Visited, ArtificialBlocks, MOutLocs, MInLocs[cur_bb], BBToOrder);
+      MBBJoined |= Visited.insert(MBB).second;
+
+      bool Changed = false;
+      if (MBBJoined) {
+        MBBJoined = false;
+        Changed = true;
+
+        // Rather than touch all insts again, read and then reset locations
+        // in the transfer function.
+        tracker->loadFromArray(MInLocs[cur_bb], cur_bb);
+        toremap.clear();
+        for (auto &P : MLocTransfer[cur_bb]) {
+          ValueIDNum NewID = {0, 0, LocIdx(0)};
+          if (P.second.BlockNo == cur_bb && P.second.InstNo == 0) {
+            // This is a movement of whatever was live in. Read it.
+            VarLocPos Pos = tracker->getVarLocPos(P.second.LocNo);
+            NewID = Pos.ID;
+          } else {
+            // It's a def. (Has to be a def in this BB, or nullloc).
+            // Just set it.
+            assert(P.second.BlockNo == cur_bb || P.second.LocNo == 0);
+            NewID = P.second;
+          }
+          toremap.push_back(std::make_pair(P.first, NewID));
+        }
+
+        for (auto &P : toremap) {
+          tracker->setMLoc(P.first, P.second);
+        }
+
+        // could make a set-to-array method?
+        bool OLChanged = false;
+        for (unsigned Idx = 1; Idx < tracker->getNumLocs(); ++Idx) {
+          auto VLP = tracker->getVarLocPos(LocIdx(Idx));
+          uint64_t ID = VLP.ID.asU64();
+          OLChanged |= MOutLocs[cur_bb][Idx] != ID;
+          MOutLocs[cur_bb][Idx] = ID;
+        }
+
+        tracker->reset();
+
+        if (OLChanged) {
+          OLChanged = false;
+          for (auto s : MBB->successors())
+            if (OnPending.insert(s).second) {
+              Pending.push(BBToOrder[s]);
+            }
+        }
+      }
+    }
+    Worklist.swap(Pending);
+    // At this point, pending must be empty, since it was just the empty
+    // worklist
+    assert(Pending.empty() && "Pending should be empty");
+  }
 }
 
 bool LiveDebugValues::vloc_join_location(MachineBasicBlock &MBB,
@@ -1745,9 +1844,8 @@ void LiveDebugValues::dump_mloc_transfer(const mloc_transfert &mloc_transfer) co
 bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   LLVM_DEBUG(dbgs() << "\nDebug Range Extension\n");
 
+#warning fake
   bool Changed = false;
-  bool OLChanged = false;
-  bool MBBJoined = false;
 
   OverlapMap OverlapFragments; // Map of overlapping variable fragments.
 
@@ -1772,11 +1870,6 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     HighestMBBNo = std::max(MBB.getNumber(), HighestMBBNo);
   assert(HighestMBBNo >= 0);
   MLocTransfer.resize(HighestMBBNo+1);
-
-  std::vector<MachineBasicBlock *> NumToBlock;
-  NumToBlock.resize(HighestMBBNo+1);
-  for (auto &MBB : MF)
-    NumToBlock[MBB.getNumber()] = &MBB;
 
   unsigned BVWords = MachineOperand::getRegMaskSize(TRI->getNumRegs());
   std::vector<BitVector> BlockMasks;
@@ -1864,7 +1957,6 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   for (auto RI = RPOT.begin(), RE = RPOT.end(); RI != RE; ++RI) {
     OrderToBB[RPONumber] = *RI;
     BBToOrder[*RI] = RPONumber;
-    Worklist.push(RPONumber);
     ++RPONumber;
   }
 
@@ -1879,88 +1971,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     memset(MInLocs[i], 0, sizeof(uint64_t) * NumLocs);
   }
 
-  // Set inlocs for entry block,
-  tracker->setMPhis(0);
-  for (unsigned Idx = 1; Idx < tracker->getNumLocs(); ++Idx) {
-    auto VLP = tracker->getVarLocPos(LocIdx(Idx));
-    uint64_t ID = VLP.ID.asU64();
-    MInLocs[0][Idx] = ID;
-  }
-
-  // This is a standard "union of predecessor outs" dataflow problem.
-  // To solve it, we perform join() and process() using the two worklist method
-  // until the ranges converge.
-  // Ranges have converged when both worklists are empty.
-  SmallPtrSet<const MachineBasicBlock *, 16> Visited;
-  while (!Worklist.empty() || !Pending.empty()) {
-    // We track what is on the pending worklist to avoid inserting the same
-    // thing twice.  We could avoid this with a custom priority queue, but this
-    // is probably not worth it.
-    SmallPtrSet<MachineBasicBlock *, 16> OnPending;
-    LLVM_DEBUG(dbgs() << "Processing Worklist\n");
-    SmallVector<std::pair<LocIdx, ValueIDNum>, 32> toremap;
-    while (!Worklist.empty()) {
-      MachineBasicBlock *MBB = OrderToBB[Worklist.top()];
-      cur_bb = MBB->getNumber();
-      cur_inst = 1;
-      Worklist.pop();
-
-     // XXX jmorse
-     // Also XXX, do we go around these loops too many times?
-      MBBJoined = mloc_join(*MBB, Visited, ArtificialBlocks, MOutLocs, MInLocs[cur_bb], BBToOrder, NumToBlock);
-      MBBJoined |= Visited.insert(MBB).second;
-
-      if (MBBJoined) {
-        MBBJoined = false;
-        Changed = true;
-
-        // Rather than touch all insts again, read and then reset locations
-        // in the transfer function.
-        tracker->loadFromArray(MInLocs[cur_bb], cur_bb);
-        toremap.clear();
-        for (auto &P : MLocTransfer[cur_bb]) {
-          ValueIDNum NewID = {0, 0, LocIdx(0)};
-          if (P.second.BlockNo == cur_bb && P.second.InstNo == 0) {
-            // This is a movement of whatever was live in. Read it.
-            VarLocPos Pos = tracker->getVarLocPos(P.second.LocNo);
-            NewID = Pos.ID;
-          } else {
-            // It's a def. (Has to be a def in this BB, or nullloc).
-            // Just set it.
-            assert(P.second.BlockNo == cur_bb || P.second.LocNo == 0);
-            NewID = P.second;
-          }
-          toremap.push_back(std::make_pair(P.first, NewID));
-        }
-
-        for (auto &P : toremap) {
-          tracker->setMLoc(P.first, P.second);
-        }
-
-        // could make a set-to-array method?
-        for (unsigned Idx = 1; Idx < tracker->getNumLocs(); ++Idx) {
-          auto VLP = tracker->getVarLocPos(LocIdx(Idx));
-          uint64_t ID = VLP.ID.asU64();
-          OLChanged |= MOutLocs[cur_bb][Idx] != ID;
-          MOutLocs[cur_bb][Idx] = ID;
-        }
-
-        tracker->reset();
-
-        if (OLChanged) {
-          OLChanged = false;
-          for (auto s : MBB->successors())
-            if (OnPending.insert(s).second) {
-              Pending.push(BBToOrder[s]);
-            }
-        }
-      }
-    }
-    Worklist.swap(Pending);
-    // At this point, pending must be empty, since it was just the empty
-    // worklist
-    assert(Pending.empty() && "Pending should be empty");
-  }
+  mloc_dataflow(OrderToBB, BBToOrder, MInLocs, MOutLocs, MLocTransfer, ArtificialBlocks);
 
   // vlocs and mlocs: go back over each block, this time tracking the vlocs
   // and building a transfer function between each block. 
