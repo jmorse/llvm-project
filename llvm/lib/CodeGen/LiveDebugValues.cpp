@@ -1977,12 +1977,8 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
       DebugLoc DL = DebugLoc::get(0, 0, Var.getVariable()->getScope(), Var.getInlinedAt());
       auto *Scope = LS.findLexicalScope(DL.get());
 
-      // It's possible that there are DBG_VALUEs for a scope, but that there
-      // are no instructions that _belong_ to that scope. If so, propagating
-      // locations between blocks is pointless.
-      // XXX moved this up to transferDebugValue?
-      if (Scope == nullptr)
-        continue;
+      // No insts in scope -> shouldn't have been recorded.
+      assert(Scope != nullptr);
 
       AllVarsNumbering.insert(std::make_pair(Var, AllVarsNumbering.size()));
       ScopeToVars[Scope].insert(Var);
