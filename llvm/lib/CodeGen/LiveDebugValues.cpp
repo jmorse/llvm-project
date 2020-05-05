@@ -1379,9 +1379,8 @@ std::vector<mloc_transfert> &MLocTransfer,
         toremap.push_back(std::make_pair(P.first, NewID));
       }
 
-      for (auto &P : toremap) {
+      for (auto &P : toremap)
         tracker->setMLoc(P.first, P.second);
-      }
 
       // could make a set-to-array method?
       bool OLChanged = false;
