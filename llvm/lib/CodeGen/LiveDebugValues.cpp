@@ -1705,31 +1705,31 @@ for (auto &It : InLocsT) {
   return Changed;
 }
 
-void LiveDebugValues::vloc_dataflow(const LexicalScope *Scope,
-                     const SmallSet<DebugVariable, 4> &VarsWeCareAbout,
-              SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
-              SmallPtrSetImpl<MachineBasicBlock *> &AssignBlocks,
-              DenseMap<unsigned int, MachineBasicBlock *> &OrderToBB,
-              DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder,
-SmallVectorImpl<SmallVector<std::pair<DebugVariable, ValueRec>, 8>> &Output,
-uint64_t **MOutLocs, uint64_t **MInLocs,
-SmallVectorImpl<VLocTracker> &AllTheVLocs)
-{
+void LiveDebugValues::vloc_dataflow(
+    const LexicalScope *Scope,
+    const SmallSet<DebugVariable, 4> &VarsWeCareAbout,
+    SmallPtrSetImpl<const MachineBasicBlock *> &ArtificialBlocks,
+    SmallPtrSetImpl<MachineBasicBlock *> &AssignBlocks,
+    DenseMap<unsigned int, MachineBasicBlock *> &OrderToBB,
+    DenseMap<MachineBasicBlock *, unsigned int> &BBToOrder,
+    SmallVectorImpl<SmallVector<std::pair<DebugVariable, ValueRec>, 8>> &Output,
+    uint64_t **MOutLocs, uint64_t **MInLocs,
+    SmallVectorImpl<VLocTracker> &AllTheVLocs) {
   std::priority_queue<unsigned int, std::vector<unsigned int>,
                       std::greater<unsigned int>>
       Worklist, Pending;
 
   SmallPtrSet<const MachineBasicBlock *, 8> LBlocks;
   SmallVector<MachineBasicBlock *, 8> BlockOrders;
-  auto Cmp = [&BBToOrder](MachineBasicBlock *A, MachineBasicBlock *B)
-   {
-     return BBToOrder[A] < BBToOrder[B];
-   };
+  auto Cmp = [&BBToOrder](MachineBasicBlock *A, MachineBasicBlock *B) {
+    return BBToOrder[A] < BBToOrder[B];
+  };
 
   // Determine which blocks we're dealing with.
   assert(VarsWeCareAbout.size() != 0);
   auto AVar = *VarsWeCareAbout.begin();
-  DebugLoc DL = DebugLoc::get(0, 0, AVar.getVariable()->getScope(), AVar.getInlinedAt());
+  DebugLoc DL =
+      DebugLoc::get(0, 0, AVar.getVariable()->getScope(), AVar.getInlinedAt());
 
   LS.getMachineBasicBlocks(DL.get(), LBlocks);
   SmallPtrSet<const MachineBasicBlock *, 8> NonAssignBlocks = LBlocks;
@@ -1779,7 +1779,10 @@ SmallVectorImpl<VLocTracker> &AllTheVLocs)
       Worklist.pop();
 
       // Join locations from predecessors.
-      bool InlocsChanged = vloc_join(*MBB, LiveOutIdx, LiveInIdx, (firsttrip) ? &VLOCVisited : nullptr, cur_bb, VarsWeCareAbout, MInLocs, MOutLocs, NonAssignBlocks, BBToOrder);
+      bool InlocsChanged = vloc_join(*MBB, LiveOutIdx, LiveInIdx,
+                                     (firsttrip) ? &VLOCVisited : nullptr,
+                                     cur_bb, VarsWeCareAbout, MInLocs, MOutLocs,
+                                     NonAssignBlocks, BBToOrder);
 
       // Always explore transfer function if inlocs changed, or if we've not
       // visited this block before.
@@ -1816,7 +1819,6 @@ SmallVectorImpl<VLocTracker> &AllTheVLocs)
       for (auto s : MBB->successors())
         if (LiveInIdx.find(s) != LiveInIdx.end() && OnPending.insert(s).second)
           Pending.push(BBToOrder[s]);
-
     }
     Worklist.swap(Pending);
     assert(Pending.empty());
