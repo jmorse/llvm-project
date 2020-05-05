@@ -1849,9 +1849,6 @@ void LiveDebugValues::dump_mloc_transfer(const mloc_transfert &mloc_transfer) co
 bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   LLVM_DEBUG(dbgs() << "\nDebug Range Extension\n");
 
-#warning fake
-  bool Changed = false;
-
   OverlapMap OverlapFragments; // Map of overlapping variable fragments.
 
   VarToFragments SeenFragments;
@@ -2085,7 +2082,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   delete[] MOutLocs;
   delete[] MInLocs;
 
-  return Changed;
+  return ttracker->Transfers.size() != 0;
 }
 
 bool LiveDebugValues::runOnMachineFunction(MachineFunction &MF) {
