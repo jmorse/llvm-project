@@ -1357,6 +1357,8 @@ std::vector<mloc_transfert> &MLocTransfer,
       bool InLocsChanged = mloc_join(*MBB, Visited, ArtificialBlocks, MOutLocs, MInLocs[cur_bb], BBToOrder);
       InLocsChanged |= Visited.insert(MBB).second;
 
+      // Don't examine transfer function if we've visited this loc at least
+      // once, and inlocs haven't changed.
       if (!InLocsChanged)
         continue;
 
@@ -1379,10 +1381,13 @@ std::vector<mloc_transfert> &MLocTransfer,
         toremap.push_back(std::make_pair(P.first, NewID));
       }
 
+      // Commit the transfer function changes into mloc tracker.
       for (auto &P : toremap)
         tracker->setMLoc(P.first, P.second);
 
-      // could make a set-to-array method?
+      // Now copy out-locs from mloc tracker into out-loc vector, checking
+      // whether changes have occurred. These changes can have come from both
+      // the transfer function, and mloc_join.
       bool OLChanged = false;
       for (unsigned Idx = 1; Idx < tracker->getNumLocs(); ++Idx) {
         auto VLP = tracker->getVarLocPos(LocIdx(Idx));
@@ -1393,6 +1398,7 @@ std::vector<mloc_transfert> &MLocTransfer,
 
       tracker->reset();
 
+      // No need to examine successors again if out-locs didn't change.
       if (!OLChanged)
         continue;
 
