@@ -1998,8 +1998,10 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   DenseMap<DebugVariable, unsigned> AllVarsNumbering;
   DenseMap<const LexicalScope *, SmallSet<DebugVariable, 4>> ScopeToVars;
   DenseMap<const LexicalScope *, SmallPtrSet<MachineBasicBlock *, 4>> ScopeToBlocks;
-  for (auto &It : vlocs) {
-    for (auto &idx : It.Vars) {
+  // To match old LDV, enumerate variables in RPOT order.
+  for (auto RI = RPOT.begin(), RE = RPOT.end(); RI != RE; ++RI) {
+    auto *vtracker = &vlocs[(*RI)->getNumber()];
+    for (auto &idx : vtracker->Vars) {
       const auto &Var = idx.first;
       DebugLoc DL = DebugLoc::get(0, 0, Var.getVariable()->getScope(), Var.getInlinedAt());
       auto *Scope = LS.findLexicalScope(DL.get());
@@ -2013,7 +2015,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
       AllVarsNumbering.insert(std::make_pair(Var, AllVarsNumbering.size()));
       ScopeToVars[Scope].insert(Var);
-      ScopeToBlocks[Scope].insert(It.MBB);
+      ScopeToBlocks[Scope].insert(vtracker->MBB);
     }
   }
 
