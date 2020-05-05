@@ -1717,12 +1717,7 @@ SmallVectorImpl<VLocTracker> &AllTheVLocs)
 {
   std::priority_queue<unsigned int, std::vector<unsigned int>,
                       std::greater<unsigned int>>
-      Worklist;
-  std::priority_queue<unsigned int, std::vector<unsigned int>,
-                      std::greater<unsigned int>>
-      Pending;
-
-
+      Worklist, Pending;
 
   SmallPtrSet<const MachineBasicBlock *, 8> LBlocks;
   SmallVector<MachineBasicBlock *, 8> BlockOrders;
