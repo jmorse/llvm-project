@@ -755,6 +755,10 @@ private:
 
   typedef DenseMap<LocIdx, ValueIDNum> mloc_transfert;
 
+  typedef DenseMap<const MachineBasicBlock *,
+                   DenseMap<DebugVariable, ValueRec> *>
+      LiveIdxT;
+
   /// Tests whether this instruction is a spill to a stack location.
   bool isSpillInstruction(const MachineInstr &MI, MachineFunction *MF);
 
@@ -792,9 +796,6 @@ private:
   void mloc_dataflow(uint64_t **MInLocs, uint64_t **MOutLocs,
                      std::vector<mloc_transfert> &MLocTransfer);
 
-  typedef DenseMap<const MachineBasicBlock *,
-                   DenseMap<DebugVariable, ValueRec> *>
-      LiveIdxT;
   bool vloc_join_location(MachineBasicBlock &MBB, ValueRec &InLoc,
                           ValueRec &OLoc, uint64_t *InLocOutLocs,
                           uint64_t *OLOutlocs,
