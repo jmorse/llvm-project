@@ -1852,6 +1852,23 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   vlocs.resize(MaxNumBlocks);
   SavedLiveIns.resize(MaxNumBlocks);
 
+  auto hasNonArtificialLocation = [](const MachineInstr &MI) -> bool {
+    if (const DebugLoc &DL = MI.getDebugLoc())
+      return DL.getLine() != 0;
+    return false;
+  };
+  for (auto &MBB : MF)
+    if (none_of(MBB.instrs(), hasNonArtificialLocation))
+      ArtificialBlocks.insert(&MBB);
+
+  ReversePostOrderTraversal<MachineFunction *> RPOT(&MF);
+  unsigned int RPONumber = 0;
+  for (auto RI = RPOT.begin(), RE = RPOT.end(); RI != RE; ++RI) {
+    OrderToBB[RPONumber] = *RI;
+    BBToOrder[*RI] = RPONumber;
+    ++RPONumber;
+  }
+
   unsigned BVWords = MachineOperand::getRegMaskSize(TRI->getNumRegs());
   for (auto &BV : BlockMasks)
     BV.resize(TRI->getNumRegs(), true);
@@ -1918,23 +1935,6 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
         // it was left as live-through. Set it to clobbered.
         ValueID = ValueIDNum{0, 0, LocIdx(0)};
     }
-  }
-
-  auto hasNonArtificialLocation = [](const MachineInstr &MI) -> bool {
-    if (const DebugLoc &DL = MI.getDebugLoc())
-      return DL.getLine() != 0;
-    return false;
-  };
-  for (auto &MBB : MF)
-    if (none_of(MBB.instrs(), hasNonArtificialLocation))
-      ArtificialBlocks.insert(&MBB);
-
-  ReversePostOrderTraversal<MachineFunction *> RPOT(&MF);
-  unsigned int RPONumber = 0;
-  for (auto RI = RPOT.begin(), RE = RPOT.end(); RI != RE; ++RI) {
-    OrderToBB[RPONumber] = *RI;
-    BBToOrder[*RI] = RPONumber;
-    ++RPONumber;
   }
 
   // Huurrrr. Store liveouts in a massive array.
