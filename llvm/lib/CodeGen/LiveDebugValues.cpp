@@ -1845,12 +1845,6 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
   DenseMap<unsigned int, MachineBasicBlock *> OrderToBB;
   DenseMap<MachineBasicBlock *, unsigned int> BBToOrder;
-  std::priority_queue<unsigned int, std::vector<unsigned int>,
-                      std::greater<unsigned int>>
-      Worklist;
-  std::priority_queue<unsigned int, std::vector<unsigned int>,
-                      std::greater<unsigned int>>
-      Pending;
 
   std::vector<mloc_transfert> MLocTransfer;
   int HighestMBBNo = -1;
