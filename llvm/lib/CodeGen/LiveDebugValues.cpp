@@ -1306,22 +1306,29 @@ bool LiveDebugValues::transferRegisterCopy(MachineInstr &MI) {
   Register SrcReg = SrcRegOp->getReg();
   Register DestReg = DestRegOp->getReg();
 
+  if (SrcReg == DestReg)
+    // true -> no copy to perform, but also don't def the dest
+    return true;
+
   // We want to recognize instructions where destination register is callee
   // saved register. If register that could be clobbered by the call is
   // included, there would be a great chance that it is going to be clobbered
   // soon. It is more likely that previous register location, which is callee
   // saved, is going to stay unclobbered longer, even if it is killed.
-  if (!isCalleeSavedReg(DestReg))
+  if (EmulateOldLDV && !isCalleeSavedReg(DestReg))
     return false;
 
-  if (!SrcRegOp->isKill())
+  if (EmulateOldLDV && !SrcRegOp->isKill())
     return false;
 
   // We have to follow identity copies, as DbgEntityHistoryCalculator only
   // sees the defs.
   auto id = tracker->readReg(SrcReg);
   tracker->setReg(DestReg, id);
-  if (ttracker)
+
+  // Only produce a transfer of DBG_VALUE within a block where old LDV
+  // would have.
+  if (ttracker && isCalleeSavedReg(DestReg) && SrcRegOp->isKill())
     ttracker->transferMlocs(tracker->getRegMLoc(SrcReg), tracker->getRegMLoc(DestReg), MI.getIterator());
 
   if (EmulateOldLDV && SrcReg != DestReg)
@@ -1526,6 +1533,11 @@ bool LiveDebugValues::mloc_join(
       // It's only the backedges that disagree. Consider demoting. Order is
       // that non-phis have the minimum priority, and phis "closer" to this
       // one.
+      // Don't consider PHIs from futher down the chain.
+// XXX XXX XXX
+// XXX XXX XXX
+// XXX XXX XXX
+// This should be rpot number!
       ValueIDNum base_id = ValueIDNum::fromU64(base);
       ValueIDNum inloc_id = ValueIDNum::fromU64(InLocs[Idx]);
       unsigned base_block = base_id.BlockNo + 1;
@@ -1534,7 +1546,8 @@ bool LiveDebugValues::mloc_join(
       unsigned inloc_block = inloc_id.BlockNo + 1;
       if (inloc_id.InstNo != 0)
         inloc_block = 0;
-      if (base_block > inloc_block) {
+      unsigned this_block = MBB.getNumber() + 1;
+      if (base_block > inloc_block && base_block < this_block) {
         // Override.
         over_ride = true;
       }
