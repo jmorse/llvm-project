@@ -851,6 +851,14 @@ public:
 
   LLVM_DUMP_METHOD
   void dump_mloc_transfer(const mloc_transfert &mloc_transfer) const;
+
+  bool isCalleeSaved(LocIdx l) {
+    unsigned Reg = tracker->LocIdxToLocID[l];
+    for (MCRegAliasIterator RAI(Reg, TRI, true); RAI.isValid(); ++RAI)
+      if (CalleeSavedRegs.test(*RAI))
+        return true;
+    return false;
+  }
 };
 
 } // end anonymous namespace
@@ -1492,6 +1500,8 @@ bool LiveDebugValues::vloc_join_location(MachineBasicBlock &MBB,
           // Prefer non-spills
           if (tracker->isSpill(theloc))
             theloc = LocIdx(i);
+          else if (!isCalleeSaved(theloc))
+            theloc = LocIdx(i);
         } else {
           theloc = LocIdx(i);
         }
@@ -1648,6 +1658,8 @@ bool LiveDebugValues::vloc_join(
         if (theloc != 0) {
           // Prefer non-spills
           if (tracker->isSpill(theloc))
+            theloc = LocIdx(i);
+          else if (!isCalleeSaved(theloc))
             theloc = LocIdx(i);
         } else {
           theloc = LocIdx(i);
