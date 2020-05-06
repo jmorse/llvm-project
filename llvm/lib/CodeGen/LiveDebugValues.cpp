@@ -565,13 +565,24 @@ public:
 
   std::vector<MachineInstr *> PendingDbgValues;
 
-  TransferTracker(const TargetInstrInfo *TII, MLocTracker *mtracker, MachineFunction &MF) : TII(TII), mtracker(mtracker), MF(MF) { }
+  const TargetRegisterInfo &TRI;
+  const BitVector &CalleeSavedRegs;
+
+  TransferTracker(const TargetInstrInfo *TII, MLocTracker *mtracker, MachineFunction &MF, const TargetRegisterInfo &TRI, const BitVector &CalleeSavedRegs) : TII(TII), mtracker(mtracker), MF(MF), TRI(TRI), CalleeSavedRegs(CalleeSavedRegs) { }
 
   void loadInlocs(MachineBasicBlock &MBB, uint64_t *mlocs, SmallVectorImpl<std::pair<DebugVariable, ValueRec>> &vlocs, unsigned cur_bb, unsigned NumLocs) {  
     ActiveMLocs.clear();
     ActiveVLocs.clear();
     VarLocs.clear();
     VarLocs.resize(NumLocs);
+
+    auto isCalleeSaved = [&](LocIdx l) {
+      unsigned Reg = mtracker->LocIdxToLocID[l];
+      for (MCRegAliasIterator RAI(Reg, &TRI, true); RAI.isValid(); ++RAI)
+        if (CalleeSavedRegs.test(*RAI))
+          return true;
+      return false;
+    };
 
     DenseMap<ValueIDNum, LocIdx> ValueToLoc;
 
@@ -583,7 +594,8 @@ public:
       // in. There should only be one machine loc per value.
       //assert(ValueToLoc.find(VNum) == ValueToLoc.end()); // XXX expensie
       auto it = ValueToLoc.find(VNum);
-      if (it == ValueToLoc.end() || mtracker->isSpill(it->second))
+      if (it == ValueToLoc.end() || mtracker->isSpill(it->second) ||
+          !isCalleeSaved(it->second))
         ValueToLoc[VNum] = LocIdx(Idx);
     }
 
@@ -1918,7 +1930,7 @@ void LiveDebugValues::emit_locations(MachineFunction &MF, LiveInsT SavedLiveIns,
 DenseMap<DebugVariable, unsigned> &AllVarsNumbering)
 {
   // mloc argument only needs the posish -> spills map and the like.
-  ttracker = new TransferTracker(TII, tracker, MF);
+  ttracker = new TransferTracker(TII, tracker, MF, *TRI, CalleeSavedRegs);
   unsigned NumLocs = tracker->getNumLocs();
 
   for (MachineBasicBlock &MBB : MF) {
