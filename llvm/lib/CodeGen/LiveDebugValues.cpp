@@ -1187,10 +1187,10 @@ bool LiveDebugValues::transferRegisterCopy(MachineInstr &MI) {
   // included, there would be a great chance that it is going to be clobbered
   // soon. It is more likely that previous register location, which is callee
   // saved, is going to stay unclobbered longer, even if it is killed.
-  if (!isCalleeSavedReg(DestReg))
+  if (EmulateOldLDV && !isCalleeSavedReg(DestReg))
     return false;
 
-  if (!SrcRegOp->isKill())
+  if (EmulateOldLDV && !SrcRegOp->isKill())
     return false;
 
   // We have to follow identity copies, as DbgEntityHistoryCalculator only
