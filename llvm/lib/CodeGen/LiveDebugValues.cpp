@@ -1400,6 +1400,11 @@ bool LiveDebugValues::mloc_join(
       // It's only the backedges that disagree. Consider demoting. Order is
       // that non-phis have the minimum priority, and phis "closer" to this
       // one.
+      // Don't consider PHIs from futher down the chain.
+// XXX XXX XXX
+// XXX XXX XXX
+// XXX XXX XXX
+// This should be rpot number!
       ValueIDNum base_id = ValueIDNum::fromU64(base);
       ValueIDNum inloc_id = ValueIDNum::fromU64(InLocs[Idx]);
       unsigned base_block = base_id.BlockNo + 1;
@@ -1408,7 +1413,8 @@ bool LiveDebugValues::mloc_join(
       unsigned inloc_block = inloc_id.BlockNo + 1;
       if (inloc_id.InstNo != 0)
         inloc_block = 0;
-      if (base_block > inloc_block) {
+      unsigned this_block = MBB.getNumber() + 1;
+      if (base_block > inloc_block && base_block < this_block) {
         // Override.
         over_ride = true;
       }
