@@ -716,7 +716,8 @@ public:
     flushDbgValues(pos, nullptr);
 
     // XXX XXX XXX "pretend to be old LDV".
-    VarLocs[src] = ValueIDNum{0, 0, LocIdx(0)};
+    if (EmulateOldLDV)
+      VarLocs[src] = ValueIDNum{0, 0, LocIdx(0)};
   }
 
   MachineInstrBuilder 
@@ -1084,7 +1085,8 @@ LiveDebugValues::isRestoreInstruction(const MachineInstr &MI,
 /// Any change in location will be recorded in \p OpenRanges, and \p Transfers
 /// if it is non-null.
 bool LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI) {
-return false;
+if (EmulateOldLDV) // with old ldv disabling this too...
+  return false;
   MachineFunction *MF = MI.getMF();
   unsigned Reg;
   Optional<SpillLoc> Loc;
@@ -1116,8 +1118,10 @@ return false;
     assert(tracker->getSpillMLoc(*Loc) != 0);
     if (ttracker)
       ttracker->transferMlocs(tracker->getRegMLoc(Reg), tracker->getSpillMLoc(*Loc), MI.getIterator());
-    for (MCRegAliasIterator RAI(Reg, TRI, true); RAI.isValid(); ++RAI)
-      tracker->defReg(*RAI, cur_bb, cur_inst);
+    if (EmulateOldLDV) {
+      for (MCRegAliasIterator RAI(Reg, TRI, true); RAI.isValid(); ++RAI)
+        tracker->defReg(*RAI, cur_bb, cur_inst);
+    }
   } else {
     if (!(Loc = isRestoreInstruction(MI, MF, Reg)))
       return false;
@@ -1134,6 +1138,7 @@ return false;
         ttracker->transferMlocs(tracker->getSpillMLoc(*Loc), tracker->getRegMLoc(Reg), MI.getIterator());
     } else {
       // Well, def this register anyway.
+      // XXX are there any circumstances where it should read the spill mphi?
       for (MCRegAliasIterator RAI(Reg, TRI, true); RAI.isValid(); ++RAI)
         tracker->defReg(*RAI, cur_bb, cur_inst);
       // Make an mphi for the spill, to read it in the future.
@@ -1184,7 +1189,7 @@ bool LiveDebugValues::transferRegisterCopy(MachineInstr &MI) {
   if (ttracker)
     ttracker->transferMlocs(tracker->getRegMLoc(SrcReg), tracker->getRegMLoc(DestReg), MI.getIterator());
 
-  if (SrcReg != DestReg)
+  if (EmulateOldLDV && SrcReg != DestReg)
     tracker->lolwipe(SrcReg);
   return true;
 }
@@ -1815,7 +1820,8 @@ void LiveDebugValues::vloc_dataflow(
   SmallPtrSet<const MachineBasicBlock *, 8> NonAssignBlocks = LBlocks;
 
   // Also any blocks that contain a DBG_VALUE.
-  LBlocks.insert(AssignBlocks.begin(), AssignBlocks.end());
+  if (EmulateOldLDV)
+    LBlocks.insert(AssignBlocks.begin(), AssignBlocks.end());
 
   // Add all artifical blocks. This might be inefficient; lets deal with
   // that later. They won't contribute a lot unless they connect to a
