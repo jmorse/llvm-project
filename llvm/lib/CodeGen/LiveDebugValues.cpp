@@ -83,7 +83,7 @@ STATISTIC(NumRemoved, "Number of DBG_VALUE instructions removed");
 static cl::opt<bool> EmulateOldLDV(
     "word-wrap-like-word97", cl::Hidden,
     cl::desc("Act like old LiveDebugValues did"),
-    cl::init(true));
+    cl::init(false));
 
 static cl::opt<bool> ObserveAllStackops(
     "observe-all-stack-ops", cl::Hidden,
