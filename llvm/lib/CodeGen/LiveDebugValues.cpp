@@ -1182,6 +1182,10 @@ bool LiveDebugValues::transferRegisterCopy(MachineInstr &MI) {
   Register SrcReg = SrcRegOp->getReg();
   Register DestReg = DestRegOp->getReg();
 
+  if (SrcReg == DestReg)
+    // true -> no copy to perform, but also don't def the dest
+    return true;
+
   // We want to recognize instructions where destination register is callee
   // saved register. If register that could be clobbered by the call is
   // included, there would be a great chance that it is going to be clobbered
@@ -1197,7 +1201,10 @@ bool LiveDebugValues::transferRegisterCopy(MachineInstr &MI) {
   // sees the defs.
   auto id = tracker->readReg(SrcReg);
   tracker->setReg(DestReg, id);
-  if (ttracker)
+
+  // Only produce a transfer of DBG_VALUE within a block where old LDV
+  // would have.
+  if (ttracker && isCalleeSavedReg(DestReg) && SrcRegOp->isKill())
     ttracker->transferMlocs(tracker->getRegMLoc(SrcReg), tracker->getRegMLoc(DestReg), MI.getIterator());
 
   if (EmulateOldLDV && SrcReg != DestReg)
