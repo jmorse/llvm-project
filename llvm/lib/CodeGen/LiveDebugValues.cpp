@@ -236,7 +236,7 @@ public:
   }
 
   unsigned getLocID(unsigned RegOrSpill, bool isSpill) {
-    return (isSpill) ? RegOrSpill + NumRegs : RegOrSpill;
+    return (isSpill) ? RegOrSpill + NumRegs - 1 : RegOrSpill;
   }
 
   VarLocPos getVarLocPos(LocIdx Idx) const {
@@ -449,7 +449,7 @@ public:
     const DIExpression *Expr = meta.first;
     unsigned Loc = LocIdxToLocID[MLoc];
     if (Loc >= NumRegs) {
-      const SpillLoc &Spill = SpillLocs[Loc - NumRegs];
+      const SpillLoc &Spill = SpillLocs[Loc - NumRegs + 1];
       Expr = DIExpression::prepend(Expr, DIExpression::ApplyOffset, Spill.SpillOffset);
       unsigned Base = Spill.SpillBase;
       MIB.addReg(Base, RegState::Debug);
