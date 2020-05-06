@@ -85,6 +85,11 @@ static cl::opt<bool> EmulateOldLDV(
     cl::desc("Act like old LiveDebugValues did"),
     cl::init(true));
 
+static cl::opt<bool> ObserveAllStackops(
+    "observe-all-stack-ops", cl::Hidden,
+    cl::desc("Allow non-kill spill and restores"),
+    cl::init(false));
+
 namespace {
 
 // The location at which a spilled variable resides. It consists of a
@@ -1028,6 +1033,12 @@ bool LiveDebugValues::isLocationSpill(const MachineInstr &MI,
                                       MachineFunction *MF, unsigned &Reg) {
   if (!isSpillInstruction(MI, MF))
     return false;
+
+  if (!ObserveAllStackops) {
+    int FI;
+    Reg = TII->isStoreToStackSlotPostFE(MI, FI);
+    return Reg != 0;
+  }
 
   auto isKilledReg = [&](const MachineOperand MO, unsigned &Reg) {
     if (!MO.isReg() || !MO.isUse()) {
