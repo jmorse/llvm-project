@@ -1080,9 +1080,11 @@ bool LiveDebugValues::transferDebugInstrRef(MachineInstr &MI, uint64_t **MInLocs
       LocIdx CurL = LocIdx(I);
       ValueIDNum ID = tracker->LocIdxToIDNum[CurL];
       if (ID == NewID) {
+        unsigned LID = tracker->LocIdxToLocID[L];
+        unsigned CurLID = tracker->LocIdxToLocID[LocIdx(CurL)];
         if (L != 0 && CurL >= tracker->NumRegs)
           L = CurL; // override spills
-        else if (L != 0 && !isCalleeSaved(L) && isCalleeSaved(CurL))
+        else if (L != 0 && LID < tracker->NumRegs && CurLID < tracker->NumRegs && !isCalleeSaved(L) && isCalleeSaved(CurL))
           L = CurL; // override volatiles
         else if (L == 0)
           L = CurL; // override empty
