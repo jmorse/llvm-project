@@ -122,6 +122,18 @@ char FixupLEAPass::ID = 0;
 
 INITIALIZE_PASS(FixupLEAPass, FIXUPLEA_NAME, FIXUPLEA_DESC, false, false)
 
+// Assumption: the source insts only def one register, operand zero, and so
+// an LEAs operand zero DebugValueID will map across perfectly. And there
+// should be no additional DebugValueIDs taken from this inst.
+static void TransferDebugLocation(MachineInstr *Src, MachineInstr *Dest) {
+  uint64_t peek = Src->peekDebugValueID();
+  if (!peek) 
+    return;
+
+  assert(Dest->peekDebugValueID() == 0);
+  Dest->sneekilySetDebugValueID(peek);
+}
+
 MachineInstr *
 FixupLEAPass::postRAConvertToLEA(MachineBasicBlock &MBB,
                                  MachineBasicBlock::iterator &MBBI) const {
@@ -434,6 +446,7 @@ bool FixupLEAPass::optTwoAddrLEA(MachineBasicBlock::iterator &I,
   } else
     return false;
 
+  TransferDebugLocation(&*I, NewMI);
   MBB.erase(I);
   I = NewMI;
   return true;
@@ -469,6 +482,7 @@ void FixupLEAPass::seekLEAFixup(MachineOperand &p,
       LLVM_DEBUG(dbgs() << "FixLEA: Candidate to replace:"; MBI->dump(););
       // now to replace with an equivalent LEA...
       LLVM_DEBUG(dbgs() << "FixLEA: Replaced by: "; NewMI->dump(););
+      TransferDebugLocation(&*MBI, NewMI);
       MBB.erase(MBI);
       MachineBasicBlock::iterator J =
           static_cast<MachineBasicBlock::iterator>(NewMI);
@@ -521,6 +535,7 @@ void FixupLEAPass::processInstructionForSlowLEA(MachineBasicBlock::iterator &I,
     LLVM_DEBUG(NewMI->dump(););
   }
   if (NewMI) {
+    TransferDebugLocation(&*I, NewMI);
     MBB.erase(I);
     I = NewMI;
   }
@@ -626,6 +641,7 @@ void FixupLEAPass::processInstrForSlow3OpLEA(MachineBasicBlock::iterator &I,
       }
     }
 
+    TransferDebugLocation(&*I, NewMI);
     MBB.erase(I);
     I = NewMI;
     return;
@@ -651,6 +667,7 @@ void FixupLEAPass::processInstrForSlow3OpLEA(MachineBasicBlock::iterator &I,
                 .add(Index);
     LLVM_DEBUG(NewMI->dump(););
 
+    TransferDebugLocation(&*I, NewMI);
     MBB.erase(I);
     I = NewMI;
     return;
@@ -673,6 +690,7 @@ void FixupLEAPass::processInstrForSlow3OpLEA(MachineBasicBlock::iterator &I,
               .add(Base);
   LLVM_DEBUG(NewMI->dump(););
 
+  TransferDebugLocation(&*I, NewMI);
   MBB.erase(I);
   I = NewMI;
 }

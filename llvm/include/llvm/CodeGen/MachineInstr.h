@@ -254,6 +254,10 @@ private:
     return DebugValueID;
   }
 
+  void sneekilySetDebugValueID(uint64_t instid) {
+    DebugValueID = instid;
+  }
+
   unsigned getSingleDefIdx(void) const {
     unsigned numdefs = 0;
     for (auto &MO : operands())
