@@ -1166,7 +1166,7 @@ bool LiveDebugValues::isLocationSpill(const MachineInstr &MI,
   if (!isSpillInstruction(MI, MF))
     return false;
 
-  if (!ObserveAllStackops) {
+  if (ObserveAllStackops) {
     int FI;
     Reg = TII->isStoreToStackSlotPostFE(MI, FI);
     return Reg != 0;
