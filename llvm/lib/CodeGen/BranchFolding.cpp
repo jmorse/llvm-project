@@ -135,7 +135,7 @@ static void moveDebugPHIsToNewBlock(MachineBasicBlock &Src, MachineBasicBlock &D
 
   MF->mbbsOfInterest.insert(&Dest);
   for (auto &ID : elems) {
-    MF->exPHIs[ID].first = &Dest;
+    MF->exPHIs[ID].MBB = &Dest;
     auto pointit = MF->PHIPointToReg.find(ID);
     assert(pointit != MF->PHIPointToReg.end());
     pointit->second.first = &Dest;

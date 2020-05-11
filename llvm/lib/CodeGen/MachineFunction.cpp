@@ -525,7 +525,7 @@ void MachineFunction::print(raw_ostream &OS, const SlotIndexes *Indexes) const {
   OS << "ex PHIs\n";
 
   for (auto &P : exPHIs) {
-    OS << "  " << P.first << "\t-> " << P.second.first->getName() << " reg " << P.second.second << "\n";
+    OS << "  " << P.first << "\t-> " << P.second.MBB->getName() << " reg " << P.second.Reg << " subreg " << P.second.SubReg << "\n";
   }
 
   OS << "post-regalloc exPHIs\n";

@@ -414,7 +414,14 @@ class LDVImpl {
   MachineFunction *MF = nullptr;
   LiveIntervals *LIS;
   const TargetRegisterInfo *TRI;
-  std::map<DebugInstrRefID, std::pair<SlotIndex, Register>> ValToPos;
+
+  struct ValPos {
+    SlotIndex SI;
+    Register Reg;
+    unsigned SubReg;
+  };
+
+  std::map<DebugInstrRefID, ValPos> ValToPos;
   std::map<Register, std::vector<DebugInstrRefID>> RegIdx;
 
   std::map<SlotIndex, std::vector<CookingInstrRef>> InstrRefsToCook;
@@ -1039,11 +1046,13 @@ bool LDVImpl::runOnMachineFunction(MachineFunction &mf) {
   // This is what will be split up later on.
   SlotIndexes *Slots = LIS->getSlotIndexes(); 
   for (const auto &lala : MF->exPHIs) {
-    MachineBasicBlock *MBB = lala.second.first;
-    Register reg = lala.second.second;
+    MachineBasicBlock *MBB = lala.second.MBB;
+    Register reg = lala.second.Reg;
+    unsigned SubReg = lala.second.SubReg;
     assert(MF->exPHIIndex.find(MBB) != MF->exPHIIndex.end());
     SlotIndex SI = Slots->getMBBStartIdx(MBB);
-    ValToPos.insert(std::make_pair(lala.first, std::make_pair(SI, reg)));
+    ValPos vp = {SI, reg, SubReg};
+    ValToPos.insert(std::make_pair(lala.first, vp));
     RegIdx[reg].push_back(lala.first);
   }
 
@@ -1052,6 +1061,7 @@ bool LDVImpl::runOnMachineFunction(MachineFunction &mf) {
     for (auto &MI : MBB) {
       if (MI.isCopy() && MI.peekDebugValueID()) {
         Register reg = MI.getOperand(0).getReg();
+        unsigned subreg = MI.getOperand(0).getSubReg();
         SlotIndex SI = Slots->getInstructionIndex(MI).getRegSlot();
 
       // Errrmmmm. If the current slot is either a copy, or empty (meaning that
@@ -1073,11 +1083,13 @@ bool LDVImpl::runOnMachineFunction(MachineFunction &mf) {
       // Two things we can do now: it's either a PHI or some other inst.
       if (NewIdx.isBlock() && NewReg.isVirtual()) {
         auto ID = MI.getDebugValueID(0); // is always operand 0
-        ValToPos.insert(std::make_pair(ID, std::make_pair(SI, NewReg)));
+        ValPos p = {SI, NewReg, subreg};
+        ValToPos.insert(std::make_pair(ID, p));
         RegIdx[NewReg].push_back(ID);
 
         MF->mbbsOfInterest.insert(SlotMBB);
-        MF->exPHIs.insert(std::make_pair(ID, std::make_pair(SlotMBB, NewReg)));
+        MachineFunction::PHIPoint p2 = {SlotMBB, NewReg, subreg};
+        MF->exPHIs.insert(std::make_pair(ID, p2));
         MF->exPHIIndex[SlotMBB].insert(ID);
       } else if (NewIdx.isBlock() && NewReg.isPhysical()) {
         // Physical -> it's already a fixed PHI, probably an argument.
@@ -1282,6 +1294,10 @@ UserValue::splitRegister(unsigned OldReg, ArrayRef<unsigned> NewRegs,
 
 void LDVImpl::splitRegister(unsigned OldReg, ArrayRef<unsigned> NewRegs) {
   // XXX jmorse DBG_INSTR_REF
+
+  // NB: subreg is ignored here. That doesn't get remapped by splitting
+  // and the like.
+
   auto It = RegIdx.find(OldReg);
   std::vector<std::pair<Register, DebugInstrRefID>> newids;
   // XXX might make more sense to flip this loop
@@ -1289,8 +1305,8 @@ void LDVImpl::splitRegister(unsigned OldReg, ArrayRef<unsigned> NewRegs) {
     for (auto ID : It->second) {
       auto It2 = ValToPos.find(ID);
       assert(It2 != ValToPos.end());
-      const SlotIndex &Slot = It2->second.first;
-      Register r  = It2->second.second;
+      const SlotIndex &Slot = It2->second.SI;
+      Register r  = It2->second.Reg;
       assert(r == OldReg);
 
       // We only need to examine a single location.
@@ -1300,7 +1316,7 @@ void LDVImpl::splitRegister(unsigned OldReg, ArrayRef<unsigned> NewRegs) {
         if (LII != LI.end() && LII->start <= Slot) {
           // OK, we have a match.
           newids.push_back(std::make_pair(newreg, ID));
-          It2->second.second = newreg;
+          It2->second.Reg = newreg;
           break;
         }
       }
@@ -1651,8 +1667,9 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
   for (auto &it : ValToPos) {
     // For each exPHI, work out what its reg position is now.
     auto ID = it.first;
-    auto Slot = it.second.first;
-    auto reg = it.second.second;
+    auto Slot = it.second.SI;
+    Register reg = it.second.Reg;
+    unsigned SubReg = it.second.SubReg;
 
     // Is this ID a register reference? If so, ignore for now, it's an ABI thing
     if (!ID.isOperand())
@@ -1662,6 +1679,9 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
     if (VRM->isAssignedReg(reg) &&
           Register::isPhysicalRegister(VRM->getPhys(reg))) {
       unsigned physreg = VRM->getPhys(reg);
+      if (SubReg != 0)
+        physreg = TRI->getSubReg(physreg, SubReg);
+      assert(physreg != 0);
       MachineOperand MO = MachineOperand::CreateReg(physreg, false);
       auto resit = MF->PHIPointToReg.insert(std::make_pair(ID, std::make_pair(OrigMBB, MO)));
       assert(resit.second);
@@ -1669,11 +1689,8 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
       const MachineRegisterInfo &MRI = MF->getRegInfo();
       const TargetRegisterClass *TRC = MRI.getRegClass(reg);
       unsigned SpillSize, SpillOffset;
-      // XXX XXX XXX 0 was subreg.
-      // XXX XXX XXX 0 was subreg.
-      // XXX XXX XXX 0 was subreg.
       // Examine the subreg situatoin.
-      bool Success = TII->getStackSlotRange(TRC, 0, SpillSize, SpillOffset, *MF);
+      bool Success = TII->getStackSlotRange(TRC, SubReg, SpillSize, SpillOffset, *MF);
 
       // FIXME: Invalidate the location if the offset couldn't be calculated.
       (void)Success;

@@ -294,7 +294,13 @@ class MachineFunction {
     return ++DebugValueIDCount;
   }
 
-  using PHIPoint = std::pair<MachineBasicBlock *, Register>;
+  class PHIPoint {
+  public:
+    MachineBasicBlock *MBB;
+    Register Reg;
+    unsigned SubReg;
+  };
+
   using PostPHIPoint = std::pair<MachineBasicBlock *, MachineOperand>;
   std::map<DebugInstrRefID, DebugInstrRefID> valueIDUpdateMap;
   std::map<DebugInstrRefID, PHIPoint> exPHIs;

@@ -286,7 +286,8 @@ void PHIElimination::LowerPHINode(MachineBasicBlock &MBB,
     MachineFunction *MF = MBB.getParent();
     auto ID = MPhi->getDebugValueID(0);
     MF->mbbsOfInterest.insert(&MBB);
-    MF->exPHIs.insert(std::make_pair(ID, std::make_pair(&MBB, DestReg)));
+    MachineFunction::PHIPoint p = MachineFunction::PHIPoint{&MBB, DestReg, 0};
+    MF->exPHIs.insert(std::make_pair(ID, p));
     MF->exPHIIndex[&MBB].insert(ID);
   }
 

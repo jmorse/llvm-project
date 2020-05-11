@@ -3953,8 +3953,9 @@ bool RegisterCoalescer::runOnMachineFunction(MachineFunction &fn) {
 
   SlotIndexes *Slots = LIS->getSlotIndexes();
   for (const auto &lala : MF->exPHIs) {
-    MachineBasicBlock *MBB = lala.second.first;
-    Register reg = lala.second.second;
+    MachineBasicBlock *MBB = lala.second.MBB;
+    Register reg = lala.second.Reg;
+    unsigned SubReg = lala.second.SubReg;
     SlotIndex SI;
     if (!MBB->empty()) {
       // Can we find a COPY to the specified register before any other
@@ -4042,7 +4043,7 @@ bool RegisterCoalescer::runOnMachineFunction(MachineFunction &fn) {
   for (auto &p : MF->exPHIs) {
     auto it = ValToPos.find(p.first);
     assert(it != ValToPos.end());
-    p.second.second = it->second.second;
+    p.second.Reg = it->second.second;
   }
 
   ValToPos.clear();
