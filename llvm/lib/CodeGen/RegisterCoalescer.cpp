@@ -380,6 +380,9 @@ namespace {
 
     /// Implement the dump method.
     void print(raw_ostream &O, const Module* = nullptr) const override;
+
+void FixKilledCopy(uint64_t DebugValueID, const CoalescerPair &CP,
+  MachineFunction &MF, LiveIntervals &LIS, SlotIndex OldCopySI);
   };
 
 } // end anonymous namespace
@@ -396,6 +399,59 @@ INITIALIZE_PASS_DEPENDENCY(MachineLoopInfo)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_END(RegisterCoalescer, "simple-register-coalescing",
                     "Simple Register Coalescing", false, false)
+
+void RegisterCoalescer::FixKilledCopy(uint64_t DebugValueID, const CoalescerPair &CP,
+  MachineFunction &MF, LiveIntervals &LIS, SlotIndex OldCopySI)
+{
+  const SlotIndexes &Slots = *LIS.getSlotIndexes();
+
+  assert(DebugValueID != 0);
+  assert(!CP.isPhys());
+  // There was a copy, that's now deleted, that made a location disappear
+  // in the process. Point it at the source of the def right now;
+  // potentially label it with a subregister too.
+
+  // Un-flip things...
+  unsigned SrcReg = (CP.isFlipped()) ? CP.getDstReg() : CP.getSrcReg();
+  unsigned SrcIdx = (CP.isFlipped()) ? CP.getDstIdx() : CP.getSrcIdx();
+
+  LiveInterval &LI = LIS.getInterval(SrcReg);
+  auto LII = LI.find(OldCopySI);
+  assert(LII != LI.end());
+  SlotIndex TheDef = LII->valno->def;
+
+  auto OldID = DebugInstrRefID(DebugValueID, true, 0); // op0 = copy dest
+
+  // Uuuuhhh. Could be a PHI.
+  if (TheDef.isBlock()) {
+    // We've copied the value from a PHI; make a new PHI thingy.
+    ValPos p = {TheDef, SrcReg, SrcIdx};
+    ValToPos.insert(std::make_pair(OldID, p));
+    RegIdx[SrcReg].push_back(OldID);
+    auto *MBB = Slots.getMBBFromIndex(TheDef);
+    MachineFunction::PHIPoint p2 = {MBB, SrcReg, SrcIdx};
+    MF.exPHIs.insert(std::make_pair(OldID, p2));
+    MF.exPHIIndex[MBB].insert(OldID);
+    MF.mbbsOfInterest.insert(MBB);
+  } else {
+    MachineInstr *DefMI = Slots.getInstructionFromIndex(TheDef);
+    assert(DefMI);
+    // Hmmmmmm, do we really need to search for this?
+    // XXX and can we assign through subregs?
+    unsigned opno = 0;
+    for (auto &MO : DefMI->operands()) {
+      if (!MO.isReg() || !MO.isDef() || MO.getReg() != SrcReg) {
+        ++opno;
+        continue;
+      }
+      break;
+    }
+    assert(opno < DefMI->getNumOperands());
+    auto NewID = DefMI->getDebugValueID(opno);
+    // XXX Dest reg idx is the new subreg, yers?
+    MF.valueIDUpdateMap.insert(std::make_pair(OldID, std::make_pair(NewID, SrcIdx)));
+  }
+}
 
 LLVM_NODISCARD static bool isMoveInstr(const TargetRegisterInfo &tri,
                                        const MachineInstr *MI, unsigned &Src,
@@ -1956,52 +2012,8 @@ assert(!CopyMI->peekDebugValueID());
     return false;
   }
 
-  if (DebugValueID != 0 && !CP.isPhys()) {
-    // There was a copy, that's now deleted, that made a location disappear
-    // in the process. Point it at the source of the def right now;
-    // potentially label it with a subregister too.
-
-    // Un-flip things...
-    unsigned SrcReg = (CP.isFlipped()) ? CP.getDstReg() : CP.getSrcReg();
-    unsigned SrcIdx = (CP.isFlipped()) ? CP.getDstIdx() : CP.getSrcIdx();
-
-    LiveInterval &LI = LIS->getInterval(SrcReg);
-    auto LII = LI.find(OldMISI);
-    assert(LII != LI.end());
-    SlotIndex TheDef = LII->valno->def;
-
-    auto OldID = DebugInstrRefID(DebugValueID, true, 0); // op0 = copy dest
-
-    // Uuuuhhh. Could be a PHI.
-    if (TheDef.isBlock()) {
-      // We've copied the value from a PHI; make a new PHI thingy.
-      ValPos p = {TheDef, SrcReg, SrcIdx};
-      ValToPos.insert(std::make_pair(OldID, p));
-      RegIdx[SrcReg].push_back(OldID);
-      auto *MBB = Slots.getMBBFromIndex(TheDef);
-      MachineFunction::PHIPoint p2 = {MBB, SrcReg, SrcIdx};
-      MF->exPHIs.insert(std::make_pair(OldID, p2));
-      MF->exPHIIndex[MBB].insert(OldID);
-      MF->mbbsOfInterest.insert(MBB);
-    } else {
-      MachineInstr *DefMI = Slots.getInstructionFromIndex(TheDef);
-      assert(DefMI);
-      // Hmmmmmm, do we really need to search for this?
-      // XXX and can we assign through subregs?
-      unsigned opno = 0;
-      for (auto &MO : DefMI->operands()) {
-        if (!MO.isReg() || !MO.isDef() || MO.getReg() != SrcReg) {
-          ++opno;
-          continue;
-        }
-        break;
-      }
-      assert(opno < DefMI->getNumOperands());
-      auto NewID = DefMI->getDebugValueID(opno);
-      // XXX Dest reg idx is the new subreg, yers?
-      MF->valueIDUpdateMap.insert(std::make_pair(OldID, std::make_pair(NewID, SrcIdx)));
-    }
-  }
+  if (DebugValueID != 0 && !CP.isPhys())
+    FixKilledCopy(DebugValueID, CP, *MF, *LIS, OldMISI);
 
   // Coalescing to a virtual register that is of a sub-register class of the
   // other. Make sure the resulting register is set to the right register class.
