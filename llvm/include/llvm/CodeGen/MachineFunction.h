@@ -302,7 +302,9 @@ class MachineFunction {
   };
 
   using PostPHIPoint = std::pair<MachineBasicBlock *, MachineOperand>;
-  std::map<DebugInstrRefID, DebugInstrRefID> valueIDUpdateMap;
+  // new ID, old subreg
+  using ValueIDUpdate = std::pair<DebugInstrRefID, unsigned>;
+  std::map<DebugInstrRefID, ValueIDUpdate> valueIDUpdateMap;
   std::map<DebugInstrRefID, PHIPoint> exPHIs;
   std::map<MachineBasicBlock *, std::set<DebugInstrRefID>> exPHIIndex;
   std::map<DebugInstrRefID, PostPHIPoint> PHIPointToReg;
@@ -311,7 +313,7 @@ class MachineFunction {
   std::map<uint64_t, std::vector<Register>> ABIRegDef;
 
   void makeNewExPHIPostRegalloc(MachineBasicBlock *MBB, DebugInstrRefID ID, Register reg);
-  DebugInstrRefID makeNewABIRegDefPostRegalloc(MachineBasicBlock *MBB, uint64_t instrid, Register reg, DebugInstrRefID OldID);
+  DebugInstrRefID makeNewABIRegDefPostRegalloc(MachineBasicBlock *MBB, uint64_t instrid, Register reg, unsigned SubReg, DebugInstrRefID OldID);
 
   private:
 

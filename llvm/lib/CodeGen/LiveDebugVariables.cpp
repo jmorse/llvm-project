@@ -1071,6 +1071,7 @@ bool LDVImpl::runOnMachineFunction(MachineFunction &mf) {
       auto *SlotMBB = Slots->getMBBFromIndex(SI);
       Register NewReg = reg;
       SlotIndex NewIdx = SI;
+// XXX can you say SUBREGS?
       do {
         std::tie(NewIdx, NewReg) = skipBackFromCopy(NewIdx, NewReg);
         if (NewIdx.isBlock())
@@ -1096,6 +1097,7 @@ bool LDVImpl::runOnMachineFunction(MachineFunction &mf) {
         // Don't track it.
         auto ID = MI.getDebugValueID(0); // is always operand 0
         MachineOperand MO = MachineOperand::CreateReg(NewReg, false);
+        MO.setSubReg(subreg);
         MF->PHIPointToReg.insert(std::make_pair(ID, std::make_pair(SlotMBB, MO)));
         MF->exPHIIndex[SlotMBB].insert(ID);
         MF->mbbsOfInterest.insert(SlotMBB);
@@ -1106,9 +1108,9 @@ bool LDVImpl::runOnMachineFunction(MachineFunction &mf) {
         MachineInstr *DefMI = Slots->getInstructionFromIndex(NewIdx);
         auto DummyID = DefMI->getDebugValueID(0);
         auto OrigID = MI.getDebugValueID(0); // is always operand 0
-        auto ID = MF->makeNewABIRegDefPostRegalloc(SlotMBB, DummyID.getInstID(), NewReg, OrigID);
+        auto ID = MF->makeNewABIRegDefPostRegalloc(SlotMBB, DummyID.getInstID(), NewReg, subreg, OrigID);
 
-        MF->valueIDUpdateMap.insert(std::make_pair(OrigID, ID));
+        MF->valueIDUpdateMap.insert(std::make_pair(OrigID, std::make_pair(ID, 0)));
 // XXX XXX XXX -- just disable recording these things. They have an inst
 // and a physreg. Nothing needs doing.
 //        ValToPos.insert(std::make_pair(ID, std::make_pair(SI, reg)));
@@ -1128,7 +1130,7 @@ bool LDVImpl::runOnMachineFunction(MachineFunction &mf) {
         assert(opidx < DefMI->getNumOperands());
         auto NewID = DefMI->getDebugValueID(opidx);
         auto OrigID = MI.getDebugValueID(0); // is always operand 0
-        MF->valueIDUpdateMap.insert(std::make_pair(OrigID, NewID));
+        MF->valueIDUpdateMap.insert(std::make_pair(OrigID, std::make_pair(NewID, subreg)));
       }
       }
     }
@@ -1679,9 +1681,14 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
     if (VRM->isAssignedReg(reg) &&
           Register::isPhysicalRegister(VRM->getPhys(reg))) {
       unsigned physreg = VRM->getPhys(reg);
-      if (SubReg != 0)
-        physreg = TRI->getSubReg(physreg, SubReg);
-      assert(physreg != 0);
+      if (SubReg != 0) {
+        unsigned tmp = TRI->getSubReg(physreg, SubReg);
+        if (tmp != 0)
+          physreg = tmp;
+        // XXX -- usually this is because physreg is the correct size, and we
+        // don't need to subregify it any further. Possibility that we've
+        // screwed up though.
+      }
       MachineOperand MO = MachineOperand::CreateReg(physreg, false);
       auto resit = MF->PHIPointToReg.insert(std::make_pair(ID, std::make_pair(OrigMBB, MO)));
       assert(resit.second);

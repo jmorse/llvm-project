@@ -519,7 +519,7 @@ void MachineFunction::print(raw_ostream &OS, const SlotIndexes *Indexes) const {
   OS << "# MY DUDES!\n";
   OS << "Value updates:\n";
   for (auto &P : valueIDUpdateMap) {
-    OS << "  " << P.first << "\t->\t" << P.second << "\n";
+    OS << "  " << P.first << "\t->\t" << P.second.first << " subreg << " << P.second.second << "\n";
   }
   
   OS << "ex PHIs\n";
@@ -1228,7 +1228,7 @@ void MachineFunction::makeNewExPHIPostRegalloc(MachineBasicBlock *MBB, DebugInst
   }
 }
 
-DebugInstrRefID MachineFunction::makeNewABIRegDefPostRegalloc(MachineBasicBlock *MBB, uint64_t instrid, Register reg, DebugInstrRefID OldID) {
+DebugInstrRefID MachineFunction::makeNewABIRegDefPostRegalloc(MachineBasicBlock *MBB, uint64_t instrid, Register reg, unsigned SubReg, DebugInstrRefID OldID) {
   // There's an instruction we can hinge on. However, there might not
   // be an operand we can touch. Formulate one manually and stick
   // it into ANOTHER weird side table.
@@ -1240,6 +1240,6 @@ DebugInstrRefID MachineFunction::makeNewABIRegDefPostRegalloc(MachineBasicBlock 
     ABIRegDef.insert(std::make_pair(instrid, toInsert));
   }
   DebugInstrRefID NewID(instrid, Register(reg));
-  valueIDUpdateMap.insert(std::make_pair(OldID, NewID));
+  valueIDUpdateMap.insert(std::make_pair(OldID, std::make_pair(NewID, SubReg)));
   return NewID;
 }

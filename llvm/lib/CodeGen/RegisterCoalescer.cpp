@@ -133,7 +133,14 @@ namespace {
     AliasAnalysis *AA = nullptr;
     RegisterClassInfo RegClassInfo;
 
-    std::map<DebugInstrRefID, std::pair<SlotIndex, Register>> ValToPos;
+    class ValPos {
+    public:
+      SlotIndex SI;
+      Register Reg;
+      unsigned SubReg;
+    };
+
+    std::map<DebugInstrRefID, ValPos> ValToPos;
     std::map<Register, std::vector<DebugInstrRefID>> RegIdx;
 
     /// Debug variable location tracking -- for each VReg, maintain an
@@ -1837,6 +1844,7 @@ bool RegisterCoalescer::joinCopy(MachineInstr *CopyMI, bool &Again) {
   // like removeCopyByCommutingDef() can inadvertently create identity copies.
   // When that happens, just join the values and remove the copy.
   if (CP.getSrcReg() == CP.getDstReg()) {
+assert(!CopyMI->peekDebugValueID());
     LiveInterval &LI = LIS->getInterval(CP.getSrcReg());
     LLVM_DEBUG(dbgs() << "\tCopy already coalesced: " << LI << '\n');
     const SlotIndex CopyIdx = LIS->getInstructionIndex(*CopyMI);
@@ -1899,6 +1907,10 @@ bool RegisterCoalescer::joinCopy(MachineInstr *CopyMI, bool &Again) {
   ShrinkMask = LaneBitmask::getNone();
   ShrinkMainRange = false;
 
+  const SlotIndexes &Slots = *LIS->getSlotIndexes();
+  auto DebugValueID = CopyMI->peekDebugValueID();
+  SlotIndex OldMISI = Slots.getInstructionIndex(*CopyMI);
+
   // Okay, attempt to join these two intervals.  On failure, this returns false.
   // Otherwise, if one of the intervals being joined is a physreg, this method
   // always canonicalizes DstInt to be it.  The output "SrcInt" will not have
@@ -1942,6 +1954,53 @@ bool RegisterCoalescer::joinCopy(MachineInstr *CopyMI, bool &Again) {
     LLVM_DEBUG(dbgs() << "\tInterference!\n");
     Again = true;  // May be possible to coalesce later.
     return false;
+  }
+
+  if (DebugValueID != 0 && !CP.isPhys()) {
+    // There was a copy, that's now deleted, that made a location disappear
+    // in the process. Point it at the source of the def right now;
+    // potentially label it with a subregister too.
+
+    // Un-flip things...
+    unsigned SrcReg = (CP.isFlipped()) ? CP.getDstReg() : CP.getSrcReg();
+    unsigned SrcIdx = (CP.isFlipped()) ? CP.getDstIdx() : CP.getSrcIdx();
+
+    LiveInterval &LI = LIS->getInterval(SrcReg);
+    auto LII = LI.find(OldMISI);
+    assert(LII != LI.end());
+    SlotIndex TheDef = LII->valno->def;
+
+    auto OldID = DebugInstrRefID(DebugValueID, true, 0); // op0 = copy dest
+
+    // Uuuuhhh. Could be a PHI.
+    if (TheDef.isBlock()) {
+      // We've copied the value from a PHI; make a new PHI thingy.
+      ValPos p = {TheDef, SrcReg, SrcIdx};
+      ValToPos.insert(std::make_pair(OldID, p));
+      RegIdx[SrcReg].push_back(OldID);
+      auto *MBB = Slots.getMBBFromIndex(TheDef);
+      MachineFunction::PHIPoint p2 = {MBB, SrcReg, SrcIdx};
+      MF->exPHIs.insert(std::make_pair(OldID, p2));
+      MF->exPHIIndex[MBB].insert(OldID);
+      MF->mbbsOfInterest.insert(MBB);
+    } else {
+      MachineInstr *DefMI = Slots.getInstructionFromIndex(TheDef);
+      assert(DefMI);
+      // Hmmmmmm, do we really need to search for this?
+      // XXX and can we assign through subregs?
+      unsigned opno = 0;
+      for (auto &MO : DefMI->operands()) {
+        if (!MO.isReg() || !MO.isDef() || MO.getReg() != SrcReg) {
+          ++opno;
+          continue;
+        }
+        break;
+      }
+      assert(opno < DefMI->getNumOperands());
+      auto NewID = DefMI->getDebugValueID(opno);
+      // XXX Dest reg idx is the new subreg, yers?
+      MF->valueIDUpdateMap.insert(std::make_pair(OldID, std::make_pair(NewID, SrcIdx)));
+    }
   }
 
   // Coalescing to a virtual register that is of a sub-register class of the
@@ -2116,13 +2175,15 @@ bool RegisterCoalescer::joinReservedPhysReg(CoalescerPair &CP) {
       auto ID = CopyMI->getDebugValueID(0);
       auto *MBB = CopyMI->getParent();
 
+      // XXX XXX XXX -- we're probably dropping subregs here?
+
       // All of this copied from LiveDebugVariables
       if (Def.isBlock()) {
         MF->makeNewExPHIPostRegalloc(MBB, ID, physreg);
       } else {
         MachineInstr *DefMI = Slots->getInstructionFromIndex(Def);
         auto DummyID = DefMI->getDebugValueID(0);
-        MF->makeNewABIRegDefPostRegalloc(MBB, DummyID.getInstID(), physreg, ID);
+        MF->makeNewABIRegDefPostRegalloc(MBB, DummyID.getInstID(), physreg, 0, ID);
       }
     }
   } else {
@@ -3503,12 +3564,19 @@ bool RegisterCoalescer::joinVirtRegs(CoalescerPair &CP) {
     for (auto ID : it->second) {
       auto valit = ValToPos.find(ID);
       assert(valit != ValToPos.end());
-      auto LII = RHS.find(valit->second.first);
-      if (LII == RHS.end() || LII->start > valit->second.first)
+      auto LII = RHS.find(valit->second.SI);
+      if (LII == RHS.end() || LII->start > valit->second.SI)
         continue;
+
+      // Skip copies from a different subregister. Buuutttt, XXX, what about
+      // aliasing?
+      if (valit->second.SubReg != CP.getSrcIdx())
+        continue;
+
       // XXX don't examine resolutions, because we only merge things that
       // caaannnn mergggeee?? Bold statement.
-      valit->second.second = CP.getDstReg();
+      valit->second.Reg = CP.getDstReg();
+      valit->second.SubReg = CP.getDstIdx();
     }
     auto vec = it->second;
     RegIdx.erase(it);
@@ -3977,7 +4045,8 @@ bool RegisterCoalescer::runOnMachineFunction(MachineFunction &fn) {
     } else {
       SI = Slots->getMBBStartIdx(MBB);
     }
-    ValToPos.insert(std::make_pair(lala.first, std::make_pair(SI, reg)));
+    ValPos p = {SI, reg, SubReg};
+    ValToPos.insert(std::make_pair(lala.first, p));
     RegIdx[reg].push_back(lala.first);
   }
 
@@ -4043,7 +4112,8 @@ bool RegisterCoalescer::runOnMachineFunction(MachineFunction &fn) {
   for (auto &p : MF->exPHIs) {
     auto it = ValToPos.find(p.first);
     assert(it != ValToPos.end());
-    p.second.Reg = it->second.second;
+    p.second.Reg = it->second.Reg;
+    p.second.SubReg = it->second.SubReg;
   }
 
   ValToPos.clear();

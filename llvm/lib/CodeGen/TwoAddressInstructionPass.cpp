@@ -766,7 +766,7 @@ TwoAddressInstructionPass::convertInstTo3Addr(MachineBasicBlock::iterator &mi,
     // Now do the same for the new one
     unsigned newidx = NewMI->getSingleDefIdx();
     auto NewID = NewMI->getDebugValueID(newidx);
-    MF->valueIDUpdateMap.insert(std::make_pair(ID, NewID));
+    MF->valueIDUpdateMap.insert(std::make_pair(ID, std::make_pair(NewID, 0)));
   }
 
   MBB->erase(mi); // Nuke the old inst.

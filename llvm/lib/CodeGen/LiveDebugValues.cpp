@@ -1010,8 +1010,12 @@ bool LiveDebugValues::transferDebugInstrRef(MachineInstr &MI, uint64_t **MInLocs
 
   // It might be subject to some kind of update...
   auto It = MF.valueIDUpdateMap.find(ID);
+  unsigned SubReg = 0;
   while (It != MF.valueIDUpdateMap.end()) {
-    ID = It->second;
+    ID = It->second.first;
+    SubReg = (SubReg) ? SubReg : It->second.second; // Pick out first subreg
+    // Should be the smallest; and any coalescing in the meantime can't have
+    // moved it.
     It = MF.valueIDUpdateMap.find(ID);
   }
 
@@ -1068,6 +1072,24 @@ bool LiveDebugValues::transferDebugInstrRef(MachineInstr &MI, uint64_t **MInLocs
       // No observed instrs: it's optimised out.
       NewID = ValueIDNum{0, 0, LocIdx(0)};
     }
+  }
+
+  // We picked up a subregister along the way; check whether the def at this
+  // location should actually refer to one of its subregisters.
+  if (SubReg != 0) {
+    LocIdx l = NewID.LocNo;
+    unsigned ID = tracker->LocIdxToLocID[l];
+    // Should not have landed in a stack slot.
+    assert(ID < tracker->NumRegs);
+    // Is this register already in that calss?
+    unsigned res = TRI->getSubReg(ID, SubReg);
+    if (res != 0) {
+      assert(tracker->LocIDToLocIdx[res] != 0); // tooottallly going to fail
+      NewID.LocNo = tracker->LocIDToLocIdx[res];
+    }
+    // XXX need to assert that any un-used subreg is because the old loc
+    // and the subreg loc are the same size. Probably means carrying around
+    // a register class pointer.
   }
 
   // OK, we have a Value ID. Set it.
