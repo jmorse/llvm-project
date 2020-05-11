@@ -3956,10 +3956,26 @@ bool RegisterCoalescer::runOnMachineFunction(MachineFunction &fn) {
     MachineBasicBlock *MBB = lala.second.first;
     Register reg = lala.second.second;
     SlotIndex SI;
-    if (!MBB->empty())
-      SI = Slots->getInstructionIndex(*MBB->begin()).getRegSlot();
-    else
+    if (!MBB->empty()) {
+      // Can we find a COPY to the specified register before any other
+      // register? Ideally we would have a reference to the specific copy
+      // inst from exphis, but not implemented yet. Plus, PHI elimination
+      // has some weird code paths.
+      MachineInstr *CopyInst = nullptr;
+      for (auto MIIt = MBB->begin(); MIIt != MBB->end(); ++MIIt) {
+        if (!MIIt->isCopy())
+          break;
+        if (MIIt->getOperand(0).getReg() == reg) {
+          CopyInst = &*MIIt;
+          break;
+        }
+      }
+      if (CopyInst == nullptr)
+        CopyInst = &*MBB->begin();
+      SI = Slots->getInstructionIndex(*CopyInst).getRegSlot();
+    } else {
       SI = Slots->getMBBStartIdx(MBB);
+    }
     ValToPos.insert(std::make_pair(lala.first, std::make_pair(SI, reg)));
     RegIdx[reg].push_back(lala.first);
   }
