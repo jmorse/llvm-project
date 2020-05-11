@@ -814,12 +814,12 @@ private:
   SpillLoc extractSpillBaseRegAndOffset(const MachineInstr &MI);
 
   bool transferDebugValue(const MachineInstr &MI);
-  bool transferDebugInstrRef(MachineInstr &MI);
+  bool transferDebugInstrRef(MachineInstr &MI, uint64_t **MInLocs);
   bool transferSpillOrRestoreInst(MachineInstr &MI);
   bool transferRegisterCopy(MachineInstr &MI);
   void transferRegisterDef(MachineInstr &MI);
 
-  void process(MachineInstr &MI);
+  void process(MachineInstr &MI, uint64_t **MInLocs = nullptr);
 
   void accumulateFragmentMap(MachineInstr &MI);
 
@@ -980,7 +980,7 @@ bool LiveDebugValues::transferDebugValue(const MachineInstr &MI) {
   return true;
 }
 
-bool LiveDebugValues::transferDebugInstrRef(MachineInstr &MI)
+bool LiveDebugValues::transferDebugInstrRef(MachineInstr &MI, uint64_t **MInLocs)
 {
   if (!MI.isDebugRef())
     return false;
@@ -1021,10 +1021,10 @@ bool LiveDebugValues::transferDebugInstrRef(MachineInstr &MI)
   auto PHIIt = MF.PHIPointToReg.find(ID);
   if (PHIIt != MF.PHIPointToReg.end()) {
     // Only handle reg phis for now...
+    LocIdx L = LocIdx(0);
     if (PHIIt->second.second.isReg()) {
       unsigned LocID = tracker->getLocID(PHIIt->second.second.getReg(), false);
-      LocIdx L = tracker->LocIDToLocIdx[LocID];
-      NewID = ValueIDNum{(uint64_t)PHIIt->second.first->getNumber(), 0, L};
+      L = tracker->LocIDToLocIdx[LocID];
     } else {
       assert(PHIIt->second.second.isFI());
       unsigned FI = PHIIt->second.second.getIndex();
@@ -1032,13 +1032,19 @@ bool LiveDebugValues::transferDebugInstrRef(MachineInstr &MI)
       if (!MFI->isDeadObjectIndex(FI)) {
         int64_t offs = TFI->getFrameIndexReference(MF, FI, Base);
         SpillLoc SL = {Base, (int)offs}; // XXX loss of 64 to 32?
-        LocIdx L = tracker->getSpillMLoc(SL);
-        NewID = ValueIDNum{(uint64_t)PHIIt->second.first->getNumber(), 0, L};
+        L = tracker->getSpillMLoc(SL);
       } else {
         // It's dead jim.
-        NewID = ValueIDNum{(uint64_t)0, 0, LocIdx(0)};
+        ;
       }
     }
+
+    // We could directly produce an mphi value here, however, branch folding
+    // can shuffle branches to the point where the phi-ness has gone away
+    // and an explicit location is known. Pick the location out of MInLocs.
+    // Technically after this point some pass could start rewriting registers
+    // too, but nothing does that right now.
+    NewID = ValueIDNum::fromU64(MInLocs[PHIIt->second.first->getNumber()][L]);
   } else {
     // No: it must refer to an instruction.
     auto InstrIt = InstrIDMap.find(ID.getInstID());
@@ -1392,10 +1398,10 @@ void LiveDebugValues::accumulateFragmentMap(MachineInstr &MI) {
 }
 
 /// This routine creates OpenRanges.
-void LiveDebugValues::process(MachineInstr &MI) {
+void LiveDebugValues::process(MachineInstr &MI, uint64_t **MInLocs) {
   if (transferDebugValue(MI))
     return;
-  if (transferDebugInstrRef(MI))
+  if (transferDebugInstrRef(MI, MInLocs))
     return;
   if (transferRegisterCopy(MI))
     return;
@@ -2105,7 +2111,7 @@ DenseMap<DebugVariable, unsigned> &AllVarsNumbering)
     cur_bb = bbnum;
     cur_inst = 1;
     for (auto &MI : MBB) {
-      process(MI);
+      process(MI, MInLocs);
       ++cur_inst;
     }
   }
@@ -2200,7 +2206,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     tracker->loadFromArray(MInLocs[cur_bb], cur_bb);
     cur_inst = 1;
     for (auto &MI : MBB) {
-      process(MI);
+      process(MI, MInLocs);
 
       // Read abi def regs, for things like loading values out of return value
       // physregs.
