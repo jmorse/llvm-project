@@ -834,6 +834,8 @@ RegisterCoalescer::removeCopyByCommutingDef(const CoalescerPair &CP,
                                             MachineInstr *CopyMI) {
   assert(!CP.isPhys());
 
+  uint64_t DebugValueID = CopyMI->peekDebugValueID();
+
   LiveInterval &IntA =
       LIS->getInterval(CP.isFlipped() ? CP.getDstReg() : CP.getSrcReg());
   LiveInterval &IntB =
@@ -1064,6 +1066,9 @@ RegisterCoalescer::removeCopyByCommutingDef(const CoalescerPair &CP,
   LLVM_DEBUG(dbgs() << "\t\textended: " << IntB << '\n');
 
   LIS->removeVRegDefAt(IntA, AValNo->def);
+
+  if (DebugValueID != 0 && !CP.isPhys())
+    FixKilledCopy(DebugValueID, CP, *MF, *LIS, CopyIdx);
 
   LLVM_DEBUG(dbgs() << "\t\ttrimmed:  " << IntA << '\n');
   ++numCommutes;
