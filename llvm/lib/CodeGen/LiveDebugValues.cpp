@@ -573,6 +573,14 @@ public:
   const TargetRegisterInfo &TRI;
   const BitVector &CalleeSavedRegs;
 
+  class UseBeforeDef {
+  public:
+    ValueIDNum ID;
+    DebugVariable Var;
+    MetaVal m;
+  };
+  std::map<unsigned, SmallVector<UseBeforeDef, 1>> UseBeforeDefs;
+
   TransferTracker(const TargetInstrInfo *TII, MLocTracker *mtracker, MachineFunction &MF, const TargetRegisterInfo &TRI, const BitVector &CalleeSavedRegs) : TII(TII), mtracker(mtracker), MF(MF), TRI(TRI), CalleeSavedRegs(CalleeSavedRegs) { }
 
   void loadInlocs(MachineBasicBlock &MBB, uint64_t *mlocs, SmallVectorImpl<std::pair<DebugVariable, ValueRec>> &vlocs, unsigned cur_bb, unsigned NumLocs) {  
@@ -580,6 +588,7 @@ public:
     ActiveVLocs.clear();
     VarLocs.clear();
     VarLocs.resize(NumLocs);
+    UseBeforeDefs.clear();
 
     auto isCalleeSaved = [&](LocIdx l) {
       unsigned Reg = mtracker->LocIdxToLocID[l];
@@ -611,10 +620,17 @@ public:
         continue;
       }
 
-      // Value unavailable / has no machine loc -> define no location.
+      // Value unavailable / has no machine loc -> define no location. Test for
+      // use before defs first.
       auto hahait = ValueToLoc.find(Var.second.ID);
-      if (hahait == ValueToLoc.end())
+      if (hahait == ValueToLoc.end()) {
+        if (Var.second.ID.BlockNo != cur_bb || Var.second.ID.InstNo == 0)
+          continue;
+        // Otherwise it's in this block and not a PHI.
+        UseBeforeDefs[Var.second.ID.InstNo].push_back(
+                 UseBeforeDef{Var.second.ID, Var.first, Var.second.meta});
         continue;
+      }
 
       LocIdx m = hahait->second;
       ActiveVLocs[Var.first] = std::make_pair(m, Var.second.meta);
@@ -623,6 +639,24 @@ public:
       PendingDbgValues.push_back(mtracker->emitLoc(m, Var.first, Var.second.meta));
     }
     flushDbgValues(MBB.begin(), &MBB);
+  }
+
+  void prodAfterInst(unsigned inst, MachineBasicBlock::iterator pos) {
+    auto mit = UseBeforeDefs.find(inst);
+    if (mit == UseBeforeDefs.end())
+      return;
+
+    for (auto &Use : mit->second) {
+      LocIdx L = Use.ID.LocNo;
+
+      // Problem: we can name defs on copies that we later look through. This
+      // means there are values we can't actually track. This sucks.
+      if (mtracker->LocIdxToIDNum[L] != Use.ID)
+        continue;
+
+      PendingDbgValues.push_back(mtracker->emitLoc(L, Use.Var, Use.m));
+    }
+    flushDbgValues(pos, nullptr);
   }
 
   void flushDbgValues(MachineBasicBlock::iterator pos,
@@ -2136,6 +2170,7 @@ DenseMap<DebugVariable, unsigned> &AllVarsNumbering)
     cur_inst = 1;
     for (auto &MI : MBB) {
       process(MI, MInLocs);
+      ttracker->prodAfterInst(cur_inst, MI.getIterator());
       ++cur_inst;
     }
   }
