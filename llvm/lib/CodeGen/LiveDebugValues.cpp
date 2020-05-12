@@ -2058,7 +2058,9 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   mloc_dataflow(MInLocs, MOutLocs, MLocTransfer);
 
   // Accumulate things into the vloc tracker.
-  for (auto &MBB : MF) {
+  // Walk in RPOT order to ensure any physreg defs are seen before uses.
+  for (unsigned int I = 0; I < OrderToBB.size(); ++I) {
+    MachineBasicBlock &MBB = *OrderToBB[I];
     cur_bb = MBB.getNumber();
     vtracker = &vlocs[cur_bb];
     vtracker->MBB = &MBB;
