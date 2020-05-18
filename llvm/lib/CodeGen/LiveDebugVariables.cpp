@@ -1057,11 +1057,13 @@ bool LDVImpl::runOnMachineFunction(MachineFunction &mf) {
   }
 
   // Fun times: also keep track of COPYs, as those can be just deleted.
+  auto *TII = MF->getSubtarget().getInstrInfo();
   for (auto &MBB : *MF) {
     for (auto &MI : MBB) {
-      if (MI.isCopy() && MI.peekDebugValueID()) {
-        Register reg = MI.getOperand(0).getReg();
-        unsigned subreg = MI.getOperand(0).getSubReg();
+      auto DestSrc = TII->isCopyInstr(MI);
+      if (DestSrc && MI.peekDebugValueID()) {
+        Register reg = DestSrc->Destination->getReg();
+        unsigned subreg = DestSrc->Destination->getSubReg();
         SlotIndex SI = Slots->getInstructionIndex(MI).getRegSlot();
 
       // Errrmmmm. If the current slot is either a copy, or empty (meaning that
@@ -1084,6 +1086,7 @@ bool LDVImpl::runOnMachineFunction(MachineFunction &mf) {
       // Two things we can do now: it's either a PHI or some other inst.
       if (NewIdx.isBlock() && NewReg.isVirtual()) {
         auto ID = MI.getDebugValueID(0); // is always operand 0
+        // XXX not necessarily true of non-COPY-copies
         ValPos p = {SI, NewReg, subreg};
         ValToPos.insert(std::make_pair(ID, p));
         RegIdx[NewReg].push_back(ID);
@@ -1096,6 +1099,7 @@ bool LDVImpl::runOnMachineFunction(MachineFunction &mf) {
         // Physical -> it's already a fixed PHI, probably an argument.
         // Don't track it.
         auto ID = MI.getDebugValueID(0); // is always operand 0
+        // XXX not necessarily true of non-COPY-copies
         MachineOperand MO = MachineOperand::CreateReg(NewReg, false);
         MO.setSubReg(subreg);
         MF->PHIPointToReg.insert(std::make_pair(ID, std::make_pair(SlotMBB, MO)));
@@ -1108,6 +1112,7 @@ bool LDVImpl::runOnMachineFunction(MachineFunction &mf) {
         MachineInstr *DefMI = Slots->getInstructionFromIndex(NewIdx);
         auto DummyID = DefMI->getDebugValueID(0);
         auto OrigID = MI.getDebugValueID(0); // is always operand 0
+        // XXX not necessarily true of non-COPY-copies
         auto ID = MF->makeNewABIRegDefPostRegalloc(SlotMBB, DummyID.getInstID(), NewReg, subreg, OrigID);
 
         MF->valueIDUpdateMap.insert(std::make_pair(OrigID, std::make_pair(ID, 0)));
@@ -1130,6 +1135,7 @@ bool LDVImpl::runOnMachineFunction(MachineFunction &mf) {
         assert(opidx < DefMI->getNumOperands());
         auto NewID = DefMI->getDebugValueID(opidx);
         auto OrigID = MI.getDebugValueID(0); // is always operand 0
+        // XXX not necessarily true of non-COPY-copies
         MF->valueIDUpdateMap.insert(std::make_pair(OrigID, std::make_pair(NewID, subreg)));
       }
       }
@@ -1603,6 +1609,7 @@ void UserLabel::emitDebugLabel(LiveIntervals &LIS, const TargetInstrInfo &TII) {
 
 // input reg is whatever's read from the copy.
 std::pair<SlotIndex, Register> LDVImpl::skipBackFromCopy(SlotIndex Idx, Register reg) {
+  auto *TII = MF->getSubtarget().getInstrInfo();
   // Soooooo, is there still a copy left in the designated area?
   auto Slots = LIS->getSlotIndexes();
   auto MI = Slots->getInstructionFromIndex(Idx);
@@ -1622,9 +1629,10 @@ std::pair<SlotIndex, Register> LDVImpl::skipBackFromCopy(SlotIndex Idx, Register
   Idx = Idx.getPrevIndex();
   if (MI != nullptr) {
     // Follow the copy,
-    assert(MI->isCopy());
-    assert(MI->getOperand(1).isReg() && !MI->getOperand(1).isDef());
-    reg = MI->getOperand(1).getReg();
+    auto DestSrc = TII->isCopyInstr(*MI);
+    assert(DestSrc);
+    assert(DestSrc->Source->isReg() && !DestSrc->Source->isDef());
+    reg = DestSrc->Source->getReg();
   }
   // else leave reg as it is, an identity copy was deleted.
 
