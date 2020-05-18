@@ -312,6 +312,14 @@ class MachineFunction {
 
   std::map<uint64_t, std::vector<Register>> ABIRegDef;
 
+  // Weird side-table 33 1/3: locations that have been de-PHI'd by tail
+  // duplication, and have thus decomposed into a set of defs that has to
+  // be SSA-updated later.
+  std::map<DebugInstrRefID, std::set<DebugInstrRefID>> DeSSAdPHIs;
+  // Those pointed-at IDs might be new PHI nodes; they might also be points
+  // in the middle of blocks where an MO needs to be read.
+  std::map<DebugInstrRefID, MachineOperand> DeSSAdDefs;
+
   void makeNewExPHIPostRegalloc(MachineBasicBlock *MBB, DebugInstrRefID ID, Register reg);
   DebugInstrRefID makeNewABIRegDefPostRegalloc(MachineBasicBlock *MBB, uint64_t instrid, Register reg, unsigned SubReg, DebugInstrRefID OldID);
 

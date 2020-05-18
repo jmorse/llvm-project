@@ -64,6 +64,7 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils/SSAUpdaterImpl.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -219,6 +220,8 @@ public:
   const TargetInstrInfo &TII;
   const TargetRegisterInfo &TRI;
   const TargetLowering &TLI;
+  const TargetFrameLowering &TFL;
+  const MachineFrameInfo &MFI;
 
   std::vector<LocIdx> LocIDToLocIdx;
   DenseMap<LocIdx, unsigned> LocIdxToLocID;
@@ -229,8 +232,8 @@ public:
 
   SmallVector<std::pair<const MachineOperand *, unsigned>, 32> Masks;
 
-  MLocTracker(MachineFunction &MF, const TargetInstrInfo &TII, const TargetRegisterInfo &TRI, const TargetLowering &TLI)
-    : MF(MF), TII(TII), TRI(TRI), TLI(TLI) {
+  MLocTracker(MachineFunction &MF, const TargetInstrInfo &TII, const TargetRegisterInfo &TRI, const TargetLowering &TLI, const TargetFrameLowering &TFL, const MachineFrameInfo &MFI)
+    : MF(MF), TII(TII), TRI(TRI), TLI(TLI), TFL(TFL), MFI(MFI) {
     NumRegs = TRI.getNumRegs();
     reset();
     LocIdxToIDNum.push_back({0, 0, LocIdx(0)});
@@ -403,6 +406,26 @@ public:
     auto it = LocIdxToLocID.find(Idx);
     assert(it != LocIdxToLocID.end());
     return it->second >= NumRegs;
+  }
+
+  LocIdx MOToLocIdx(const MachineOperand &MO) {
+    assert(MO.isReg() || MO.isFI());
+    if (MO.isReg()) {
+      Register r = MO.getReg();
+      if (r == 0)
+        return LocIdx(0);
+      return LocIDToLocIdx[r]; // possibly 0
+    } else {
+      unsigned FI = MO.getIndex();
+      if (!MFI.isDeadObjectIndex(FI)) {
+        unsigned Base;
+        int64_t offs = TFL.getFrameIndexReference(MF, FI, Base);
+        SpillLoc SL = {Base, (int)offs}; // XXX loss of 64 to 32?
+        return getSpillMLoc(SL);
+      } else {
+        return LocIdx(0);
+      }
+    }
   }
 
   std::string LocIdxToName(LocIdx Idx) const {
@@ -777,6 +800,8 @@ public:
   }
 };
 
+class jmorseupdater;
+
 class LiveDebugValues : public MachineFunctionPass {
 private:
   using FragmentInfo = DIExpression::FragmentInfo;
@@ -890,6 +915,8 @@ private:
 
   void initial_setup(MachineFunction &MF);
 
+  void do_the_re_ssaifying_dance(MachineFunction &MF, uint64_t **MLiveIns, uint64_t **MLiveOuts);
+
   bool ExtendRanges(MachineFunction &MF);
 
 public:
@@ -920,6 +947,12 @@ public:
         return true;
     return false;
   }
+
+  // Uhhhhhhh
+  std::map<uint64_t, std::set<MachineInstr *>> SeenInstrIDs;
+  std::map<uint64_t, std::pair<MachineInstr *, std::vector<ValueIDNum>>> DebugReadPoints;
+  friend class SSAUpdaterTraits<jmorseupdater>;
+  std::map<MachineInstr *, ValueIDNum> dephid_instr_resolutions;
 };
 
 } // end anonymous namespace
@@ -1019,8 +1052,11 @@ bool LiveDebugValues::transferDebugInstrRef(MachineInstr &MI, uint64_t **MInLocs
   if (!MI.isDebugRef())
     return false;
 
-  if (!vtracker)
+  if (!vtracker) {
+    auto ID = DebugInstrRefID::fromU64(MI.getOperand(0).getImm());
+    SeenInstrIDs[ID.getInstID()].insert(&MI);;
     return false;
+  }
 
   const DILocalVariable *Var = MI.getDebugVariable();
   const DIExpression *Expr = MI.getDebugExpression();
@@ -1057,6 +1093,8 @@ bool LiveDebugValues::transferDebugInstrRef(MachineInstr &MI, uint64_t **MInLocs
 
   // Is it a.... PHI?
   auto PHIIt = MF.PHIPointToReg.find(ID);
+  auto InstrIt = InstrIDMap.find(ID.getInstID());
+  auto dit = dephid_instr_resolutions.find(&MI);
   if (PHIIt != MF.PHIPointToReg.end()) {
     // Only handle reg phis for now...
     LocIdx L = LocIdx(0);
@@ -1083,9 +1121,8 @@ bool LiveDebugValues::transferDebugInstrRef(MachineInstr &MI, uint64_t **MInLocs
     // Technically after this point some pass could start rewriting registers
     // too, but nothing does that right now.
     NewID = ValueIDNum::fromU64(MInLocs[PHIIt->second.first->getNumber()][L]);
-  } else {
+  } else if (InstrIt != InstrIDMap.end()) {
     // No: it must refer to an instruction.
-    auto InstrIt = InstrIDMap.find(ID.getInstID());
     if (InstrIt != InstrIDMap.end()) {
       uint64_t BlockNo = InstrIt->second.first->getParent()->getNumber();
       if (ID.isOperand()) { 
@@ -1106,6 +1143,10 @@ bool LiveDebugValues::transferDebugInstrRef(MachineInstr &MI, uint64_t **MInLocs
       // No observed instrs: it's optimised out.
       NewID = ValueIDNum{0, 0, LocIdx(0)};
     }
+  } else if (dit != dephid_instr_resolutions.end()) {
+    NewID = dit->second;
+  } else {
+    ; // it is no-where.
   }
 
   // We picked up a subregister along the way; check whether the def at this
@@ -1496,6 +1537,10 @@ void LiveDebugValues::produce_mloc_transfer_function(MachineFunction &MF,
         uint64_t instid = MI.peekDebugValueID();
         assert(InstrIDMap.find(instid) == InstrIDMap.end());
         InstrIDMap[instid] = std::make_pair(&MI, cur_inst);
+
+        // Also read all known values at this point.
+        // Expensive copy, woo!
+        DebugReadPoints[instid] = std::make_pair(&MI, tracker->LocIdxToIDNum);
       }
 
       ++cur_inst;
@@ -2219,6 +2264,419 @@ void LiveDebugValues::initial_setup(MachineFunction &MF) {
   }
 }
 
+namespace {
+class jmorseblock;
+
+class jmorsephi {
+public:
+  SmallVector<std::pair<jmorseblock*, uint64_t>, 4> vec;
+  jmorseblock *parent;
+  uint64_t theval = 0;
+  jmorsephi(uint64_t theval, jmorseblock *parent) : parent(parent), theval(theval) { }
+
+  jmorseblock *getParent() {
+    return parent;
+  }
+};
+
+class jmorseupdater;
+class jmorseblock;
+
+class jmorseblockit {
+public:
+  MachineBasicBlock::pred_iterator pit;
+  jmorseupdater &j;
+
+  jmorseblockit(MachineBasicBlock::pred_iterator pit, jmorseupdater &j)
+    : pit(pit), j(j) { }
+
+  bool operator!=(const jmorseblockit &jit) const {
+    return jit.pit != pit;
+  }
+
+  jmorseblockit &operator++() {
+    ++pit;
+    return *this;
+  }
+
+  jmorseblock *operator*();
+};
+
+class jmorseblock {
+public:
+  MachineBasicBlock &BB;
+  jmorseupdater &j;
+  jmorseblock(MachineBasicBlock &BB, jmorseupdater &j) : BB(BB), j(j) {
+  }
+
+  jmorseblockit succ_begin() {
+    return jmorseblockit(BB.succ_begin(), j);
+  }
+
+  jmorseblockit succ_end() {
+    return jmorseblockit(BB.succ_end(), j);
+  }
+
+  // Good news! there are no phis.
+  // XXX -- this assumes that we don't need to look up created phis via this
+  // method, which would suck.
+  using philist = std::vector<jmorsephi>;
+  iterator_range<typename philist::iterator> phis() {
+    return make_range(nullptr, nullptr);
+  }
+};
+
+class jmorseupdater {
+public:
+  std::map<uint64_t, jmorsephi *> phis;
+  std::map<MachineBasicBlock *, SmallSet<uint64_t, 4>> phi_map;
+  std::set<uint64_t> lolundefs;
+  std::map<MachineBasicBlock *, uint64_t> undef_map;
+  // This is set high and decremented, on the assumption it isn't going
+  // to alias with valueid numbers.
+  uint64_t value_count = std::numeric_limits<uint64_t>::max();
+
+
+  std::map<MachineBasicBlock *, jmorseblock *> bb_map;
+
+  void reset() {
+    for (auto &p : phis) {
+      delete p.second;
+    }
+    phis.clear();
+    lolundefs.clear();
+    value_count = std::numeric_limits<uint64_t>::max();
+  }
+
+  ~jmorseupdater() {
+    reset();
+  }
+
+  uint64_t get_new_val() {
+    return value_count--;
+  }
+
+  jmorseblock *getjmorsebb(MachineBasicBlock *BB) {
+    auto it = bb_map.find(BB);
+    if (it == bb_map.end()) {
+      bb_map[BB] = new jmorseblock(*BB, *this);
+      it = bb_map.find(BB);
+    }
+    return it->second;
+  }
+};
+
+jmorseblock *jmorseblockit::operator*() {
+  return j.getjmorsebb(*pit);
+}
+
+} // anon ns
+
+namespace llvm {
+
+raw_ostream &operator<<(raw_ostream &out, const jmorsephi &phi) {
+  out << "jmorsehpi " << phi.theval;
+  return out;
+}
+
+template<>
+class SSAUpdaterTraits<jmorseupdater> {
+public:
+  using BlkT = jmorseblock;
+  using ValT = uint64_t;
+  using PhiT = jmorsephi;
+  using BlkSucc_iterator = jmorseblockit;
+
+  static BlkSucc_iterator BlkSucc_begin(BlkT *BB) { return BB->succ_begin(); }
+  static BlkSucc_iterator BlkSucc_end(BlkT *BB) { return BB->succ_end(); }
+
+  /// Iterator for PHI operands.
+  class PHI_iterator {
+  private:
+    jmorsephi *PHI;
+    unsigned idx;
+
+  public:
+    explicit PHI_iterator(jmorsephi *P) // begin iterator
+      : PHI(P), idx(0) {}
+    PHI_iterator(jmorsephi *P, bool) // end iterator
+      : PHI(P), idx(PHI->vec.size()) {}
+
+    PHI_iterator &operator++() { idx++; return *this; }
+    bool operator==(const PHI_iterator& x) const { return idx == x.idx; }
+    bool operator!=(const PHI_iterator& x) const { return !operator==(x); }
+
+    uint64_t getIncomingValue() { return PHI->vec[idx].second; }
+
+    jmorseblock *getIncomingBlock() {
+      return PHI->vec[idx].first;
+    }
+  };
+
+  static inline PHI_iterator PHI_begin(PhiT *PHI) { return PHI_iterator(PHI); }
+
+  static inline PHI_iterator PHI_end(PhiT *PHI) {
+    return PHI_iterator(PHI, true);
+  }
+
+  /// FindPredecessorBlocks - Put the predecessors of BB into the Preds
+  /// vector.
+  static void FindPredecessorBlocks(jmorseblock *BB,
+                                    SmallVectorImpl<jmorseblock*> *Preds){
+    for (MachineBasicBlock::pred_iterator PI = BB->BB.pred_begin(),
+           E = BB->BB.pred_end(); PI != E; ++PI)
+      Preds->push_back(BB->j.getjmorsebb(*PI));
+  }
+
+  /// GetUndefVal - Create an IMPLICIT_DEF instruction with a new register.
+  /// Add it into the specified block and return the register.
+  static uint64_t GetUndefVal(jmorseblock *BB,
+                              jmorseupdater *Updater) {
+    // XXX XXX XXX need to record the existance of "something that isn't going
+    // to work" somewhere.
+    uint64_t n = Updater->get_new_val();
+    Updater->lolundefs.insert(n);
+    Updater->undef_map[&BB->BB] = n;
+    return n;
+  }
+
+  /// CreateEmptyPHI - Create a PHI instruction that defines a new register.
+  /// Add it into the specified block and return the register.
+  static uint64_t CreateEmptyPHI(jmorseblock *BB, unsigned NumPreds,
+                                 jmorseupdater *Updater) {
+    uint64_t n = Updater->get_new_val();
+    jmorsephi *PHI = new jmorsephi(n, BB);
+    PHI->theval = n;
+    Updater->phis[n] = PHI;
+    Updater->phi_map[&BB->BB].insert(n);
+    return n;
+  }
+
+  /// AddPHIOperand - Add the specified value as an operand of the PHI for
+  /// the specified predecessor block.
+  static void AddPHIOperand(jmorsephi *PHI, uint64_t Val,
+                            jmorseblock *Pred) {
+    PHI->vec.push_back(std::make_pair(Pred, Val));
+  }
+
+  /// ValueIsPHI - Check if the instruction that defines the specified register
+  /// is a PHI instruction.
+  static jmorsephi *ValueIsPHI(uint64_t Val, jmorseupdater *Updater) {
+    auto it = Updater->phis.find(Val);
+    if (it == Updater->phis.end())
+      return nullptr;
+    return it->second;;
+  }
+
+  /// ValueIsNewPHI - Like ValueIsPHI but also check if the PHI has no source
+  /// operands, i.e., it was just added.
+  static jmorsephi *ValueIsNewPHI(uint64_t Val, jmorseupdater *Updater) {
+    jmorsephi *PHI = ValueIsPHI(Val, Updater);
+    if (PHI && PHI->vec.size() == 0)
+      return PHI;
+    return nullptr;
+  }
+
+  /// GetPHIValue - For the specified PHI instruction, return the register
+  /// that it defines.
+  static uint64_t GetPHIValue(jmorsephi *PHI) {
+    return PHI->theval;
+  }
+};
+
+} // end namespace llvm
+
+void LiveDebugValues::do_the_re_ssaifying_dance(MachineFunction &MF, uint64_t **MLiveIns, uint64_t **MLiveOuts) {
+  if (MF.DeSSAdPHIs.empty())
+    return;
+
+  // Whip out DeSSAd phis and process them in reverse order: there's a risk
+  // that an early PHI depends on a later one that was dessa'd.
+  std::vector<DebugInstrRefID> deld;
+  for (auto &DeSSA : MF.DeSSAdPHIs)
+    deld.push_back(DeSSA.first);
+  auto Cmp = [&](const DebugInstrRefID &A, const DebugInstrRefID & B) -> bool {
+    return A.getInstID() > B.getInstID();
+  };
+  llvm::sort(deld, Cmp);
+
+  for (auto &ID : deld) {
+    auto &subids = MF.DeSSAdPHIs[ID];
+    assert(!subids.empty());
+    auto it = SeenInstrIDs.find(ID.getInstID());
+    if (it == SeenInstrIDs.end())
+      continue;
+
+    // Separate ID numbers out into PHI defs and position defs.
+    std::vector<std::pair<DebugInstrRefID, ValueIDNum>> defs, phis;
+    std::vector<std::pair<MachineBasicBlock *, ValueIDNum>> blockpos;
+    auto deit = MF.DeSSAdPHIs.find(ID);
+    for (auto &p : deit->second) {
+      auto defit = MF.DeSSAdDefs.find(p);
+      if (defit != MF.DeSSAdDefs.end()) {
+        // Look up what value we actually read at this point.
+        LocIdx L = tracker->MOToLocIdx(defit->second);
+        auto readp = DebugReadPoints.find(p.getInstID());
+
+        // Did this instruction / location disappear? If so, ignore it. This is
+        // safe because an undominated predecessor will become an undef input
+        // to a phi node.
+        if (readp == DebugReadPoints.end())
+          continue;
+
+        ValueIDNum val = {0, 0, LocIdx(0)};
+        if (L < readp->second.second.size()) {
+          val = readp->second.second[L];
+          if (val.InstNo == 0)
+            // Read from live-ins pls,
+            val = ValueIDNum::fromU64(MLiveIns[readp->second.first->getParent()->getNumber()][val.LocNo]);
+        }
+        // else: When we ran across this instruction, there was no definition
+        // for the designated locidx.
+        // XXX XXX XXX do we need to force a read?
+        defs.push_back(std::make_pair(p, val));
+        blockpos.push_back(std::make_pair(readp->second.first->getParent(), val));
+      } else {
+        auto mit = MF.PHIPointToReg.find(p);
+
+        // Another case of "the phi was here, but was optimised away". We would
+        // need to recover the phis earlier. Safe to ignore, because this will
+        // be seen as an undef input by the ssa builder if someone reads it.
+        if (mit == MF.PHIPointToReg.end())
+          continue;
+
+        unsigned bbno = mit->second.first->getNumber();
+        LocIdx L = tracker->MOToLocIdx(mit->second.second);
+        ValueIDNum val = {0, 0, LocIdx(0)};
+        if (L != 0)
+          val = ValueIDNum::fromU64(MLiveIns[bbno][L]);
+          
+        phis.push_back(std::make_pair(p, val));
+        blockpos.push_back(std::make_pair(mit->second.first, val));
+      }
+    }
+
+    // OK, we've got a set of defs and their locations-ish. And we have
+    // locations where they're read. Soooooooooo we can rewrite things
+    // using the SSA updater, right?
+    jmorseupdater j;
+    typedef DenseMap<jmorseblock *, uint64_t> AvailableValsTy;
+    AvailableValsTy avail;
+    SmallVector<jmorsephi *, 8> created_phis;
+
+
+    // Define all the available values; rewrite all the uses; then examine
+    // all the phis created to see how the rewritten uses map onto available
+    // values.
+    for (auto &bp : blockpos) {
+      avail.insert(std::make_pair(j.getjmorsebb(bp.first), bp.second.asU64()));
+    }
+
+    std::vector<std::pair<MachineInstr *, uint64_t>> remapped_values;
+    for (auto &lala : it->second) {
+      const auto &is_avail = avail.find(j.getjmorsebb(lala->getParent()));
+      if (is_avail != avail.end()) { // already got a loc.
+        remapped_values.push_back(std::make_pair(lala, is_avail->second));
+        continue;
+      }
+      // For each using inst, get value for this block.
+      SSAUpdaterImpl<jmorseupdater> Impl(&j, &avail, &created_phis);
+      uint64_t val = Impl.GetValue(j.getjmorsebb(lala->getParent()));
+      remapped_values.push_back(std::make_pair(lala, val));
+    }
+
+    std::map<jmorsephi *, ValueIDNum> phis_to_value_nums;
+
+    std::map<jmorseblock*, ValueIDNum> block_to_value_map;
+    for (auto &bp : blockpos) {
+      block_to_value_map[j.getjmorsebb(bp.first)] =  bp.second;
+    }
+
+    auto resolve_phi = [&](jmorsephi *jp) -> bool {
+      // early out if this is a repeat.
+      if (block_to_value_map.find(jp->parent) != block_to_value_map.end())
+        return true;
+
+      // Are all these things actually defined?
+      for (auto &it : jp->vec) {
+        if (j.undef_map.find(&it.first->BB) != j.undef_map.end())
+          return false; // reads undef -> die
+        if (block_to_value_map.find(it.first) == block_to_value_map.end())
+          return false;
+      }
+
+      // OK, we have values in all the parent blocks. Now check to see whether
+      // they actually form a PHI somewhere, or not.
+      // Find locations of outgoing value in one block.
+      auto *firstblock = jp->vec[0].first;
+      ValueIDNum firstblock_value = block_to_value_map[firstblock];
+      uint64_t *firstblock_liveouts = MLiveOuts[firstblock->BB.getNumber()];
+      SmallVector<LocIdx, 8> livelocs;
+      for (unsigned I = 0; I < tracker->getNumLocs(); ++I)
+        if (firstblock_liveouts[LocIdx(I)] == firstblock_value.asU64())
+          livelocs.push_back(LocIdx(I));
+
+      // Alright; how about all the other blocks?
+      SmallVector<bool, 8> isvalid;
+      isvalid.resize(livelocs.size());
+      for (unsigned I = 0; I < isvalid.size(); ++I)
+        isvalid[I] = true;
+
+      for (auto &p : jp->vec) {
+        uint64_t *block_liveouts = MLiveOuts[p.first->BB.getNumber()];
+        ValueIDNum block_val = block_to_value_map[p.first];
+        for (unsigned I = 0; I < isvalid.size(); ++I) {
+          if (block_liveouts[livelocs[I]] != block_val.asU64())
+            isvalid[I] = false;
+        }
+      }
+
+      unsigned num_valid = 0;
+      ValueIDNum res = {0, 0, LocIdx(0)};
+      for (unsigned I = 0; I < isvalid.size(); ++I) {
+        if (isvalid[I]) {
+          ++num_valid;
+          res = ValueIDNum::fromU64(MLiveIns[jp->parent->BB.getNumber()][livelocs[I]]);
+        }
+      }
+
+      //assert(num_valid <= 1 && "Rats, need to resolve multiple phi locs?");
+      // This is a pain: and some inputs really are hitting this. Rather than
+      // fixing now, just implicitly pick the last one, and risk dropping
+      // more locations than necessary.
+
+      if (num_valid == 0)
+        // There is no PHI, Neo
+        return true;
+
+      // Success.
+      block_to_value_map[jp->parent] = res;
+      return true;
+    };
+
+    unsigned num_remapped = block_to_value_map.size();
+    // Now, there's probably a clever way of doing this, but I'm really bored
+    // and can't be bothered to implement it. So just repeatedly try and
+    // recover all of the phis until we can't recover any more.
+    do {
+      num_remapped = block_to_value_map.size();
+      for (auto &p : created_phis) {
+        resolve_phi(p);
+      }
+    } while (num_remapped != block_to_value_map.size());
+
+    // OK, we've remapped these values. Replace any dbg instr users inside the
+    // available blocks with the ValueIDNum read from where the phi was.
+    for (auto &p : remapped_values) {
+      auto bit = block_to_value_map.find(j.getjmorsebb(p.first->getParent()));
+      if (bit == block_to_value_map.end())
+        continue; // no resolution.
+      assert(bit->second.BlockNo < 0xFFFF); // har.
+      dephid_instr_resolutions[p.first] = bit->second;
+    }
+  }
+}
+
 /// Calculate the liveness information for the given machine function and
 /// extend ranges across basic blocks.
 bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
@@ -2254,6 +2712,8 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   }
 
   mloc_dataflow(MInLocs, MOutLocs, MLocTransfer);
+
+  do_the_re_ssaifying_dance(MF, MInLocs, MOutLocs);
 
   // Accumulate things into the vloc tracker.
   // Walk in RPOT order to ensure any physreg defs are seen before uses.
@@ -2345,7 +2805,7 @@ bool LiveDebugValues::runOnMachineFunction(MachineFunction &MF) {
   MFI = &MF.getFrameInfo();
   LS.initialize(MF);
 
-  tracker = new MLocTracker(MF, *TII, *TRI, *MF.getSubtarget().getTargetLowering());
+  tracker = new MLocTracker(MF, *TII, *TRI, *MF.getSubtarget().getTargetLowering(), *TFI, *MFI);
   vtracker = nullptr;
   ttracker = nullptr;
 
@@ -2360,6 +2820,8 @@ bool LiveDebugValues::runOnMachineFunction(MachineFunction &MF) {
 
   InstrIDMap.clear();
   abimap_regs.clear();
+  SeenInstrIDs.clear();
+  DebugReadPoints.clear();
 
   return Changed;
 }

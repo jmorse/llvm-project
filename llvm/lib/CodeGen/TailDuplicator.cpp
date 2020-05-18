@@ -461,6 +461,28 @@ void TailDuplicator::duplicateInstruction(
       }
     }
   }
+
+  if (!PreRegAlloc && MI->peekDebugValueID()) {
+    // Two kinds: a def, and a read.
+    auto ID = MI->getDebugValueID(0);
+    auto it = MF->DeSSAdDefs.find(ID);
+    if (it != MF->DeSSAdDefs.end()) {
+      // Find the dessa'd phi it's attached to,
+      bool found = false;
+      for (auto &p : MF->DeSSAdPHIs) {
+        if (p.second.find(ID) != p.second.end()) {
+          auto NewID = NewMI.getDebugValueID(0);
+          p.second.insert(NewID);
+          MF->DeSSAdDefs.insert(std::make_pair(NewID, it->second));
+          found = true;
+          break;
+        }
+      }
+      assert(found);
+    } else {
+       // Ooooff, a real def. Ignore for now.
+    }
+  }
 }
 
 /// After FromBB is tail duplicated into its predecessor blocks, the successors
@@ -817,6 +839,7 @@ bool TailDuplicator::tailDuplicate(bool IsSimple, MachineBasicBlock *TailBB,
   getRegsUsedByPHIs(*TailBB, &UsedByPhi);
 
   if (IsSimple)
+    #warning skipped duplicate simple
     return duplicateSimpleBB(TailBB, TDBBs, UsedByPhi, Copies);
 
   // Iterate through all the unique predecessors and tail-duplicate this
@@ -829,7 +852,22 @@ bool TailDuplicator::tailDuplicate(bool IsSimple, MachineBasicBlock *TailBB,
   else
     Preds.insert(TailBB->pred_begin(), TailBB->pred_end());
 
+  auto getend = [&](MachineBasicBlock *BB) -> MachineBasicBlock::iterator {
+    auto it = BB->end();
+    if (BB->empty())
+      return it;
+    do {
+      ++it;
+      if (!it->isTerminator())
+        return it;
+    } while (it != BB->begin());
+    return BB->end();
+  };
+
+  std::map<MachineBasicBlock *, MachineBasicBlock::iterator> lastinsts;
   for (MachineBasicBlock *PredBB : Preds) {
+    lastinsts[PredBB] = getend(PredBB);
+
     assert(TailBB != PredBB &&
            "Single-block loop should have been rejected earlier!");
 
@@ -907,6 +945,7 @@ bool TailDuplicator::tailDuplicate(bool IsSimple, MachineBasicBlock *TailBB,
       (!PriorTBB || PriorTBB == TailBB) &&
       TailBB->pred_size() == 1 &&
       !TailBB->hasAddressTaken()) {
+    lastinsts[PrevBB] = getend(PrevBB); // XXX jmorse
     LLVM_DEBUG(dbgs() << "\nMerging into block: " << *PrevBB
                       << "From MBB: " << *TailBB);
     // There may be a branch to the layout successor. This is unlikely but it
@@ -946,6 +985,73 @@ bool TailDuplicator::tailDuplicate(bool IsSimple, MachineBasicBlock *TailBB,
     TDBBs.push_back(PrevBB);
     Changed = true;
   }
+
+  // XXX jmorse DBG_INSTR_REF
+  if (MF->mbbsOfInterest.find(TailBB) != MF->mbbsOfInterest.end()) {
+    // Split these PHIs. Some tails might not be duplicated, so we might have
+    // to keep a new ID around.
+
+    // Pick out new inst labels and phis.
+    std::vector<DebugInstrRefID> NewInstLabels;
+    std::vector<MachineBasicBlock *> NewPHILabels;
+
+    for (auto &foo : lastinsts) {
+      if (foo.first->end() == foo.second) {
+        // There we no insts in this block before; it needs a phi.
+        NewPHILabels.push_back(foo.first);
+      } else {
+        // only inst id is significant.
+        NewInstLabels.push_back(foo.second->getDebugValueID(0));
+      }
+    }
+    // If TailBB still has preds, we didn't duplicate into all blocks.
+    if (!TailBB->pred_empty())
+      NewPHILabels.push_back(TailBB);
+
+    // Erase old PHI information. We'll re-add it if tailbb is still there.
+    MF->mbbsOfInterest.erase(TailBB);
+    std::vector<std::pair<DebugInstrRefID, MachineFunction::PostPHIPoint>> savedphis;
+    for (auto &It : MF->exPHIIndex[TailBB]) {
+      auto phipoint = MF->PHIPointToReg.find(It);
+      savedphis.push_back(*phipoint);
+      MF->PHIPointToReg.erase(phipoint);
+    }
+    MF->exPHIIndex.erase(MF->exPHIIndex.find(TailBB));
+
+    // For each saved PHI...
+    for (auto &sp : savedphis) {
+      auto OldID = sp.first;
+      auto &MO = sp.second.second;
+
+      std::vector<DebugInstrRefID> newlabels;
+
+      // For each thing-that-must-be-a-phi do stuff,
+      for (auto *MBB : NewPHILabels) {
+        MF->mbbsOfInterest.insert(MBB);
+        uint64_t newid = MF->getNewDebugValueID();
+        DebugInstrRefID NewID = DebugInstrRefID(newid, false, 0);
+        MF->exPHIIndex.insert(std::make_pair(MBB, std::set<DebugInstrRefID>{NewID}));
+        MF->PHIPointToReg.insert(std::make_pair(NewID, std::make_pair(MBB, MachineOperand(MO))));
+        newlabels.push_back(NewID);
+      }
+
+      // For each inst with a new label,
+      // Dump in side table: Old ID maps to new phis and new inst labels + MO
+      std::set<DebugInstrRefID> theset;
+      for (auto &newid : NewInstLabels) {
+        theset.insert(newid);
+        MF->DeSSAdDefs.insert(std::make_pair(newid,  MO));
+      }
+      for (auto &newid : newlabels)
+        theset.insert(newid);
+      MF->DeSSAdPHIs[OldID] = std::move(theset);
+
+
+
+    }
+  }
+
+
 
   // If this is after register allocation, there are no phis to fix.
   if (!PreRegAlloc)

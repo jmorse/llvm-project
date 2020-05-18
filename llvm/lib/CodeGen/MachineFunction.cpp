@@ -516,10 +516,10 @@ void MachineFunction::print(raw_ostream &OS, const SlotIndexes *Indexes) const {
   OS << '\n';
 
   // XXX jmorse DBG_INSTR_REF
-  OS << "# MY DUDES!\n";
+  OS << "# MY DUDES! dicount " << DebugValueIDCount << "\n";
   OS << "Value updates:\n";
   for (auto &P : valueIDUpdateMap) {
-    OS << "  " << P.first << "\t->\t" << P.second.first << " subreg << " << P.second.second << "\n";
+    OS << "  " << P.first << "\t->\t" << P.second.first << " subreg " << P.second.second << "\n";
   }
   
   OS << "ex PHIs\n";
@@ -532,6 +532,20 @@ void MachineFunction::print(raw_ostream &OS, const SlotIndexes *Indexes) const {
 
   for (auto &P : PHIPointToReg) {
     OS << "  " << P.first << "\t-> " << P.second.first->getName() << " operand " <<   P.second.second << "\n";
+  }
+
+  OS << "De-SSA'd PHIs\n";
+
+  for (auto &p : DeSSAdPHIs) {
+    OS << "  " << p.first << " maps to\n";
+    for(auto &m : p.second) {
+      OS << "    " << m;
+      auto it = DeSSAdDefs.find(m);
+      if (it != DeSSAdDefs.end())
+        OS << " mo " << it->second << "\n";
+      else
+        OS << "(PHI)\n";
+    }
   }
 
   OS << "# Peace out\n";
