@@ -1102,6 +1102,7 @@ bool LiveDebugValues::transferDebugInstrRef(MachineInstr &MI, uint64_t **MInLocs
     if (PHIIt->second.second.isReg()) {
       unsigned LocID = tracker->getLocID(PHIIt->second.second.getReg(), false);
       L = tracker->LocIDToLocIdx[LocID];
+      SubReg = PHIIt->second.second.getSubReg();
     } else {
       assert(PHIIt->second.second.isFI());
       unsigned FI = PHIIt->second.second.getIndex();
