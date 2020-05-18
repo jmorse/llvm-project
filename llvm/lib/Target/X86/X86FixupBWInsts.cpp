@@ -450,11 +450,28 @@ void FixupBWInstPass::processBasicBlock(MachineFunction &MF,
     LiveRegs.stepBackward(*MI);
   }
 
+  auto *TRI = &TII->getRegisterInfo();
+
   while (!MIReplacements.empty()) {
     MachineInstr *MI = MIReplacements.back().first;
     MachineInstr *NewMI = MIReplacements.back().second;
     MIReplacements.pop_back();
     MBB.insert(MI, NewMI);
+
+    // XXX jmorse DBG_INSTR_REF
+    if (MI->peekDebugValueID()) {
+      // XXX implicitly depends on operand 0 being the one written to.
+      auto OldID = MI->getDebugValueID(0);
+      auto NewID = NewMI->getDebugValueID(0);
+      unsigned subreg = 0;
+      Register oldreg = MI->getOperand(0).getReg();
+      Register newreg = NewMI->getOperand(0).getReg();
+      if (oldreg != newreg) {
+        subreg = TRI->getSubRegIndex(newreg, oldreg);
+      }
+      MF.valueIDUpdateMap.insert(std::make_pair(OldID, std::make_pair(NewID, subreg)));
+    }
+
     MBB.erase(MI);
   }
 }
