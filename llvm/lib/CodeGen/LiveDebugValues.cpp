@@ -1155,17 +1155,31 @@ bool LiveDebugValues::transferDebugInstrRef(MachineInstr &MI, uint64_t **MInLocs
   if (SubReg != 0) {
     LocIdx l = NewID.LocNo;
     unsigned ID = tracker->LocIdxToLocID[l];
-    // Should not have landed in a stack slot.
-    assert(ID < tracker->NumRegs);
-    // Is this register already in that calss?
-    unsigned res = TRI->getSubReg(ID, SubReg);
-    if (res != 0) {
-      assert(tracker->LocIDToLocIdx[res] != 0); // tooottallly going to fail
-      NewID.LocNo = tracker->LocIDToLocIdx[res];
+    if (ID < tracker->NumRegs) {
+      // Is this register already in that calss?
+      unsigned res = TRI->getSubReg(ID, SubReg);
+      if (res != 0) {
+        assert(tracker->LocIDToLocIdx[res] != 0); // tooottallly going to fail
+        NewID.LocNo = tracker->LocIDToLocIdx[res];
+      }
+      // XXX need to assert that any un-used subreg is because the old loc
+      // and the subreg loc are the same size. Probably means carrying around
+      // a register class pointer.
+    } else {
+      // We can land in a stack slot. This is, in theory, fine, and we can
+      // do stuff about that. However, I'm now increadibly bored, and thus
+      // will leave this dangling for the moment
+      // XXX XXX XXX           XXX XXX XXX
+      // XXX XXX XXX           XXX XXX XXX
+      // XXX XXX XXX           XXX XXX XXX
+      //            XXX XXX XXX
+      //            XXX XXX XXX
+      //            XXX XXX XXX
+      // XXX XXX XXX           XXX XXX XXX
+      // XXX XXX XXX           XXX XXX XXX
+      // XXX XXX XXX           XXX XXX XXX
+      SubReg = 0;
     }
-    // XXX need to assert that any un-used subreg is because the old loc
-    // and the subreg loc are the same size. Probably means carrying around
-    // a register class pointer.
   }
 
   // OK, we have a Value ID. Set it.
