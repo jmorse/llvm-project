@@ -3605,7 +3605,13 @@ bool RegisterCoalescer::joinVirtRegs(CoalescerPair &CP) {
     }
     auto vec = it->second;
     RegIdx.erase(it);
-    RegIdx.insert(std::make_pair(CP.getDstReg(), vec));
+
+    // We might be merging two together.
+    auto dst_it = RegIdx.find(CP.getDstReg());
+    if (dst_it != RegIdx.end())
+      dst_it->second.insert(dst_it->second.end(), vec.begin(), vec.end());
+    else
+      RegIdx.insert(std::make_pair(CP.getDstReg(), vec));
   }
 
   // Join RHS into LHS.
