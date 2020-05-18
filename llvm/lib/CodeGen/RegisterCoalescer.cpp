@@ -3585,15 +3585,23 @@ bool RegisterCoalescer::joinVirtRegs(CoalescerPair &CP) {
       if (LII == RHS.end() || LII->start > valit->second.SI)
         continue;
 
-      // Skip copies from a different subregister. Buuutttt, XXX, what about
-      // aliasing?
-      if (valit->second.SubReg != CP.getSrcIdx())
+      // If this phi location is already a subregister of the overall register,
+      // ignore any further merges. Complicated scenario. But accept switching
+      // from no-subreg to a-subreg: this represents a small register being
+      // coalesced into a superregister.
+      // I thiiiiinnnkkk XXX.
+      if (valit->second.SubReg && valit->second.SubReg != CP.getSrcIdx())
         continue;
 
       // XXX don't examine resolutions, because we only merge things that
       // caaannnn mergggeee?? Bold statement.
       valit->second.Reg = CP.getDstReg();
-      valit->second.SubReg = CP.getDstIdx();
+      // XXX XXX XXX -- use the src subreg? This is pretty sketchy, I think it
+      // works in my examples because, essentially, both registers are
+      // considered the same class, with the source value in the src idx. So
+      // its location in the destination register is _at_ the src idx. Right?
+      // Tests you say...
+      valit->second.SubReg = CP.getSrcIdx();
     }
     auto vec = it->second;
     RegIdx.erase(it);
