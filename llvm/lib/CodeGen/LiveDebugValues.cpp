@@ -1857,7 +1857,7 @@ bool LiveDebugValues::vloc_join_location(MachineBasicBlock &MBB,
 
   // If it isn't, this location is invalidated _in_ the block on the
   // other end of the backedge.
-  if (OLOutLocs[OLIdx] != OLID.asU64())
+  if (ThisIsABackEdge && OLOutLocs[OLIdx] != OLID.asU64())
     return false;
 
   // Everything is massively different for backedges. Try not-be's first.
