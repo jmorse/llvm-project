@@ -1315,6 +1315,9 @@ bool LiveDebugValues::transferRegisterCopy(MachineInstr &MI,
   Register SrcReg = SrcRegOp->getReg();
   Register DestReg = DestRegOp->getReg();
 
+  if (SrcReg == DestReg)
+    return true; // We've handled this identity copy by ignoring it.
+
   // We want to recognize instructions where destination register is callee
   // saved register. If register that could be clobbered by the call is
   // included, there would be a great chance that it is going to be clobbered
