@@ -1054,6 +1054,7 @@ bool LiveDebugValues::transferDebugInstrRef(MachineInstr &MI, uint64_t **MInLocs
 
   if (!vtracker) {
     auto ID = DebugInstrRefID::fromU64(MI.getOperand(0).getImm());
+    // XXX XXX XXX that ID might need updating.
     SeenInstrIDs[ID.getInstID()].insert(&MI);;
     return false;
   }
