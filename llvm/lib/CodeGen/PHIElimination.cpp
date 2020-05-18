@@ -281,16 +281,6 @@ void PHIElimination::LowerPHINode(MachineBasicBlock &MBB,
   assert(MPhi->getOperand(0).getSubReg() == 0 && "Can't handle sub-reg PHIs");
   bool isDead = MPhi->getOperand(0).isDead();
 
-  if (MPhi->peekDebugValueID()) {
-    // jmorse DBG_INSTR_REF: store where this PHI was.
-    MachineFunction *MF = MBB.getParent();
-    auto ID = MPhi->getDebugValueID(0);
-    MF->mbbsOfInterest.insert(&MBB);
-    MachineFunction::PHIPoint p = MachineFunction::PHIPoint{&MBB, DestReg, 0};
-    MF->exPHIs.insert(std::make_pair(ID, p));
-    MF->exPHIIndex[&MBB].insert(ID);
-  }
-
   // Create a new register for the incoming PHI arguments.
   MachineFunction &MF = *MBB.getParent();
   unsigned IncomingReg = 0;
@@ -325,6 +315,18 @@ void PHIElimination::LowerPHINode(MachineBasicBlock &MBB,
     PHICopy = TII->createPHIDestinationCopy(MBB, AfterPHIsIt, MPhi->getDebugLoc(),
                                   IncomingReg, DestReg);
   }
+
+  if (MPhi->peekDebugValueID()) {
+    // jmorse DBG_INSTR_REF: store where this PHI was.
+    MachineFunction *MF = MBB.getParent();
+    auto ID = MPhi->getDebugValueID(0);
+    MF->mbbsOfInterest.insert(&MBB);
+    MachineFunction::PHIPoint p = MachineFunction::PHIPoint{&MBB, IncomingReg, 0};
+    MF->exPHIs.insert(std::make_pair(ID, p));
+    MF->exPHIIndex[&MBB].insert(ID);
+  }
+
+
 
   // Update live variable information if there is any.
   if (LV) {
