@@ -89,7 +89,7 @@ static cl::opt<bool> EmulateOldLDV(
 static cl::opt<bool> ObserveAllStackops(
     "observe-all-stack-ops", cl::Hidden,
     cl::desc("Allow non-kill spill and restores"),
-    cl::init(false));
+    cl::init(true));
 
 namespace {
 
