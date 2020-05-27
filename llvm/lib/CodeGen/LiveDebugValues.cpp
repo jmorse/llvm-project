@@ -6,23 +6,55 @@
 //
 //===----------------------------------------------------------------------===//
 ///
-/// This pass implements a data flow analysis that propagates debug location
-/// information by inserting additional DBG_VALUE insts into the machine
-/// instruction stream. Before running, each DBG_VALUE inst corresponds to a
-/// source assignment of a variable. Afterwards, a DBG_VALUE inst specifies a
-/// variable location for the current basic block (see SourceLevelDebugging.rst).
+/// [ Rename to DebugReachingDefs ]
 ///
-/// This is a separate pass from DbgValueHistoryCalculator to facilitate
-/// testing and improve modularity.
+/// This pass propagates variable locations between basic blocks, resolving
+/// control flow conflicts between them. The problem is much like SSA
+/// construction, where each DBG_VALUE instruction assigns the *value* that
+/// a variable has, and every instruction where the variable is in scope uses
+/// that variable. The resulting map of instruction-to-value is then translated
+/// into a register (or spill) location for each variable over each instruction.
 ///
-/// Each variable location is represented by a VarLoc object that identifies the
-/// source variable, its current machine-location, and the DBG_VALUE inst that
-/// specifies the location. Each VarLoc is indexed in the (function-scope)
-/// VarLocMap, giving each VarLoc a unique index. Rather than operate directly
-/// on machine locations, the dataflow analysis in this pass identifies
-/// locations by their index in the VarLocMap, meaning all the variable
-/// locations in a block can be described by a sparse vector of VarLocMap
-/// indexes.
+/// This pass determines which DBG_VALUE dominates which instructions, or if
+/// none do, where values must be merged (like PHI nodes). The added
+/// complication is that because codegen has already finished, a PHI node may
+/// be needed for a variable location to be correct, but no register or spill
+/// slot merges the necessary values. In these circumstances, the variable
+/// location is dropped.
+///
+/// What makes this analysis non-trivial is loops: we cannot tell in advance
+/// whether a variable location is live throughout a loop, or whether its
+/// location is clobbered (or redefined by another DBG_VALUE), without
+/// exploring all the way through.
+///
+/// To make this simpler we perform two kinds of reaching-definition analysis.
+/// First, we identify every value defined by every instruction (ignoring
+/// copies, spills and restores), then compute a reaching definition map over
+/// control flow and instructions that only move values. This creates a map of,
+/// for each instruction, where every registers value was defined. When multiple
+/// values merge through control flow, PHI values are defined. 
+///
+/// Secondly, for each variable we use the same kind of reaching-definition
+/// analysis, but where the definition points are DBG_VALUEs that read value
+/// definitions computed by the first analysis.
+///
+/// Once both are complete, we can pass back over all instructions knowing:
+///  * What _value_ each variable should contain, either defined by an
+///    instruction or where control flow merges
+///  * What the location of that value is (if any).
+/// Allowing us to create appropriate live-in DBG_VALUEs, and DBG_VALUEs when
+/// a value moves location. After this pass runs, all variable locations within
+/// a block should be specified by DBG_VALUEs within that block, allowing
+/// DbgEntityHistoryCalculator to focus on individual blocks.
+///
+/// This pass is able to go fast because the size of the first
+/// reaching-definition analysis is proportionate to the working-set size of
+/// the function, which the compile tries to keep small. (It's also
+/// proportionate to the number of blocks). Additionally, we repeatedly perform
+/// the second reaching-definition analysis with only the variables and blocks
+/// in a single lexical scope, exploiting their locality.
+///
+/// NOT IMPLEMENTED: overlapping fragments and entry values (yet).
 ///
 //===----------------------------------------------------------------------===//
 
