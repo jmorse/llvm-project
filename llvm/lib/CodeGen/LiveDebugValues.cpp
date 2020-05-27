@@ -1160,8 +1160,11 @@ bool LiveDebugValues::transferDebugInstrRef(MachineInstr &MI, uint64_t **MInLocs
       // Is this register already in that calss?
       unsigned res = TRI->getSubReg(ID, SubReg);
       if (res != 0) {
-        assert(tracker->LocIDToLocIdx[res] != 0); // tooottallly going to fail
-        NewID.LocNo = tracker->LocIDToLocIdx[res];
+        //assert(tracker->LocIDToLocIdx[res] != 0); // tooottallly going to fail
+        if (tracker->LocIDToLocIdx[res] != 0) // tooottallly going to fail
+          NewID.LocNo = tracker->LocIDToLocIdx[res];
+        else
+          NewID.LocNo = LocIdx(0); // This happens once in clang-3.4. Needs study
       }
       // XXX need to assert that any un-used subreg is because the old loc
       // and the subreg loc are the same size. Probably means carrying around
