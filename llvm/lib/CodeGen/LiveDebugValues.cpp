@@ -27,16 +27,21 @@
 /// location is clobbered (or redefined by another DBG_VALUE), without
 /// exploring all the way through.
 ///
-/// To make this simpler we perform two kinds of reaching-definition analysis.
-/// First, we identify every value defined by every instruction (ignoring
-/// copies, spills and restores), then compute a reaching definition map over
-/// control flow and instructions that only move values. This creates a map of,
-/// for each instruction, where every registers value was defined. When multiple
-/// values merge through control flow, PHI values are defined. 
+/// To make this simpler we perform two kinds of analysis. First, we identify
+/// every value defined by every instruction (ignoring those that only move
+/// another value), then compute a map of which values are available for each
+/// instruciton. This is stronger than a reaching-def analysis, as we create
+/// PHI values where other values merge.
 ///
-/// Secondly, for each variable we use the same kind of reaching-definition
-/// analysis, but where the definition points are DBG_VALUEs that read value
-/// definitions computed by the first analysis.
+/// Secondly, for each variable, we effectively re-construct SSA using each
+/// DBG_VALUE as a def. The DBG_VALUEs read a value-number computed by the
+/// first analysis from the location they refer to. We can then compute the
+/// dominance frontiers of where a variable has a value, and create PHI nodes
+/// where they merge.
+/// This isn't precisely SSA-construction though, because the function shape
+/// is pre-defined. If a variable location requires a PHI node, but no
+/// PHI for the relevant values is present in the function (as computed by the
+/// first analysis), the location must be dropped.
 ///
 /// Once both are complete, we can pass back over all instructions knowing:
 ///  * What _value_ each variable should contain, either defined by an
@@ -55,6 +60,8 @@
 /// in a single lexical scope, exploiting their locality.
 ///
 /// NOT IMPLEMENTED: overlapping fragments and entry values (yet).
+///
+///
 ///
 //===----------------------------------------------------------------------===//
 
@@ -112,11 +119,14 @@ using namespace llvm;
 STATISTIC(NumInserted, "Number of DBG_VALUE instructions inserted");
 STATISTIC(NumRemoved, "Number of DBG_VALUE instructions removed");
 
+// Act more like the old LiveDebugValues, by propagating some locations too
+// far and ignoring some transfers.
 static cl::opt<bool> EmulateOldLDV(
     "word-wrap-like-word97", cl::Hidden,
     cl::desc("Act like old LiveDebugValues did"),
     cl::init(true));
 
+// Rely on isStoreToStackSlotPostFE and similar to observe all stack spills.
 static cl::opt<bool> ObserveAllStackops(
     "observe-all-stack-ops", cl::Hidden,
     cl::desc("Allow non-kill spill and restores"),
@@ -137,14 +147,20 @@ struct SpillLoc {
   }
 };
 
-// This is purely a number that's slightly more strongly typed.
+// This is purely a number that's slightly more strongly typed, to avoid
+// passing around raw integers. Identifies a register or spill slot,
+// numerically.
 enum LocIdx { limin = 0, limax = UINT_MAX };
 
+// Unique identifier for a value defined by an instruction, as a value type.
+// Casts back and forth to a uint64_t. Probably replacable with something less 
+// bit-constrained.
 class ValueIDNum {
 public:
-  uint64_t BlockNo : 16;
-  uint64_t InstNo : 20;
-  LocIdx LocNo : 14; // No idea why this works, it shouldn't!
+  uint64_t BlockNo : 16;  // The block where the def happens.
+  uint64_t InstNo : 20;   // The Instruction where the def happens.
+  LocIdx LocNo : 14;      // The machine-locatgion where the def happens.
+ // (No idea why this can work as a LocIdx, it probably shouldn't)
 
   uint64_t asU64() const {
     uint64_t tmp_block = BlockNo;
