@@ -198,14 +198,17 @@ struct SpillLoc {
 // numerically.
 enum LocIdx { limin = 0, limax = UINT_MAX };
 
-// Unique identifier for a value defined by an instruction, as a value type.
-// Casts back and forth to a uint64_t. Probably replacable with something less 
-// bit-constrained.
+/// Unique identifier for a value defined by an instruction, as a value type.
+/// Casts back and forth to a uint64_t. Probably replacable with something less 
+/// bit-constrained. Each value identifies the instruction and machine-location
+/// where the value is defined, although there may be no corresponding machine
+/// operand for it (ex: regmasks clobbering values). The instructions are 
+/// one-based, and definitions that are PHIs have instruction number zero.
 class ValueIDNum {
 public:
-  uint64_t BlockNo : 16;  // The block where the def happens.
-  uint64_t InstNo : 20;   // The Instruction where the def happens.
-  LocIdx LocNo : 14;      // The machine-locatgion where the def happens.
+  uint64_t BlockNo : 16;  /// The block where the def happens.
+  uint64_t InstNo : 20;   /// The Instruction where the def happens.
+  LocIdx LocNo : 14;      /// The machine-location where the def happens.
  // (No idea why this can work as a LocIdx, it probably shouldn't)
 
   uint64_t asU64() const {
@@ -244,6 +247,7 @@ public:
 
 } // end anon namespace
 
+// Boilerplate densemapinfo for ValueIDNum.
 namespace llvm {
 template <> struct DenseMapInfo<ValueIDNum> {
   // NB, there's a risk of overlap of uint64_max with legitmate numbering if
@@ -261,7 +265,7 @@ template <> struct DenseMapInfo<ValueIDNum> {
   static bool isEqual(const ValueIDNum &A, const ValueIDNum &B) { return A == B; }
 };
 
-// Misery
+// Boilerplate for our stronger-integer type.
 template <> struct DenseMapInfo<LocIdx> {
   static const int MaxVal = std::numeric_limits<int>::max();
 
@@ -280,8 +284,30 @@ template <> struct DenseMapInfo<LocIdx> {
 
 namespace {
 
+/// Meta qualifiers for a value. Pair of whatever expression is used to qualify
+/// the the value, and Boolean of whether or not it's indirect.
 typedef std::pair<const DIExpression *, bool> MetaVal;
 
+/// Machine location of values tracker class. Listens to the Things being Done
+/// by various instructions, and maintains a table of what machine locations
+/// have what values (as defined by a ValueIDNum).
+/// There are potentially a much larger number of machine locations on the
+/// target machine than the actual working-set size of the function. On x86 for
+/// example, we're extremely unlikely to want to track values through control
+/// or debug registers. To avoid doing so, MLocTracker has several layers of
+/// indirection going on, with two kinds of ``location'':
+///  * A LocID uniquely identifies a register or spill location, with a
+///    predictable value.
+///  * A LocIdx is a key (in the database sense) for a LocID and a ValueIDNum.
+/// Whenever a location is def'd or used by a MachineInstr, we automagically
+/// create a new LocIdx for a location, but not otherwise. This ensures we only
+/// account for locations that are actually used or defined. The cost is another
+/// vector lookup (of LocID -> LocIdx) over any other implementation. This is
+/// fairly cheap, and the compiler tries to reduce the working-set at any one
+/// time in the function anyway.
+///
+/// Register mask operands completely blow this out of the water; I've just
+/// piled hacks on top of hacks to get around that.
 class MLocTracker {
 public:
   MachineFunction &MF;
