@@ -276,34 +276,9 @@ template <> struct DenseMapInfo<LocIdx> {
   static bool isEqual(LocIdx A, LocIdx B) { return A == B; }
 };
 
-
-
 } // end namespace llvm
 
-
 namespace {
-
-class VarLocPos {
-public:
-  ValueIDNum ID;
-  LocIdx CurrentLoc : 14;
-
-  uint64_t asU64() const {
-    return ID.asU64() << 14 | CurrentLoc;
-  }
-
-  static VarLocPos fromU64(uint64_t v) {
-    return {ValueIDNum::fromU64(v >> 14), LocIdx(v & 0x3FFF)};
-  }
-
-  bool operator==(const VarLocPos &Other) const {
-    return std::tie(ID, CurrentLoc) == std::tie(Other.ID, Other.CurrentLoc);
-  }
-
-  std::string asString(const std::string &curname, const std::string &defname) const {
-    return Twine("VLP(").concat(ID.asString(defname)).concat(",cur ").concat(curname).concat(")").str();
-  }
-};
 
 typedef std::pair<const DIExpression *, bool> MetaVal;
 
@@ -338,9 +313,9 @@ public:
     return (isSpill) ? RegOrSpill + NumRegs - 1 : RegOrSpill;
   }
 
-  VarLocPos getVarLocPos(LocIdx Idx) const {
+  ValueIDNum getNumAtPos(LocIdx Idx) const {
     assert(Idx < LocIdxToIDNum.size());
-    return {LocIdxToIDNum[Idx], Idx};
+    return LocIdxToIDNum[Idx];
   }
 
   unsigned getNumLocs(void) const {
@@ -514,12 +489,6 @@ public:
     return num.asString(defname);
   }
 
-  std::string PosAsString(const VarLocPos &Pos) const {
-    std::string mlocname = LocIdxToName(Pos.CurrentLoc);
-    std::string defname = LocIdxToName(Pos.ID.LocNo);
-    return Pos.asString(mlocname, defname);
-  }
-
   LLVM_DUMP_METHOD
   void dump() const {
     for (unsigned int ID = 0; ID < LocIdxToIDNum.size(); ++ID) {
@@ -686,7 +655,6 @@ public:
     DenseMap<ValueIDNum, LocIdx> ValueToLoc;
 
     for (unsigned Idx = 1; Idx < NumLocs; ++Idx) {
-      // Each mloc is a VarLocPos
       auto VNum = ValueIDNum::fromU64(mlocs[Idx]);
       VarLocs[Idx] = VNum;
       // Produce a map of value numbers to the current machine locs they live
@@ -751,12 +719,12 @@ public:
     MetaVal meta = {MI.getDebugExpression(), MI.getOperand(1).isImm()};
 
     // If that loc has been clobbered in the meantime, wipe its contents.
-    if (mtracker->getVarLocPos(MLoc).ID != VarLocs[MLoc]) {
+    if (mtracker->getNumAtPos(MLoc) != VarLocs[MLoc]) {
       for (auto &P : ActiveMLocs[MLoc]) {
         ActiveVLocs.erase(P);
       }
       ActiveMLocs[MLoc].clear();
-      VarLocs[MLoc] = mtracker->getVarLocPos(MLoc).ID;
+      VarLocs[MLoc] = mtracker->getNumAtPos(MLoc);
     }
 
     ActiveMLocs[MLoc].insert(Var);
@@ -794,7 +762,7 @@ public:
   void transferMlocs(LocIdx src, LocIdx dst, MachineBasicBlock::iterator pos) {
     // Does src still contain the value num we expect? If not, it's been
     // clobbered in the meantime.
-    if (VarLocs[src] != mtracker->getVarLocPos(src).ID)
+    if (VarLocs[src] != mtracker->getNumAtPos(src))
       return;
 
     // Legitimate scenario on account of un-clobbered slot being assigned to?
@@ -1402,11 +1370,11 @@ void LiveDebugValues::produce_mloc_transfer_function(MachineFunction &MF,
     // a mapping if there's a movement.
     for (unsigned IdxNum = 1; IdxNum < tracker->getNumLocs(); ++IdxNum) {
       LocIdx Idx = LocIdx(IdxNum);
-      VarLocPos P = tracker->getVarLocPos(Idx);
-      if (P.ID.InstNo == 0 && P.ID.LocNo == P.CurrentLoc)
+      ValueIDNum P = tracker->getNumAtPos(Idx);
+      if (P.InstNo == 0 && P.LocNo == Idx)
         continue;
 
-      MLocTransfer[cur_bb][Idx] = P.ID;
+      MLocTransfer[cur_bb][Idx] = P;
     }
 
     // Accumulate any bitmask operands.
@@ -1540,8 +1508,8 @@ void LiveDebugValues::mloc_dataflow(uint64_t **MInLocs,
   // Set inlocs for entry block,
   tracker->setMPhis(0);
   for (unsigned Idx = 1; Idx < tracker->getNumLocs(); ++Idx) {
-    auto VLP = tracker->getVarLocPos(LocIdx(Idx));
-    uint64_t ID = VLP.ID.asU64();
+    ValueIDNum Val = tracker->getNumAtPos(LocIdx(Idx));
+    uint64_t ID = Val.asU64();
     MInLocs[0][Idx] = ID;
   }
 
@@ -1573,8 +1541,7 @@ void LiveDebugValues::mloc_dataflow(uint64_t **MInLocs,
         ValueIDNum NewID = {0, 0, LocIdx(0)};
         if (P.second.BlockNo == cur_bb && P.second.InstNo == 0) {
           // This is a movement of whatever was live in. Read it.
-          VarLocPos Pos = tracker->getVarLocPos(P.second.LocNo);
-          NewID = Pos.ID;
+          NewID = tracker->getNumAtPos(P.second.LocNo);
         } else {
           // It's a def. (Has to be a def in this BB, or nullloc).
           // Just set it.
@@ -1593,8 +1560,7 @@ void LiveDebugValues::mloc_dataflow(uint64_t **MInLocs,
       // the transfer function, and mloc_join.
       bool OLChanged = false;
       for (unsigned Idx = 1; Idx < tracker->getNumLocs(); ++Idx) {
-        auto VLP = tracker->getVarLocPos(LocIdx(Idx));
-        uint64_t ID = VLP.ID.asU64();
+        uint64_t ID = tracker->getNumAtPos(LocIdx(Idx)).asU64();
         OLChanged |= MOutLocs[cur_bb][Idx] != ID;
         MOutLocs[cur_bb][Idx] = ID;
       }
