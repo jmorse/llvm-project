@@ -59,9 +59,55 @@
 /// the second reaching-definition analysis with only the variables and blocks
 /// in a single lexical scope, exploiting their locality.
 ///
-/// NOT IMPLEMENTED: overlapping fragments and entry values (yet).
+/// NOT IMPLEMENTED (yet): overlapping fragments and entry values.
 ///
+/// Determining where PHIs happen is trickier with this approach, and it comes
+/// to a head in the major problem for LiveDebugValues: is a value live-through
+/// a loop, or not? Your garden-variety dataflow analysis aims to build a set of
+/// facts about a function, however this analysis needs to generate new value
+/// numbers at joins.
 ///
+/// To do this, consider a lattice of all definition values, from instructions
+/// and from PHIs. Each PHI is characterised by the RPO number of the block it
+/// occurs in. Each value pair A, B can be ordered by RPO(A) < RPO(B):
+/// with non-PHI values at the top, and any PHI value in the last (by RPO order)
+/// block at the bottom.
+///
+/// (Awkwardly: lower-down-the _lattice_ means a greater RPO _number_. Below,
+/// "rank" always refers to the former).
+///
+/// At any join, for each register, we consider:
+///  * All incoming values, and
+///  * The PREVIOUS live-in value at this join.
+/// If all incoming values agree: that's the live-in value. If they do not, the
+/// incoming values are ranked according to the partial order, and the NEXT
+/// LOWEST rank after the PREVIOUS live-in value is picked (multiple values of
+/// the same rank are ignored as conflicting). If there are no candidate values,
+/// or if the rank of the live-in would be lower than the rank of the current
+/// blocks PHIs, create a new PHI value.
+///
+/// Intuitively: if it's not immediately obvious what value a join should result
+/// in, we iteratively descend from instruction-definitions down through PHI
+/// values, getting closer to the current block each time. If the current block
+/// is a loop head, this ordering is effectively searching outer levels of
+/// loops, to find a value that's live-through the current loop.
+///
+/// If the is no value that's live-through this loop, a PHI is created for this
+/// location instead. We can't use a lower-ranked PHI because by definition it
+/// doesn't dominate the current block. We can't create a PHI value any earlier,
+/// because we risk creating a PHI value at a location where values do not in
+/// fact merge, thus misrepresenting the truth, and not making the true
+/// live-through value for variable locations.
+///
+/// This algorithm applies to both calculating the availability of values in
+/// the first analysis, and the location of variables in the second. However
+/// for the second we add an extra dimension of pain: creating a variable
+/// location PHI is only valid if, for each incoming edge,
+///  * There is a value for the variable on the incoming edge, and
+///  * All the edges have that value in the same register.
+/// Or put another way: we can only create a variable-location PHI if there is
+/// a matching machine-location PHI, the inputs to which are all also the
+/// variables location in the predecessor block.
 ///
 //===----------------------------------------------------------------------===//
 
