@@ -208,6 +208,7 @@ class ValueIDNum {
 public:
   uint64_t BlockNo : 16;  /// The block where the def happens.
   uint64_t InstNo : 20;   /// The Instruction where the def happens.
+                          /// One based, is distance from start of block.
   LocIdx LocNo : 14;      /// The machine-location where the def happens.
  // (No idea why this can work as a LocIdx, it probably shouldn't)
 
@@ -308,6 +309,8 @@ typedef std::pair<const DIExpression *, bool> MetaVal;
 ///
 /// Register mask operands completely blow this out of the water; I've just
 /// piled hacks on top of hacks to get around that.
+///
+/// A zero LocIdx is reserved for "no value" or "no location".
 class MLocTracker {
 public:
   MachineFunction &MF;
@@ -315,13 +318,37 @@ public:
   const TargetRegisterInfo &TRI;
   const TargetLowering &TLI;
 
-  std::vector<LocIdx> LocIDToLocIdx;
-  DenseMap<LocIdx, unsigned> LocIdxToLocID;
+  /// "Map" of LocIdxes to the ValueIDNums that they store. This is tightly
+  /// packed, entries only exist for locations that are being tracked.
   std::vector<ValueIDNum> LocIdxToIDNum;
+
+  /// "Map" of machine location IDs (i.e., raw register or spill number) to the
+  /// LocIdx key / number for that location. There are always at least as many
+  /// as the number of registers on the target -- if the value in the register
+  /// is not being tracked, then the LocIdx value will be zero. New entries are
+  /// appended if a new spill slot begins being tracked.
+  /// This, and the corresponding reverse map persist for the analysis of the
+  /// whole function, and is necessarying for decoding various vectors of
+  /// values.
+  std::vector<LocIdx> LocIDToLocIdx;
+
+  /// Inverse map of LocIDToLocIdx.
+  DenseMap<LocIdx, unsigned> LocIdxToLocID;
+
+  /// Unique-ification of spill locations. Used to number them -- their LocID
+  /// number is the index in SpillLocs minus one plus NumRegs.
   UniqueVector<SpillLoc> SpillLocs;
+
+  // Can't remember, something to do with implicitly reading PHIs on the fly. 
   unsigned lolwat_cur_bb;
+
+  /// Cached local copy of the number of registers the target has.
   unsigned NumRegs;
 
+  /// Collection of register mask operands that have been observed. Second part
+  /// of pair indicates the instruction that they happened in. Used to
+  /// reconstruct where defs happened if we start tracking a location later
+  /// on.
   SmallVector<std::pair<const MachineOperand *, unsigned>, 32> Masks;
 
   MLocTracker(MachineFunction &MF, const TargetInstrInfo &TII, const TargetRegisterInfo &TRI, const TargetLowering &TLI)
@@ -335,10 +362,13 @@ public:
     LocIdxToLocID[LocIdx(0)] = 0;
   }
 
+  /// Produce location ID number for indexing LocIDToLocIdx. Takes the register
+  /// or spill number, and flag for whether it's a spill or not.
   unsigned getLocID(unsigned RegOrSpill, bool isSpill) {
     return (isSpill) ? RegOrSpill + NumRegs - 1 : RegOrSpill;
   }
 
+  /// Accessor for reading the value at Idx.
   ValueIDNum getNumAtPos(LocIdx Idx) const {
     assert(Idx < LocIdxToIDNum.size());
     return LocIdxToIDNum[Idx];
@@ -348,6 +378,9 @@ public:
     return LocIdxToIDNum.size();
   }
 
+  /// Reset all locations to contain a PHI value at the designated block. Used
+  /// sometimes for actual PHI values, othertimes to indicate the block entry
+  /// value (before any more information is known).
   void setMPhis(unsigned cur_bb) {
     lolwat_cur_bb = cur_bb;
     for (unsigned ID = 1; ID < LocIdxToIDNum.size(); ++ID) {
@@ -355,6 +388,8 @@ public:
     }
   }
 
+  /// Load values for each location from array of ValueIDNums. Take current
+  /// bbnum just in case we read a value from a hitherto untouched register.
   void loadFromArray(uint64_t *Locs, unsigned cur_bb) {
     lolwat_cur_bb = cur_bb;
     // Quickly reset everything to being itself at inst 0, representing a phi.
@@ -363,11 +398,14 @@ public:
     }
   }
 
+  /// Wipe records of what location have what values.
   void reset(void) {
     memset(&LocIdxToIDNum[0], 0, LocIdxToIDNum.size() * sizeof(ValueIDNum));
     Masks.clear();
   }
 
+  /// Clear all data. Destroys the LocID <=> LocIdx map, which makes everything
+  /// else in LiveDebugValues uninterpretable.
   void clear(void) {
     reset();
     LocIDToLocIdx.clear();
@@ -380,11 +418,15 @@ public:
     memset(&LocIDToLocIdx[0], 0, NumRegs * sizeof(LocIdx));
   }
 
+  /// Set a locaiton to a certain value.
   void setMLoc(LocIdx L, ValueIDNum Num) {
     assert(L < LocIdxToIDNum.size());
     LocIdxToIDNum[L] = Num;
   }
 
+  /// Lookup a potentially untracked register ID, storing its LocIdx into Ref.
+  /// If ID was not tracked, initialize it to either an mphi value representing
+  /// a live-in, or a recent register mask clobber.
   void bumpRegister(unsigned ID, LocIdx &Ref) {
      assert(ID != 0);
     if (Ref == 0) {
@@ -407,6 +449,9 @@ public:
     }
   }
 
+  /// Record a definition of the specified register at the given block / inst.
+  /// This doesn't take a ValueIDNum, because the definition and it's location
+  /// are synonymous.
   void defReg(Register r, unsigned bb, unsigned inst) {
     unsigned ID = getLocID(r, false);
     LocIdx &Idx = LocIDToLocIdx[ID];
@@ -415,6 +460,8 @@ public:
     LocIdxToIDNum[Idx] = id;
   }
 
+  /// Set a register to a value number. To be used if the value number is
+  /// known in advance.
   void setReg(Register r, ValueIDNum id) {
     unsigned ID = getLocID(r, false);
     LocIdx &Idx = LocIDToLocIdx[ID];
@@ -429,18 +476,25 @@ public:
     return LocIdxToIDNum[Idx];
   }
 
-  // Because we need to replicate values only having one location for now.
-  void lolwipe(Register r) {
+  /// Reset a register value to zero / empty. Needed to replicate old
+  /// LiveDebugValues where a copy to/from a register effectively clears the
+  /// contents of the source register. (Values can only have one location in
+  /// old LiveDebugValues).
+  void WipeRegister(Register r) {
     unsigned ID = getLocID(r, false);
     LocIdx Idx = LocIDToLocIdx[ID];
     LocIdxToIDNum[Idx] = {0, 0, LocIdx(0)};
   }
 
+  /// Determine the LocIdx of an existing register.
   LocIdx getRegMLoc(Register r) {
     unsigned ID = getLocID(r, false);
     return LocIDToLocIdx[ID];
   }
 
+  /// Record a RegMask operand being executed. Defs any register we currently
+  /// track, stores a pointer to the mask in case we have to account for it
+  /// later.
   void writeRegMask(const MachineOperand *MO, unsigned cur_bb, unsigned inst_id) {
     // Def anything we already have that isn't preserved.
     unsigned SP = TLI.getStackPointerRegisterToSaveRestore();
@@ -450,7 +504,7 @@ public:
     bumpRegister(ID, Idx);
 
     for (auto &P : LocIdxToLocID) {
-      // Don't believe mask clobbering SP.
+      // Don't clobber SP, even if the mask says it's clobbered.
       if (P.second != 0 && P.second < NumRegs && P.second != SP &&
           MO->clobbersPhysReg(P.second))
         defReg(P.second, cur_bb, inst_id);
@@ -458,6 +512,7 @@ public:
     Masks.push_back(std::make_pair(MO, inst_id));
   }
 
+  /// Set the value stored in a spill location.
   void setSpill(SpillLoc l, ValueIDNum id) {
     unsigned SpillID = SpillLocs.idFor(l);
     if (SpillID == 0) {
@@ -475,6 +530,7 @@ public:
     }
   }
 
+  /// Read whatever value is in a spill location, or zero if it isn't tracked.
   ValueIDNum readSpill(SpillLoc l) {
     unsigned pos = SpillLocs.idFor(l);
     if (pos == 0)
@@ -486,6 +542,7 @@ public:
     return LocIdxToIDNum[LocIdx];
   }
 
+  /// Determine the LocIdx of a spill location.
   LocIdx getSpillMLoc(SpillLoc l) {
     unsigned SpillID = SpillLocs.idFor(l);
     if (SpillID == 0)
@@ -494,6 +551,7 @@ public:
     return LocIDToLocIdx[L];
   }
 
+  /// Return true if Idx is a spill machine location.
   bool isSpill(LocIdx Idx) const {
     auto it = LocIdxToLocID.find(Idx);
     assert(it != LocIdxToLocID.end());
@@ -535,6 +593,9 @@ public:
     }
   }
 
+  /// Create a DBG_VALUE at machine-location MLoc. Qualify it with the
+  /// information in meta, for variable Var. Don't insert it anywhere, just
+  /// return the builder for it.
   MachineInstrBuilder 
   emitLoc(LocIdx MLoc, const DebugVariable &Var, const MetaVal &meta) {
     DebugLoc DL = DebugLoc::get(0, 0, Var.getVariable()->getScope(), Var.getInlinedAt());
@@ -562,13 +623,22 @@ public:
   }
 };
 
+/// Class recording the (high level) _value_ of a variable. Identifies either
+/// the value of the variable as a ValueIDNum, or a constant MachineOperand.
+/// This class also stores meta-information about how the value is qualified.
+/// Used to reason about variable values when performing the second 
+/// (DebugVariable specific) dataflow analysis.
 class ValueRec {
 public:
+  /// If Kind is Def, the value number that this value is based on.
   ValueIDNum ID;
+  /// If Kind is Const, the MachineOperand defining this value.
   Optional<MachineOperand> MO;
+  /// Qualifiers for the ValueIDNum above.
   MetaVal meta;
 
   typedef enum { Def, Const } KindT;
+  /// Discriminator for whether this is a constant or an in-program value.
   KindT Kind;
 
   void dump(const MLocTracker *MTrack) const {
@@ -600,9 +670,9 @@ public:
   }
 };
 
-// Types for recording sets of variable fragments that overlap. For a given
-// local variable, we record all other fragments of that variable that could
-// overlap it, to reduce search time.
+/// Types for recording sets of variable fragments that overlap. For a given
+/// local variable, we record all other fragments of that variable that could
+/// overlap it, to reduce search time.
 using FragmentOfVar =
     std::pair<const DILocalVariable *, DIExpression::FragmentInfo>;
 using OverlapMap =
@@ -1296,7 +1366,7 @@ bool LiveDebugValues::transferRegisterCopy(MachineInstr &MI) {
     ttracker->transferMlocs(tracker->getRegMLoc(SrcReg), tracker->getRegMLoc(DestReg), MI.getIterator());
 
   if (EmulateOldLDV && SrcReg != DestReg)
-    tracker->lolwipe(SrcReg);
+    tracker->WipeRegister(SrcReg);
   return true;
 }
 
