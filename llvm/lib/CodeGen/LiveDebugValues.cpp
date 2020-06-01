@@ -720,12 +720,12 @@ public:
     std::vector<MachineInstr *> insts;
   };
 
-  typedef std::pair<LocIdx, MetaVal> hahaloc;
+  typedef std::pair<LocIdx, MetaVal> LocAndMeta;
   std::vector<Transfer> Transfers;
   std::vector<ValueIDNum> VarLocs;
 
   DenseMap<LocIdx, SmallSet<DebugVariable, 4>> ActiveMLocs;
-  DenseMap<DebugVariable, hahaloc> ActiveVLocs;
+  DenseMap<DebugVariable, LocAndMeta> ActiveVLocs;
 
   std::vector<MachineInstr *> PendingDbgValues;
 
