@@ -1724,8 +1724,8 @@ bool LiveDebugValues::mloc_join(
   if (BlockOrders.size() == 0)
     return false;
 
-   // Step through all predecessors and detect disagreements.
-  unsigned this_rpot = BBToOrder.find(&MBB)->second;
+  // Step through all predecessors and detect disagreements.
+  unsigned this_block_rpot = BBToOrder.find(&MBB)->second;
   for (unsigned Idx = 1; Idx < tracker->getNumLocs(); ++Idx) {
     uint64_t base = OutLocs[BlockOrders[0]->getNumber()][Idx];
     bool disagree = false;
@@ -1733,7 +1733,7 @@ bool LiveDebugValues::mloc_join(
     for (auto *MBB : BlockOrders) { // xxx loops around itself.
       if (base != OutLocs[MBB->getNumber()][Idx]) {
         disagree = true;
-        if (BBToOrder.find(MBB)->second < this_rpot) // might be self b/e
+        if (BBToOrder.find(MBB)->second < this_block_rpot) // might be self b/e
           pred_disagree = true;
       }
     }
