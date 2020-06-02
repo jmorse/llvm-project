@@ -1234,6 +1234,7 @@ LiveDebugValues::extractSpillBaseRegAndOffset(const MachineInstr &MI) {
 bool LiveDebugValues::transferDebugValue(const MachineInstr &MI) {
   if (!MI.isDebugValue())
     return false;
+
   const DILocalVariable *Var = MI.getDebugVariable();
   const DIExpression *Expr = MI.getDebugExpression();
   const DILocation *DebugLoc = MI.getDebugLoc();
@@ -1243,6 +1244,8 @@ bool LiveDebugValues::transferDebugValue(const MachineInstr &MI) {
 
   DebugVariable V(Var, Expr, InlinedAt);
 
+  // If there are no instructions in this lexical scope, do no location tracking
+  // at all, this variable shouldn't have a legitimate location range.
   auto *Scope = LS.findLexicalScope(MI.getDebugLoc().get());
   if (Scope == nullptr)
     return true; // handled it; by doing nothing
@@ -1252,8 +1255,11 @@ bool LiveDebugValues::transferDebugValue(const MachineInstr &MI) {
   // MLocTracker needs to know that this register is read, even if it's only
   // read by a debug inst.
   if (MO.isReg() && MO.getReg() != 0)
-    tracker->readReg(MO.getReg());
+    (void)tracker->readReg(MO.getReg());
 
+  // If we're preparing for the second analysis (variables), the values in
+  // machine locations are already solved, and we report this DBG_VALUE and the
+  // value it refers to to VLocTracker.
   if (vtracker) {
     if (MO.isReg()) {
       // Should read LocNo==0 on $noreg.
@@ -1266,15 +1272,14 @@ bool LiveDebugValues::transferDebugValue(const MachineInstr &MI) {
     }
   }
 
+  // If performing final tracking of transfers, report this variable definition
+  // to the TransferTracker too.
   if (ttracker)
     ttracker->redefVar(MI);
   return true;
 }
 
-/// A definition of a register may mark the end of a range.
-void LiveDebugValues::transferRegisterDef(
-    MachineInstr &MI) {
-
+void LiveDebugValues::transferRegisterDef(MachineInstr &MI) {
   // Meta Instructions do not affect the debug liveness of any register they
   // define.
   if (MI.isMetaInstruction())
@@ -1305,15 +1310,12 @@ void LiveDebugValues::transferRegisterDef(
     }
   }
 
-  // Erase VarLocs which reside in one of the dead registers. For performance
-  // reasons, it's critical to not iterate over the full set of open VarLocs.
-  // Iterate over the set of dying/used regs instead.
+  // Tell MLocTracker about all definitions, of regmasks and otherwise.
   for (uint32_t DeadReg : DeadRegs)
     tracker->defReg(DeadReg, cur_bb, cur_inst);
 
-  for (auto *MO : RegMaskPtrs) {
+  for (auto *MO : RegMaskPtrs)
     tracker->writeRegMask(MO, cur_bb, cur_inst);
-  }
 }
 
 bool LiveDebugValues::isSpillInstruction(const MachineInstr &MI,
@@ -1334,6 +1336,8 @@ bool LiveDebugValues::isLocationSpill(const MachineInstr &MI,
   if (!isSpillInstruction(MI, MF))
     return false;
 
+  // XXX FIXME: On x86, isStoreToStackSlotPostFE returns '1' instead of an
+  // actual register number.
   if (ObserveAllStackops) {
     int FI;
     Reg = TII->isStoreToStackSlotPostFE(MI, FI);
@@ -1390,14 +1394,13 @@ LiveDebugValues::isRestoreInstruction(const MachineInstr &MI,
   return None;
 }
 
-/// A spilled register may indicate that we have to end the current range of
-/// a variable and create a new one for the spill location.
-/// A restored register may indicate the reverse situation.
-/// Any change in location will be recorded in \p OpenRanges, and \p Transfers
-/// if it is non-null.
 bool LiveDebugValues::transferSpillOrRestoreInst(MachineInstr &MI) {
-if (EmulateOldLDV) // with old ldv disabling this too...
-  return false;
+  // XXX -- it's too difficult to implement old LiveDebugValues' stack location
+  // limitations under the new model. Therefore, when comparing them, compare
+  // versions that don't attempt spills or restores at all.
+  if (EmulateOldLDV)
+    return false;
+
   MachineFunction *MF = MI.getMF();
   unsigned Reg;
   Optional<SpillLoc> Loc;
@@ -1405,7 +1408,7 @@ if (EmulateOldLDV) // with old ldv disabling this too...
   LLVM_DEBUG(dbgs() << "Examining instruction: "; MI.dump(););
 
   // First, if there are any DBG_VALUEs pointing at a spill slot that is
-  // written to, then close the variable location. The value in memory
+  // written to, terminate that variable location. The value in memory
   // will have changed.
   if (isSpillInstruction(MI, MF)) {
     Loc = extractSpillBaseRegAndOffset(MI);
@@ -1422,13 +1425,20 @@ if (EmulateOldLDV) // with old ldv disabling this too...
   if (isLocationSpill(MI, MF, Reg)) {
     Loc = extractSpillBaseRegAndOffset(MI);
     auto id = tracker->readReg(Reg);
-    // If this is empty, produce an mphi.
+
+    // If the location is empty, produce a phi, signify it's the live-in value.
     if (id.LocNo == 0)
       id = {cur_bb, 0, tracker->getRegMLoc(Reg)};
+
     tracker->setSpill(*Loc, id);
     assert(tracker->getSpillMLoc(*Loc) != 0);
+
+    // Tell TransferTracker about this spill, produce DBG_VALUEs for it.
     if (ttracker)
       ttracker->transferMlocs(tracker->getRegMLoc(Reg), tracker->getSpillMLoc(*Loc), MI.getIterator());
+
+    // Old LiveDebugValues would, at this point, stop tracking the source
+    // register of the store.
     if (EmulateOldLDV) {
       for (MCRegAliasIterator RAI(Reg, TRI, true); RAI.isValid(); ++RAI)
         tracker->defReg(*RAI, cur_bb, cur_inst);
@@ -1436,23 +1446,30 @@ if (EmulateOldLDV) // with old ldv disabling this too...
   } else {
     if (!(Loc = isRestoreInstruction(MI, MF, Reg)))
       return false;
+
+    // Is there a value to be restored?
     auto id = tracker->readSpill(*Loc);
     if (id.LocNo != 0) {
-      // XXX -- how do we go about tracking sub-values, one wonders?
+      // XXX -- can we recover sub-registers of this value? Until we can, first
+      // overwrite all defs of the register being restored to.
       for (MCRegAliasIterator RAI(Reg, TRI, true); RAI.isValid(); ++RAI)
         tracker->defReg(*RAI, cur_bb, cur_inst);
-      // Override the reg we're restoring to. It's subregs go away. As they
-      // do in old LDV.
+
+      // Now override the reg we're restoring to.
       tracker->setReg(Reg, id);
       assert(tracker->getSpillMLoc(*Loc) != 0);
+
+      // Report this restore to the transfer tracker too.
       if (ttracker)
         ttracker->transferMlocs(tracker->getSpillMLoc(*Loc), tracker->getRegMLoc(Reg), MI.getIterator());
     } else {
-      // Well, def this register anyway.
-      // XXX are there any circumstances where it should read the spill mphi?
+      // There isn't anything in the location; not clear if this is a code path
+      // that still runs. Def this register anyway just in case.
       for (MCRegAliasIterator RAI(Reg, TRI, true); RAI.isValid(); ++RAI)
         tracker->defReg(*RAI, cur_bb, cur_inst);
-      // Make an mphi for the spill, to read it in the future.
+
+      // Set the restored value to be a machine phi number, signifying that it's
+      // whatever the spills live-in value is in this block.
       LocIdx l = tracker->getSpillMLoc(*Loc);
       id = {cur_bb, 0, l};
       tracker->setReg(Reg, id);
@@ -1461,9 +1478,6 @@ if (EmulateOldLDV) // with old ldv disabling this too...
   return true;
 }
 
-/// If \p MI is a register copy instruction, that copies a previously tracked
-/// value from one register to another register that is callee saved, we
-/// create new DBG_VALUE instruction  described with copy destination register.
 bool LiveDebugValues::transferRegisterCopy(MachineInstr &MI) {
   auto DestSrc = TII->isCopyInstr(MI);
   if (!DestSrc)
@@ -1482,33 +1496,41 @@ bool LiveDebugValues::transferRegisterCopy(MachineInstr &MI) {
   Register SrcReg = SrcRegOp->getReg();
   Register DestReg = DestRegOp->getReg();
 
+  // Ignore identity copies. Yep, these make it as far as LiveDebugValues.
   if (SrcReg == DestReg)
-    // true -> no copy to perform, but also don't def the dest
     return true;
 
+  // For emulating old LiveDebugValues:
   // We want to recognize instructions where destination register is callee
   // saved register. If register that could be clobbered by the call is
   // included, there would be a great chance that it is going to be clobbered
   // soon. It is more likely that previous register location, which is callee
   // saved, is going to stay unclobbered longer, even if it is killed.
+  //
+  // For new LiveDebugValues, we can track multiple locations, so ignore this
+  // condition.
   if (EmulateOldLDV && !isCalleeSavedReg(DestReg))
     return false;
 
+  // Old LiveDebugValues only followed killing copies.
   if (EmulateOldLDV && !SrcRegOp->isKill())
     return false;
 
   // We have to follow identity copies, as DbgEntityHistoryCalculator only
-  // sees the defs.
+  // sees the defs. XXX is this code path still taken?
   auto id = tracker->readReg(SrcReg);
   tracker->setReg(DestReg, id);
 
   // Only produce a transfer of DBG_VALUE within a block where old LDV
-  // would have.
+  // would have. We might make use of the additional value tracking in some
+  // other way, later.
   if (ttracker && isCalleeSavedReg(DestReg) && SrcRegOp->isKill())
     ttracker->transferMlocs(tracker->getRegMLoc(SrcReg), tracker->getRegMLoc(DestReg), MI.getIterator());
 
+  // Old LiveDebugValues would quit tracking the old location after copying.
   if (EmulateOldLDV && SrcReg != DestReg)
     tracker->WipeRegister(SrcReg);
+
   return true;
 }
 
@@ -1567,8 +1589,10 @@ void LiveDebugValues::accumulateFragmentMap(MachineInstr &MI) {
   AllSeenFragments.insert(ThisFragment);
 }
 
-/// This routine creates OpenRanges.
 void LiveDebugValues::process(MachineInstr &MI) {
+  // Try to interpret an MI as a debug or transfer instruction. Only if it's
+  // none of these should we interpret it's register defs as new value
+  // definitions.
   if (transferDebugValue(MI))
     return;
   if (transferRegisterCopy(MI))
@@ -1582,20 +1606,35 @@ void LiveDebugValues::produce_mloc_transfer_function(MachineFunction &MF,
                            std::vector<MLocTransferMap> &MLocTransfer,
                            unsigned MaxNumBlocks)
 {
+  // Because we try to optimize around register mask operands by ignoring regs
+  // that aren't currently tracked, we set up something ugly for later: RegMask
+  // operands that are seen earlier than the first use of a register, still need
+  // to clobber that location in the transfer function. But this information
+  // isn't actively recorded. Instead, we track each RegMask used in each block,
+  // and accumulated the clobbered but untracked registers in each block into
+  // the following bitvector. Later, if new values are tracked, we can add
+  // appropriate clobbers.
   std::vector<BitVector> BlockMasks;
   BlockMasks.resize(MaxNumBlocks);
 
+  // Reserve one bit per register for the masks described above.
   unsigned BVWords = MachineOperand::getRegMaskSize(TRI->getNumRegs());
   for (auto &BV : BlockMasks)
     BV.resize(TRI->getNumRegs(), true);
 
   // Step through all instructions and inhale the transfer function.
   for (auto &MBB : MF) {
+    // Object fields that are read by trackers to know where we are in the
+    // function.
     cur_bb = MBB.getNumber();
     cur_inst = 1;
 
+    // Set all tracked locations to a PHI value. For transfer function
+    // production only, this signifies the live-in value to the block.
     tracker->reset();
     tracker->setMPhis(cur_bb);
+
+    // Step through each instruction in this block.
     for (auto &MI : MBB) {
       process(MI);
       // Also accumulate fragment map.
@@ -1604,8 +1643,9 @@ void LiveDebugValues::produce_mloc_transfer_function(MachineFunction &MF,
       ++cur_inst;
     }
 
-    // Look at tracker: still has input phi means no assignment. Produce
-    // a mapping if there's a movement.
+    // Produce the transfer function, a map of location to new value. If any
+    // location has the live-in phi value from the start of the block, it's
+    // live-through and doesn't need recording in the transfer function.
     for (unsigned IdxNum = 1; IdxNum < tracker->getNumLocs(); ++IdxNum) {
       LocIdx Idx = LocIdx(IdxNum);
       ValueIDNum P = tracker->getNumAtPos(Idx);
@@ -1615,12 +1655,14 @@ void LiveDebugValues::produce_mloc_transfer_function(MachineFunction &MF,
       MLocTransfer[cur_bb][Idx] = P;
     }
 
-    // Accumulate any bitmask operands.
+    // Accumulate any bitmask operands into the clobberred reg mask for this 
+    // block.
     for (auto &P : tracker->Masks) {
       BlockMasks[cur_bb].clearBitsNotInMask(P.first->getRegMask(), BVWords);
     }
   }
 
+  // Compute a bitvector of all the registers that are tracked in this block.
   const TargetLowering *TLI = MF.getSubtarget().getTargetLowering();
   unsigned SP = TLI->getStackPointerRegisterToSaveRestore();
   BitVector UsedRegs(TRI->getNumRegs());
@@ -1630,11 +1672,12 @@ void LiveDebugValues::produce_mloc_transfer_function(MachineFunction &MF,
     UsedRegs.set(P.second);
   }
 
-  // For each block that we looked at, are there any clobbered registers that
-  // are used, and that don't appear as 'clobbered' in the transfer func?
-  // Overwrite them. XXX, this doesn't account for setting a reg and then
-  // clobbering it afterwards, although I guess then the reg would be known
-  // about?
+  // Check that any regmask-clobber of a register that gets tracked, is not
+  // live-through in the transfer function. It needs to be clobbered at the
+  // very least.
+  // XXX, this doesn't account for setting a reg and then clobbering it
+  // afterwards, although I guess then the reg would be tracked?
+  // XXX, also, no-entry should be turned into a clobber too, right?
   for (unsigned int I = 0; I < MaxNumBlocks; ++I) {
     BitVector &BV = BlockMasks[I];
     BV.flip();
@@ -1654,9 +1697,6 @@ void LiveDebugValues::produce_mloc_transfer_function(MachineFunction &MF,
   }
 }
 
-/// This routine joins the analysis results of all incoming edges in @MBB by
-/// inserting a new DBG_VALUE instruction at the start of the @MBB - if the same
-/// source variable in all the predecessors of @MBB reside in the same location.
 bool LiveDebugValues::mloc_join(
     MachineBasicBlock &MBB,
     SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
@@ -1664,7 +1704,9 @@ bool LiveDebugValues::mloc_join(
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
 
-  // Collect predecessors that have been visited.
+  // Collect predecessors that have been visited. Anything that hasn't been
+  // visited yet is a backedge on the first iteration, and the meet of it's
+  // lattice value for all locations will be unaffected.
   SmallVector<const MachineBasicBlock *, 8> BlockOrders;
   for (auto p : MBB.predecessors()) {
     if (Visited.count(p)) {
@@ -1672,6 +1714,7 @@ bool LiveDebugValues::mloc_join(
     }
   }
 
+  // Visit predecessors in RPOT order.
   auto Cmp = [&](const MachineBasicBlock *A, const MachineBasicBlock *B) {
    return BBToOrder.find(A)->second < BBToOrder.find(B)->second;
   };
@@ -1681,7 +1724,7 @@ bool LiveDebugValues::mloc_join(
   if (BlockOrders.size() == 0)
     return false;
 
-    // Step through all predecessors and detect disagreements.
+   // Step through all predecessors and detect disagreements.
   unsigned this_rpot = BBToOrder.find(&MBB)->second;
   for (unsigned Idx = 1; Idx < tracker->getNumLocs(); ++Idx) {
     uint64_t base = OutLocs[BlockOrders[0]->getNumber()][Idx];
