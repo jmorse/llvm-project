@@ -678,11 +678,15 @@ using FragmentOfVar =
 using OverlapMap =
     DenseMap<FragmentOfVar, SmallVector<DIExpression::FragmentInfo, 1>>;
 
+/// Collection of DBG_VALUEs observed when traversing a block. Records each
+/// variable and the value the DBG_VALUE refers to. Requires the first (machine
+/// location) dataflow algorithm to have run already, so that values can be
+/// identified.
 class VLocTracker {
 public:
-  // Map the DebugVariable to recent primary location ID.
-  // Needs to be a mapvector because we determine order-in-the-input-MIR from
-  // the order in this thing.
+  /// Map DebugVariable to the latest Value it's defined to have.
+  /// Needs to be a mapvector because we determine order-in-the-input-MIR from
+  /// the order in this thing.
   MapVector<DebugVariable, ValueRec> Vars;
   MachineBasicBlock *MBB;
 
@@ -708,25 +712,59 @@ public:
   }
 };
 
+/// Tracker for converting machine values and variable locations into the
+/// output of LiveDebugValues: the DBG_VALUEs specifying block live-in
+/// locations and transfers within blocks.
+/// Operating on a per-block basis, this class takes a (pre-loaded) machine-loc
+/// tracker, and must be initialized with the set of variables (and their
+/// values) that are live-in to the block. The caller then repeatedly calls
+/// process(). TransferTracker picks out machine locations for the live-in
+/// variable values (if there is a location) and creates the corresponding
+/// DBG_VALUEs. Then, as the block is stepped through, transfers of values
+/// between locations are identified and if profitable, a DBG_VALUE created.
+///
+/// This is where debug use-before-defs would be resolved: a variable with an
+/// unavailable value could materialize in the middle of a block, when the
+/// value becomes available. Or, we could detect clobbers and re-specify the
+/// variable in a backup location. (XXX these are unimplemented).
+// 
 class TransferTracker {
 public:
   const TargetInstrInfo *TII;
+  /// This machine-loc tracker is assumed to always contain the up-to-date
+  /// value mapping for all machine locations. TransferTracker only reads
+  /// information from it. (XXX make it const?)
   MLocTracker *mtracker;
   MachineFunction &MF;
 
+  /// Record of all changed variable locations at a point. Awkwardly, we allow
+  /// inserting either before or after the point: MBB != nullptr indicates
+  /// it's before, otherwise after.
   struct Transfer {
-    MachineBasicBlock::iterator pos;
-    MachineBasicBlock *MBB;
-    std::vector<MachineInstr *> insts;
+    MachineBasicBlock::iterator pos;   /// Position to insert DBG_VALUes
+    MachineBasicBlock *MBB;            /// non-null if we should insert after.
+    std::vector<MachineInstr *> insts; /// Vector of DBG_VALUEs to insert.
   };
 
   typedef std::pair<LocIdx, MetaVal> LocAndMeta;
+  /// Collection of transfers (DBG_VALUEs) to be inserted.
   std::vector<Transfer> Transfers;
+  /// Local cache of what-value-is-in-what-LocIdx. Used to identify differences
+  /// between TransferTrackers view of variable locations and MLocTrackers. For
+  /// example, MLocTracker observes all clobbers, but TransferTracker lazily
+  /// does not.
   std::vector<ValueIDNum> VarLocs;
 
+  /// Map from LocIdxes to which DebugVariables are based that location.
+  /// Mantained while stepping through the block. Not accurate if
+  /// VarLocs[Idx] != mtracker->LocIdxToIDNum[Idx].
   DenseMap<LocIdx, SmallSet<DebugVariable, 4>> ActiveMLocs;
+  /// Map from DebugVariable to it's current location and qualifying meta
+  /// information. To be used in conjunction with ActiveMLocs to construct
+  /// enough information for the DBG_VALUEs for a particular LocIdx.
   DenseMap<DebugVariable, LocAndMeta> ActiveVLocs;
 
+  /// Temporary cache of DBG_VALUEs to be entered into the Transfers collection.
   std::vector<MachineInstr *> PendingDbgValues;
 
   const TargetRegisterInfo &TRI;
@@ -734,6 +772,11 @@ public:
 
   TransferTracker(const TargetInstrInfo *TII, MLocTracker *mtracker, MachineFunction &MF, const TargetRegisterInfo &TRI, const BitVector &CalleeSavedRegs) : TII(TII), mtracker(mtracker), MF(MF), TRI(TRI), CalleeSavedRegs(CalleeSavedRegs) { }
 
+  /// Load object with live-in locations. \p mlocs contains the live-in
+  /// values in each machine location, while \p vlocs the live-in variable
+  /// values. This method picks variable locations for the live-in variables,
+  /// creates DBG_VALUEs and puts them in #Transfers, then prepares the other
+  /// object fields to track variable locations as we step through the block.
   void loadInlocs(MachineBasicBlock &MBB, uint64_t *mlocs, SmallVectorImpl<std::pair<DebugVariable, ValueRec>> &vlocs, unsigned cur_bb, unsigned NumLocs) {  
     ActiveMLocs.clear();
     ActiveVLocs.clear();
@@ -748,33 +791,36 @@ public:
       return false;
     };
 
+    // Map of the preferred location for each value number.
     DenseMap<ValueIDNum, LocIdx> ValueToLoc;
 
+    // Produce a map of value numbers to the current machine locs they live
+    // in. When emulating old LiveDebugValues, there should only be one
+    // location; when not, we get to pick.
     for (unsigned Idx = 1; Idx < NumLocs; ++Idx) {
       auto VNum = ValueIDNum::fromU64(mlocs[Idx]);
       VarLocs[Idx] = VNum;
-      // Produce a map of value numbers to the current machine locs they live
-      // in. There should only be one machine loc per value.
-      //assert(ValueToLoc.find(VNum) == ValueToLoc.end()); // XXX expensie
       auto it = ValueToLoc.find(VNum);
+      // If there's no location for this value yet; or it's a spill, or not a
+      /// preferred non-volatile register, then pick this location.
       if (it == ValueToLoc.end() || mtracker->isSpill(it->second) ||
           !isCalleeSaved(it->second))
         ValueToLoc[VNum] = LocIdx(Idx);
     }
 
-    // Now map variables to their current machine locs
+    // Now map variables to their picked LocIdxes.
     for (auto Var : vlocs) {
       if (Var.second.Kind == ValueRec::Const) {
         PendingDbgValues.push_back(emitMOLoc(*Var.second.MO, Var.first, Var.second.meta));
         continue;
       }
 
-      // Value unavailable / has no machine loc -> define no location.
-      auto hahait = ValueToLoc.find(Var.second.ID);
-      if (hahait == ValueToLoc.end())
+      // If the value has no machine location, define no location.
+      auto ValuesPreferredLoc = ValueToLoc.find(Var.second.ID);
+      if (ValuesPreferredLoc == ValueToLoc.end())
         continue;
 
-      LocIdx m = hahait->second;
+      LocIdx m = ValuesPreferredLoc->second;
       ActiveVLocs[Var.first] = std::make_pair(m, Var.second.meta);
       ActiveMLocs[m].insert(Var.first);
       assert(m != 0);
