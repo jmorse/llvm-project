@@ -815,7 +815,7 @@ public:
         continue;
       }
 
-      // If the value has no machine location, define no location.
+      // If the value has no location, we can't make a variable location.
       auto ValuesPreferredLoc = ValueToLoc.find(Var.second.ID);
       if (ValuesPreferredLoc == ValueToLoc.end())
         continue;
@@ -829,6 +829,7 @@ public:
     flushDbgValues(MBB.begin(), &MBB);
   }
 
+  /// Helper to move created DBG_VALUEs into Transfers collection.
   void flushDbgValues(MachineBasicBlock::iterator pos,
                       MachineBasicBlock *MBB) {
     if (PendingDbgValues.size() > 0) {
@@ -837,6 +838,9 @@ public:
     }
   }
 
+  /// Handle a DBG_VALUE within a block. Terminate the variables current
+  /// location, and record the value its DBG_VALUE refers to, so that we can
+  /// detect location transfers later on.
   void redefVar(const MachineInstr &MI) {
     DebugVariable Var(MI.getDebugVariable(), MI.getDebugExpression(),
                       MI.getDebugLoc()->getInlinedAt());
@@ -860,7 +864,9 @@ public:
     LocIdx MLoc = mtracker->getRegMLoc(Reg);
     MetaVal meta = {MI.getDebugExpression(), MI.getOperand(1).isImm()};
 
-    // If that loc has been clobbered in the meantime, wipe its contents.
+    // Check whether our local copy of values-by-location in #VarLocs is out of
+    // date. Wipe old tracking data for the location if it's been clobbered in
+    // the meantime.
     if (mtracker->getNumAtPos(MLoc) != VarLocs[MLoc]) {
       for (auto &P : ActiveMLocs[MLoc]) {
         ActiveVLocs.erase(P);
@@ -878,6 +884,9 @@ public:
     }
   }
 
+  /// Explicitly terminate variable locations based on \p mloc. Creates undef
+  /// DBG_VALUEs for any variables that were located there, and clears
+  /// #ActiveMLoc / #ActiveVLoc tracking information for that location.
   void clobberMloc(LocIdx mloc, MachineBasicBlock::iterator pos) {
     assert(mtracker->isSpill(mloc));
     auto It = ActiveMLocs.find(mloc);
@@ -901,17 +910,21 @@ public:
     It->second.clear();
   }
 
+  /// Transfer variables based on \p src to be based on \dst. This handles
+  /// both register copies as well as spills and restores. Creates DBG_VALUEs
+  /// describing the movement.
   void transferMlocs(LocIdx src, LocIdx dst, MachineBasicBlock::iterator pos) {
     // Does src still contain the value num we expect? If not, it's been
-    // clobbered in the meantime.
+    // clobbered in the meantime, and our variable locations are stale.
     if (VarLocs[src] != mtracker->getNumAtPos(src))
       return;
 
-    // Legitimate scenario on account of un-clobbered slot being assigned to?
     //assert(ActiveMLocs[dst].size() == 0);
+    //^^^ Legitimate scenario on account of un-clobbered slot being assigned to?
     ActiveMLocs[dst] = ActiveMLocs[src];
     VarLocs[dst] = VarLocs[src];
 
+    // For each variable based on src; create a location at dst.
     for (auto &Var : ActiveMLocs[src]) {
       auto it = ActiveVLocs.find(Var);
       assert(it != ActiveVLocs.end());
@@ -924,7 +937,8 @@ public:
     ActiveMLocs[src].clear();
     flushDbgValues(pos, nullptr);
 
-    // XXX XXX XXX "pretend to be old LDV".
+    // XXX XXX XXX "pretend to be old LDV" means dropping all tracking data
+    // about the old location.
     if (EmulateOldLDV)
       VarLocs[src] = ValueIDNum{0, 0, LocIdx(0)};
   }
@@ -955,14 +969,19 @@ private:
   using VarToFragments =
       DenseMap<const DILocalVariable *, SmallSet<FragmentInfo, 4>>;
 
-  typedef DenseMap<LocIdx, ValueIDNum> mloc_transfert;
+  /// Machine location transfer function, a mapping of locations to new values.
+  typedef DenseMap<LocIdx, ValueIDNum> MLocTransferMap;
 
+  /// Live in/out structure for the function: a per-block map of variables to
+  /// their values. XXX, better name?
   typedef DenseMap<const MachineBasicBlock *,
                    DenseMap<DebugVariable, ValueRec> *>
       LiveIdxT;
 
   typedef std::pair<DebugVariable, ValueRec> VarAndLoc;
-  // Vector (per block) of a collection (inner smallvector) of live-ins.
+
+  /// Vector (per block) of a collection (inner smallvector) of live-ins.
+  /// Used as the result type for the variable location dataflow problem.
   typedef SmallVector<SmallVector<VarAndLoc, 8>, 8> LiveInsT;
 
   const TargetRegisterInfo *TRI;
@@ -1019,14 +1038,14 @@ private:
   void accumulateFragmentMap(MachineInstr &MI);
 
   void produce_mloc_transfer_function(MachineFunction &MF,
-                           std::vector<mloc_transfert> &MLocTransfer,
+                           std::vector<MLocTransferMap> &MLocTransfer,
                            unsigned MaxNumBlocks);
 
   bool mloc_join(MachineBasicBlock &MBB,
                  SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
                  uint64_t **OutLocs, uint64_t *InLocs);
   void mloc_dataflow(uint64_t **MInLocs, uint64_t **MOutLocs,
-                     std::vector<mloc_transfert> &MLocTransfer);
+                     std::vector<MLocTransferMap> &MLocTransfer);
 
   bool vloc_join_location(MachineBasicBlock &MBB, ValueRec &InLoc,
                           ValueRec &OLoc, uint64_t *InLocOutLocs,
@@ -1072,7 +1091,7 @@ public:
   bool runOnMachineFunction(MachineFunction &MF) override;
 
   LLVM_DUMP_METHOD
-  void dump_mloc_transfer(const mloc_transfert &mloc_transfer) const;
+  void dump_mloc_transfer(const MLocTransferMap &mloc_transfer) const;
 
   bool isCalleeSaved(LocIdx l) {
     unsigned Reg = tracker->LocIdxToLocID[l];
@@ -1483,7 +1502,7 @@ void LiveDebugValues::process(MachineInstr &MI) {
 }
 
 void LiveDebugValues::produce_mloc_transfer_function(MachineFunction &MF,
-                           std::vector<mloc_transfert> &MLocTransfer,
+                           std::vector<MLocTransferMap> &MLocTransfer,
                            unsigned MaxNumBlocks)
 {
   std::vector<BitVector> BlockMasks;
@@ -1638,7 +1657,7 @@ bool LiveDebugValues::mloc_join(
 }
 
 void LiveDebugValues::mloc_dataflow(uint64_t **MInLocs,
-    uint64_t **MOutLocs, std::vector<mloc_transfert> &MLocTransfer) {
+    uint64_t **MOutLocs, std::vector<MLocTransferMap> &MLocTransfer) {
   std::priority_queue<unsigned int, std::vector<unsigned int>,
                       std::greater<unsigned int>>
       Worklist, Pending;
@@ -2150,7 +2169,7 @@ void LiveDebugValues::vloc_dataflow(
   LBlocks.clear();
 }
 
-void LiveDebugValues::dump_mloc_transfer(const mloc_transfert &mloc_transfer) const {
+void LiveDebugValues::dump_mloc_transfer(const MLocTransferMap &mloc_transfer) const {
   for (auto &P : mloc_transfer) {
     std::string foo = tracker->LocIdxToName(P.first);
     std::string bar = tracker->IDAsString(P.second);
@@ -2228,7 +2247,7 @@ void LiveDebugValues::initial_setup(MachineFunction &MF) {
 bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   LLVM_DEBUG(dbgs() << "\nDebug Range Extension\n");
 
-  std::vector<mloc_transfert> MLocTransfer;
+  std::vector<MLocTransferMap> MLocTransfer;
   SmallVector<VLocTracker, 8> vlocs;
   LiveInsT SavedLiveIns;
 
