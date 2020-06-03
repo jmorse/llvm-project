@@ -2138,47 +2138,57 @@ bool LiveDebugValues::vloc_join(
   unsigned FirstVisited = 0;
   for (auto p : BlockOrders) {
     // Ignore backedges if we have not visited the predecessor yet. As the
-    // predecessor hasn't yet had locations propagated into it, most locations
-    // will not yet be valid, so treat them as all being uninitialized and
-    // potentially valid. If a location guessed to be correct here is
-    // invalidated later, we will remove it when we revisit this block.
+    // predecessor hasn't yet had locations propagated into it, all locations
+    // will have an "Unknown" lattice value that meets with everything.
+    // If a location guessed to be correct here is invalidated later, we will
+    // remove it when we revisit this block.
     if (VLOCVisited && !VLOCVisited->count(p)) {
       LLVM_DEBUG(dbgs() << "  ignoring unvisited pred MBB: " << p->getNumber()
                         << "\n");
       continue;
     }
+
     auto OL = VLOCOutLocs.find(p);
-    // Join is null in case of empty OutLocs from any of the pred.
+    // Join is null if any predecessors OutLocs is absent or empty.
     if (OL == VLOCOutLocs.end()) {
       InLocsT.clear();
       break;
     }
 
-    // Just copy over the Out locs to incoming locs for the first visited
-    // predecessor, and for all other predecessors join the Out locs.
+    // For the first predecessor, copy all of its variable values into the
+    // InLocsT map; check whether other predecessors join with each location
+    // later.
     if (!NumVisited) {
       InLocsT = *OL->second;
       FirstVisited = p->getNumber();
 
-// XXX maaayyybbeeee downgrade to an mphi
-for (auto &It : InLocsT) {
-  // Where does it come out...
-  if (It.second.Kind != ValueRec::Def)
-    continue;
-  LocIdx Idx = FindLocOfDef(FirstVisited, It.second.ID);
-  if (Idx == 0)
-    continue;
-  // Is that what comes in?
-  ValueIDNum LiveInID = ValueIDNum::fromU64(MInLocs[cur_bb][Idx]);
-  if (It.second.ID != LiveInID) {
-    // Ooops. It became an mphi. Convert it to one and check other things later.
-    assert(LiveInID.BlockNo == cur_bb && LiveInID.InstNo == 0);
-    It.second.ID = LiveInID;
-  }
-}
+      // Additionally: for each variable, check whether it's location carries
+      // the value into this block unchanged, or whether an mphi happens,
+      // according to the machine value analysis. If it isn't an mphi, the
+      // result of joining this location must be that value (or fail). If it is,
+      // it has to be that mphi value (or fail).
+      // XXX, this might be a better way to decompose the joining problem?
 
+      for (auto &It : InLocsT) {
+        // Consider only defs,
+        if (It.second.Kind != ValueRec::Def)
+          continue;
+        // Does it have a live-out machine location?
+        LocIdx Idx = FindLocOfDef(FirstVisited, It.second.ID);
+        if (Idx == 0)
+          continue;
+        // And is that what's in the corresponding live-in machine location?
+        ValueIDNum LiveInID = ValueIDNum::fromU64(MInLocs[cur_bb][Idx]);
+        if (It.second.ID != LiveInID) {
+          // No, it became an mphi. Turn the candidate live-in location to that
+          // mphi, and check the other predecessors later.
+          assert(LiveInID.BlockNo == cur_bb && LiveInID.InstNo == 0);
+          It.second.ID = LiveInID;
+        }
+      }
     } else {
-      // XXX insert join here.
+      // Check whether this predecessors variable locations will successfully
+      // join with the first predecessors location, or mphi.
       for (auto &Var : AllVars) {
         auto InLocsIt = InLocsT.find(Var);
         auto OLIt = OL->second->find(Var);
@@ -2193,13 +2203,13 @@ for (auto &It : InLocsT) {
           continue;
         }
 
-
         bool ThisIsABackEdge = this_block_rpot <= BBToOrder[p];
         bool joins = vloc_join_location(MBB, InLocsIt->second, 
                         OLIt->second, MOutLocs[FirstVisited],
                         MOutLocs[p->getNumber()], &ILS, InLocsIt->first,
                         ThisIsABackEdge);
 
+        // If we cannot join the two locations, erase the live-in variable.
         if (!joins)
           InLocsT.erase(InLocsIt);
       }
