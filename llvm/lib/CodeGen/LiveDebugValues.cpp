@@ -2085,7 +2085,6 @@ bool LiveDebugValues::vloc_join(
   bool Changed = false;
 
   DenseMap<DebugVariable, ValueRec> InLocsT;
-  SmallSet<DebugVariable, 8> Disagreements;
 
   auto ILSIt = VLOCInLocs.find(&MBB);
   assert(ILSIt != VLOCInLocs.end());
