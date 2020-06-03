@@ -2073,9 +2073,11 @@ bool LiveDebugValues::vloc_join(
    const SmallSet<DebugVariable, 4> &AllVars,
    uint64_t **MInLocs, uint64_t **MOutLocs,
   SmallPtrSet<const MachineBasicBlock *, 8> &NonAssignBlocks) {
-   
+
+  // To emulate old LiveDebugValues, process this block if it's not in scope but
+  // _does_ assign a variable location. No live-ins for this scope are
+  // transferred in though, so we can return immediately.
   if (NonAssignBlocks.count(&MBB) == 0) {
-    // Wipe all inlocs. By never assigning to them.
     if (VLOCVisited)
       return true;
     return false;
@@ -2084,12 +2086,17 @@ bool LiveDebugValues::vloc_join(
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
 
+  // Map that we'll be using to store the computed live-ins.
   DenseMap<DebugVariable, ValueRec> InLocsT;
 
+  // Find any live-ins computed in a prior iteration.
   auto ILSIt = VLOCInLocs.find(&MBB);
   assert(ILSIt != VLOCInLocs.end());
   auto &ILS = *ILSIt->second;
 
+  // Helper to pick a live-out location for a value. Much like in mloc_join.
+  // Could be much more sophisticated, but doesn't need to be while we're
+  // emulating old LiveDebugValues.
   auto FindLocOfDef = [&](unsigned BBNum, const ValueIDNum &ID) -> LocIdx {
     unsigned NumLocs = tracker->getNumLocs();
     uint64_t *OutLocs = MOutLocs[BBNum];
@@ -2112,7 +2119,7 @@ bool LiveDebugValues::vloc_join(
     return theloc;
   };
 
-  // Order predecessors by RPOT order. Fundemental right now.
+  // Order predecessors by RPOT order, for exploring them in that order.
   SmallVector<MachineBasicBlock *, 8> BlockOrders;
   for (auto p : MBB.predecessors())
     BlockOrders.push_back(p);
@@ -2122,7 +2129,8 @@ bool LiveDebugValues::vloc_join(
   };
 
   llvm::sort(BlockOrders.begin(), BlockOrders.end(), Cmp);
-  unsigned this_rpot = BBToOrder[&MBB];
+
+  unsigned this_block_rpot = BBToOrder[&MBB];
 
   // For all predecessors of this MBB, find the set of VarLocs that
   // can be joined.
@@ -2186,7 +2194,7 @@ for (auto &It : InLocsT) {
         }
 
 
-        bool ThisIsABackEdge = this_rpot <= BBToOrder[p];
+        bool ThisIsABackEdge = this_block_rpot <= BBToOrder[p];
         bool joins = vloc_join_location(MBB, InLocsIt->second, 
                         OLIt->second, MOutLocs[FirstVisited],
                         MOutLocs[p->getNumber()], &ILS, InLocsIt->first,
