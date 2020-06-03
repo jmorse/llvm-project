@@ -1909,9 +1909,26 @@ bool LiveDebugValues::vloc_join_location(MachineBasicBlock &MBB,
                         const LiveIdxT::mapped_type PrevInLocs, // ptr
                         const DebugVariable &CurVar, bool ThisIsABackEdge)
 {
+  // This method checks whether InLoc and OLoc, the locations of a variable
+  // in two predecessor blocks, are reconcilable. The answer can be "yes", "no",
+  // and "yes when downgraded to a PHI value".
+  // Unfortuantely this is mega-complex, because as well as deciding whether
+  // two values can merge or be PHI'd, we also have to verify that if a PHI is
+  // to be used, that the corresponding machine-location PHI has the correct
+  // inputs from the predecessors.
+  // InLoc is never a backedge; the rest of the join problem usually hinges on
+  // whether OLoc is a backedge or not.
+  // Some decisions are left to TransferTracker: if we can determine a value
+  // that isn't an mphi, we can safely leave TransferTracker to pick a location
+  // for it.
+
   unsigned cur_bb = MBB.getNumber();
   bool EarlyBail = false;
 
+  // Lambda to pick a machine location for a value, if we decide to use a PHI
+  // and merge them. This could be much more sophisticated, but right now
+  // is good enough. When emulating old LiveDebugValues, there should only be
+  // one candidate location for a value anyway.
   auto FindLocInLocs = [&](uint64_t *OutLocs, const ValueIDNum &ID) -> LocIdx {
     unsigned NumLocs = tracker->getNumLocs();
     LocIdx theloc = LocIdx(0);
@@ -1932,6 +1949,8 @@ bool LiveDebugValues::vloc_join_location(MachineBasicBlock &MBB,
     // designated block.
     return theloc;
   };
+
+  // Specialisations of that lambda for InLoc and OLoc.
   auto FindInInLocs = [&](const ValueIDNum &ID) -> LocIdx {
     return FindLocInLocs(InLocOutLocs, ID);
   };
@@ -1939,19 +1958,20 @@ bool LiveDebugValues::vloc_join_location(MachineBasicBlock &MBB,
     return FindLocInLocs(OLOutLocs, ID);
   };
 
-  // Different kinds? Definite no.
+  // Different kinds (const/def)? Definite no.
   EarlyBail |= InLoc.Kind != OLoc.Kind;
 
   // Trying to join constants is very simple. Plain join on the constant
-  // value.
+  // value. Set EarlyBail if they differ.
   EarlyBail |=
      (InLoc.Kind == OLoc.Kind && InLoc.Kind == ValueRec::Const &&
       !InLoc.MO->isIdenticalTo(*OLoc.MO));
 
-  // Meta disagreement -> bail early.
+  // Meta disagreement -> bail early. We wouldn't be able to produce a
+  // DBG_VALUE that reconciled the meta information.
   EarlyBail |= (InLoc.meta != OLoc.meta);
 
-  // Clobbered location -> bail early.
+  // LocNo == 0 (undef) -> bail early.
   EarlyBail |=
      (InLoc.Kind == OLoc.Kind && InLoc.Kind == ValueRec::Def &&
       OLoc.ID.LocNo == 0);
@@ -1960,35 +1980,37 @@ bool LiveDebugValues::vloc_join_location(MachineBasicBlock &MBB,
   if (EarlyBail) {
     return false;
   } else if (InLoc.Kind == ValueRec::Const) {
-    // If both are constants, we've satisfied constraints.
+    // If both are constants and we didn't early-bail, they're the same.
     return true;
   }
 
-  // This is a join for "values". Two important facts: is this a
-  // backedge, and does the machine-location we're joining on contain
-  // an mphi? (InlocsIt will be the mphi if there is one).
+  // This is a join for "values". Two important facts: is this a backedge, and
+  // does InLocs refer to a machine-location PHI already?
   assert(InLoc.Kind == ValueRec::Def);
   ValueIDNum &InLocsID = InLoc.ID;
   ValueIDNum &OLID = OLoc.ID;
   bool ThisIsAnMPHI = InLocsID.BlockNo == cur_bb && InLocsID.InstNo == 0;
 
-  // Pick out whether the OLID is in the backedge location or not.
+  // Find a location for the OLID in its out-locs.
   LocIdx OLIdx = FindInOLocs(OLID);
 
   // Everything is massively different for backedges. Try not-be's first.
   if (!ThisIsABackEdge) {
-    // Identical? Then we simply agree. Unless there's an mphi, in which
-    // case we risk the mloc values not lining up being missed. Apply
-    // harder checks to force this to become an mphi location, or croak.
+    // If both values agree, no more work is required, and a location can be
+    // picked for the value when DBG_VALUEs are created.
+    // However if they disagree, or the value is a PHI in this block, then
+    // we may need to create a new PHI, or verify that the correct values flow
+    // into the machine-location PHI.
     if (InLoc == OLoc && !ThisIsAnMPHI)
       return true;
 
     // If we're non-identical and there's no mphi, definitely can't merge.
+    // XXX document that InLoc is always the mphi, if ther eis noe.
     if (InLoc != OLoc && !ThisIsAnMPHI)
       return false;
 
     // Otherwise, we're definitely an mphi, and need to prove that the
-    // location from olit goes into it. Because we're an mphi, we know
+    // location from OLoc goes into it. Because we're an mphi, we know
     // our location...
     LocIdx InLocIdx = InLocsID.LocNo;
     // Also necessary: the vloc out-loc for the edge matches the mloc
@@ -2021,17 +2043,19 @@ bool LiveDebugValues::vloc_join_location(MachineBasicBlock &MBB,
   if (Idx == OLIdx && ThisIsAnMPHI)
     return true;
 
-  // We're not identical, values are merging and there's no an mphi
-  // starting at this block. Check for something where we're being
-  // overridden by an mphi found earlier in the tree.
+  // We're not identical, values are merging and we haven't yet picked an mphi
+  // starting at this block. Follow the file level comment algorithm, and
+  // consider demoting the incoming PHI value instead. Or, downgrade to using
+  // an mphi starting in this block.
 
-  // consider overriding.
   auto ILS_It = PrevInLocs->find(CurVar);
   if (ILS_It == PrevInLocs->end() || ILS_It->second.Kind != ValueRec::Def)
-    // First time around, if there are disagreements, they won't
-    // be due to back edges, thus it's immediately fatal.
+    // This is the first time around as there's no in-loc, and if there are
+    // disagreements, they won't be due to back edges, thus it's immediately
+    // fatal to this location.
     return false;
 
+  // XXX XXX XXX should be RPO order.
   ValueIDNum &ILS_ID = ILS_It->second.ID;
   unsigned NewInOrder = (InLocsID.InstNo) ? 0 : InLocsID.BlockNo + 1;
   unsigned OldOrder = (ILS_ID.InstNo) ? 0 : ILS_ID.BlockNo + 1;
