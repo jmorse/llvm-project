@@ -1078,9 +1078,11 @@ private:
   /// file-comment, reading live-outs of predecessors from \p OutLocs, the
   /// current live ins from \p InLocs, and assigning the newly computed live ins
   /// back into \p InLocs. \returns true if a change was made.
+  /// \p BBNumToRPO maps block numbers (getNumber) to RPO numbers.
   bool mloc_join(MachineBasicBlock &MBB,
                  SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
-                 uint64_t **OutLocs, uint64_t *InLocs);
+                 uint64_t **OutLocs, uint64_t *InLocs,
+                 DenseMap<unsigned, unsigned> &BBNumToRPO);
 
   /// Solve the variable value dataflow problem, for a single lexical scope.
   /// Uses the algorithm from the file comment to resolve control flow joins,
@@ -1700,7 +1702,8 @@ void LiveDebugValues::produce_mloc_transfer_function(MachineFunction &MF,
 bool LiveDebugValues::mloc_join(
     MachineBasicBlock &MBB,
     SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
-    uint64_t **OutLocs, uint64_t *InLocs) {
+    uint64_t **OutLocs, uint64_t *InLocs,
+    DenseMap<unsigned, unsigned> &BBNumToRPO) {
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
 
@@ -1724,39 +1727,45 @@ bool LiveDebugValues::mloc_join(
   if (BlockOrders.size() == 0)
     return false;
 
-  // Step through all predecessors and detect disagreements.
+  // Step through all locations, then look at each predecessor and detect
+  // disagreements.
   unsigned this_block_rpot = BBToOrder.find(&MBB)->second;
   for (unsigned Idx = 1; Idx < tracker->getNumLocs(); ++Idx) {
+    // Pick out the first predecessors live-out value for this location. It's
+    // guaranteed to be not a backedge, as we order by RPO.
     uint64_t base = OutLocs[BlockOrders[0]->getNumber()][Idx];
+
+    // Some flags for whether there's a disagreement, and whether it's a
+    // disagreement with a backedge or not.
     bool disagree = false;
-    bool pred_disagree = false;
-    for (auto *MBB : BlockOrders) { // xxx loops around itself.
+    bool non_be_disagree = false;
+
+    for (auto *MBB : BlockOrders) { // XXX tests against itself.
       if (base != OutLocs[MBB->getNumber()][Idx]) {
+        // Live-out of a predecessor disagrees with the first predecessor.
         disagree = true;
+
+        // Test whether it's a disagreemnt in the backedges or not.
         if (BBToOrder.find(MBB)->second < this_block_rpot) // might be self b/e
-          pred_disagree = true;
+          non_be_disagree = true;
       }
     }
 
     bool over_ride = false;
-    if (disagree && !pred_disagree && ValueIDNum::fromU64(InLocs[Idx]).LocNo != 0) {
+    if (disagree && !non_be_disagree && ValueIDNum::fromU64(InLocs[Idx]).LocNo != 0) {
       // It's only the backedges that disagree. Consider demoting. Order is
       // that non-phis have the minimum priority, and phis "closer" to this
       // one.
       // Don't consider PHIs from futher down the chain.
-// XXX XXX XXX
-// XXX XXX XXX
-// XXX XXX XXX
-// This should be rpot number!
       ValueIDNum base_id = ValueIDNum::fromU64(base);
       ValueIDNum inloc_id = ValueIDNum::fromU64(InLocs[Idx]);
-      unsigned base_block = base_id.BlockNo + 1;
+      unsigned base_block = BBNumToRPO[base_id.BlockNo] + 1;
       if (base_id.InstNo != 0)
         base_block = 0;
-      unsigned inloc_block = inloc_id.BlockNo + 1;
+      unsigned inloc_block = BBNumToRPO[inloc_id.BlockNo] + 1;
       if (inloc_id.InstNo != 0)
         inloc_block = 0;
-      unsigned this_block = MBB.getNumber() + 1;
+      unsigned this_block = BBNumToRPO[MBB.getNumber()] + 1;
       if (base_block > inloc_block && base_block < this_block) {
         // Override.
         over_ride = true;
@@ -1782,8 +1791,12 @@ void LiveDebugValues::mloc_dataflow(uint64_t **MInLocs,
                       std::greater<unsigned int>>
       Worklist, Pending;
 
-  for (unsigned int I = 0; I < BBToOrder.size(); ++I)
+  DenseMap<unsigned, unsigned> BBNumToRPO;
+
+  for (unsigned int I = 0; I < BBToOrder.size(); ++I) {
     Worklist.push(I);
+    BBNumToRPO[OrderToBB[I]->getNumber()] = I;
+  }
 
   tracker->reset();
   // Set inlocs for entry block,
@@ -1806,7 +1819,8 @@ void LiveDebugValues::mloc_dataflow(uint64_t **MInLocs,
       cur_bb = MBB->getNumber();
       Worklist.pop();
 
-      bool InLocsChanged = mloc_join(*MBB, Visited, MOutLocs, MInLocs[cur_bb]);
+      bool InLocsChanged = mloc_join(*MBB, Visited, MOutLocs, MInLocs[cur_bb],
+                                     BBNumToRPO);
       InLocsChanged |= Visited.insert(MBB).second;
 
       // Don't examine transfer function if we've visited this loc at least
