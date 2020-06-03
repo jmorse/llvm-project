@@ -2202,14 +2202,6 @@ for (auto &It : InLocsT) {
     NumVisited++;
   }
 
-  // As we are processing blocks in reverse post-order we
-  // should have processed at least one predecessor, unless it
-  // is the entry block which has no predecessor.
-#if 0
-  assert((NumVisited || MBB.pred_empty()) &&
-         "Should have processed at least one predecessor");
-#endif
-
   Changed = ILS != InLocsT;
   if (Changed)
     ILS = std::move(InLocsT);
