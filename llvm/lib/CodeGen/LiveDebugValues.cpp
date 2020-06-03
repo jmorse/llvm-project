@@ -1974,8 +1974,6 @@ bool LiveDebugValues::vloc_join_location(MachineBasicBlock &MBB,
 
   // Pick out whether the OLID is in the backedge location or not.
   LocIdx OLIdx = FindInOLocs(OLID);
-  if (OLIdx == 0 && OLID.BlockNo == cur_bb && OLID.InstNo == 0)
-    OLIdx = OLID.LocNo; // We've previously made this an mphi.
 
   // If it isn't, this location is invalidated _in_ the block on the
   // other end of the backedge.
