@@ -1753,24 +1753,37 @@ bool LiveDebugValues::mloc_join(
 
     bool over_ride = false;
     if (disagree && !non_be_disagree && ValueIDNum::fromU64(InLocs[Idx]).LocNo != 0) {
-      // It's only the backedges that disagree. Consider demoting. Order is
-      // that non-phis have the minimum priority, and phis "closer" to this
-      // one.
-      // Don't consider PHIs from futher down the chain.
+      // Only the backedges disagree, and we previously agreed on some value
+      // because we set the Live-In to be nonzero. Consider demoting the livein
+      // lattice value, as per the file level comment. The value we consider
+      // demoting to is the value that the non-backedge predecessors agree on.
+      // The order of values is that non-PHIs are \top, a PHI at this block 
+      // \bot, and phis between the two are ordered by their RPO number.
+      // If there's no agreement, or we've already demoted to this PHI value
+      // before, replace with a PHI value at this block.
+
+      // Calculate order numbers: zero means normal def, nonzero means RPO
+      // number.
       ValueIDNum base_id = ValueIDNum::fromU64(base);
-      ValueIDNum inloc_id = ValueIDNum::fromU64(InLocs[Idx]);
       unsigned base_block = BBNumToRPO[base_id.BlockNo] + 1;
       if (base_id.InstNo != 0)
         base_block = 0;
+
+      ValueIDNum inloc_id = ValueIDNum::fromU64(InLocs[Idx]);
       unsigned inloc_block = BBNumToRPO[inloc_id.BlockNo] + 1;
       if (inloc_id.InstNo != 0)
         inloc_block = 0;
+
+      // Should we ignore the disagreeing backedges, and override with the
+      // value the other predecessors agree on (in "base")?
       unsigned this_block = BBNumToRPO[MBB.getNumber()] + 1;
       if (base_block > inloc_block && base_block < this_block) {
         // Override.
         over_ride = true;
       }
     }
+    // else: if we disagree in the non-backedges, then this is definitely
+    // a control flow merge where different values merge. Make it a PHI.
 
     // Generate a phi...
     ValueIDNum PHI = {(uint64_t)MBB.getNumber(), 0, LocIdx(Idx)};
@@ -1799,7 +1812,9 @@ void LiveDebugValues::mloc_dataflow(uint64_t **MInLocs,
   }
 
   tracker->reset();
-  // Set inlocs for entry block,
+
+  // Set inlocs for entry block -- each as a PHI at the entry block. Represents
+  // the incoming value to the function.
   tracker->setMPhis(0);
   for (unsigned Idx = 1; Idx < tracker->getNumLocs(); ++Idx) {
     ValueIDNum Val = tracker->getNumAtPos(LocIdx(Idx));
@@ -1810,15 +1825,19 @@ void LiveDebugValues::mloc_dataflow(uint64_t **MInLocs,
   SmallPtrSet<const MachineBasicBlock *, 16> Visited;
   while (!Worklist.empty() || !Pending.empty()) {
     // We track what is on the pending worklist to avoid inserting the same
-    // thing twice.  We could avoid this with a custom priority queue, but this
+    // thing twice. We could avoid this with a custom priority queue, but this
     // is probably not worth it.
     SmallPtrSet<MachineBasicBlock *, 16> OnPending;
+
+    // Vector for storing the evaluated block transfer function.
     SmallVector<std::pair<LocIdx, ValueIDNum>, 32> toremap;
+
     while (!Worklist.empty()) {
       MachineBasicBlock *MBB = OrderToBB[Worklist.top()];
       cur_bb = MBB->getNumber();
       Worklist.pop();
 
+      // Join the values in all predecessor blocks.
       bool InLocsChanged = mloc_join(*MBB, Visited, MOutLocs, MInLocs[cur_bb],
                                      BBNumToRPO);
       InLocsChanged |= Visited.insert(MBB).second;
@@ -1828,9 +1847,11 @@ void LiveDebugValues::mloc_dataflow(uint64_t **MInLocs,
       if (!InLocsChanged)
         continue;
 
-      // Rather than touch all insts again, read and then reset locations
-      // in the transfer function.
+      // Load the current set of live-ins into MLocTracker.
       tracker->loadFromArray(MInLocs[cur_bb], cur_bb);
+
+      // Each element of the transfer function can be a new def, or a read of
+      // a live-in value. Evaluate each element, and store to "toremap".
       toremap.clear();
       for (auto &P : MLocTransfer[cur_bb]) {
         ValueIDNum NewID = {0, 0, LocIdx(0)};
@@ -1838,15 +1859,15 @@ void LiveDebugValues::mloc_dataflow(uint64_t **MInLocs,
           // This is a movement of whatever was live in. Read it.
           NewID = tracker->getNumAtPos(P.second.LocNo);
         } else {
-          // It's a def. (Has to be a def in this BB, or nullloc).
-          // Just set it.
+          // It's a def. Just set it.
           assert(P.second.BlockNo == cur_bb || P.second.LocNo == 0);
           NewID = P.second;
         }
         toremap.push_back(std::make_pair(P.first, NewID));
       }
 
-      // Commit the transfer function changes into mloc tracker.
+      // Commit the transfer function changes into mloc tracker, which
+      // transforms the contents of the MLocTracker into the live-outs.
       for (auto &P : toremap)
         tracker->setMLoc(P.first, P.second);
 
@@ -1870,11 +1891,15 @@ void LiveDebugValues::mloc_dataflow(uint64_t **MInLocs,
         if (OnPending.insert(s).second)
           Pending.push(BBToOrder[s]);
     }
+
     Worklist.swap(Pending);
     // At this point, pending must be empty, since it was just the empty
     // worklist
     assert(Pending.empty() && "Pending should be empty");
   }
+
+  // Once all the live-ins don't change on mloc_join(), we've reached a
+  // fixedpoint.
 }
 
 bool LiveDebugValues::vloc_join_location(MachineBasicBlock &MBB,
