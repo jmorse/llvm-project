@@ -1975,11 +1975,6 @@ bool LiveDebugValues::vloc_join_location(MachineBasicBlock &MBB,
   // Pick out whether the OLID is in the backedge location or not.
   LocIdx OLIdx = FindInOLocs(OLID);
 
-  // If it isn't, this location is invalidated _in_ the block on the
-  // other end of the backedge.
-  if (ThisIsABackEdge && OLOutLocs[OLIdx] != OLID.asU64())
-    return false;
-
   // Everything is massively different for backedges. Try not-be's first.
   if (!ThisIsABackEdge) {
     // Identical? Then we simply agree. Unless there's an mphi, in which
@@ -2004,6 +1999,10 @@ bool LiveDebugValues::vloc_join_location(MachineBasicBlock &MBB,
       return false;
     return true;
   }
+
+  // If the backedge value has no location, definitely can't merge.
+  if (OLIdx == 0)
+    return false;
 
   LocIdx Idx = FindInInLocs(InLocsID);
   if (Idx == 0 && InLocsID.BlockNo == cur_bb && InLocsID.InstNo == 0)
