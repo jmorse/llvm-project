@@ -2082,10 +2082,11 @@ bool LiveDebugValues::vloc_join_location(MachineBasicBlock &MBB,
     // fatal to this variable.
     return false;
 
-  // XXX XXX XXX should be RPO order.
   ValueIDNum &ILS_ID = ILS_It->second.ID;
-  unsigned NewInOrder = (InLocsID.InstNo) ? 0 : InLocsID.BlockNo + 1;
-  unsigned OldOrder = (ILS_ID.InstNo) ? 0 : ILS_ID.BlockNo + 1;
+  unsigned NewInOrder =
+    (InLocsID.InstNo) ? 0 : BBNumToRPO[InLocsID.BlockNo] + 1;
+  unsigned OldOrder =
+    (ILS_ID.InstNo) ? 0 : BBNumToRPO[ILS_ID.BlockNo] + 1;
   if (OldOrder >= NewInOrder)
     return false;
 
