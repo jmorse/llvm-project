@@ -745,7 +745,6 @@ public:
 /// unavailable value could materialize in the middle of a block, when the
 /// value becomes available. Or, we could detect clobbers and re-specify the
 /// variable in a backup location. (XXX these are unimplemented).
-//
 class TransferTracker {
 public:
   const TargetInstrInfo *TII;
