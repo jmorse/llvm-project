@@ -356,8 +356,9 @@ public:
   /// number is the index in SpillLocs minus one plus NumRegs.
   UniqueVector<SpillLoc> SpillLocs;
 
-  // Can't remember, something to do with implicitly reading PHIs on the fly. 
-  unsigned lolwat_cur_bb;
+  // If we discover a new machine location, assign it an mphi with this
+  // block number.
+  unsigned CurBB;
 
   /// Cached local copy of the number of registers the target has.
   unsigned NumRegs;
@@ -399,7 +400,7 @@ public:
   /// sometimes for actual PHI values, othertimes to indicate the block entry
   /// value (before any more information is known).
   void setMPhis(unsigned cur_bb) {
-    lolwat_cur_bb = cur_bb;
+    CurBB = cur_bb;
     for (unsigned ID = 1; ID < LocIdxToIDNum.size(); ++ID) {
       LocIdxToIDNum[LocIdx(ID)] = {cur_bb, 0, LocIdx(ID)};
     }
@@ -408,7 +409,7 @@ public:
   /// Load values for each location from array of ValueIDNums. Take current
   /// bbnum just in case we read a value from a hitherto untouched register.
   void loadFromArray(uint64_t *Locs, unsigned cur_bb) {
-    lolwat_cur_bb = cur_bb;
+    CurBB = cur_bb;
     // Quickly reset everything to being itself at inst 0, representing a phi.
     for (unsigned ID = 1; ID < LocIdxToIDNum.size(); ++ID) {
       LocIdxToIDNum[LocIdx(ID)] = ValueIDNum::fromU64(Locs[ID]);
@@ -451,12 +452,12 @@ public:
       Ref = NewIdx;
 
       // Default: it's an mphi.
-      ValueIDNum ValNum = {lolwat_cur_bb, 0, NewIdx};
+      ValueIDNum ValNum = {CurBB, 0, NewIdx};
       // Was this reg ever touched by a regmask?
       for (auto rit = Masks.rbegin(); rit != Masks.rend(); ++rit) {
         if (rit->first->clobbersPhysReg(ID))  {
           // There was an earlier def we skipped
-          ValNum = {lolwat_cur_bb, rit->second, NewIdx};
+          ValNum = {CurBB, rit->second, NewIdx};
           break;
         }
       }
