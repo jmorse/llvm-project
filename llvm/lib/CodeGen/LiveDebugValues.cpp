@@ -1042,6 +1042,7 @@ private:
   // Mapping of blocks to and from their RPOT order.
   DenseMap<unsigned int, MachineBasicBlock *> OrderToBB;
   DenseMap<MachineBasicBlock *, unsigned int> BBToOrder;
+  DenseMap<unsigned, unsigned> BBNumToRPO;
 
   // Map of overlapping variable fragments.
   OverlapMap OverlapFragments;
@@ -1111,11 +1112,9 @@ private:
   /// reading live-outs of predecessors from \p OutLocs, the current live ins
   /// from \p InLocs, and assigning the newly computed live ins back into
   /// \p InLocs. \returns true if a change was made.
-  /// \p BBNumToRPO maps block numbers (getNumber) to RPO numbers.
   bool mloc_join(MachineBasicBlock &MBB,
                  SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
-                 uint64_t **OutLocs, uint64_t *InLocs,
-                 DenseMap<unsigned, unsigned> &BBNumToRPO);
+                 uint64_t **OutLocs, uint64_t *InLocs);
 
   /// Solve the variable value dataflow problem, for a single lexical scope.
   /// Uses the algorithm from the file comment to resolve control flow joins,
@@ -1735,8 +1734,7 @@ void LiveDebugValues::produce_mloc_transfer_function(MachineFunction &MF,
 bool LiveDebugValues::mloc_join(
     MachineBasicBlock &MBB,
     SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
-    uint64_t **OutLocs, uint64_t *InLocs,
-    DenseMap<unsigned, unsigned> &BBNumToRPO) {
+    uint64_t **OutLocs, uint64_t *InLocs) {
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
 
@@ -1837,12 +1835,8 @@ void LiveDebugValues::mloc_dataflow(uint64_t **MInLocs,
                       std::greater<unsigned int>>
       Worklist, Pending;
 
-  DenseMap<unsigned, unsigned> BBNumToRPO;
-
-  for (unsigned int I = 0; I < BBToOrder.size(); ++I) {
+  for (unsigned int I = 0; I < BBToOrder.size(); ++I)
     Worklist.push(I);
-    BBNumToRPO[OrderToBB[I]->getNumber()] = I;
-  }
 
   tracker->reset();
 
@@ -1871,8 +1865,8 @@ void LiveDebugValues::mloc_dataflow(uint64_t **MInLocs,
       Worklist.pop();
 
       // Join the values in all predecessor blocks.
-      bool InLocsChanged = mloc_join(*MBB, Visited, MOutLocs, MInLocs[cur_bb],
-                                     BBNumToRPO);
+      bool InLocsChanged = mloc_join(*MBB, Visited, MOutLocs, MInLocs[cur_bb]
+                                     );
       InLocsChanged |= Visited.insert(MBB).second;
 
       // Don't examine transfer function if we've visited this loc at least
@@ -2491,6 +2485,7 @@ void LiveDebugValues::initial_setup(MachineFunction &MF) {
   for (auto RI = RPOT.begin(), RE = RPOT.end(); RI != RE; ++RI) {
     OrderToBB[RPONumber] = *RI;
     BBToOrder[*RI] = RPONumber;
+    BBNumToRPO[(*RI)->getNumber()] = RPONumber;
     ++RPONumber;
   }
 }
@@ -2636,6 +2631,7 @@ bool LiveDebugValues::runOnMachineFunction(MachineFunction &MF) {
   ArtificialBlocks.clear();
   OrderToBB.clear();
   BBToOrder.clear();
+  BBNumToRPO.clear();
 
   return Changed;
 }
