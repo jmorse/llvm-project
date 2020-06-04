@@ -110,9 +110,10 @@
 /// ### Terminology
 ///
 /// A machine location is a register or spill slot, a value is something that's
-/// defined by an instruction, while a variable value is the value assigned to
-/// a variable. A variable location is a machine location, that must contain
-/// the appropriate variable value.
+/// defined by an instruction or PHI node, while a variable value is the value
+/// assigned to a variable. A variable location is a machine location, that must
+/// contain the appropriate variable value. A value that is a PHI node is
+/// occasionally called an mphi.
 ///
 /// I'm calling the first dataflow problem the "machine value location" problem,
 /// because we're determining which machine locations contain which values.
