@@ -57,8 +57,6 @@
 /// the second reaching-definition analysis with only the variables and blocks
 /// in a single lexical scope, exploiting their locality.
 ///
-/// NOT IMPLEMENTED (yet): overlapping fragments and entry values.
-///
 /// Determining where PHIs happen is trickier with this approach, and it comes
 /// to a head in the major problem for LiveDebugValues: is a value live-through
 /// a loop, or not? Your garden-variety dataflow analysis aims to build a set of
@@ -124,6 +122,12 @@
 /// what location those values are placed in. Unfortunately, it's not that
 /// simple, because producing a PHI value always involves picking a location.
 /// This is an imperfection that we just have to accept, IMO.
+///
+/// TODO:
+///   Overlapping fragments
+///   Entry values
+///   Add back DEBUG statements for debugging this
+///   Collect statistics
 ///
 //===----------------------------------------------------------------------===//
 
