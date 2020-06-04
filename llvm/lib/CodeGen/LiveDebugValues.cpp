@@ -1154,7 +1154,7 @@ private:
   bool vlocJoin(MachineBasicBlock &MBB, LiveIdxT &VLOCOutLocs,
                  LiveIdxT &VLOCInLocs,
                  SmallPtrSet<const MachineBasicBlock *, 16> *VLOCVisited,
-                 unsigned cur_bb, const SmallSet<DebugVariable, 4> &AllVars,
+                 unsigned BBNum, const SmallSet<DebugVariable, 4> &AllVars,
                  uint64_t **MInLocs, uint64_t **MOutLocs,
                  SmallPtrSet<const MachineBasicBlock *, 8> &NonAssignBlocks);
 
@@ -1867,7 +1867,7 @@ void LiveDebugValues::mlocDataflow(
     SmallPtrSet<MachineBasicBlock *, 16> OnPending;
 
     // Vector for storing the evaluated block transfer function.
-    SmallVector<std::pair<LocIdx, ValueIDNum>, 32> toremap;
+    SmallVector<std::pair<LocIdx, ValueIDNum>, 32> ToRemap;
 
     while (!Worklist.empty()) {
       MachineBasicBlock *MBB = OrderToBB[Worklist.top()];
@@ -1887,8 +1887,8 @@ void LiveDebugValues::mlocDataflow(
       MTracker->loadFromArray(MInLocs[CurBB], CurBB);
 
       // Each element of the transfer function can be a new def, or a read of
-      // a live-in value. Evaluate each element, and store to "toremap".
-      toremap.clear();
+      // a live-in value. Evaluate each element, and store to "ToRemap".
+      ToRemap.clear();
       for (auto &P : MLocTransfer[CurBB]) {
         ValueIDNum NewID = {0, 0, LocIdx(0)};
         if (P.second.BlockNo == CurBB && P.second.InstNo == 0) {
@@ -1899,12 +1899,12 @@ void LiveDebugValues::mlocDataflow(
           assert(P.second.BlockNo == CurBB || P.second.LocNo == 0);
           NewID = P.second;
         }
-        toremap.push_back(std::make_pair(P.first, NewID));
+        ToRemap.push_back(std::make_pair(P.first, NewID));
       }
 
       // Commit the transfer function changes into mloc tracker, which
       // transforms the contents of the MLocTracker into the live-outs.
-      for (auto &P : toremap)
+      for (auto &P : ToRemap)
         MTracker->setMLoc(P.first, P.second);
 
       // Now copy out-locs from mloc tracker into out-loc vector, checking
@@ -1956,7 +1956,7 @@ bool LiveDebugValues::vlocJoinLocation(
   // that isn't an mphi, we can safely leave TransferTracker to pick a location
   // for it.
 
-  unsigned cur_bb = MBB.getNumber();
+  unsigned BBNum = MBB.getNumber();
   bool EarlyBail = false;
 
   // Lambda to pick a machine location for a value, if we decide to use a PHI
@@ -2021,7 +2021,7 @@ bool LiveDebugValues::vlocJoinLocation(
   assert(InLoc.Kind == ValueRec::Def);
   ValueIDNum &InLocsID = InLoc.ID;
   ValueIDNum &OLID = OLoc.ID;
-  bool ThisIsAnMPHI = InLocsID.BlockNo == cur_bb && InLocsID.InstNo == 0;
+  bool ThisIsAnMPHI = InLocsID.BlockNo == BBNum && InLocsID.InstNo == 0;
 
   // Find a machine location for the OLID in its out-locs.
   LocIdx OLIdx = FindInOLocs(OLID);
@@ -2059,7 +2059,7 @@ bool LiveDebugValues::vlocJoinLocation(
     return false;
 
   LocIdx Idx = FindInInLocs(InLocsID);
-  if (Idx == 0 && InLocsID.BlockNo == cur_bb && InLocsID.InstNo == 0)
+  if (Idx == 0 && InLocsID.BlockNo == BBNum && InLocsID.InstNo == 0)
     Idx = InLocsID.LocNo; // We've previously made this an mphi.
 
   // OK, the value is fed back around. If it's the same, it must be
@@ -2099,7 +2099,7 @@ bool LiveDebugValues::vlocJoinLocation(
 
 bool LiveDebugValues::vlocJoin(
     MachineBasicBlock &MBB, LiveIdxT &VLOCOutLocs, LiveIdxT &VLOCInLocs,
-    SmallPtrSet<const MachineBasicBlock *, 16> *VLOCVisited, unsigned cur_bb,
+    SmallPtrSet<const MachineBasicBlock *, 16> *VLOCVisited, unsigned BBNum,
     const SmallSet<DebugVariable, 4> &AllVars, uint64_t **MInLocs,
     uint64_t **MOutLocs,
     SmallPtrSet<const MachineBasicBlock *, 8> &NonAssignBlocks) {
@@ -2160,7 +2160,7 @@ bool LiveDebugValues::vlocJoin(
 
   llvm::sort(BlockOrders.begin(), BlockOrders.end(), Cmp);
 
-  unsigned this_block_rpot = BBToOrder[&MBB];
+  unsigned ThisBlockRPONum = BBToOrder[&MBB];
 
   // For all predecessors of this MBB, find the set of variable values that
   // can be joined.
@@ -2208,11 +2208,11 @@ bool LiveDebugValues::vlocJoin(
         if (Idx == 0)
           continue;
         // And is that what's in the corresponding live-in machine location?
-        ValueIDNum LiveInID = ValueIDNum::fromU64(MInLocs[cur_bb][Idx]);
+        ValueIDNum LiveInID = ValueIDNum::fromU64(MInLocs[BBNum][Idx]);
         if (It.second.ID != LiveInID) {
           // No, it became an mphi. Turn the candidate live-in location to that
           // mphi, and check the other predecessors later.
-          assert(LiveInID.BlockNo == cur_bb && LiveInID.InstNo == 0);
+          assert(LiveInID.BlockNo == BBNum && LiveInID.InstNo == 0);
           It.second.ID = LiveInID;
         }
       }
@@ -2233,7 +2233,7 @@ bool LiveDebugValues::vlocJoin(
           continue;
         }
 
-        bool ThisIsABackEdge = this_block_rpot <= BBToOrder[p];
+        bool ThisIsABackEdge = ThisBlockRPONum <= BBToOrder[p];
         bool joins = vlocJoinLocation(
             MBB, InLocsIt->second, OLIt->second, MOutLocs[FirstVisited],
             MOutLocs[p->getNumber()], &ILS, InLocsIt->first, ThisIsABackEdge);
@@ -2336,7 +2336,7 @@ void LiveDebugValues::vlocDataflow(
   for (auto *MBB : BlockOrders)
     Worklist.push(BBToOrder[MBB]);
 
-  bool firsttrip = true;
+  bool FirstTrip = true;
   SmallPtrSet<const MachineBasicBlock *, 16> VLOCVisited;
   while (!Worklist.empty() || !Pending.empty()) {
     SmallPtrSet<MachineBasicBlock *, 16> OnPending;
@@ -2347,7 +2347,7 @@ void LiveDebugValues::vlocDataflow(
 
       // Join values from predecessors.
       bool InlocsChanged = vlocJoin(
-          *MBB, LiveOutIdx, LiveInIdx, (firsttrip) ? &VLOCVisited : nullptr,
+          *MBB, LiveOutIdx, LiveInIdx, (FirstTrip) ? &VLOCVisited : nullptr,
           CurBB, VarsWeCareAbout, MInLocs, MOutLocs, NonAssignBlocks);
 
       // Always explore transfer function if inlocs changed, or if we've not
@@ -2388,7 +2388,7 @@ void LiveDebugValues::vlocDataflow(
     }
     Worklist.swap(Pending);
     assert(Pending.empty());
-    firsttrip = false;
+    FirstTrip = false;
   }
 
   // Dataflow done. Now what? Save live-ins.
