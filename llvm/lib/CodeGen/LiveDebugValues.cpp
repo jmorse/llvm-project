@@ -262,7 +262,7 @@ public:
   }
 };
 
-} // end anonymous namepace
+} // end anonymous namespace
 
 // Boilerplate densemapinfo for ValueIDNum.
 namespace llvm {
@@ -515,8 +515,7 @@ public:
   /// Record a RegMask operand being executed. Defs any register we currently
   /// track, stores a pointer to the mask in case we have to account for it
   /// later.
-  void writeRegMask(const MachineOperand *MO, unsigned CurBB,
-                    unsigned InstID) {
+  void writeRegMask(const MachineOperand *MO, unsigned CurBB, unsigned InstID) {
     // Ensure SP exists, so that we don't override it later.
     unsigned SP = TLI.getStackPointerRegisterToSaveRestore();
     unsigned ID = getLocID(SP, false);
@@ -964,8 +963,8 @@ public:
       ActiveVLocIt->second.first = Dst;
 
       assert(Dst != 0);
-      MachineInstr *MI = MTracker->emitLoc(Dst, Var,
-                                           ActiveVLocIt->second.second);
+      MachineInstr *MI =
+          MTracker->emitLoc(Dst, Var, ActiveVLocIt->second.second);
       PendingDbgValues.push_back(MI);
     }
     ActiveMLocs[Src].clear();
@@ -1104,10 +1103,9 @@ private:
   /// in an MLocTracker. Convert the observations into a per-block transfer
   /// function in \p MLocTransfer, suitable for using with the machine value
   /// location dataflow problem.
-  void
-  produceMLocTransferFunction(MachineFunction &MF,
-                                 std::vector<MLocTransferMap> &MLocTransfer,
-                                 unsigned MaxNumBlocks);
+  void produceMLocTransferFunction(MachineFunction &MF,
+                                   std::vector<MLocTransferMap> &MLocTransfer,
+                                   unsigned MaxNumBlocks);
 
   /// Solve the machine value location dataflow problem. Takes as input the
   /// transfer functions in \p MLocTransfer. Writes the output live-in and
@@ -1115,7 +1113,7 @@ private:
   /// \p MInLocs and \p MOutLocs. The outer dimension is indexed by block
   /// number, the inner by LocIdx.
   void mlocDataflow(uint64_t **MInLocs, uint64_t **MOutLocs,
-                     std::vector<MLocTransferMap> &MLocTransfer);
+                    std::vector<MLocTransferMap> &MLocTransfer);
 
   /// Perform a control flow join (lattice value meet) of the values in machine
   /// locations at \p MBB. Follows the algorithm described in the file-comment,
@@ -1123,8 +1121,8 @@ private:
   /// from \p InLocs, and assigning the newly computed live ins back into
   /// \p InLocs. \returns true if a change was made.
   bool mlocJoin(MachineBasicBlock &MBB,
-                 SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
-                 uint64_t **OutLocs, uint64_t *InLocs);
+                SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
+                uint64_t **OutLocs, uint64_t *InLocs);
 
   /// Solve the variable value dataflow problem, for a single lexical scope.
   /// Uses the algorithm from the file comment to resolve control flow joins,
@@ -1140,10 +1138,10 @@ private:
   /// which do contain DBG_VALUEs, which old LiveDebugValues tracked locations
   /// through.
   void vlocDataflow(const LexicalScope *Scope,
-                     const SmallSet<DebugVariable, 4> &VarsWeCareAbout,
-                     SmallPtrSetImpl<MachineBasicBlock *> &AssignBlocks,
-                     LiveInsT &Output, uint64_t **MOutLocs, uint64_t **MInLocs,
-                     SmallVectorImpl<VLocTracker> &AllTheVLocs);
+                    const SmallSet<DebugVariable, 4> &VarsWeCareAbout,
+                    SmallPtrSetImpl<MachineBasicBlock *> &AssignBlocks,
+                    LiveInsT &Output, uint64_t **MOutLocs, uint64_t **MInLocs,
+                    SmallVectorImpl<VLocTracker> &AllTheVLocs);
 
   /// Compute the live-ins to a block, considering control flow merges according
   /// to the method in the file comment. Live out and live in variable values
@@ -1152,11 +1150,11 @@ private:
   /// computed and stored into \p VLOCInLocs. \returns true if the live-ins
   /// are modified. Delegates most logic for merging to \ref vlocJoinLocation.
   bool vlocJoin(MachineBasicBlock &MBB, LiveIdxT &VLOCOutLocs,
-                 LiveIdxT &VLOCInLocs,
-                 SmallPtrSet<const MachineBasicBlock *, 16> *VLOCVisited,
-                 unsigned BBNum, const SmallSet<DebugVariable, 4> &AllVars,
-                 uint64_t **MInLocs, uint64_t **MOutLocs,
-                 SmallPtrSet<const MachineBasicBlock *, 8> &NonAssignBlocks);
+                LiveIdxT &VLOCInLocs,
+                SmallPtrSet<const MachineBasicBlock *, 16> *VLOCVisited,
+                unsigned BBNum, const SmallSet<DebugVariable, 4> &AllVars,
+                uint64_t **MInLocs, uint64_t **MOutLocs,
+                SmallPtrSet<const MachineBasicBlock *, 8> &NonAssignBlocks);
 
   /// Perform value merge for a single variable at a particular block,
   /// between two individual predecessor values. \ref vlocJoin picks one
@@ -1169,11 +1167,10 @@ private:
   /// \p ThisIsABackEdge True if \p OLoc is a backedge.
   /// \returns true if the values are reconciled, false if there is an
   /// unresolvable value conflict.
-  bool vlocJoinLocation(MachineBasicBlock &MBB, ValueRec &InLoc,
-                          ValueRec &OLoc, uint64_t *InLocOutLocs,
-                          uint64_t *OLOutlocs,
-                          const LiveIdxT::mapped_type PrevInLocs, // is ptr
-                          const DebugVariable &CurVar, bool ThisIsABackEdge);
+  bool vlocJoinLocation(MachineBasicBlock &MBB, ValueRec &InLoc, ValueRec &OLoc,
+                        uint64_t *InLocOutLocs, uint64_t *OLOutlocs,
+                        const LiveIdxT::mapped_type PrevInLocs, // is ptr
+                        const DebugVariable &CurVar, bool ThisIsABackEdge);
 
   /// Given the solutions to the two dataflow problems, machine value locations
   /// in \p MInLocs and live-in variable values in \p SavedLiveIns, runs the
@@ -1183,8 +1180,8 @@ private:
   /// right now "order of appearence in function, when explored in RPO", so
   /// that we can compare explictly against old LiveDebugValues.
   void emitLocations(MachineFunction &MF, LiveInsT SavedLiveIns,
-                      uint64_t **MInLocs,
-                      DenseMap<DebugVariable, unsigned> &AllVarsNumbering);
+                     uint64_t **MInLocs,
+                     DenseMap<DebugVariable, unsigned> &AllVarsNumbering);
 
   /// Boilerplate computation of some initial sets, artifical blocks and
   /// RPOT block ordering.
@@ -1838,9 +1835,8 @@ bool LiveDebugValues::mlocJoin(
   return Changed;
 }
 
-void LiveDebugValues::mlocDataflow(
-    uint64_t **MInLocs, uint64_t **MOutLocs,
-    std::vector<MLocTransferMap> &MLocTransfer) {
+void LiveDebugValues::mlocDataflow(uint64_t **MInLocs, uint64_t **MOutLocs,
+                                   std::vector<MLocTransferMap> &MLocTransfer) {
   std::priority_queue<unsigned int, std::vector<unsigned int>,
                       std::greater<unsigned int>>
       Worklist, Pending;
@@ -2590,7 +2586,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   // in SavedLiveIns.
   for (auto &P : ScopeToVars) {
     vlocDataflow(P.first, P.second, ScopeToBlocks[P.first], SavedLiveIns,
-                  MOutLocs, MInLocs, vlocs);
+                 MOutLocs, MInLocs, vlocs);
   }
 
   // Using the computed value locations and variable values for each block,
