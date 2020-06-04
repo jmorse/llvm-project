@@ -258,7 +258,7 @@ public:
   }
 };
 
-} // end anon namespace
+} // end anonymous namepace
 
 // Boilerplate densemapinfo for ValueIDNum.
 namespace llvm {
