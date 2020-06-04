@@ -1167,8 +1167,9 @@ private:
   /// \p ThisIsABackEdge True if \p OLoc is a backedge.
   /// \returns true if the values are reconciled, false if there is an
   /// unresolvable value conflict.
-  bool vlocJoinLocation(MachineBasicBlock &MBB, ValueRec &InLoc, ValueRec &OLoc,
-                        uint64_t *InLocOutLocs, uint64_t *OLOutlocs,
+  bool vlocJoinLocation(MachineBasicBlock &MBB, const ValueRec &InLoc,
+                        const ValueRec &OLoc, uint64_t *InLocOutLocs,
+                        uint64_t *OLOutlocs,
                         const LiveIdxT::mapped_type PrevInLocs, // is ptr
                         const DebugVariable &CurVar, bool ThisIsABackEdge);
 
@@ -1935,7 +1936,7 @@ void LiveDebugValues::mlocDataflow(uint64_t **MInLocs, uint64_t **MOutLocs,
 }
 
 bool LiveDebugValues::vlocJoinLocation(
-    MachineBasicBlock &MBB, ValueRec &InLoc, ValueRec &OLoc,
+    MachineBasicBlock &MBB, const ValueRec &InLoc, const ValueRec &OLoc,
     uint64_t *InLocOutLocs, uint64_t *OLOutLocs,
     const LiveIdxT::mapped_type PrevInLocs, // ptr
     const DebugVariable &CurVar, bool ThisIsABackEdge) {
@@ -2015,8 +2016,8 @@ bool LiveDebugValues::vlocJoinLocation(
   // This is a join for "values". Two important facts: is this a backedge, and
   // does InLocs refer to a machine location PHI already?
   assert(InLoc.Kind == ValueRec::Def);
-  ValueIDNum &InLocsID = InLoc.ID;
-  ValueIDNum &OLID = OLoc.ID;
+  const ValueIDNum &InLocsID = InLoc.ID;
+  const ValueIDNum &OLID = OLoc.ID;
   bool ThisIsAnMPHI = InLocsID.BlockNo == BBNum && InLocsID.InstNo == 0;
 
   // Find a machine location for the OLID in its out-locs.
