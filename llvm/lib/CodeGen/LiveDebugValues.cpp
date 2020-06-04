@@ -2132,7 +2132,7 @@ bool LiveDebugValues::vloc_join(
 
   unsigned this_block_rpot = BBToOrder[&MBB];
 
-  // For all predecessors of this MBB, find the set of VarLocs that
+  // For all predecessors of this MBB, find the set of variable values that
   // can be joined.
   int NumVisited = 0;
   unsigned FirstVisited = 0;
@@ -2220,9 +2220,11 @@ bool LiveDebugValues::vloc_join(
     NumVisited++;
   }
 
+  // Store newly calculated in-locs into VLOCInLocs, if they've changed.
   Changed = ILS != InLocsT;
   if (Changed)
     ILS = std::move(InLocsT);
+
   // Uhhhhhh, reimplement NumInserted and NumRemoved pls.
   return Changed;
 }
@@ -2234,12 +2236,20 @@ void LiveDebugValues::vloc_dataflow(
     LiveInsT &Output,
     uint64_t **MOutLocs, uint64_t **MInLocs,
     SmallVectorImpl<VLocTracker> &AllTheVLocs) {
+  // This method is much like mloc_dataflow: but focuses on a single
+  // LexicalScope at a time. Pick out a set of blocks and variables that are
+  // to have their locations/values solved, then run our dataflow algorithm
+  // until a fixedpoint is reached.
   std::priority_queue<unsigned int, std::vector<unsigned int>,
                       std::greater<unsigned int>>
       Worklist, Pending;
 
+  // The set of blocks we'll be examining.
   SmallPtrSet<const MachineBasicBlock *, 8> LBlocks;
+  // The order in which to examine them (RPO).
   SmallVector<MachineBasicBlock *, 8> BlockOrders;
+
+  // RPO ordering function.
   auto Cmp = [&](MachineBasicBlock *A, MachineBasicBlock *B) {
     return BBToOrder[A] < BBToOrder[B];
   };
@@ -2251,9 +2261,14 @@ void LiveDebugValues::vloc_dataflow(
       DebugLoc::get(0, 0, AVar.getVariable()->getScope(), AVar.getInlinedAt());
 
   LS.getMachineBasicBlocks(DL.get(), LBlocks);
+
+  // A separate container to distinguish "blocks we're exploring" versus
+  // "blocks that are potentially in scope. See comment at start of vloc_join.
   SmallPtrSet<const MachineBasicBlock *, 8> NonAssignBlocks = LBlocks;
 
-  // Also any blocks that contain a DBG_VALUE.
+  // Old LiveDebugValues tracks variable locations that come out of blocks
+  // not in scope, where DBG_VALUEs occur. This is something we could
+  // legitimately ignore, but lets allow it for now.
   if (EmulateOldLDV)
     LBlocks.insert(AssignBlocks.begin(), AssignBlocks.end());
 
@@ -2270,16 +2285,20 @@ void LiveDebugValues::vloc_dataflow(
   if (LBlocks.size() == 1)
     return;
 
-  // Picks out their RPOT order and sort it.
+  // Picks out relevants blocks RPO order and sort them.
   for (auto *MBB : LBlocks)
     BlockOrders.push_back(const_cast<MachineBasicBlock *>(MBB));
 
   llvm::sort(BlockOrders.begin(), BlockOrders.end(), Cmp);
   unsigned NumBlocks = BlockOrders.size();
 
+  // Allocate some vectors for storing the live ins and live outs.
   std::vector<DenseMap<DebugVariable, ValueRec>> LiveIns, LiveOuts;
   LiveIns.resize(NumBlocks);
   LiveOuts.resize(NumBlocks);
+
+  // Produce by-MBB indexes of live-in/live-outs, to ease lookup within
+  // vloc_join.
   LiveIdxT LiveOutIdx, LiveInIdx;
   for (unsigned I = 0; I < NumBlocks; ++I) {
     LiveOutIdx[BlockOrders[I]] = &LiveOuts[I];
@@ -2295,7 +2314,7 @@ void LiveDebugValues::vloc_dataflow(
     SmallPtrSet<MachineBasicBlock *, 16> OnPending;
     while (!Worklist.empty()) {
       auto *MBB = OrderToBB[Worklist.top()];
-      cur_bb = MBB->getNumber(); // XXX ldv state
+      cur_bb = MBB->getNumber();
       Worklist.pop();
 
       // Join locations from predecessors.
@@ -2369,10 +2388,12 @@ void LiveDebugValues::dump_mloc_transfer(const MLocTransferMap &mloc_transfer) c
 void LiveDebugValues::emit_locations(MachineFunction &MF, LiveInsT SavedLiveIns, uint64_t **MInLocs,
 DenseMap<DebugVariable, unsigned> &AllVarsNumbering)
 {
-  // mloc argument only needs the posish -> spills map and the like.
   ttracker = new TransferTracker(TII, tracker, MF, *TRI, CalleeSavedRegs);
   unsigned NumLocs = tracker->getNumLocs();
 
+  // For each block, load in the machine-location and variable value live-ins,
+  // then step through each instruction in the block. New DBG_VALUEs to be
+  // inserted will be created along the way.
   for (MachineBasicBlock &MBB : MF) {
     unsigned bbnum = MBB.getNumber();
     tracker->reset();
@@ -2387,7 +2408,9 @@ DenseMap<DebugVariable, unsigned> &AllVarsNumbering)
     }
   }
 
-  // XXX remove earlier LiveIn ordering and see whether it's needed now.
+  // We have to insert DBG_VALUEs in a consistent order, otherwise they appeaer
+  // in DWARF in different orders. Use the order that they appear when walking
+  // through each block / each instruction, stored in AllVarsNumbering.
   auto OrderDbgValues = [&](const MachineInstr *A, const MachineInstr *B) -> bool{
     DebugVariable VarA(A->getDebugVariable(), A->getDebugExpression(),
                       A->getDebugLoc()->getInlinedAt());
@@ -2396,8 +2419,13 @@ DenseMap<DebugVariable, unsigned> &AllVarsNumbering)
     return AllVarsNumbering.find(VarA)->second < AllVarsNumbering.find(VarB)->second;
   };
 
+  // Go through all the transfers recorded in the TransferTracker -- this is
+  // both the live-ins to a block, and any movements of values that happen
+  // in the middle.
   for (auto &P : ttracker->Transfers) {
+    // Sort them according to appearance order.
     llvm::sort(P.insts.begin(), P.insts.end(), OrderDbgValues);
+    // Insert either before or after the designated point...
     if (P.MBB) {
       MachineBasicBlock &MBB = *P.MBB;
       for (auto *MI : P.insts) {
@@ -2413,15 +2441,18 @@ DenseMap<DebugVariable, unsigned> &AllVarsNumbering)
 }
 
 void LiveDebugValues::initial_setup(MachineFunction &MF) {
+  // Build some useful data structures.
   auto hasNonArtificialLocation = [](const MachineInstr &MI) -> bool {
     if (const DebugLoc &DL = MI.getDebugLoc())
       return DL.getLine() != 0;
     return false;
   };
+  // Collect a set of all the artificial blocks.
   for (auto &MBB : MF)
     if (none_of(MBB.instrs(), hasNonArtificialLocation))
       ArtificialBlocks.insert(&MBB);
 
+  // Compute mappings of block <=> RPO order.
   ReversePostOrderTraversal<MachineFunction *> RPOT(&MF);
   unsigned int RPONumber = 0;
   for (auto RI = RPOT.begin(), RE = RPOT.end(); RI != RE; ++RI) {
@@ -2454,22 +2485,27 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
   produce_mloc_transfer_function(MF, MLocTransfer, MaxNumBlocks);
 
-  // Huurrrr. Store liveouts in a massive array.
+  // Allocate and initialize two array-of-arrays for the live-in and live-out
+  // machine values. The outer dimension is the block number; while the inner
+  // dimension is a LocIdx from MLocTracker.
   uint64_t **MOutLocs = new uint64_t *[MaxNumBlocks];
   uint64_t **MInLocs = new uint64_t *[MaxNumBlocks];
   unsigned NumLocs = tracker->getNumLocs();
   for (int i = 0; i < MaxNumBlocks; ++i) {
     MOutLocs[i] = new uint64_t[NumLocs];
-    // XXX should be zero now?
-    memset(MOutLocs[i], 0xFF, sizeof(uint64_t) * NumLocs);
+    memset(MOutLocs[i], 0, sizeof(uint64_t) * NumLocs);
     MInLocs[i] = new uint64_t[NumLocs];
     memset(MInLocs[i], 0, sizeof(uint64_t) * NumLocs);
   }
 
+  // Solve the machine value dataflow problem using the MLocTransfer function,
+  // storing the computed live-ins / live-outs into the array-of-arrays. We use
+  // both live-ins and live-outs for decision making in the variable value
+  // dataflow problem.
   mloc_dataflow(MInLocs, MOutLocs, MLocTransfer);
 
-  // Accumulate things into the vloc tracker.
-  // Walk in RPOT order to ensure any physreg defs are seen before uses.
+  // Walk back through each block / instruction, collecting DBG_VALUE
+  // instructions and recording what machine value their operands refer to.
   for (unsigned int I = 0; I < OrderToBB.size(); ++I) {
     MachineBasicBlock &MBB = *OrderToBB[I];
     cur_bb = MBB.getNumber();
@@ -2484,14 +2520,22 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     tracker->reset();
   }
 
-  // Produce a set of all variables.
+  // Number all variables in the order that they appear, to be used as a stable
+  // insertion order later.
   DenseMap<DebugVariable, unsigned> AllVarsNumbering;
+
+  // Map from one LexicalScope to all the variables in that scope.
   DenseMap<const LexicalScope *, SmallSet<DebugVariable, 4>> ScopeToVars;
+
+  // Map from One lexical scope to all blocks in that scope.
   DenseMap<const LexicalScope *, SmallPtrSet<MachineBasicBlock *, 4>> ScopeToBlocks;
-  // To match old LDV, enumerate variables in RPOT order.
+
+  // To mirror old LiveDebugValues, enumerate variables in RPOT order. Otherwise
+  // the order is unimportant, it just has to be stable.
   for (unsigned int I = 0; I < OrderToBB.size(); ++I) {
     auto *MBB = OrderToBB[I];
     auto *vtracker = &vlocs[MBB->getNumber()];
+    // Collect each variable with a DBG_VALUE in this block.
     for (auto &idx : vtracker->Vars) {
       const auto &Var = idx.first;
       DebugLoc DL = DebugLoc::get(0, 0, Var.getVariable()->getScope(), Var.getInlinedAt());
@@ -2507,12 +2551,17 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   }
 
   // OK. Iterate over scopes: there might be something to be said for
-  // ordering them by size/locality, but that's for the future.
+  // ordering them by size/locality, but that's for the future. For each scope,
+  // solve the variable value problem, producing a map of variables to values
+  // in SavedLiveIns.
   for (auto &P : ScopeToVars) {
     vloc_dataflow(P.first, P.second, ScopeToBlocks[P.first],
                   SavedLiveIns, MOutLocs, MInLocs, vlocs);
   }
 
+  // Using the computed value-locations and variable-values for each block,
+  // create the DBG_VALUE instructions representing the extended variable
+  // locations.
   emit_locations(MF, SavedLiveIns, MInLocs, AllVarsNumbering);
 
   for (int Idx = 0; Idx < MaxNumBlocks; ++Idx) {
@@ -2522,6 +2571,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   delete[] MOutLocs;
   delete[] MInLocs;
 
+  // Did we actually make any changes? If we created any DBG_VALUEs, then yes.
   return ttracker->Transfers.size() != 0;
 }
 
