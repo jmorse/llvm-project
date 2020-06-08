@@ -763,13 +763,13 @@ public:
   struct Transfer {
     MachineBasicBlock::iterator Pos;   /// Position to insert DBG_VALUes
     MachineBasicBlock *MBB;            /// non-null if we should insert after.
-    std::vector<MachineInstr *> Insts; /// Vector of DBG_VALUEs to insert.
+    SmallVector<MachineInstr *, 4> Insts; /// Vector of DBG_VALUEs to insert.
   };
 
   typedef std::pair<LocIdx, MetaVal> LocAndMeta;
 
   /// Collection of transfers (DBG_VALUEs) to be inserted.
-  std::vector<Transfer> Transfers;
+  SmallVector<Transfer, 32> Transfers;
 
   /// Local cache of what-value-is-in-what-LocIdx. Used to identify differences
   /// between TransferTrackers view of variable locations and MLocTrackers. For
@@ -788,7 +788,7 @@ public:
   DenseMap<DebugVariable, LocAndMeta> ActiveVLocs;
 
   /// Temporary cache of DBG_VALUEs to be entered into the Transfers collection.
-  std::vector<MachineInstr *> PendingDbgValues;
+  SmallVector<MachineInstr *, 4> PendingDbgValues;
 
   const TargetRegisterInfo &TRI;
   const BitVector &CalleeSavedRegs;
@@ -1107,7 +1107,7 @@ private:
   /// function in \p MLocTransfer, suitable for using with the machine value
   /// location dataflow problem.
   void produceMLocTransferFunction(MachineFunction &MF,
-                                   std::vector<MLocTransferMap> &MLocTransfer,
+                                   SmallVectorImpl<MLocTransferMap> &MLocTransfer,
                                    unsigned MaxNumBlocks);
 
   /// Solve the machine value location dataflow problem. Takes as input the
@@ -1116,7 +1116,7 @@ private:
   /// \p MInLocs and \p MOutLocs. The outer dimension is indexed by block
   /// number, the inner by LocIdx.
   void mlocDataflow(uint64_t **MInLocs, uint64_t **MOutLocs,
-                    std::vector<MLocTransferMap> &MLocTransfer);
+                    SmallVectorImpl<MLocTransferMap> &MLocTransfer);
 
   /// Perform a control flow join (lattice value meet) of the values in machine
   /// locations at \p MBB. Follows the algorithm described in the file-comment,
@@ -1648,7 +1648,7 @@ void LiveDebugValues::process(MachineInstr &MI) {
 }
 
 void LiveDebugValues::produceMLocTransferFunction(
-    MachineFunction &MF, std::vector<MLocTransferMap> &MLocTransfer,
+    MachineFunction &MF, SmallVectorImpl<MLocTransferMap> &MLocTransfer,
     unsigned MaxNumBlocks) {
   // Because we try to optimize around register mask operands by ignoring regs
   // that aren't currently tracked, we set up something ugly for later: RegMask
@@ -1658,7 +1658,7 @@ void LiveDebugValues::produceMLocTransferFunction(
   // and accumulated the clobbered but untracked registers in each block into
   // the following bitvector. Later, if new values are tracked, we can add
   // appropriate clobbers.
-  std::vector<BitVector> BlockMasks;
+  SmallVector<BitVector, 32> BlockMasks;
   BlockMasks.resize(MaxNumBlocks);
 
   // Reserve one bit per register for the masks described above.
@@ -1843,7 +1843,7 @@ bool LiveDebugValues::mlocJoin(
 }
 
 void LiveDebugValues::mlocDataflow(uint64_t **MInLocs, uint64_t **MOutLocs,
-                                   std::vector<MLocTransferMap> &MLocTransfer) {
+                                   SmallVectorImpl<MLocTransferMap> &MLocTransfer) {
   std::priority_queue<unsigned int, std::vector<unsigned int>,
                       std::greater<unsigned int>>
       Worklist, Pending;
@@ -2507,7 +2507,7 @@ void LiveDebugValues::initialSetup(MachineFunction &MF) {
 bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   LLVM_DEBUG(dbgs() << "\nDebug Range Extension\n");
 
-  std::vector<MLocTransferMap> MLocTransfer;
+  SmallVector<MLocTransferMap, 32> MLocTransfer;
   SmallVector<VLocTracker, 8> vlocs;
   LiveInsT SavedLiveIns;
 
