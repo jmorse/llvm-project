@@ -1781,7 +1781,9 @@ bool LiveDebugValues::mlocJoin(
     bool Disagree = false;
     bool NonBackEdgeDisagree = false;
 
-    for (auto *MBB : BlockOrders) { // XXX tests against itself.
+    // Loop around everything that wasn't 'base'.
+    for (unsigned int I = 1; I < BlockOrders.size(); ++I) {
+      auto *MBB = BlockOrders[I];
       if (BaseVal != OutLocs[MBB->getNumber()][Idx]) {
         // Live-out of a predecessor disagrees with the first predecessor.
         Disagree = true;
