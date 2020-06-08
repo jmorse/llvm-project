@@ -2323,8 +2323,8 @@ void LiveDebugValues::vlocDataflow(
   llvm::sort(BlockOrders.begin(), BlockOrders.end(), Cmp);
   unsigned NumBlocks = BlockOrders.size();
 
-  // Allocate some vectors for storing the live ins and live outs.
-  std::vector<DenseMap<DebugVariable, ValueRec>> LiveIns, LiveOuts;
+  // Allocate some vectors for storing the live ins and live outs. Large.
+  SmallVector<DenseMap<DebugVariable, ValueRec>, 32> LiveIns, LiveOuts;
   LiveIns.resize(NumBlocks);
   LiveOuts.resize(NumBlocks);
 
