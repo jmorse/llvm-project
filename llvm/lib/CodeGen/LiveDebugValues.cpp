@@ -503,7 +503,7 @@ public:
   /// LiveDebugValues where a copy to/from a register effectively clears the
   /// contents of the source register. (Values can only have one machine
   /// location in old LiveDebugValues).
-  void WipeRegister(Register R) {
+  void wipeRegister(Register R) {
     unsigned ID = getLocID(R, false);
     LocIdx Idx = LocIDToLocIdx[ID];
     LocIdxToIDNum[Idx] = {0, 0, LocIdx(0)};
@@ -1578,7 +1578,7 @@ bool LiveDebugValues::transferRegisterCopy(MachineInstr &MI) {
 
   // Old LiveDebugValues would quit tracking the old location after copying.
   if (EmulateOldLDV && SrcReg != DestReg)
-    MTracker->WipeRegister(SrcReg);
+    MTracker->wipeRegister(SrcReg);
 
   return true;
 }
