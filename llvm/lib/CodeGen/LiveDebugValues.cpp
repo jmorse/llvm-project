@@ -239,8 +239,8 @@ public:
   }
 
   static ValueIDNum fromU64(uint64_t v) {
-    LocIdx l = LocIdx(v & 0x3FFF);
-    return {v >> 34ull, ((v >> 14) & 0xFFFFF), l};
+    LocIdx L = LocIdx(v & 0x3FFF);
+    return {v >> 34ull, ((v >> 14) & 0xFFFFF), L};
   }
 
   bool operator<(const ValueIDNum &Other) const {
@@ -813,8 +813,8 @@ public:
     VarLocs.clear();
     VarLocs.resize(NumLocs);
 
-    auto isCalleeSaved = [&](LocIdx l) {
-      unsigned Reg = MTracker->LocIdxToLocID[l];
+    auto isCalleeSaved = [&](LocIdx L) {
+      unsigned Reg = MTracker->LocIdxToLocID[L];
       for (MCRegAliasIterator RAI(Reg, &TRI, true); RAI.isValid(); ++RAI)
         if (CalleeSavedRegs.test(*RAI))
           return true;
@@ -1215,8 +1215,8 @@ public:
   LLVM_DUMP_METHOD
   void dump_mloc_transfer(const MLocTransferMap &mloc_transfer) const;
 
-  bool isCalleeSaved(LocIdx l) {
-    unsigned Reg = MTracker->LocIdxToLocID[l];
+  bool isCalleeSaved(LocIdx L) {
+    unsigned Reg = MTracker->LocIdxToLocID[L];
     for (MCRegAliasIterator RAI(Reg, TRI, true); RAI.isValid(); ++RAI)
       if (CalleeSavedRegs.test(*RAI))
         return true;
