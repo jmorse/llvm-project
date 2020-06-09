@@ -459,10 +459,10 @@ public:
       // Default: it's an mphi.
       ValueIDNum ValNum = {CurBB, 0, NewIdx};
       // Was this reg ever touched by a regmask?
-      for (auto rit = Masks.rbegin(); rit != Masks.rend(); ++rit) {
-        if (rit->first->clobbersPhysReg(ID)) {
+      for (auto Rit = Masks.rbegin(); Rit != Masks.rend(); ++Rit) {
+        if (Rit->first->clobbersPhysReg(ID)) {
           // There was an earlier def we skipped.
-          ValNum = {CurBB, rit->second, NewIdx};
+          ValNum = {CurBB, Rit->second, NewIdx};
           break;
         }
       }
