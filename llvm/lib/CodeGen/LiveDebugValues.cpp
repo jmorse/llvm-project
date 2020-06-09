@@ -218,6 +218,8 @@ struct SpillLoc {
 // numerically.
 enum LocIdx { limin = 0, limax = UINT_MAX };
 
+#define NUM_LOC_BITS 14
+
 /// Unique identifier for a value defined by an instruction, as a value type.
 /// Casts back and forth to a uint64_t. Probably replacable with something less
 /// bit-constrained. Each value identifies the instruction and machine location
@@ -229,18 +231,18 @@ public:
   uint64_t BlockNo : 16; /// The block where the def happens.
   uint64_t InstNo : 20;  /// The Instruction where the def happens.
                          /// One based, is distance from start of block.
-  LocIdx LocNo : 14;     /// The machine location where the def happens.
+  LocIdx LocNo : NUM_LOC_BITS; /// The machine location where the def happens.
   // (No idea why this can work as a LocIdx, it probably shouldn't)
 
   uint64_t asU64() const {
     uint64_t TmpBlock = BlockNo;
     uint64_t TmpInst = InstNo;
-    return TmpBlock << 34ull | TmpInst << 14 | LocNo;
+    return TmpBlock << 34ull | TmpInst << NUM_LOC_BITS | LocNo;
   }
 
   static ValueIDNum fromU64(uint64_t v) {
     LocIdx L = LocIdx(v & 0x3FFF);
-    return {v >> 34ull, ((v >> 14) & 0xFFFFF), L};
+    return {v >> 34ull, ((v >> NUM_LOC_BITS) & 0xFFFFF), L};
   }
 
   bool operator<(const ValueIDNum &Other) const {
@@ -382,6 +384,7 @@ public:
     memset(&LocIDToLocIdx[0], 0, NumRegs * sizeof(LocIdx));
     LocIDToLocIdx[0] = LocIdx(0);
     LocIdxToLocID[LocIdx(0)] = 0;
+    assert(NumRegs > (1u << NUM_LOC_BITS)); // Detect bit packing failure
   }
 
   /// Produce location ID number for indexing LocIDToLocIdx. Takes the register
@@ -543,6 +546,7 @@ public:
       LocIDToLocIdx[L] = Idx;
       LocIdxToLocID[Idx] = L;
       LocIdxToIDNum.push_back(ValueID);
+      assert(Idx < (1u << NUM_LOC_BITS));
     } else {
       unsigned L = getLocID(SpillID, true);
       LocIdx Idx = LocIDToLocIdx[L];
