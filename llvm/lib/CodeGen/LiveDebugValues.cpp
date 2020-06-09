@@ -473,7 +473,7 @@ public:
   }
 
   /// Record a definition of the specified register at the given block / inst.
-  /// This doesn't take a ValueIDNum, because the definition and it's location
+  /// This doesn't take a ValueIDNum, because the definition and its location
   /// are synonymous.
   void defReg(Register R, unsigned BB, unsigned Inst) {
     unsigned ID = getLocID(R, false);
