@@ -384,7 +384,7 @@ public:
     memset(&LocIDToLocIdx[0], 0, NumRegs * sizeof(LocIdx));
     LocIDToLocIdx[0] = LocIdx(0);
     LocIdxToLocID[LocIdx(0)] = 0;
-    assert(NumRegs > (1u << NUM_LOC_BITS)); // Detect bit packing failure
+    assert(NumRegs < (1u << NUM_LOC_BITS)); // Detect bit packing failure
   }
 
   /// Produce location ID number for indexing LocIDToLocIdx. Takes the register
