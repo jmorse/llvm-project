@@ -28,7 +28,7 @@
 /// To make this simpler we perform two kinds of analysis. First, we identify
 /// every value defined by every instruction (ignoring those that only move
 /// another value), then compute a map of which values are available for each
-/// instruciton. This is stronger than a reaching-def analysis, as we create
+/// instruction. This is stronger than a reaching-def analysis, as we create
 /// PHI values where other values merge.
 ///
 /// Secondly, for each variable, we effectively re-construct SSA using each
@@ -51,9 +51,9 @@
 /// DbgEntityHistoryCalculator to focus on individual blocks.
 ///
 /// This pass is able to go fast because the size of the first
-/// reaching-definition analysis is proportionate to the working-set size of
-/// the function, which the compile tries to keep small. (It's also
-/// proportionate to the number of blocks). Additionally, we repeatedly perform
+/// reaching-definition analysis is proportional to the working-set size of
+/// the function, which the compiler tries to keep small. (It's also
+/// proportional to the number of blocks). Additionally, we repeatedly perform
 /// the second reaching-definition analysis with only the variables and blocks
 /// in a single lexical scope, exploiting their locality.
 ///
@@ -66,8 +66,8 @@
 /// To do this, consider a lattice of all definition values, from instructions
 /// and from PHIs. Each PHI is characterised by the RPO number of the block it
 /// occurs in. Each value pair A, B can be ordered by RPO(A) < RPO(B):
-/// with non-PHI values at the top, and any PHI value in the last (by RPO order)
-/// block at the bottom.
+/// with non-PHI values at the top, and any PHI value in the last block (by RPO
+/// order) at the bottom.
 ///
 /// (Awkwardly: lower-down-the _lattice_ means a greater RPO _number_. Below,
 /// "rank" always refers to the former).
@@ -88,11 +88,11 @@
 /// is a loop head, this ordering is effectively searching outer levels of
 /// loops, to find a value that's live-through the current loop.
 ///
-/// If the is no value that's live-through this loop, a PHI is created for this
-/// location instead. We can't use a lower-ranked PHI because by definition it
-/// doesn't dominate the current block. We can't create a PHI value any earlier,
-/// because we risk creating a PHI value at a location where values do not in
-/// fact merge, thus misrepresenting the truth, and not making the true
+/// If there is no value that's live-through this loop, a PHI is created for
+/// this location instead. We can't use a lower-ranked PHI because by definition
+/// it doesn't dominate the current block. We can't create a PHI value any
+/// earlier, because we risk creating a PHI value at a location where values do
+/// not in fact merge, thus misrepresenting the truth, and not making the true
 /// live-through value for variable locations.
 ///
 /// This algorithm applies to both calculating the availability of values in
@@ -102,8 +102,8 @@
 ///  * There is a value for the variable on the incoming edge, and
 ///  * All the edges have that value in the same register.
 /// Or put another way: we can only create a variable-location PHI if there is
-/// a matching machine-location PHI, the inputs to which are all also the
-/// variables location in the predecessor block.
+/// a matching machine-location PHI, each input to which is the variables value
+/// in the predecessor block.
 ///
 /// ### Terminology
 ///
@@ -113,7 +113,7 @@
 /// contain the appropriate variable value. A value that is a PHI node is
 /// occasionally called an mphi.
 ///
-/// I'm calling the first dataflow problem the "machine value location" problem,
+/// The first dataflow problem is the "machine value location" problem,
 /// because we're determining which machine locations contain which values.
 /// The "locations" are constant: what's unknown is what value they contain.
 ///
@@ -121,7 +121,7 @@
 /// problem", because it's determining what values a variable has, rather than
 /// what location those values are placed in. Unfortunately, it's not that
 /// simple, because producing a PHI value always involves picking a location.
-/// This is an imperfection that we just have to accept, IMO.
+/// This is an imperfection that we just have to accept, at least for now.
 ///
 /// TODO:
 ///   Overlapping fragments
