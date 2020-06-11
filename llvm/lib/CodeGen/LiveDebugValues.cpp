@@ -1050,6 +1050,10 @@ private:
   /// instructions without DebugLocs, or with line 0 locations.
   SmallPtrSet<const MachineBasicBlock *, 16> ArtificialBlocks;
 
+// XXX docs
+  DenseMap<const MachineBasicBlock *, SmallVector<MachineBasicBlock *, 4>>
+    ArtificialBlocksIndex;
+
   // Mapping of blocks to and from their RPOT order.
   DenseMap<unsigned int, MachineBasicBlock *> OrderToBB;
   DenseMap<MachineBasicBlock *, unsigned int> BBToOrder;
@@ -2307,11 +2311,48 @@ void LiveDebugValues::vlocDataflow(
   if (EmulateOldLDV)
     LBlocks.insert(AssignBlocks.begin(), AssignBlocks.end());
 
-  // Add all artifical blocks. This might be inefficient; lets deal with
-  // that later. They won't contribute a lot unless they connect to a
-  // meaningful non-artificial block.
-  LBlocks.insert(ArtificialBlocks.begin(), ArtificialBlocks.end());
-  NonAssignBlocks.insert(ArtificialBlocks.begin(), ArtificialBlocks.end());
+
+  // Accumulate in any artificial blocks that immediately follow any of those
+  // blocks.
+  DenseSet<const MachineBasicBlock *> ToAdd;
+  auto AccumulateArtificialBlocks = [this, &ToAdd, &LBlocks, &NonAssignBlocks](const MachineBasicBlock* MBB) {
+    SmallVector<std::pair<const MachineBasicBlock *, MachineBasicBlock::const_succ_iterator>, 8> DFS;
+    // Find any artificial successors not already tracked.
+    for (auto *succ : MBB->successors()) {
+      if (LBlocks.count(succ) || NonAssignBlocks.count(succ))
+        continue;
+      if (!ArtificialBlocks.count(succ))
+        continue;
+      DFS.push_back(std::make_pair(succ, succ->succ_begin()));
+      ToAdd.insert(succ);
+    }
+
+    // Search all those blocks, depth first.
+    while (!DFS.empty()) {
+      const MachineBasicBlock *CurBB = DFS.back().first;
+      MachineBasicBlock::const_succ_iterator &CurSucc = DFS.back().second;
+      if (CurSucc == CurBB->succ_end()) {
+        DFS.pop_back();
+        continue;
+      }
+
+      if (!ToAdd.count(*CurSucc) && ArtificialBlocks.count(*CurSucc)) {
+        DFS.push_back(std::make_pair(*CurSucc, (*CurSucc)->succ_begin()));
+        ToAdd.insert(*CurSucc);
+        continue;
+      }
+
+      ++CurSucc;
+    }
+  };
+
+  for (auto *MBB : LBlocks)
+    AccumulateArtificialBlocks(MBB);
+  for (auto *MBB : NonAssignBlocks)
+    AccumulateArtificialBlocks(MBB);
+    
+  LBlocks.insert(ToAdd.begin(), ToAdd.end());
+  NonAssignBlocks.insert(ToAdd.begin(), ToAdd.end());
 
   // Single block scope: not interesting! No propagation at all. Note that
   // this could probably go above ArtificialBlocks without damage, but
@@ -2504,6 +2545,32 @@ void LiveDebugValues::initialSetup(MachineFunction &MF) {
     BBNumToRPO[(*RI)->getNumber()] = RPONumber;
     ++RPONumber;
   }
+
+  // Produce a mapping of "what artificial blocks does this block flow into".
+  // i.e., if we have some block MBB, what child MBBs follow from it, which
+  // would need to be included in dataflow.
+#if 0
+  for (unsigned int I = OrderToBB.size(); I > 0; --I) {
+    auto &MBB = *OrderToBB[I - 1];
+    SmallVector<MachineBasicBlock *, 4> tmp;
+
+    // Gather any artifical successors; and any artifical successors they have.
+    for (auto &succ : MBB.successors()) {
+      if (ArtificialBlocks.find(succ) == ArtificialBlocks.end())
+        continue;
+
+      tmp.push_back(succ);
+
+      auto it = ArtificialBlocksIndex.find(succ);
+      if (it == ArtificialBlocksIndex.end())
+        continue;
+      tmp.insert(tmp.begin(), it->second.begin(), it->second.end());
+    }
+
+    if (!tmp.empty())
+      ArtificialBlocksIndex.insert(std::make_pair(&MBB, std::move(tmp)));
+  }
+#endif
 }
 
 /// Calculate the liveness information for the given machine function and
@@ -2653,6 +2720,7 @@ bool LiveDebugValues::runOnMachineFunction(MachineFunction &MF) {
   TTracker = nullptr;
 
   ArtificialBlocks.clear();
+  ArtificialBlocksIndex.clear();
   OrderToBB.clear();
   BBToOrder.clear();
   BBNumToRPO.clear();
