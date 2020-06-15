@@ -2114,7 +2114,7 @@ bool LiveDebugValues::vlocJoin(
   // To emulate old LiveDebugValues, process this block if it's not in scope but
   // _does_ assign a variable value. No live-ins for this scope are transferred
   // in though, so we can return immediately.
-  if (NonAssignBlocks.count(&MBB) == 0) {
+  if (NonAssignBlocks.count(&MBB) == 0 && !ArtificialBlocks.count(&MBB)) {
     if (VLOCVisited)
       return true;
     return false;
