@@ -1375,6 +1375,25 @@ void LiveDebugValues::performCopy(Register SrcRegNum, Register DstRegNum) {
 
   MTracker->setReg(DstRegNum, SrcValue);
 
+  // In all circumstances, re-def the super registers. It's definitely a new
+  // value now. This doesn't uniquely identify the composition of subregs, for
+  // example, two identical values in subregisters composed in different
+  // places would not get equal value numbers.
+  for (MCSuperRegIterator SRI(DstRegNum, TRI); SRI.isValid(); ++SRI)
+    MTracker->defReg(*SRI, CurBB, CurInst);
+
+  // If we're emulating old LiveDebugValues, just define all the subregisters.
+  // DBG_VALUEs of them will expect to be tracked from the DBG_VALUE, not
+  // through prior copies.
+  if (EmulateOldLDV) {
+    for (MCSubRegIndexIterator DRI(DstRegNum, TRI); DRI.isValid(); ++DRI)
+      MTracker->defReg(DRI.getSubReg(), CurBB, CurInst);
+    return;
+  }
+
+  // Otherwise, actually copy subregisters from one location to another.
+  // XXX: in addition, any subregisters of DstRegNum that don't line up with
+  // the source register should be def'd.
   for (MCSubRegIndexIterator SRI(SrcRegNum, TRI); SRI.isValid(); ++SRI) {
     unsigned SrcSubReg = SRI.getSubReg();
     unsigned SubRegIdx = SRI.getSubRegIndex();
