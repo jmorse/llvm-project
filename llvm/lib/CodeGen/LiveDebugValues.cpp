@@ -1105,6 +1105,10 @@ private:
   /// \returns true if MI was recognized and processed.
   void transferRegisterDef(MachineInstr &MI);
 
+  /// Copy one location to the other, accounting for movement of subregisters
+  /// too.
+  void performCopy(Register Src, Register Dst);
+
   void accumulateFragmentMap(MachineInstr &MI);
 
   /// Step through the function, recording register definitions and movements
@@ -1365,6 +1369,37 @@ void LiveDebugValues::transferRegisterDef(MachineInstr &MI) {
     MTracker->writeRegMask(MO, CurBB, CurInst);
 }
 
+
+void LiveDebugValues::performCopy(Register SrcRegNum, Register DstRegNum) {
+  ValueIDNum SrcValue = MTracker->readReg(SrcRegNum);
+
+  MTracker->setReg(DstRegNum, SrcValue);
+
+  for (MCSubRegIndexIterator SRI(SrcRegNum, TRI); SRI.isValid(); ++SRI) {
+    unsigned SrcSubReg = SRI.getSubReg();
+    unsigned SubRegIdx = SRI.getSubRegIndex();
+    unsigned DstSubReg = TRI->getSubReg(DstRegNum, SubRegIdx);
+    if (!DstSubReg)
+      continue;
+
+    // Do copy. There are two matching subregisters, the source value should
+    // have been def'd when the super-reg was, the latter might not be tracked
+    // yet.
+    ValueIDNum CpyValue = SrcValue;
+
+    // This will force SRcSubReg to be tracked, if it isn't yet.
+    (void)MTracker->readReg(SrcSubReg);
+    LocIdx SrcL = MTracker->getRegMLoc(SrcSubReg);
+    assert(SrcL);
+    (void)MTracker->readReg(DstSubReg);
+    LocIdx DstL = MTracker->getRegMLoc(DstSubReg);
+    assert(DstL);
+    CpyValue.LocNo = SrcL;
+
+    MTracker->setReg(DstSubReg, CpyValue);
+  }
+}
+
 bool LiveDebugValues::isSpillInstruction(const MachineInstr &MI,
                                          MachineFunction *MF) {
   // TODO: Handle multiple stores folded into one.
@@ -1566,8 +1601,10 @@ bool LiveDebugValues::transferRegisterCopy(MachineInstr &MI) {
 
   // We have to follow identity copies, as DbgEntityHistoryCalculator only
   // sees the defs. XXX is this code path still taken?
-  auto ValueID = MTracker->readReg(SrcReg);
-  MTracker->setReg(DestReg, ValueID);
+  //auto ValueID = MTracker->readReg(SrcReg);
+  //MTracker->setReg(DestReg, ValueID);
+  // Copy MTracker info, including subregs if available.
+  LiveDebugValues::performCopy(SrcReg, DestReg);
 
   // Only produce a transfer of DBG_VALUE within a block where old LDV
   // would have. We might make use of the additional value tracking in some
