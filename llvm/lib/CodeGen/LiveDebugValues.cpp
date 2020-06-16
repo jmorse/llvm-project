@@ -1797,7 +1797,9 @@ void LiveDebugValues::produceMLocTransferFunction(
       ValueIDNum &ValueID = MLocTransfer[I][Idx];
       if (ValueID.BlockNo == I && ValueID.InstNo == 0)
         // it was left as live-through. Set it to clobbered.
-        ValueID = ValueIDNum{0, 0, LocIdx(0)};
+// XXX nosubmit
+// XXX implicit defs!
+        ValueID = ValueIDNum{I, 0xFFFFFFFF, Idx};
     }
   }
 }
