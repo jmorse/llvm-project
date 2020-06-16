@@ -629,7 +629,7 @@ private:
   void recordEntryValue(const MachineInstr &MI,
                         const DefinedRegsSet &DefinedRegs,
                         OpenRangesSet &OpenRanges, VarLocMap &VarLocIDs);
-  bool transferRegisterCopy(MachineInstr &MI, OpenRangesSet &OpenRanges,
+  void transferRegisterCopy(MachineInstr &MI, OpenRangesSet &OpenRanges,
                             VarLocMap &VarLocIDs, TransferMap *Transfers);
   void transferRegisterDef(MachineInstr &MI, OpenRangesSet &OpenRanges,
                            VarLocMap &VarLocIDs, TransferMap *Transfers);
@@ -1073,6 +1073,15 @@ void LiveDebugValues::transferRegisterDef(
   if (MI.isMetaInstruction())
     return;
 
+  // Skip identity copies.
+  auto DestSrc = TII->isCopyInstr(MI);
+  if (DestSrc) {
+    const MachineOperand *DestRegOp = DestSrc->Destination;
+    const MachineOperand *SrcRegOp = DestSrc->Source;
+    if (DestRegOp->getReg() == SrcRegOp->getReg())
+      return;
+  }
+
   MachineFunction *MF = MI.getMF();
   const TargetLowering *TLI = MF->getSubtarget().getTargetLowering();
   unsigned SP = TLI->getStackPointerRegisterToSaveRestore();
@@ -1291,19 +1300,19 @@ return;
 /// If \p MI is a register copy instruction, that copies a previously tracked
 /// value from one register to another register that is callee saved, we
 /// create new DBG_VALUE instruction  described with copy destination register.
-bool LiveDebugValues::transferRegisterCopy(MachineInstr &MI,
+void LiveDebugValues::transferRegisterCopy(MachineInstr &MI,
                                            OpenRangesSet &OpenRanges,
                                            VarLocMap &VarLocIDs,
                                            TransferMap *Transfers) {
   auto DestSrc = TII->isCopyInstr(MI);
   if (!DestSrc)
-    return false;
+    return;
 
   const MachineOperand *DestRegOp = DestSrc->Destination;
   const MachineOperand *SrcRegOp = DestSrc->Source;
 
   if (!DestRegOp->isDef())
-    return false;
+    return;
 
   auto isCalleeSavedReg = [&](unsigned Reg) {
     for (MCRegAliasIterator RAI(Reg, TRI, true); RAI.isValid(); ++RAI)
@@ -1316,7 +1325,7 @@ bool LiveDebugValues::transferRegisterCopy(MachineInstr &MI,
   Register DestReg = DestRegOp->getReg();
 
   if (SrcReg == DestReg)
-    return true; // We've handled this identity copy by ignoring it.
+    return;
 
   // We want to recognize instructions where destination register is callee
   // saved register. If register that could be clobbered by the call is
@@ -1324,7 +1333,7 @@ bool LiveDebugValues::transferRegisterCopy(MachineInstr &MI,
   // soon. It is more likely that previous register location, which is callee
   // saved, is going to stay unclobbered longer, even if it is killed.
   if (!isCalleeSavedReg(DestReg))
-    return false;
+    return;
 
   // Remember an entry value movement. If we encounter a new debug value of
   // a parameter describing only a moving of the value around, rather then
@@ -1350,7 +1359,13 @@ bool LiveDebugValues::transferRegisterCopy(MachineInstr &MI,
   }
 
   if (!SrcRegOp->isKill())
-    return false;
+    return;
+
+#if 0
+  SmallSet<Register, 16> SubRegs;
+  for (MCSubRegIndexIterator SRI(DestReg, TRI); SRI.isValid(); ++SRI)
+    SubRegs.insert(SRI.getSubReg());
+#endif
 
   SmallVector<LocIndex, 8> SrcLocs;
   VarLocSet DstLocs(Alloc);
@@ -1358,7 +1373,11 @@ bool LiveDebugValues::transferRegisterCopy(MachineInstr &MI,
     LocIndex Idx = LocIndex::fromRawInteger(ID);
     if (VarLocIDs[Idx].isDescribedByReg() == SrcReg) {
       SrcLocs.push_back(Idx);
-    } else if (VarLocIDs[Idx].isDescribedByReg() == DestReg) {
+    } else if (VarLocIDs[Idx].isDescribedByReg() == DestReg //||
+#if 0
+               SubRegs.count(VarLocIDs[Idx].isDescribedByReg())) {
+#endif
+) {
       DstLocs.set(ID);
     }
   }
@@ -1370,7 +1389,7 @@ bool LiveDebugValues::transferRegisterCopy(MachineInstr &MI,
 
   OpenRanges.erase(DstLocs, VarLocIDs);
 
-  return true;
+  return;
 }
 
 /// Terminate all open ranges at the end of the current basic block.
@@ -1461,9 +1480,8 @@ void LiveDebugValues::accumulateFragmentMap(MachineInstr &MI,
 void LiveDebugValues::process(MachineInstr &MI, OpenRangesSet &OpenRanges,
                               VarLocMap &VarLocIDs, TransferMap *Transfers) {
   transferDebugValue(MI, OpenRanges, VarLocIDs);
-  if (transferRegisterCopy(MI, OpenRanges, VarLocIDs, Transfers))
-    return;
   transferRegisterDef(MI, OpenRanges, VarLocIDs, Transfers);
+  transferRegisterCopy(MI, OpenRanges, VarLocIDs, Transfers);
   transferSpillOrRestoreInst(MI, OpenRanges, VarLocIDs, Transfers);
 }
 
