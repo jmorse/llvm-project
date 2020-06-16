@@ -1333,7 +1333,17 @@ bool LiveDebugValues::transferDebugValue(const MachineInstr &MI) {
 void LiveDebugValues::transferRegisterDef(MachineInstr &MI) {
   // Meta Instructions do not affect the debug liveness of any register they
   // define.
-  if (MI.isMetaInstruction())
+  if (MI.isImplicitDef()) {
+    // Except when there's an implicit def, and the location it's defining has
+    // no value number. The whole point of an implicit def is to announce that
+    // the register is live, without be specific about it's value. So define
+    // a value if there isn't one already.
+    ValueIDNum Num = MTracker->readReg(MI.getOperand(0).getReg());
+    // Has a legitimate value -> ignore the implicit def.
+    if (Num.LocNo != 0)
+      return;
+    // Otherwise, def it here.
+  } else if (MI.isMetaInstruction())
     return;
 
   MachineFunction *MF = MI.getMF();
@@ -1797,9 +1807,7 @@ void LiveDebugValues::produceMLocTransferFunction(
       ValueIDNum &ValueID = MLocTransfer[I][Idx];
       if (ValueID.BlockNo == I && ValueID.InstNo == 0)
         // it was left as live-through. Set it to clobbered.
-// XXX nosubmit
-// XXX implicit defs!
-        ValueID = ValueIDNum{I, 0xFFFFFFFF, Idx};
+        ValueID = ValueIDNum{0, 0, LocIdx(0)};
     }
   }
 }
