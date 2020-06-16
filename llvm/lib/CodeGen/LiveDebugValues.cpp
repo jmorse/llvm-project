@@ -218,7 +218,7 @@ struct SpillLoc {
 // numerically.
 enum LocIdx { limin = 0, limax = UINT_MAX };
 
-#define NUM_LOC_BITS 14
+#define NUM_LOC_BITS 24
 
 /// Unique identifier for a value defined by an instruction, as a value type.
 /// Casts back and forth to a uint64_t. Probably replacable with something less
@@ -226,9 +226,13 @@ enum LocIdx { limin = 0, limax = UINT_MAX };
 /// where the value is defined, although there may be no corresponding machine
 /// operand for it (ex: regmasks clobbering values). The instructions are
 /// one-based, and definitions that are PHIs have instruction number zero.
+///
+/// The obvious limits of a 1M block function or 1M instruction blocks are
+/// problematic; but by that point we should probably have bailed out of
+/// trying to analyse the function.
 class ValueIDNum {
 public:
-  uint64_t BlockNo : 16; /// The block where the def happens.
+  uint64_t BlockNo : 20; /// The block where the def happens.
   uint64_t InstNo : 20;  /// The Instruction where the def happens.
                          /// One based, is distance from start of block.
   LocIdx LocNo : NUM_LOC_BITS; /// The machine location where the def happens.
@@ -237,12 +241,12 @@ public:
   uint64_t asU64() const {
     uint64_t TmpBlock = BlockNo;
     uint64_t TmpInst = InstNo;
-    return TmpBlock << 34ull | TmpInst << NUM_LOC_BITS | LocNo;
+    return TmpBlock << 44ull | TmpInst << NUM_LOC_BITS | LocNo;
   }
 
   static ValueIDNum fromU64(uint64_t v) {
     LocIdx L = LocIdx(v & 0x3FFF);
-    return {v >> 34ull, ((v >> NUM_LOC_BITS) & 0xFFFFF), L};
+    return {v >> 44ull, ((v >> NUM_LOC_BITS) & 0xFFFFF), L};
   }
 
   bool operator<(const ValueIDNum &Other) const {
