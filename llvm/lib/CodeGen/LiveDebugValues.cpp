@@ -1056,10 +1056,6 @@ private:
   /// instructions without DebugLocs, or with line 0 locations.
   SmallPtrSet<const MachineBasicBlock *, 16> ArtificialBlocks;
 
-// XXX docs
-  DenseMap<const MachineBasicBlock *, SmallVector<MachineBasicBlock *, 4>>
-    ArtificialBlocksIndex;
-
   // Mapping of blocks to and from their RPOT order.
   DenseMap<unsigned int, MachineBasicBlock *> OrderToBB;
   DenseMap<MachineBasicBlock *, unsigned int> BBToOrder;
@@ -2606,32 +2602,6 @@ void LiveDebugValues::initialSetup(MachineFunction &MF) {
     BBNumToRPO[(*RI)->getNumber()] = RPONumber;
     ++RPONumber;
   }
-
-  // Produce a mapping of "what artificial blocks does this block flow into".
-  // i.e., if we have some block MBB, what child MBBs follow from it, which
-  // would need to be included in dataflow.
-#if 0
-  for (unsigned int I = OrderToBB.size(); I > 0; --I) {
-    auto &MBB = *OrderToBB[I - 1];
-    SmallVector<MachineBasicBlock *, 4> tmp;
-
-    // Gather any artifical successors; and any artifical successors they have.
-    for (auto &succ : MBB.successors()) {
-      if (ArtificialBlocks.find(succ) == ArtificialBlocks.end())
-        continue;
-
-      tmp.push_back(succ);
-
-      auto it = ArtificialBlocksIndex.find(succ);
-      if (it == ArtificialBlocksIndex.end())
-        continue;
-      tmp.insert(tmp.begin(), it->second.begin(), it->second.end());
-    }
-
-    if (!tmp.empty())
-      ArtificialBlocksIndex.insert(std::make_pair(&MBB, std::move(tmp)));
-  }
-#endif
 }
 
 /// Calculate the liveness information for the given machine function and
@@ -2776,7 +2746,6 @@ bool LiveDebugValues::runOnMachineFunction(MachineFunction &MF) {
   TTracker = nullptr;
 
   ArtificialBlocks.clear();
-  ArtificialBlocksIndex.clear();
   OrderToBB.clear();
   BBToOrder.clear();
   BBNumToRPO.clear();
