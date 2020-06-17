@@ -1117,10 +1117,13 @@ private:
   /// Step through the function, recording register definitions and movements
   /// in an MLocTracker. Convert the observations into a per-block transfer
   /// function in \p MLocTransfer, suitable for using with the machine value
-  /// location dataflow problem.
-  void produceMLocTransferFunction(MachineFunction &MF,
+  /// location dataflow problem. Do the same with VLoc trackers in \p VLocs,
+  /// although the precise machine value numbers can't be known until after
+  /// the machine value number problem is solved.
+  void produceTransferFunctions(MachineFunction &MF,
                                    SmallVectorImpl<MLocTransferMap> &MLocTransfer,
-                                   unsigned MaxNumBlocks);
+                                   unsigned MaxNumBlocks,
+                                   SmallVectorImpl<VLocTracker> &VLocs);
 
   /// Solve the machine value location dataflow problem. Takes as input the
   /// transfer functions in \p MLocTransfer. Writes the output live-in and
@@ -1720,9 +1723,9 @@ void LiveDebugValues::process(MachineInstr &MI) {
   transferRegisterDef(MI);
 }
 
-void LiveDebugValues::produceMLocTransferFunction(
+void LiveDebugValues::produceTransferFunctions(
     MachineFunction &MF, SmallVectorImpl<MLocTransferMap> &MLocTransfer,
-    unsigned MaxNumBlocks) {
+    unsigned MaxNumBlocks, SmallVectorImpl<VLocTracker> &VLocs) {
   // Because we try to optimize around register mask operands by ignoring regs
   // that aren't currently tracked, we set up something ugly for later: RegMask
   // operands that are seen earlier than the first use of a register, still need
@@ -1750,6 +1753,9 @@ void LiveDebugValues::produceMLocTransferFunction(
     // production only, this signifies the live-in value to the block.
     MTracker->reset();
     MTracker->setMPhis(CurBB);
+
+    VTracker = &VLocs[CurBB];
+    VTracker->MBB = &MBB;
 
     // Step through each instruction in this block.
     for (auto &MI : MBB) {
@@ -2459,16 +2465,31 @@ void LiveDebugValues::vlocDataflow(
           *MBB, LiveOutIdx, LiveInIdx, (FirstTrip) ? &VLOCVisited : nullptr,
           CurBB, VarsWeCareAbout, MInLocs, MOutLocs, NonAssignBlocks);
 
+      auto &VTracker = AllTheVLocs[MBB->getNumber()];
+      bool FirstVisit = VLOCVisited.insert(MBB).second;
       // Always explore transfer function if inlocs changed, or if we've not
       // visited this block before.
-      InlocsChanged |= VLOCVisited.insert(MBB).second;
+      InlocsChanged |= FirstVisit;
+
+      // Patch up the variable value transfer function to use the live-in
+      // machine values, now that that problem is solved.
+      if (FirstVisit) {
+        for (auto &Transfer : VTracker.Vars) {
+          if (Transfer.second.Kind == ValueRec::Def &&
+              Transfer.second.ID.BlockNo == CurBB &&
+              Transfer.second.ID.InstNo == 0) {
+            LocIdx Loc = Transfer.second.ID.LocNo;
+            Transfer.second.ID = ValueIDNum::fromU64(MInLocs[CurBB][Loc]);
+          }
+        }
+      }
+
       if (!InlocsChanged)
         continue;
 
       // Do transfer function.
       // DenseMap copy.
       DenseMap<DebugVariable, ValueRec> Cpy = *LiveInIdx[MBB];
-      auto &VTracker = AllTheVLocs[MBB->getNumber()];
       for (auto &Transfer : VTracker.Vars) {
         // Is this var we're mangling in this scope?
         if (VarsWeCareAbout.count(Transfer.first)) {
@@ -2624,7 +2645,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 
   initialSetup(MF);
 
-  produceMLocTransferFunction(MF, MLocTransfer, MaxNumBlocks);
+  produceTransferFunctions(MF, MLocTransfer, MaxNumBlocks, vlocs);
 
   // Allocate and initialize two array-of-arrays for the live-in and live-out
   // machine values. The outer dimension is the block number; while the inner
@@ -2644,22 +2665,6 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   // both live-ins and live-outs for decision making in the variable value
   // dataflow problem.
   mlocDataflow(MInLocs, MOutLocs, MLocTransfer);
-
-  // Walk back through each block / instruction, collecting DBG_VALUE
-  // instructions and recording what machine value their operands refer to.
-  for (unsigned int I = 0; I < OrderToBB.size(); ++I) {
-    MachineBasicBlock &MBB = *OrderToBB[I];
-    CurBB = MBB.getNumber();
-    VTracker = &vlocs[CurBB];
-    VTracker->MBB = &MBB;
-    MTracker->loadFromArray(MInLocs[CurBB], CurBB);
-    CurInst = 1;
-    for (auto &MI : MBB) {
-      process(MI);
-      ++CurInst;
-    }
-    MTracker->reset();
-  }
 
   // Number all variables in the order that they appear, to be used as a stable
   // insertion order later.
