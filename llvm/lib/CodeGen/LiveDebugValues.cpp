@@ -1648,7 +1648,7 @@ bool LiveDebugValues::transferRegisterCopy(MachineInstr &MI) {
 
   // Old LiveDebugValues would quit tracking the old location after copying.
   if (EmulateOldLDV && SrcReg != DestReg)
-    MTracker->wipeRegister(SrcReg);
+    MTracker->defReg(SrcReg, CurBB,  CurInst);
 
   return true;
 }
