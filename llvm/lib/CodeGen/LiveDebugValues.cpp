@@ -525,9 +525,11 @@ public:
   void writeRegMask(const MachineOperand *MO, unsigned CurBB, unsigned InstID) {
     // Ensure SP exists, so that we don't override it later.
     unsigned SP = TLI.getStackPointerRegisterToSaveRestore();
-    unsigned ID = getLocID(SP, false);
-    LocIdx &Idx = LocIDToLocIdx[ID];
-    bumpRegister(ID, Idx);
+    if (SP) {
+      unsigned ID = getLocID(SP, false);
+      LocIdx &Idx = LocIDToLocIdx[ID];
+      bumpRegister(ID, Idx);
+    }
 
     // Def anything we already have that isn't preserved.
     for (auto &P : LocIdxToLocID) {
