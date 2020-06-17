@@ -2114,7 +2114,7 @@ bool LiveDebugValues::vlocJoinLocation(
       return true;
 
     // If we're non-identical and there's no mphi, definitely can't merge.
-    // XXX document that InLoc is always the mphi, if ther eis noe.
+    // XXX document that InLoc is always the mphi, if there is one.
     if (InLoc != OLoc && !ThisIsAnMPHI)
       return false;
 
