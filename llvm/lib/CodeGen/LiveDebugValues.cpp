@@ -2376,46 +2376,60 @@ void LiveDebugValues::vlocDataflow(
   if (EmulateOldLDV)
     LBlocks.insert(AssignBlocks.begin(), AssignBlocks.end());
 
-
-  // Accumulate in any artificial blocks that immediately follow any of those
-  // blocks.
+  // We also need to propagate variable values through any artificial blocks
+  // that immediately follow blocks in scope.
   DenseSet<const MachineBasicBlock *> ToAdd;
-  auto AccumulateArtificialBlocks = [this, &ToAdd, &LBlocks, &NonAssignBlocks](const MachineBasicBlock* MBB) {
-    SmallVector<std::pair<const MachineBasicBlock *, MachineBasicBlock::const_succ_iterator>, 8> DFS;
-    // Find any artificial successors not already tracked.
-    for (auto *succ : MBB->successors()) {
-      if (LBlocks.count(succ) || NonAssignBlocks.count(succ))
-        continue;
-      if (!ArtificialBlocks.count(succ))
-        continue;
-      DFS.push_back(std::make_pair(succ, succ->succ_begin()));
-      ToAdd.insert(succ);
-    }
 
-    // Search all those blocks, depth first.
-    while (!DFS.empty()) {
-      const MachineBasicBlock *CurBB = DFS.back().first;
-      MachineBasicBlock::const_succ_iterator &CurSucc = DFS.back().second;
-      if (CurSucc == CurBB->succ_end()) {
-        DFS.pop_back();
-        continue;
-      }
+  // Helper lambda: For a given block in scope, perform a depth first search
+  // of all the artificial successors, adding them to the ToAdd collection.
+  auto AccumulateArtificialBlocks =
+      [this, &ToAdd, &LBlocks, &NonAssignBlocks](const MachineBasicBlock *MBB) {
+        // Depth-first-search state: each node is a block and which successor
+        // we're currently exploring.
+        SmallVector<std::pair<const MachineBasicBlock *,
+                              MachineBasicBlock::const_succ_iterator>,
+                    8>
+            DFS;
 
-      if (!ToAdd.count(*CurSucc) && ArtificialBlocks.count(*CurSucc)) {
-        DFS.push_back(std::make_pair(*CurSucc, (*CurSucc)->succ_begin()));
-        ToAdd.insert(*CurSucc);
-        continue;
-      }
+        // Find any artificial successors not already tracked.
+        for (auto *succ : MBB->successors()) {
+          if (LBlocks.count(succ) || NonAssignBlocks.count(succ))
+            continue;
+          if (!ArtificialBlocks.count(succ))
+            continue;
+          DFS.push_back(std::make_pair(succ, succ->succ_begin()));
+          ToAdd.insert(succ);
+        }
 
-      ++CurSucc;
-    }
-  };
+        // Search all those blocks, depth first.
+        while (!DFS.empty()) {
+          const MachineBasicBlock *CurBB = DFS.back().first;
+          MachineBasicBlock::const_succ_iterator &CurSucc = DFS.back().second;
+          // Walk back if we've explored this blocks successors to the end.
+          if (CurSucc == CurBB->succ_end()) {
+            DFS.pop_back();
+            continue;
+          }
 
+          // If the current successor is artificial and unexplored, descend into
+          // it.
+          if (!ToAdd.count(*CurSucc) && ArtificialBlocks.count(*CurSucc)) {
+            DFS.push_back(std::make_pair(*CurSucc, (*CurSucc)->succ_begin()));
+            ToAdd.insert(*CurSucc);
+            continue;
+          }
+
+          ++CurSucc;
+        }
+      };
+
+  // Search in-scope blocks and those containing a DBG_VALUE from this scope
+  // for artificial successors.
   for (auto *MBB : LBlocks)
     AccumulateArtificialBlocks(MBB);
   for (auto *MBB : NonAssignBlocks)
     AccumulateArtificialBlocks(MBB);
-    
+
   LBlocks.insert(ToAdd.begin(), ToAdd.end());
   NonAssignBlocks.insert(ToAdd.begin(), ToAdd.end());
 
@@ -2451,6 +2465,7 @@ void LiveDebugValues::vlocDataflow(
   for (auto *MBB : BlockOrders)
     Worklist.push(BBToOrder[MBB]);
 
+  // Iterate over all the blocks we selected, propagating variable values.
   bool FirstTrip = true;
   SmallPtrSet<const MachineBasicBlock *, 16> VLOCVisited;
   while (!Worklist.empty() || !Pending.empty()) {
