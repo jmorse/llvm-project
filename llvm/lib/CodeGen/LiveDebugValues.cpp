@@ -1796,9 +1796,6 @@ void LiveDebugValues::produceTransferFunctions(
   // Check that any regmask-clobber of a register that gets tracked, is not
   // live-through in the transfer function. It needs to be clobbered at the
   // very least.
-  // XXX, this doesn't account for setting a reg and then clobbering it
-  // afterwards, although I guess then the reg would be tracked?
-  // XXX, also, no-entry should be turned into a clobber too, right?
   for (unsigned int I = 0; I < MaxNumBlocks; ++I) {
     BitVector &BV = BlockMasks[I];
     BV.flip();
