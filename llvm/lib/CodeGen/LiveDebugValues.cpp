@@ -1173,7 +1173,7 @@ private:
                 SmallPtrSet<const MachineBasicBlock *, 16> *VLOCVisited,
                 unsigned BBNum, const SmallSet<DebugVariable, 4> &AllVars,
                 uint64_t **MInLocs, uint64_t **MOutLocs,
-                SmallPtrSet<const MachineBasicBlock *, 8> &NonAssignBlocks,
+                SmallPtrSet<const MachineBasicBlock *, 8> &InScopeBlocks,
                 DenseMap<DebugVariable, ValueRec> &InLocsT);
 
   /// Perform value merge for a single variable at a particular block,
@@ -2186,13 +2186,13 @@ bool LiveDebugValues::vlocJoin(
     SmallPtrSet<const MachineBasicBlock *, 16> *VLOCVisited, unsigned BBNum,
     const SmallSet<DebugVariable, 4> &AllVars, uint64_t **MInLocs,
     uint64_t **MOutLocs,
-    SmallPtrSet<const MachineBasicBlock *, 8> &NonAssignBlocks,
+    SmallPtrSet<const MachineBasicBlock *, 8> &InScopeBlocks,
     DenseMap<DebugVariable, ValueRec> &InLocsT) {
 
   // To emulate old LiveDebugValues, process this block if it's not in scope but
   // _does_ assign a variable value. No live-ins for this scope are transferred
   // in though, so we can return immediately.
-  if (NonAssignBlocks.count(&MBB) == 0 && !ArtificialBlocks.count(&MBB)) {
+  if (InScopeBlocks.count(&MBB) == 0 && !ArtificialBlocks.count(&MBB)) {
     if (VLOCVisited)
       return true;
     return false;
@@ -2355,7 +2355,8 @@ void LiveDebugValues::vlocDataflow(
       Worklist, Pending;
 
   // The set of blocks we'll be examining.
-  SmallPtrSet<const MachineBasicBlock *, 8> LBlocks;
+  SmallPtrSet<const MachineBasicBlock *, 8> BlocksToExplore;
+
   // The order in which to examine them (RPO).
   SmallVector<MachineBasicBlock *, 8> BlockOrders;
 
@@ -2364,17 +2365,17 @@ void LiveDebugValues::vlocDataflow(
     return BBToOrder[A] < BBToOrder[B];
   };
 
-  LS.getMachineBasicBlocks(DILoc, LBlocks);
+  LS.getMachineBasicBlocks(DILoc, BlocksToExplore);
 
   // A separate container to distinguish "blocks we're exploring" versus
   // "blocks that are potentially in scope. See comment at start of vlocJoin.
-  SmallPtrSet<const MachineBasicBlock *, 8> NonAssignBlocks = LBlocks;
+  SmallPtrSet<const MachineBasicBlock *, 8> InScopeBlocks = BlocksToExplore;
 
   // Old LiveDebugValues tracks variable locations that come out of blocks
   // not in scope, where DBG_VALUEs occur. This is something we could
   // legitimately ignore, but lets allow it for now.
   if (EmulateOldLDV)
-    LBlocks.insert(AssignBlocks.begin(), AssignBlocks.end());
+    BlocksToExplore.insert(AssignBlocks.begin(), AssignBlocks.end());
 
   // We also need to propagate variable values through any artificial blocks
   // that immediately follow blocks in scope.
@@ -2383,7 +2384,7 @@ void LiveDebugValues::vlocDataflow(
   // Helper lambda: For a given block in scope, perform a depth first search
   // of all the artificial successors, adding them to the ToAdd collection.
   auto AccumulateArtificialBlocks =
-      [this, &ToAdd, &LBlocks, &NonAssignBlocks](const MachineBasicBlock *MBB) {
+      [this, &ToAdd, &BlocksToExplore, &InScopeBlocks](const MachineBasicBlock *MBB) {
         // Depth-first-search state: each node is a block and which successor
         // we're currently exploring.
         SmallVector<std::pair<const MachineBasicBlock *,
@@ -2393,7 +2394,7 @@ void LiveDebugValues::vlocDataflow(
 
         // Find any artificial successors not already tracked.
         for (auto *succ : MBB->successors()) {
-          if (LBlocks.count(succ) || NonAssignBlocks.count(succ))
+          if (BlocksToExplore.count(succ) || InScopeBlocks.count(succ))
             continue;
           if (!ArtificialBlocks.count(succ))
             continue;
@@ -2425,23 +2426,23 @@ void LiveDebugValues::vlocDataflow(
 
   // Search in-scope blocks and those containing a DBG_VALUE from this scope
   // for artificial successors.
-  for (auto *MBB : LBlocks)
+  for (auto *MBB : BlocksToExplore)
     AccumulateArtificialBlocks(MBB);
-  for (auto *MBB : NonAssignBlocks)
+  for (auto *MBB : InScopeBlocks)
     AccumulateArtificialBlocks(MBB);
 
-  LBlocks.insert(ToAdd.begin(), ToAdd.end());
-  NonAssignBlocks.insert(ToAdd.begin(), ToAdd.end());
+  BlocksToExplore.insert(ToAdd.begin(), ToAdd.end());
+  InScopeBlocks.insert(ToAdd.begin(), ToAdd.end());
 
   // Single block scope: not interesting! No propagation at all. Note that
   // this could probably go above ArtificialBlocks without damage, but
   // that then produces output differences from original-live-debug-values,
   // which propagates from a single block into many artificial ones.
-  if (LBlocks.size() == 1)
+  if (BlocksToExplore.size() == 1)
     return;
 
   // Picks out relevants blocks RPO order and sort them.
-  for (auto *MBB : LBlocks)
+  for (auto *MBB : BlocksToExplore)
     BlockOrders.push_back(const_cast<MachineBasicBlock *>(MBB));
 
   llvm::sort(BlockOrders.begin(), BlockOrders.end(), Cmp);
@@ -2475,14 +2476,14 @@ void LiveDebugValues::vlocDataflow(
       CurBB = MBB->getNumber();
       Worklist.pop();
 
-     DenseMap<DebugVariable, ValueRec> JoinedInLocs;
+      DenseMap<DebugVariable, ValueRec> JoinedInLocs;
 
       // Join values from predecessors. Updates LiveInIdx, and writes output
       // into JoinedInLocs.
-      bool InlocsChanged = vlocJoin(
-          *MBB, LiveOutIdx, LiveInIdx, (FirstTrip) ? &VLOCVisited : nullptr,
-          CurBB, VarsWeCareAbout, MInLocs, MOutLocs, NonAssignBlocks,
-          JoinedInLocs);
+      bool InlocsChanged =
+          vlocJoin(*MBB, LiveOutIdx, LiveInIdx,
+                   (FirstTrip) ? &VLOCVisited : nullptr, CurBB, VarsWeCareAbout,
+                   MInLocs, MOutLocs, InScopeBlocks, JoinedInLocs);
 
       auto &VTracker = AllTheVLocs[MBB->getNumber()];
       bool FirstVisit = VLOCVisited.insert(MBB).second;
@@ -2550,7 +2551,7 @@ void LiveDebugValues::vlocDataflow(
   }
 
   BlockOrders.clear();
-  LBlocks.clear();
+  BlocksToExplore.clear();
 }
 
 void LiveDebugValues::dump_mloc_transfer(
