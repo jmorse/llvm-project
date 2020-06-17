@@ -1635,10 +1635,6 @@ bool LiveDebugValues::transferRegisterCopy(MachineInstr &MI) {
   if (EmulateOldLDV && !SrcRegOp->isKill())
     return false;
 
-  // We have to follow identity copies, as DbgEntityHistoryCalculator only
-  // sees the defs. XXX is this code path still taken?
-  //auto ValueID = MTracker->readReg(SrcReg);
-  //MTracker->setReg(DestReg, ValueID);
   // Copy MTracker info, including subregs if available.
   LiveDebugValues::performCopy(SrcReg, DestReg);
 
