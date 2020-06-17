@@ -2438,6 +2438,8 @@ void LiveDebugValues::vlocDataflow(
   // Produce by-MBB indexes of live-in/live-outs, to ease lookup within
   // vlocJoin.
   LiveIdxT LiveOutIdx, LiveInIdx;
+  LiveOutIdx.reserve(NumBlocks);
+  LiveInIdx.reserve(NumBlocks);
   for (unsigned I = 0; I < NumBlocks; ++I) {
     LiveOutIdx[BlockOrders[I]] = &LiveOuts[I];
     LiveInIdx[BlockOrders[I]] = &LiveIns[I];
