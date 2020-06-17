@@ -1167,12 +1167,14 @@ private:
   /// locations are in \p MOutLocs and \p MInLocs. The live-ins for \p MBB are
   /// computed and stored into \p VLOCInLocs. \returns true if the live-ins
   /// are modified. Delegates most logic for merging to \ref vlocJoinLocation.
+  /// \p InLocsT Output argument, storage for calculated live-ins.
   bool vlocJoin(MachineBasicBlock &MBB, LiveIdxT &VLOCOutLocs,
                 LiveIdxT &VLOCInLocs,
                 SmallPtrSet<const MachineBasicBlock *, 16> *VLOCVisited,
                 unsigned BBNum, const SmallSet<DebugVariable, 4> &AllVars,
                 uint64_t **MInLocs, uint64_t **MOutLocs,
-                SmallPtrSet<const MachineBasicBlock *, 8> &NonAssignBlocks);
+                SmallPtrSet<const MachineBasicBlock *, 8> &NonAssignBlocks,
+                DenseMap<DebugVariable, ValueRec> &InLocsT);
 
   /// Perform value merge for a single variable at a particular block,
   /// between two individual predecessor values. \ref vlocJoin picks one
@@ -2184,7 +2186,8 @@ bool LiveDebugValues::vlocJoin(
     SmallPtrSet<const MachineBasicBlock *, 16> *VLOCVisited, unsigned BBNum,
     const SmallSet<DebugVariable, 4> &AllVars, uint64_t **MInLocs,
     uint64_t **MOutLocs,
-    SmallPtrSet<const MachineBasicBlock *, 8> &NonAssignBlocks) {
+    SmallPtrSet<const MachineBasicBlock *, 8> &NonAssignBlocks,
+    DenseMap<DebugVariable, ValueRec> &InLocsT) {
 
   // To emulate old LiveDebugValues, process this block if it's not in scope but
   // _does_ assign a variable value. No live-ins for this scope are transferred
@@ -2197,9 +2200,6 @@ bool LiveDebugValues::vlocJoin(
 
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
-
-  // Map that we'll be using to store the computed live-ins.
-  DenseMap<DebugVariable, ValueRec> InLocsT;
 
   // Find any live-ins computed in a prior iteration.
   auto ILSIt = VLOCInLocs.find(&MBB);
@@ -2334,7 +2334,7 @@ bool LiveDebugValues::vlocJoin(
   // Store newly calculated in-locs into VLOCInLocs, if they've changed.
   Changed = ILS != InLocsT;
   if (Changed)
-    ILS = std::move(InLocsT);
+    ILS = InLocsT;
 
   // Uhhhhhh, reimplement NumInserted and NumRemoved pls.
   return Changed;
@@ -2460,10 +2460,14 @@ void LiveDebugValues::vlocDataflow(
       CurBB = MBB->getNumber();
       Worklist.pop();
 
-      // Join values from predecessors.
+     DenseMap<DebugVariable, ValueRec> JoinedInLocs;
+
+      // Join values from predecessors. Updates LiveInIdx, and writes output
+      // into JoinedInLocs.
       bool InlocsChanged = vlocJoin(
           *MBB, LiveOutIdx, LiveInIdx, (FirstTrip) ? &VLOCVisited : nullptr,
-          CurBB, VarsWeCareAbout, MInLocs, MOutLocs, NonAssignBlocks);
+          CurBB, VarsWeCareAbout, MInLocs, MOutLocs, NonAssignBlocks,
+          JoinedInLocs);
 
       auto &VTracker = AllTheVLocs[MBB->getNumber()];
       bool FirstVisit = VLOCVisited.insert(MBB).second;
@@ -2488,27 +2492,27 @@ void LiveDebugValues::vlocDataflow(
         continue;
 
       // Do transfer function.
-      // DenseMap copy.
-      DenseMap<DebugVariable, ValueRec> Cpy = *LiveInIdx[MBB];
       for (auto &Transfer : VTracker.Vars) {
         // Is this var we're mangling in this scope?
         if (VarsWeCareAbout.count(Transfer.first)) {
           // Erase on empty transfer (DBG_VALUE $noreg).
           if (Transfer.second.Kind == ValueRec::Def &&
               Transfer.second.ID.LocNo == 0)
-            Cpy.erase(Transfer.first);
+            JoinedInLocs.erase(Transfer.first);
           else
-            Cpy[Transfer.first] = Transfer.second;
+            JoinedInLocs[Transfer.first] = Transfer.second;
         }
       }
 
-      // Commit newly calculated live-outs, nothing whether they changed.
-      bool OLChanged = Cpy != *LiveOutIdx[MBB];
-      *LiveOutIdx[MBB] = Cpy;
+      // Did the live-out locations change?
+      bool OLChanged = JoinedInLocs != *LiveOutIdx[MBB];
 
       // If they haven't changed, there's no need to explore further.
       if (!OLChanged)
         continue;
+
+      // Commit to the live-out record.
+      *LiveOutIdx[MBB] = JoinedInLocs;
 
       // Ignore out of scope successors and those already on the list. All
       // others should be on the pending list next time around.
