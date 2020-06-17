@@ -716,6 +716,7 @@ public:
   /// Needs to be a mapvector because we determine order-in-the-input-MIR from
   /// the order in this thing.
   MapVector<DebugVariable, ValueRec> Vars;
+  DenseMap<DebugVariable, const DILocation *> Scopes;
   MachineBasicBlock *MBB;
 
 public:
@@ -728,6 +729,7 @@ public:
                       MI.getDebugLoc()->getInlinedAt());
     MetaVal Meta = {MI.getDebugExpression(), MI.getOperand(1).isImm()};
     Vars[Var] = {ID, None, Meta, ValueRec::Def};
+    Scopes[Var] = MI.getDebugLoc().get();
   }
 
   void defVar(const MachineInstr &MI, const MachineOperand &MO) {
@@ -737,6 +739,7 @@ public:
                       MI.getDebugLoc()->getInlinedAt());
     MetaVal Meta = {MI.getDebugExpression(), MI.getOperand(1).isImm()};
     Vars[Var] = {{0, 0, LocIdx(0)}, MO, Meta, ValueRec::Const};
+    Scopes[Var] = MI.getDebugLoc().get();
   }
 };
 
@@ -1149,7 +1152,7 @@ private:
   /// \p AssignBlocks contains the set of blocks that aren't in \p Scope, but
   /// which do contain DBG_VALUEs, which old LiveDebugValues tracked locations
   /// through.
-  void vlocDataflow(const LexicalScope *Scope,
+  void vlocDataflow(const LexicalScope *Scope, const DILocation *DILoc,
                     const SmallSet<DebugVariable, 4> &VarsWeCareAbout,
                     SmallPtrSetImpl<MachineBasicBlock *> &AssignBlocks,
                     LiveInsT &Output, uint64_t **MOutLocs, uint64_t **MInLocs,
@@ -2332,7 +2335,7 @@ bool LiveDebugValues::vlocJoin(
 }
 
 void LiveDebugValues::vlocDataflow(
-    const LexicalScope *Scope,
+    const LexicalScope *Scope, const DILocation *DILoc,
     const SmallSet<DebugVariable, 4> &VarsWeCareAbout,
     SmallPtrSetImpl<MachineBasicBlock *> &AssignBlocks, LiveInsT &Output,
     uint64_t **MOutLocs, uint64_t **MInLocs,
@@ -2355,13 +2358,7 @@ void LiveDebugValues::vlocDataflow(
     return BBToOrder[A] < BBToOrder[B];
   };
 
-  // Determine which blocks we're dealing with.
-  assert(VarsWeCareAbout.size() != 0);
-  auto AVar = *VarsWeCareAbout.begin();
-  DebugLoc DL =
-      DebugLoc::get(0, 0, AVar.getVariable()->getScope(), AVar.getInlinedAt());
-
-  LS.getMachineBasicBlocks(DL.get(), LBlocks);
+  LS.getMachineBasicBlocks(DILoc, LBlocks);
 
   // A separate container to distinguish "blocks we're exploring" versus
   // "blocks that are potentially in scope. See comment at start of vlocJoin.
@@ -2675,6 +2672,9 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   DenseMap<const LexicalScope *, SmallPtrSet<MachineBasicBlock *, 4>>
       ScopeToBlocks;
 
+  // Store a DILocation that describes a scope.
+  DenseMap<const LexicalScope *, const DILocation *> ScopeToDILocation;
+
   // To mirror old LiveDebugValues, enumerate variables in RPOT order. Otherwise
   // the order is unimportant, it just has to be stable.
   for (unsigned int I = 0; I < OrderToBB.size(); ++I) {
@@ -2683,9 +2683,9 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
     // Collect each variable with a DBG_VALUE in this block.
     for (auto &idx : VTracker->Vars) {
       const auto &Var = idx.first;
-      DebugLoc DL = DebugLoc::get(0, 0, Var.getVariable()->getScope(),
-                                  Var.getInlinedAt());
-      auto *Scope = LS.findLexicalScope(DL.get());
+      const DILocation *ScopeLoc = VTracker->Scopes[Var];
+      assert(ScopeLoc != nullptr);
+      auto *Scope = LS.findLexicalScope(ScopeLoc);
 
       // No insts in scope -> shouldn't have been recorded.
       assert(Scope != nullptr);
@@ -2693,6 +2693,7 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
       AllVarsNumbering.insert(std::make_pair(Var, AllVarsNumbering.size()));
       ScopeToVars[Scope].insert(Var);
       ScopeToBlocks[Scope].insert(VTracker->MBB);
+      ScopeToDILocation[Scope] = ScopeLoc;
     }
   }
 
@@ -2701,8 +2702,9 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
   // solve the variable value problem, producing a map of variables to values
   // in SavedLiveIns.
   for (auto &P : ScopeToVars) {
-    vlocDataflow(P.first, P.second, ScopeToBlocks[P.first], SavedLiveIns,
-                 MOutLocs, MInLocs, vlocs);
+    vlocDataflow(P.first, ScopeToDILocation[P.first], P.second,
+                 ScopeToBlocks[P.first], SavedLiveIns, MOutLocs, MInLocs,
+                 vlocs);
   }
 
   // Using the computed value locations and variable values for each block,
