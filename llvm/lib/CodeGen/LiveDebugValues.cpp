@@ -232,9 +232,9 @@ enum LocIdx { limin = 0, limax = UINT_MAX };
 /// trying to analyse the function.
 class ValueIDNum {
 public:
-  uint64_t BlockNo : 20; /// The block where the def happens.
-  uint64_t InstNo : 20;  /// The Instruction where the def happens.
-                         /// One based, is distance from start of block.
+  uint64_t BlockNo : 20;       /// The block where the def happens.
+  uint64_t InstNo : 20;        /// The Instruction where the def happens.
+                               /// One based, is distance from start of block.
   LocIdx LocNo : NUM_LOC_BITS; /// The machine location where the def happens.
   // (No idea why this can work as a LocIdx, it probably shouldn't)
 
@@ -772,8 +772,8 @@ public:
   /// we allow inserting either before or after the point: MBB != nullptr
   /// indicates it's before, otherwise after.
   struct Transfer {
-    MachineBasicBlock::iterator Pos;   /// Position to insert DBG_VALUes
-    MachineBasicBlock *MBB;            /// non-null if we should insert after.
+    MachineBasicBlock::iterator Pos; /// Position to insert DBG_VALUes
+    MachineBasicBlock *MBB;          /// non-null if we should insert after.
     SmallVector<MachineInstr *, 4> Insts; /// Vector of DBG_VALUEs to insert.
   };
 
@@ -1121,9 +1121,9 @@ private:
   /// although the precise machine value numbers can't be known until after
   /// the machine value number problem is solved.
   void produceTransferFunctions(MachineFunction &MF,
-                                   SmallVectorImpl<MLocTransferMap> &MLocTransfer,
-                                   unsigned MaxNumBlocks,
-                                   SmallVectorImpl<VLocTracker> &VLocs);
+                                SmallVectorImpl<MLocTransferMap> &MLocTransfer,
+                                unsigned MaxNumBlocks,
+                                SmallVectorImpl<VLocTracker> &VLocs);
 
   /// Solve the machine value location dataflow problem. Takes as input the
   /// transfer functions in \p MLocTransfer. Writes the output live-in and
@@ -1386,7 +1386,6 @@ void LiveDebugValues::transferRegisterDef(MachineInstr &MI) {
   for (auto *MO : RegMaskPtrs)
     MTracker->writeRegMask(MO, CurBB, CurInst);
 }
-
 
 void LiveDebugValues::performCopy(Register SrcRegNum, Register DstRegNum) {
   ValueIDNum SrcValue = MTracker->readReg(SrcRegNum);
@@ -1652,7 +1651,7 @@ bool LiveDebugValues::transferRegisterCopy(MachineInstr &MI) {
 
   // Old LiveDebugValues would quit tracking the old location after copying.
   if (EmulateOldLDV && SrcReg != DestReg)
-    MTracker->defReg(SrcReg, CurBB,  CurInst);
+    MTracker->defReg(SrcReg, CurBB, CurInst);
 
   return true;
 }
@@ -1923,8 +1922,9 @@ bool LiveDebugValues::mlocJoin(
   return Changed;
 }
 
-void LiveDebugValues::mlocDataflow(uint64_t **MInLocs, uint64_t **MOutLocs,
-                                   SmallVectorImpl<MLocTransferMap> &MLocTransfer) {
+void LiveDebugValues::mlocDataflow(
+    uint64_t **MInLocs, uint64_t **MOutLocs,
+    SmallVectorImpl<MLocTransferMap> &MLocTransfer) {
   std::priority_queue<unsigned int, std::vector<unsigned int>,
                       std::greater<unsigned int>>
       Worklist, Pending;
@@ -2384,7 +2384,8 @@ void LiveDebugValues::vlocDataflow(
   // Helper lambda: For a given block in scope, perform a depth first search
   // of all the artificial successors, adding them to the ToAdd collection.
   auto AccumulateArtificialBlocks =
-      [this, &ToAdd, &BlocksToExplore, &InScopeBlocks](const MachineBasicBlock *MBB) {
+      [this, &ToAdd, &BlocksToExplore,
+       &InScopeBlocks](const MachineBasicBlock *MBB) {
         // Depth-first-search state: each node is a block and which successor
         // we're currently exploring.
         SmallVector<std::pair<const MachineBasicBlock *,
