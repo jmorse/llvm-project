@@ -187,7 +187,7 @@ STATISTIC(NumRemoved, "Number of DBG_VALUE instructions removed");
 
 // Act more like the old LiveDebugValues, by propagating some locations too
 // far and ignoring some transfers.
-static cl::opt<bool> EmulateOldLDV("word-wrap-like-word97", cl::Hidden,
+static cl::opt<bool> EmulateOldLDV("emulate-old-livedebugvalues", cl::Hidden,
                                    cl::desc("Act like old LiveDebugValues did"),
                                    cl::init(true));
 
