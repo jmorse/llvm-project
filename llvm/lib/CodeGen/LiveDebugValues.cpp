@@ -1146,9 +1146,11 @@ private:
   /// file-comment, reading live-outs of predecessors from \p OutLocs, the
   /// current live ins from \p InLocs, and assigning the newly computed live ins
   /// back into \p InLocs. \returns true if a change was made.
+  /// \p BBNumToRPO maps block numbers (getNumber) to RPO numbers.
   bool mloc_join(MachineBasicBlock &MBB,
                  SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
-                 uint64_t **OutLocs, uint64_t *InLocs);
+                 uint64_t **OutLocs, uint64_t *InLocs,
+                 DenseMap<unsigned, unsigned> &BBNumToRPO);
 
   /// Solve the variable value dataflow problem, for a single lexical scope.
   /// Uses the algorithm from the file comment to resolve control flow joins,
@@ -1961,7 +1963,8 @@ void LiveDebugValues::produce_mloc_transfer_function(MachineFunction &MF,
 bool LiveDebugValues::mloc_join(
     MachineBasicBlock &MBB,
     SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
-    uint64_t **OutLocs, uint64_t *InLocs) {
+    uint64_t **OutLocs, uint64_t *InLocs,
+    DenseMap<unsigned, unsigned> &BBNumToRPO) {
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
 
@@ -1985,44 +1988,63 @@ bool LiveDebugValues::mloc_join(
   if (BlockOrders.size() == 0)
     return false;
 
-  // Step through all predecessors and detect disagreements.
+  // Step through all locations, then look at each predecessor and detect
+  // disagreements.
   unsigned this_block_rpot = BBToOrder.find(&MBB)->second;
   for (unsigned Idx = 1; Idx < tracker->getNumLocs(); ++Idx) {
+    // Pick out the first predecessors live-out value for this location. It's
+    // guaranteed to be not a backedge, as we order by RPO.
     uint64_t base = OutLocs[BlockOrders[0]->getNumber()][Idx];
+
+    // Some flags for whether there's a disagreement, and whether it's a
+    // disagreement with a backedge or not.
     bool disagree = false;
-    bool pred_disagree = false;
-    for (auto *MBB : BlockOrders) { // xxx loops around itself.
+    bool non_be_disagree = false;
+
+    for (auto *MBB : BlockOrders) { // XXX tests against itself.
       if (base != OutLocs[MBB->getNumber()][Idx]) {
+        // Live-out of a predecessor disagrees with the first predecessor.
         disagree = true;
+
+        // Test whether it's a disagreemnt in the backedges or not.
         if (BBToOrder.find(MBB)->second < this_block_rpot) // might be self b/e
-          pred_disagree = true;
+          non_be_disagree = true;
       }
     }
 
     bool over_ride = false;
-    if (disagree && !pred_disagree && ValueIDNum::fromU64(InLocs[Idx]).LocNo != 0) {
-      // It's only the backedges that disagree. Consider demoting. Order is
-      // that non-phis have the minimum priority, and phis "closer" to this
-      // one.
-      // Don't consider PHIs from futher down the chain.
-// XXX XXX XXX
-// XXX XXX XXX
-// XXX XXX XXX
-// This should be rpot number!
+    if (disagree && !non_be_disagree && ValueIDNum::fromU64(InLocs[Idx]).LocNo != 0) {
+      // Only the backedges disagree, and we previously agreed on some value
+      // because we set the Live-In to be nonzero. Consider demoting the livein
+      // lattice value, as per the file level comment. The value we consider
+      // demoting to is the value that the non-backedge predecessors agree on.
+      // The order of values is that non-PHIs are \top, a PHI at this block 
+      // \bot, and phis between the two are ordered by their RPO number.
+      // If there's no agreement, or we've already demoted to this PHI value
+      // before, replace with a PHI value at this block.
+
+      // Calculate order numbers: zero means normal def, nonzero means RPO
+      // number.
       ValueIDNum base_id = ValueIDNum::fromU64(base);
-      ValueIDNum inloc_id = ValueIDNum::fromU64(InLocs[Idx]);
-      unsigned base_block = base_id.BlockNo + 1;
+      unsigned base_block = BBNumToRPO[base_id.BlockNo] + 1;
       if (base_id.InstNo != 0)
         base_block = 0;
-      unsigned inloc_block = inloc_id.BlockNo + 1;
+
+      ValueIDNum inloc_id = ValueIDNum::fromU64(InLocs[Idx]);
+      unsigned inloc_block = BBNumToRPO[inloc_id.BlockNo] + 1;
       if (inloc_id.InstNo != 0)
         inloc_block = 0;
-      unsigned this_block = MBB.getNumber() + 1;
+
+      // Should we ignore the disagreeing backedges, and override with the
+      // value the other predecessors agree on (in "base")?
+      unsigned this_block = BBNumToRPO[MBB.getNumber()] + 1;
       if (base_block > inloc_block && base_block < this_block) {
         // Override.
         over_ride = true;
       }
     }
+    // else: if we disagree in the non-backedges, then this is definitely
+    // a control flow merge where different values merge. Make it a PHI.
 
     // Generate a phi...
     ValueIDNum PHI = {(uint64_t)MBB.getNumber(), 0, LocIdx(Idx)};
@@ -2043,11 +2065,17 @@ void LiveDebugValues::mloc_dataflow(uint64_t **MInLocs,
                       std::greater<unsigned int>>
       Worklist, Pending;
 
-  for (unsigned int I = 0; I < BBToOrder.size(); ++I)
+  DenseMap<unsigned, unsigned> BBNumToRPO;
+
+  for (unsigned int I = 0; I < BBToOrder.size(); ++I) {
     Worklist.push(I);
+    BBNumToRPO[OrderToBB[I]->getNumber()] = I;
+  }
 
   tracker->reset();
-  // Set inlocs for entry block,
+
+  // Set inlocs for entry block -- each as a PHI at the entry block. Represents
+  // the incoming value to the function.
   tracker->setMPhis(0);
   for (unsigned Idx = 1; Idx < tracker->getNumLocs(); ++Idx) {
     ValueIDNum Val = tracker->getNumAtPos(LocIdx(Idx));
@@ -2058,16 +2086,21 @@ void LiveDebugValues::mloc_dataflow(uint64_t **MInLocs,
   SmallPtrSet<const MachineBasicBlock *, 16> Visited;
   while (!Worklist.empty() || !Pending.empty()) {
     // We track what is on the pending worklist to avoid inserting the same
-    // thing twice.  We could avoid this with a custom priority queue, but this
+    // thing twice. We could avoid this with a custom priority queue, but this
     // is probably not worth it.
     SmallPtrSet<MachineBasicBlock *, 16> OnPending;
+
+    // Vector for storing the evaluated block transfer function.
     SmallVector<std::pair<LocIdx, ValueIDNum>, 32> toremap;
+
     while (!Worklist.empty()) {
       MachineBasicBlock *MBB = OrderToBB[Worklist.top()];
       cur_bb = MBB->getNumber();
       Worklist.pop();
 
-      bool InLocsChanged = mloc_join(*MBB, Visited, MOutLocs, MInLocs[cur_bb]);
+      // Join the values in all predecessor blocks.
+      bool InLocsChanged = mloc_join(*MBB, Visited, MOutLocs, MInLocs[cur_bb],
+                                     BBNumToRPO);
       InLocsChanged |= Visited.insert(MBB).second;
 
       // Don't examine transfer function if we've visited this loc at least
@@ -2075,9 +2108,11 @@ void LiveDebugValues::mloc_dataflow(uint64_t **MInLocs,
       if (!InLocsChanged)
         continue;
 
-      // Rather than touch all insts again, read and then reset locations
-      // in the transfer function.
+      // Load the current set of live-ins into MLocTracker.
       tracker->loadFromArray(MInLocs[cur_bb], cur_bb);
+
+      // Each element of the transfer function can be a new def, or a read of
+      // a live-in value. Evaluate each element, and store to "toremap".
       toremap.clear();
       for (auto &P : MLocTransfer[cur_bb]) {
         ValueIDNum NewID = {0, 0, LocIdx(0)};
@@ -2085,15 +2120,15 @@ void LiveDebugValues::mloc_dataflow(uint64_t **MInLocs,
           // This is a movement of whatever was live in. Read it.
           NewID = tracker->getNumAtPos(P.second.LocNo);
         } else {
-          // It's a def. (Has to be a def in this BB, or nullloc).
-          // Just set it.
+          // It's a def. Just set it.
           assert(P.second.BlockNo == cur_bb || P.second.LocNo == 0);
           NewID = P.second;
         }
         toremap.push_back(std::make_pair(P.first, NewID));
       }
 
-      // Commit the transfer function changes into mloc tracker.
+      // Commit the transfer function changes into mloc tracker, which
+      // transforms the contents of the MLocTracker into the live-outs.
       for (auto &P : toremap)
         tracker->setMLoc(P.first, P.second);
 
@@ -2117,11 +2152,15 @@ void LiveDebugValues::mloc_dataflow(uint64_t **MInLocs,
         if (OnPending.insert(s).second)
           Pending.push(BBToOrder[s]);
     }
+
     Worklist.swap(Pending);
     // At this point, pending must be empty, since it was just the empty
     // worklist
     assert(Pending.empty() && "Pending should be empty");
   }
+
+  // Once all the live-ins don't change on mloc_join(), we've reached a
+  // fixedpoint.
 }
 
 bool LiveDebugValues::vloc_join_location(MachineBasicBlock &MBB,
@@ -2131,9 +2170,26 @@ bool LiveDebugValues::vloc_join_location(MachineBasicBlock &MBB,
                         const LiveIdxT::mapped_type PrevInLocs, // ptr
                         const DebugVariable &CurVar, bool ThisIsABackEdge)
 {
+  // This method checks whether InLoc and OLoc, the locations of a variable
+  // in two predecessor blocks, are reconcilable. The answer can be "yes", "no",
+  // and "yes when downgraded to a PHI value".
+  // Unfortuantely this is mega-complex, because as well as deciding whether
+  // two values can merge or be PHI'd, we also have to verify that if a PHI is
+  // to be used, that the corresponding machine-location PHI has the correct
+  // inputs from the predecessors.
+  // InLoc is never a backedge; the rest of the join problem usually hinges on
+  // whether OLoc is a backedge or not.
+  // Some decisions are left to TransferTracker: if we can determine a value
+  // that isn't an mphi, we can safely leave TransferTracker to pick a location
+  // for it.
+
   unsigned cur_bb = MBB.getNumber();
   bool EarlyBail = false;
 
+  // Lambda to pick a machine location for a value, if we decide to use a PHI
+  // and merge them. This could be much more sophisticated, but right now
+  // is good enough. When emulating old LiveDebugValues, there should only be
+  // one candidate location for a value anyway.
   auto FindLocInLocs = [&](uint64_t *OutLocs, const ValueIDNum &ID) -> LocIdx {
     unsigned NumLocs = tracker->getNumLocs();
     LocIdx theloc = LocIdx(0);
@@ -2154,6 +2210,8 @@ bool LiveDebugValues::vloc_join_location(MachineBasicBlock &MBB,
     // designated block.
     return theloc;
   };
+
+  // Specialisations of that lambda for InLoc and OLoc.
   auto FindInInLocs = [&](const ValueIDNum &ID) -> LocIdx {
     return FindLocInLocs(InLocOutLocs, ID);
   };
@@ -2161,19 +2219,20 @@ bool LiveDebugValues::vloc_join_location(MachineBasicBlock &MBB,
     return FindLocInLocs(OLOutLocs, ID);
   };
 
-  // Different kinds? Definite no.
+  // Different kinds (const/def)? Definite no.
   EarlyBail |= InLoc.Kind != OLoc.Kind;
 
   // Trying to join constants is very simple. Plain join on the constant
-  // value.
+  // value. Set EarlyBail if they differ.
   EarlyBail |=
      (InLoc.Kind == OLoc.Kind && InLoc.Kind == ValueRec::Const &&
       !InLoc.MO->isIdenticalTo(*OLoc.MO));
 
-  // Meta disagreement -> bail early.
+  // Meta disagreement -> bail early. We wouldn't be able to produce a
+  // DBG_VALUE that reconciled the meta information.
   EarlyBail |= (InLoc.meta != OLoc.meta);
 
-  // Clobbered location -> bail early.
+  // LocNo == 0 (undef) -> bail early.
   EarlyBail |=
      (InLoc.Kind == OLoc.Kind && InLoc.Kind == ValueRec::Def &&
       OLoc.ID.LocNo == 0);
@@ -2182,42 +2241,37 @@ bool LiveDebugValues::vloc_join_location(MachineBasicBlock &MBB,
   if (EarlyBail) {
     return false;
   } else if (InLoc.Kind == ValueRec::Const) {
-    // If both are constants, we've satisfied constraints.
+    // If both are constants and we didn't early-bail, they're the same.
     return true;
   }
 
-  // This is a join for "values". Two important facts: is this a
-  // backedge, and does the machine-location we're joining on contain
-  // an mphi? (InlocsIt will be the mphi if there is one).
+  // This is a join for "values". Two important facts: is this a backedge, and
+  // does InLocs refer to a machine-location PHI already?
   assert(InLoc.Kind == ValueRec::Def);
   ValueIDNum &InLocsID = InLoc.ID;
   ValueIDNum &OLID = OLoc.ID;
   bool ThisIsAnMPHI = InLocsID.BlockNo == cur_bb && InLocsID.InstNo == 0;
 
-  // Pick out whether the OLID is in the backedge location or not.
+  // Find a location for the OLID in its out-locs.
   LocIdx OLIdx = FindInOLocs(OLID);
-  if (OLIdx == 0 && OLID.BlockNo == cur_bb && OLID.InstNo == 0)
-    OLIdx = OLID.LocNo; // We've previously made this an mphi.
-
-  // If it isn't, this location is invalidated _in_ the block on the
-  // other end of the backedge.
-  if (ThisIsABackEdge && OLOutLocs[OLIdx] != OLID.asU64())
-    return false;
 
   // Everything is massively different for backedges. Try not-be's first.
   if (!ThisIsABackEdge) {
-    // Identical? Then we simply agree. Unless there's an mphi, in which
-    // case we risk the mloc values not lining up being missed. Apply
-    // harder checks to force this to become an mphi location, or croak.
+    // If both values agree, no more work is required, and a location can be
+    // picked for the value when DBG_VALUEs are created.
+    // However if they disagree, or the value is a PHI in this block, then
+    // we may need to create a new PHI, or verify that the correct values flow
+    // into the machine-location PHI.
     if (InLoc == OLoc && !ThisIsAnMPHI)
       return true;
 
     // If we're non-identical and there's no mphi, definitely can't merge.
+    // XXX document that InLoc is always the mphi, if ther eis noe.
     if (InLoc != OLoc && !ThisIsAnMPHI)
       return false;
 
     // Otherwise, we're definitely an mphi, and need to prove that the
-    // location from olit goes into it. Because we're an mphi, we know
+    // location from OLoc goes into it. Because we're an mphi, we know
     // our location...
     LocIdx InLocIdx = InLocsID.LocNo;
     // Also necessary: the vloc out-loc for the edge matches the mloc
@@ -2228,6 +2282,10 @@ bool LiveDebugValues::vloc_join_location(MachineBasicBlock &MBB,
       return false;
     return true;
   }
+
+  // If the backedge value has no location, definitely can't merge.
+  if (OLIdx == 0)
+    return false;
 
   LocIdx Idx = FindInInLocs(InLocsID);
   if (Idx == 0 && InLocsID.BlockNo == cur_bb && InLocsID.InstNo == 0)
@@ -2246,17 +2304,19 @@ bool LiveDebugValues::vloc_join_location(MachineBasicBlock &MBB,
   if (Idx == OLIdx && ThisIsAnMPHI)
     return true;
 
-  // We're not identical, values are merging and there's no an mphi
-  // starting at this block. Check for something where we're being
-  // overridden by an mphi found earlier in the tree.
+  // We're not identical, values are merging and we haven't yet picked an mphi
+  // starting at this block. Follow the file level comment algorithm, and
+  // consider demoting the incoming PHI value instead. Or, downgrade to using
+  // an mphi starting in this block.
 
-  // consider overriding.
   auto ILS_It = PrevInLocs->find(CurVar);
   if (ILS_It == PrevInLocs->end() || ILS_It->second.Kind != ValueRec::Def)
-    // First time around, if there are disagreements, they won't
-    // be due to back edges, thus it's immediately fatal.
+    // This is the first time around as there's no in-loc, and if there are
+    // disagreements, they won't be due to back edges, thus it's immediately
+    // fatal to this location.
     return false;
 
+  // XXX XXX XXX should be RPO order.
   ValueIDNum &ILS_ID = ILS_It->second.ID;
   unsigned NewInOrder = (InLocsID.InstNo) ? 0 : InLocsID.BlockNo + 1;
   unsigned OldOrder = (ILS_ID.InstNo) ? 0 : ILS_ID.BlockNo + 1;
@@ -2274,9 +2334,11 @@ bool LiveDebugValues::vloc_join(
    const SmallSet<DebugVariable, 4> &AllVars,
    uint64_t **MInLocs, uint64_t **MOutLocs,
   SmallPtrSet<const MachineBasicBlock *, 8> &NonAssignBlocks) {
-   
+
+  // To emulate old LiveDebugValues, process this block if it's not in scope but
+  // _does_ assign a variable location. No live-ins for this scope are
+  // transferred in though, so we can return immediately.
   if (NonAssignBlocks.count(&MBB) == 0) {
-    // Wipe all inlocs. By never assigning to them.
     if (VLOCVisited)
       return true;
     return false;
@@ -2285,13 +2347,17 @@ bool LiveDebugValues::vloc_join(
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
 
+  // Map that we'll be using to store the computed live-ins.
   DenseMap<DebugVariable, ValueRec> InLocsT;
-  SmallSet<DebugVariable, 8> Disagreements;
 
+  // Find any live-ins computed in a prior iteration.
   auto ILSIt = VLOCInLocs.find(&MBB);
   assert(ILSIt != VLOCInLocs.end());
   auto &ILS = *ILSIt->second;
 
+  // Helper to pick a live-out location for a value. Much like in mloc_join.
+  // Could be much more sophisticated, but doesn't need to be while we're
+  // emulating old LiveDebugValues.
   auto FindLocOfDef = [&](unsigned BBNum, const ValueIDNum &ID) -> LocIdx {
     unsigned NumLocs = tracker->getNumLocs();
     uint64_t *OutLocs = MOutLocs[BBNum];
@@ -2314,7 +2380,7 @@ bool LiveDebugValues::vloc_join(
     return theloc;
   };
 
-  // Order predecessors by RPOT order. Fundemental right now.
+  // Order predecessors by RPOT order, for exploring them in that order.
   SmallVector<MachineBasicBlock *, 8> BlockOrders;
   for (auto p : MBB.predecessors())
     BlockOrders.push_back(p);
@@ -2324,7 +2390,8 @@ bool LiveDebugValues::vloc_join(
   };
 
   llvm::sort(BlockOrders.begin(), BlockOrders.end(), Cmp);
-  unsigned this_rpot = BBToOrder[&MBB];
+
+  unsigned this_block_rpot = BBToOrder[&MBB];
 
   // For all predecessors of this MBB, find the set of VarLocs that
   // can be joined.
@@ -2332,47 +2399,57 @@ bool LiveDebugValues::vloc_join(
   unsigned FirstVisited = 0;
   for (auto p : BlockOrders) {
     // Ignore backedges if we have not visited the predecessor yet. As the
-    // predecessor hasn't yet had locations propagated into it, most locations
-    // will not yet be valid, so treat them as all being uninitialized and
-    // potentially valid. If a location guessed to be correct here is
-    // invalidated later, we will remove it when we revisit this block.
+    // predecessor hasn't yet had locations propagated into it, all locations
+    // will have an "Unknown" lattice value that meets with everything.
+    // If a location guessed to be correct here is invalidated later, we will
+    // remove it when we revisit this block.
     if (VLOCVisited && !VLOCVisited->count(p)) {
       LLVM_DEBUG(dbgs() << "  ignoring unvisited pred MBB: " << p->getNumber()
                         << "\n");
       continue;
     }
+
     auto OL = VLOCOutLocs.find(p);
-    // Join is null in case of empty OutLocs from any of the pred.
+    // Join is null if any predecessors OutLocs is absent or empty.
     if (OL == VLOCOutLocs.end()) {
       InLocsT.clear();
       break;
     }
 
-    // Just copy over the Out locs to incoming locs for the first visited
-    // predecessor, and for all other predecessors join the Out locs.
+    // For the first predecessor, copy all of its variable values into the
+    // InLocsT map; check whether other predecessors join with each location
+    // later.
     if (!NumVisited) {
       InLocsT = *OL->second;
       FirstVisited = p->getNumber();
 
-// XXX maaayyybbeeee downgrade to an mphi
-for (auto &It : InLocsT) {
-  // Where does it come out...
-  if (It.second.Kind != ValueRec::Def)
-    continue;
-  LocIdx Idx = FindLocOfDef(FirstVisited, It.second.ID);
-  if (Idx == 0)
-    continue;
-  // Is that what comes in?
-  ValueIDNum LiveInID = ValueIDNum::fromU64(MInLocs[cur_bb][Idx]);
-  if (It.second.ID != LiveInID) {
-    // Ooops. It became an mphi. Convert it to one and check other things later.
-    assert(LiveInID.BlockNo == cur_bb && LiveInID.InstNo == 0);
-    It.second.ID = LiveInID;
-  }
-}
+      // Additionally: for each variable, check whether it's location carries
+      // the value into this block unchanged, or whether an mphi happens,
+      // according to the machine value analysis. If it isn't an mphi, the
+      // result of joining this location must be that value (or fail). If it is,
+      // it has to be that mphi value (or fail).
+      // XXX, this might be a better way to decompose the joining problem?
 
+      for (auto &It : InLocsT) {
+        // Consider only defs,
+        if (It.second.Kind != ValueRec::Def)
+          continue;
+        // Does it have a live-out machine location?
+        LocIdx Idx = FindLocOfDef(FirstVisited, It.second.ID);
+        if (Idx == 0)
+          continue;
+        // And is that what's in the corresponding live-in machine location?
+        ValueIDNum LiveInID = ValueIDNum::fromU64(MInLocs[cur_bb][Idx]);
+        if (It.second.ID != LiveInID) {
+          // No, it became an mphi. Turn the candidate live-in location to that
+          // mphi, and check the other predecessors later.
+          assert(LiveInID.BlockNo == cur_bb && LiveInID.InstNo == 0);
+          It.second.ID = LiveInID;
+        }
+      }
     } else {
-      // XXX insert join here.
+      // Check whether this predecessors variable locations will successfully
+      // join with the first predecessors location, or mphi.
       for (auto &Var : AllVars) {
         auto InLocsIt = InLocsT.find(Var);
         auto OLIt = OL->second->find(Var);
@@ -2387,13 +2464,13 @@ for (auto &It : InLocsT) {
           continue;
         }
 
-
-        bool ThisIsABackEdge = this_rpot <= BBToOrder[p];
+        bool ThisIsABackEdge = this_block_rpot <= BBToOrder[p];
         bool joins = vloc_join_location(MBB, InLocsIt->second, 
                         OLIt->second, MOutLocs[FirstVisited],
                         MOutLocs[p->getNumber()], &ILS, InLocsIt->first,
                         ThisIsABackEdge);
 
+        // If we cannot join the two locations, erase the live-in variable.
         if (!joins)
           InLocsT.erase(InLocsIt);
       }
@@ -2403,14 +2480,6 @@ for (auto &It : InLocsT) {
 
     NumVisited++;
   }
-
-  // As we are processing blocks in reverse post-order we
-  // should have processed at least one predecessor, unless it
-  // is the entry block which has no predecessor.
-#if 0
-  assert((NumVisited || MBB.pred_empty()) &&
-         "Should have processed at least one predecessor");
-#endif
 
   Changed = ILS != InLocsT;
   if (Changed)
