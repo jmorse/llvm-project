@@ -1572,9 +1572,8 @@ bool LiveDebugValues::transferDebugInstrRef(MachineInstr &MI, uint64_t **MInLocs
     // Also drop out a DBG_VALUE!
     MetaVal Meta = {MI.getDebugExpression(), MI.getOperand(1).isImm()};
     MachineInstr *DbgMI = MTracker->emitLoc(L, V, Meta);
-    std::vector<MachineInstr *> tmp;
-    tmp.push_back(DbgMI);
-    TTracker->Transfers.push_back({MI.getIterator(), nullptr, std::move(tmp)});
+    TTracker->PendingDbgValues.push_back(DbgMI);
+    TTracker->flushDbgValues(MI.getIterator(), nullptr);
   }
 
   return true;
