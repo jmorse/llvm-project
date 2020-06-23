@@ -219,7 +219,7 @@ struct SpillLoc {
 // numerically.
 enum LocIdx { limin = 0, limax = UINT_MAX };
 
-#define NUM_LOC_BITS 14
+#define NUM_LOC_BITS 24
 
 /// Unique identifier for a value defined by an instruction, as a value type.
 /// Casts back and forth to a uint64_t. Probably replacable with something less
@@ -227,9 +227,13 @@ enum LocIdx { limin = 0, limax = UINT_MAX };
 /// where the value is defined, although there may be no corresponding machine
 /// operand for it (ex: regmasks clobbering values). The instructions are
 /// one-based, and definitions that are PHIs have instruction number zero.
+///
+/// The obvious limits of a 1M block function or 1M instruction blocks are
+/// problematic; but by that point we should probably have bailed out of
+/// trying to analyse the function.
 class ValueIDNum {
 public:
-  uint64_t BlockNo : 16; /// The block where the def happens.
+  uint64_t BlockNo : 20; /// The block where the def happens.
   uint64_t InstNo : 20;  /// The Instruction where the def happens.
                          /// One based, is distance from start of block.
   LocIdx LocNo : NUM_LOC_BITS; /// The machine location where the def happens.
@@ -238,12 +242,12 @@ public:
   uint64_t asU64() const {
     uint64_t TmpBlock = BlockNo;
     uint64_t TmpInst = InstNo;
-    return TmpBlock << 34ull | TmpInst << NUM_LOC_BITS | LocNo;
+    return TmpBlock << 44ull | TmpInst << NUM_LOC_BITS | LocNo;
   }
 
   static ValueIDNum fromU64(uint64_t v) {
     LocIdx L = LocIdx(v & 0x3FFF);
-    return {v >> 34ull, ((v >> NUM_LOC_BITS) & 0xFFFFF), L};
+    return {v >> 44ull, ((v >> NUM_LOC_BITS) & 0xFFFFF), L};
   }
 
   bool operator<(const ValueIDNum &Other) const {
@@ -1115,10 +1119,6 @@ private:
   /// instructions without DebugLocs, or with line 0 locations.
   SmallPtrSet<const MachineBasicBlock *, 16> ArtificialBlocks;
 
-// XXX docs
-  DenseMap<const MachineBasicBlock *, SmallVector<MachineBasicBlock *, 4>>
-    ArtificialBlocksIndex;
-
   // Mapping of blocks to and from their RPOT order.
   DenseMap<unsigned int, MachineBasicBlock *> OrderToBB;
   DenseMap<MachineBasicBlock *, unsigned int> BBToOrder;
@@ -1583,7 +1583,17 @@ bool LiveDebugValues::transferDebugInstrRef(MachineInstr &MI, uint64_t **MInLocs
 void LiveDebugValues::transferRegisterDef(MachineInstr &MI) {
   // Meta Instructions do not affect the debug liveness of any register they
   // define.
-  if (MI.isMetaInstruction())
+  if (MI.isImplicitDef()) {
+    // Except when there's an implicit def, and the location it's defining has
+    // no value number. The whole point of an implicit def is to announce that
+    // the register is live, without be specific about it's value. So define
+    // a value if there isn't one already.
+    ValueIDNum Num = MTracker->readReg(MI.getOperand(0).getReg());
+    // Has a legitimate value -> ignore the implicit def.
+    if (Num.LocNo != 0)
+      return;
+    // Otherwise, def it here.
+  } else if (MI.isMetaInstruction())
     return;
 
   MachineFunction *MF = MI.getMF();
@@ -1625,6 +1635,25 @@ void LiveDebugValues::performCopy(Register SrcRegNum, Register DstRegNum) {
 
   MTracker->setReg(DstRegNum, SrcValue);
 
+  // In all circumstances, re-def the super registers. It's definitely a new
+  // value now. This doesn't uniquely identify the composition of subregs, for
+  // example, two identical values in subregisters composed in different
+  // places would not get equal value numbers.
+  for (MCSuperRegIterator SRI(DstRegNum, TRI); SRI.isValid(); ++SRI)
+    MTracker->defReg(*SRI, CurBB, CurInst);
+
+  // If we're emulating old LiveDebugValues, just define all the subregisters.
+  // DBG_VALUEs of them will expect to be tracked from the DBG_VALUE, not
+  // through prior copies.
+  if (EmulateOldLDV) {
+    for (MCSubRegIndexIterator DRI(DstRegNum, TRI); DRI.isValid(); ++DRI)
+      MTracker->defReg(DRI.getSubReg(), CurBB, CurInst);
+    return;
+  }
+
+  // Otherwise, actually copy subregisters from one location to another.
+  // XXX: in addition, any subregisters of DstRegNum that don't line up with
+  // the source register should be def'd.
   for (MCSubRegIndexIterator SRI(SrcRegNum, TRI); SRI.isValid(); ++SRI) {
     unsigned SrcSubReg = SRI.getSubReg();
     unsigned SubRegIdx = SRI.getSubRegIndex();
@@ -1865,7 +1894,7 @@ bool LiveDebugValues::transferRegisterCopy(MachineInstr &MI) {
 
   // Old LiveDebugValues would quit tracking the old location after copying.
   if (EmulateOldLDV && SrcReg != DestReg)
-    MTracker->wipeRegister(SrcReg);
+    MTracker->defReg(SrcReg, CurBB,  CurInst);
 
   return true;
 }
@@ -2672,6 +2701,8 @@ void LiveDebugValues::vlocDataflow(
   // Produce by-MBB indexes of live-in/live-outs, to ease lookup within
   // vlocJoin.
   LiveIdxT LiveOutIdx, LiveInIdx;
+  LiveOutIdx.reserve(NumBlocks);
+  LiveInIdx.reserve(NumBlocks);
   for (unsigned I = 0; I < NumBlocks; ++I) {
     LiveOutIdx[BlockOrders[I]] = &LiveOuts[I];
     LiveInIdx[BlockOrders[I]] = &LiveIns[I];
@@ -2837,32 +2868,6 @@ void LiveDebugValues::initialSetup(MachineFunction &MF) {
     BBNumToRPO[(*RI)->getNumber()] = RPONumber;
     ++RPONumber;
   }
-
-  // Produce a mapping of "what artificial blocks does this block flow into".
-  // i.e., if we have some block MBB, what child MBBs follow from it, which
-  // would need to be included in dataflow.
-#if 0
-  for (unsigned int I = OrderToBB.size(); I > 0; --I) {
-    auto &MBB = *OrderToBB[I - 1];
-    SmallVector<MachineBasicBlock *, 4> tmp;
-
-    // Gather any artifical successors; and any artifical successors they have.
-    for (auto &succ : MBB.successors()) {
-      if (ArtificialBlocks.find(succ) == ArtificialBlocks.end())
-        continue;
-
-      tmp.push_back(succ);
-
-      auto it = ArtificialBlocksIndex.find(succ);
-      if (it == ArtificialBlocksIndex.end())
-        continue;
-      tmp.insert(tmp.begin(), it->second.begin(), it->second.end());
-    }
-
-    if (!tmp.empty())
-      ArtificialBlocksIndex.insert(std::make_pair(&MBB, std::move(tmp)));
-  }
-#endif
 }
 
 namespace {
@@ -3438,7 +3443,6 @@ bool LiveDebugValues::runOnMachineFunction(MachineFunction &MF) {
   TTracker = nullptr;
 
   ArtificialBlocks.clear();
-  ArtificialBlocksIndex.clear();
   OrderToBB.clear();
   BBToOrder.clear();
   BBNumToRPO.clear();
