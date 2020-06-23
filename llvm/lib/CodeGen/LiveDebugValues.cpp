@@ -28,7 +28,7 @@
 /// To make this simpler we perform two kinds of analysis. First, we identify
 /// every value defined by every instruction (ignoring those that only move
 /// another value), then compute a map of which values are available for each
-/// instruciton. This is stronger than a reaching-def analysis, as we create
+/// instruction. This is stronger than a reaching-def analysis, as we create
 /// PHI values where other values merge.
 ///
 /// Secondly, for each variable, we effectively re-construct SSA using each
@@ -51,9 +51,9 @@
 /// DbgEntityHistoryCalculator to focus on individual blocks.
 ///
 /// This pass is able to go fast because the size of the first
-/// reaching-definition analysis is proportionate to the working-set size of
-/// the function, which the compile tries to keep small. (It's also
-/// proportionate to the number of blocks). Additionally, we repeatedly perform
+/// reaching-definition analysis is proportional to the working-set size of
+/// the function, which the compiler tries to keep small. (It's also
+/// proportional to the number of blocks). Additionally, we repeatedly perform
 /// the second reaching-definition analysis with only the variables and blocks
 /// in a single lexical scope, exploiting their locality.
 ///
@@ -66,8 +66,8 @@
 /// To do this, consider a lattice of all definition values, from instructions
 /// and from PHIs. Each PHI is characterised by the RPO number of the block it
 /// occurs in. Each value pair A, B can be ordered by RPO(A) < RPO(B):
-/// with non-PHI values at the top, and any PHI value in the last (by RPO order)
-/// block at the bottom.
+/// with non-PHI values at the top, and any PHI value in the last block (by RPO
+/// order) at the bottom.
 ///
 /// (Awkwardly: lower-down-the _lattice_ means a greater RPO _number_. Below,
 /// "rank" always refers to the former).
@@ -88,11 +88,11 @@
 /// is a loop head, this ordering is effectively searching outer levels of
 /// loops, to find a value that's live-through the current loop.
 ///
-/// If the is no value that's live-through this loop, a PHI is created for this
-/// location instead. We can't use a lower-ranked PHI because by definition it
-/// doesn't dominate the current block. We can't create a PHI value any earlier,
-/// because we risk creating a PHI value at a location where values do not in
-/// fact merge, thus misrepresenting the truth, and not making the true
+/// If there is no value that's live-through this loop, a PHI is created for
+/// this location instead. We can't use a lower-ranked PHI because by definition
+/// it doesn't dominate the current block. We can't create a PHI value any
+/// earlier, because we risk creating a PHI value at a location where values do
+/// not in fact merge, thus misrepresenting the truth, and not making the true
 /// live-through value for variable locations.
 ///
 /// This algorithm applies to both calculating the availability of values in
@@ -102,8 +102,8 @@
 ///  * There is a value for the variable on the incoming edge, and
 ///  * All the edges have that value in the same register.
 /// Or put another way: we can only create a variable-location PHI if there is
-/// a matching machine-location PHI, the inputs to which are all also the
-/// variables location in the predecessor block.
+/// a matching machine-location PHI, each input to which is the variables value
+/// in the predecessor block.
 ///
 /// ### Terminology
 ///
@@ -113,7 +113,7 @@
 /// contain the appropriate variable value. A value that is a PHI node is
 /// occasionally called an mphi.
 ///
-/// I'm calling the first dataflow problem the "machine value location" problem,
+/// The first dataflow problem is the "machine value location" problem,
 /// because we're determining which machine locations contain which values.
 /// The "locations" are constant: what's unknown is what value they contain.
 ///
@@ -121,7 +121,7 @@
 /// problem", because it's determining what values a variable has, rather than
 /// what location those values are placed in. Unfortunately, it's not that
 /// simple, because producing a PHI value always involves picking a location.
-/// This is an imperfection that we just have to accept, IMO.
+/// This is an imperfection that we just have to accept, at least for now.
 ///
 /// TODO:
 ///   Overlapping fragments
@@ -188,7 +188,7 @@ STATISTIC(NumRemoved, "Number of DBG_VALUE instructions removed");
 
 // Act more like the old LiveDebugValues, by propagating some locations too
 // far and ignoring some transfers.
-static cl::opt<bool> EmulateOldLDV("word-wrap-like-word97", cl::Hidden,
+static cl::opt<bool> EmulateOldLDV("emulate-old-livedebugvalues", cl::Hidden,
                                    cl::desc("Act like old LiveDebugValues did"),
                                    cl::init(false));
 
@@ -233,9 +233,9 @@ enum LocIdx { limin = 0, limax = UINT_MAX };
 /// trying to analyse the function.
 class ValueIDNum {
 public:
-  uint64_t BlockNo : 20; /// The block where the def happens.
-  uint64_t InstNo : 20;  /// The Instruction where the def happens.
-                         /// One based, is distance from start of block.
+  uint64_t BlockNo : 20;       /// The block where the def happens.
+  uint64_t InstNo : 20;        /// The Instruction where the def happens.
+                               /// One based, is distance from start of block.
   LocIdx LocNo : NUM_LOC_BITS; /// The machine location where the def happens.
   // (No idea why this can work as a LocIdx, it probably shouldn't)
 
@@ -529,9 +529,11 @@ public:
   void writeRegMask(const MachineOperand *MO, unsigned CurBB, unsigned InstID) {
     // Ensure SP exists, so that we don't override it later.
     unsigned SP = TLI.getStackPointerRegisterToSaveRestore();
-    unsigned ID = getLocID(SP, false);
-    LocIdx &Idx = LocIDToLocIdx[ID];
-    bumpRegister(ID, Idx);
+    if (SP) {
+      unsigned ID = getLocID(SP, false);
+      LocIdx &Idx = LocIDToLocIdx[ID];
+      bumpRegister(ID, Idx);
+    }
 
     // Def anything we already have that isn't preserved.
     for (auto &P : LocIdxToLocID) {
@@ -796,8 +798,8 @@ public:
   /// we allow inserting either before or after the point: MBB != nullptr
   /// indicates it's before, otherwise after.
   struct Transfer {
-    MachineBasicBlock::iterator Pos;   /// Position to insert DBG_VALUes
-    MachineBasicBlock *MBB;            /// non-null if we should insert after.
+    MachineBasicBlock::iterator Pos; /// Position to insert DBG_VALUes
+    MachineBasicBlock *MBB;          /// non-null if we should insert after.
     SmallVector<MachineInstr *, 4> Insts; /// Vector of DBG_VALUEs to insert.
   };
 
@@ -1234,12 +1236,14 @@ private:
   /// locations are in \p MOutLocs and \p MInLocs. The live-ins for \p MBB are
   /// computed and stored into \p VLOCInLocs. \returns true if the live-ins
   /// are modified. Delegates most logic for merging to \ref vlocJoinLocation.
+  /// \p InLocsT Output argument, storage for calculated live-ins.
   bool vlocJoin(MachineBasicBlock &MBB, LiveIdxT &VLOCOutLocs,
                 LiveIdxT &VLOCInLocs,
                 SmallPtrSet<const MachineBasicBlock *, 16> *VLOCVisited,
                 unsigned BBNum, const SmallSet<DebugVariable, 4> &AllVars,
                 uint64_t **MInLocs, uint64_t **MOutLocs,
-                SmallPtrSet<const MachineBasicBlock *, 8> &NonAssignBlocks);
+                SmallPtrSet<const MachineBasicBlock *, 8> &InScopeBlocks,
+                DenseMap<DebugVariable, ValueRec> &InLocsT);
 
   /// Perform value merge for a single variable at a particular block,
   /// between two individual predecessor values. \ref vlocJoin picks one
@@ -1631,7 +1635,6 @@ void LiveDebugValues::transferRegisterDef(MachineInstr &MI) {
     MTracker->writeRegMask(MO, CurBB, CurInst);
 }
 
-
 void LiveDebugValues::performCopy(Register SrcRegNum, Register DstRegNum) {
   ValueIDNum SrcValue = MTracker->readReg(SrcRegNum);
 
@@ -1880,10 +1883,6 @@ bool LiveDebugValues::transferRegisterCopy(MachineInstr &MI) {
   if (EmulateOldLDV && !SrcRegOp->isKill())
     return false;
 
-  // We have to follow identity copies, as DbgEntityHistoryCalculator only
-  // sees the defs. XXX is this code path still taken?
-  //auto ValueID = MTracker->readReg(SrcReg);
-  //MTracker->setReg(DestReg, ValueID);
   // Copy MTracker info, including subregs if available.
   LiveDebugValues::performCopy(SrcReg, DestReg);
 
@@ -1896,7 +1895,7 @@ bool LiveDebugValues::transferRegisterCopy(MachineInstr &MI) {
 
   // Old LiveDebugValues would quit tracking the old location after copying.
   if (EmulateOldLDV && SrcReg != DestReg)
-    MTracker->defReg(SrcReg, CurBB,  CurInst);
+    MTracker->defReg(SrcReg, CurBB, CurInst);
 
   return true;
 }
@@ -2055,9 +2054,6 @@ void LiveDebugValues::produceMLocTransferFunction(
   // Check that any regmask-clobber of a register that gets tracked, is not
   // live-through in the transfer function. It needs to be clobbered at the
   // very least.
-  // XXX, this doesn't account for setting a reg and then clobbering it
-  // afterwards, although I guess then the reg would be tracked?
-  // XXX, also, no-entry should be turned into a clobber too, right?
   for (unsigned int I = 0; I < MaxNumBlocks; ++I) {
     BitVector &BV = BlockMasks[I];
     BV.flip();
@@ -2177,8 +2173,9 @@ bool LiveDebugValues::mlocJoin(
   return Changed;
 }
 
-void LiveDebugValues::mlocDataflow(uint64_t **MInLocs, uint64_t **MOutLocs,
-                                   SmallVectorImpl<MLocTransferMap> &MLocTransfer) {
+void LiveDebugValues::mlocDataflow(
+    uint64_t **MInLocs, uint64_t **MOutLocs,
+    SmallVectorImpl<MLocTransferMap> &MLocTransfer) {
   std::priority_queue<unsigned int, std::vector<unsigned int>,
                       std::greater<unsigned int>>
       Worklist, Pending;
@@ -2375,7 +2372,7 @@ bool LiveDebugValues::vlocJoinLocation(
       return true;
 
     // If we're non-identical and there's no mphi, definitely can't merge.
-    // XXX document that InLoc is always the mphi, if ther eis noe.
+    // XXX document that InLoc is always the mphi, if there is one.
     if (InLoc != OLoc && !ThisIsAnMPHI)
       return false;
 
@@ -2440,12 +2437,13 @@ bool LiveDebugValues::vlocJoin(
     SmallPtrSet<const MachineBasicBlock *, 16> *VLOCVisited, unsigned BBNum,
     const SmallSet<DebugVariable, 4> &AllVars, uint64_t **MInLocs,
     uint64_t **MOutLocs,
-    SmallPtrSet<const MachineBasicBlock *, 8> &NonAssignBlocks) {
+    SmallPtrSet<const MachineBasicBlock *, 8> &InScopeBlocks,
+    DenseMap<DebugVariable, ValueRec> &InLocsT) {
 
   // To emulate old LiveDebugValues, process this block if it's not in scope but
   // _does_ assign a variable value. No live-ins for this scope are transferred
   // in though, so we can return immediately.
-  if (NonAssignBlocks.count(&MBB) == 0 && !ArtificialBlocks.count(&MBB)) {
+  if (InScopeBlocks.count(&MBB) == 0 && !ArtificialBlocks.count(&MBB)) {
     if (VLOCVisited)
       return true;
     return false;
@@ -2453,9 +2451,6 @@ bool LiveDebugValues::vlocJoin(
 
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
-
-  // Map that we'll be using to store the computed live-ins.
-  DenseMap<DebugVariable, ValueRec> InLocsT;
 
   // Find any live-ins computed in a prior iteration.
   auto ILSIt = VLOCInLocs.find(&MBB);
@@ -2590,7 +2585,7 @@ bool LiveDebugValues::vlocJoin(
   // Store newly calculated in-locs into VLOCInLocs, if they've changed.
   Changed = ILS != InLocsT;
   if (Changed)
-    ILS = std::move(InLocsT);
+    ILS = InLocsT;
 
   // Uhhhhhh, reimplement NumInserted and NumRemoved pls.
   return Changed;
@@ -2611,7 +2606,8 @@ void LiveDebugValues::vlocDataflow(
       Worklist, Pending;
 
   // The set of blocks we'll be examining.
-  SmallPtrSet<const MachineBasicBlock *, 8> LBlocks;
+  SmallPtrSet<const MachineBasicBlock *, 8> BlocksToExplore;
+
   // The order in which to examine them (RPO).
   SmallVector<MachineBasicBlock *, 8> BlockOrders;
 
@@ -2620,70 +2616,85 @@ void LiveDebugValues::vlocDataflow(
     return BBToOrder[A] < BBToOrder[B];
   };
 
-  LS.getMachineBasicBlocks(DILoc, LBlocks);
+  LS.getMachineBasicBlocks(DILoc, BlocksToExplore);
 
   // A separate container to distinguish "blocks we're exploring" versus
   // "blocks that are potentially in scope. See comment at start of vlocJoin.
-  SmallPtrSet<const MachineBasicBlock *, 8> NonAssignBlocks = LBlocks;
+  SmallPtrSet<const MachineBasicBlock *, 8> InScopeBlocks = BlocksToExplore;
 
   // Old LiveDebugValues tracks variable locations that come out of blocks
   // not in scope, where DBG_VALUEs occur. This is something we could
   // legitimately ignore, but lets allow it for now.
   if (EmulateOldLDV)
-    LBlocks.insert(AssignBlocks.begin(), AssignBlocks.end());
+    BlocksToExplore.insert(AssignBlocks.begin(), AssignBlocks.end());
 
-
-  // Accumulate in any artificial blocks that immediately follow any of those
-  // blocks.
+  // We also need to propagate variable values through any artificial blocks
+  // that immediately follow blocks in scope.
   DenseSet<const MachineBasicBlock *> ToAdd;
-  auto AccumulateArtificialBlocks = [this, &ToAdd, &LBlocks, &NonAssignBlocks](const MachineBasicBlock* MBB) {
-    SmallVector<std::pair<const MachineBasicBlock *, MachineBasicBlock::const_succ_iterator>, 8> DFS;
-    // Find any artificial successors not already tracked.
-    for (auto *succ : MBB->successors()) {
-      if (LBlocks.count(succ) || NonAssignBlocks.count(succ))
-        continue;
-      if (!ArtificialBlocks.count(succ))
-        continue;
-      DFS.push_back(std::make_pair(succ, succ->succ_begin()));
-      ToAdd.insert(succ);
-    }
 
-    // Search all those blocks, depth first.
-    while (!DFS.empty()) {
-      const MachineBasicBlock *CurBB = DFS.back().first;
-      MachineBasicBlock::const_succ_iterator &CurSucc = DFS.back().second;
-      if (CurSucc == CurBB->succ_end()) {
-        DFS.pop_back();
-        continue;
-      }
+  // Helper lambda: For a given block in scope, perform a depth first search
+  // of all the artificial successors, adding them to the ToAdd collection.
+  auto AccumulateArtificialBlocks =
+      [this, &ToAdd, &BlocksToExplore,
+       &InScopeBlocks](const MachineBasicBlock *MBB) {
+        // Depth-first-search state: each node is a block and which successor
+        // we're currently exploring.
+        SmallVector<std::pair<const MachineBasicBlock *,
+                              MachineBasicBlock::const_succ_iterator>,
+                    8>
+            DFS;
 
-      if (!ToAdd.count(*CurSucc) && ArtificialBlocks.count(*CurSucc)) {
-        DFS.push_back(std::make_pair(*CurSucc, (*CurSucc)->succ_begin()));
-        ToAdd.insert(*CurSucc);
-        continue;
-      }
+        // Find any artificial successors not already tracked.
+        for (auto *succ : MBB->successors()) {
+          if (BlocksToExplore.count(succ) || InScopeBlocks.count(succ))
+            continue;
+          if (!ArtificialBlocks.count(succ))
+            continue;
+          DFS.push_back(std::make_pair(succ, succ->succ_begin()));
+          ToAdd.insert(succ);
+        }
 
-      ++CurSucc;
-    }
-  };
+        // Search all those blocks, depth first.
+        while (!DFS.empty()) {
+          const MachineBasicBlock *CurBB = DFS.back().first;
+          MachineBasicBlock::const_succ_iterator &CurSucc = DFS.back().second;
+          // Walk back if we've explored this blocks successors to the end.
+          if (CurSucc == CurBB->succ_end()) {
+            DFS.pop_back();
+            continue;
+          }
 
-  for (auto *MBB : LBlocks)
+          // If the current successor is artificial and unexplored, descend into
+          // it.
+          if (!ToAdd.count(*CurSucc) && ArtificialBlocks.count(*CurSucc)) {
+            DFS.push_back(std::make_pair(*CurSucc, (*CurSucc)->succ_begin()));
+            ToAdd.insert(*CurSucc);
+            continue;
+          }
+
+          ++CurSucc;
+        }
+      };
+
+  // Search in-scope blocks and those containing a DBG_VALUE from this scope
+  // for artificial successors.
+  for (auto *MBB : BlocksToExplore)
     AccumulateArtificialBlocks(MBB);
-  for (auto *MBB : NonAssignBlocks)
+  for (auto *MBB : InScopeBlocks)
     AccumulateArtificialBlocks(MBB);
-    
-  LBlocks.insert(ToAdd.begin(), ToAdd.end());
-  NonAssignBlocks.insert(ToAdd.begin(), ToAdd.end());
+
+  BlocksToExplore.insert(ToAdd.begin(), ToAdd.end());
+  InScopeBlocks.insert(ToAdd.begin(), ToAdd.end());
 
   // Single block scope: not interesting! No propagation at all. Note that
   // this could probably go above ArtificialBlocks without damage, but
   // that then produces output differences from original-live-debug-values,
   // which propagates from a single block into many artificial ones.
-  if (LBlocks.size() == 1)
+  if (BlocksToExplore.size() == 1)
     return;
 
   // Picks out relevants blocks RPO order and sort them.
-  for (auto *MBB : LBlocks)
+  for (auto *MBB : BlocksToExplore)
     BlockOrders.push_back(const_cast<MachineBasicBlock *>(MBB));
 
   llvm::sort(BlockOrders.begin(), BlockOrders.end(), Cmp);
@@ -2707,6 +2718,7 @@ void LiveDebugValues::vlocDataflow(
   for (auto *MBB : BlockOrders)
     Worklist.push(BBToOrder[MBB]);
 
+  // Iterate over all the blocks we selected, propagating variable values.
   bool FirstTrip = true;
   SmallPtrSet<const MachineBasicBlock *, 16> VLOCVisited;
   while (!Worklist.empty() || !Pending.empty()) {
@@ -2716,10 +2728,14 @@ void LiveDebugValues::vlocDataflow(
       CurBB = MBB->getNumber();
       Worklist.pop();
 
-      // Join values from predecessors.
-      bool InlocsChanged = vlocJoin(
-          *MBB, LiveOutIdx, LiveInIdx, (FirstTrip) ? &VLOCVisited : nullptr,
-          CurBB, VarsWeCareAbout, MInLocs, MOutLocs, NonAssignBlocks);
+      DenseMap<DebugVariable, ValueRec> JoinedInLocs;
+
+      // Join values from predecessors. Updates LiveInIdx, and writes output
+      // into JoinedInLocs.
+      bool InlocsChanged =
+          vlocJoin(*MBB, LiveOutIdx, LiveInIdx,
+                   (FirstTrip) ? &VLOCVisited : nullptr, CurBB, VarsWeCareAbout,
+                   MInLocs, MOutLocs, InScopeBlocks, JoinedInLocs);
 
       // Always explore transfer function if inlocs changed, or if we've not
       // visited this block before.
@@ -2728,8 +2744,6 @@ void LiveDebugValues::vlocDataflow(
         continue;
 
       // Do transfer function.
-      // DenseMap copy.
-      DenseMap<DebugVariable, ValueRec> Cpy = *LiveInIdx[MBB];
       auto &VTracker = AllTheVLocs[MBB->getNumber()];
       for (auto &Transfer : VTracker.Vars) {
         // Is this var we're mangling in this scope?
@@ -2737,19 +2751,21 @@ void LiveDebugValues::vlocDataflow(
           // Erase on empty transfer (DBG_VALUE $noreg).
           if (Transfer.second.Kind == ValueRec::Def &&
               Transfer.second.ID.LocNo == 0)
-            Cpy.erase(Transfer.first);
+            JoinedInLocs.erase(Transfer.first);
           else
-            Cpy[Transfer.first] = Transfer.second;
+            JoinedInLocs[Transfer.first] = Transfer.second;
         }
       }
 
-      // Commit newly calculated live-outs, nothing whether they changed.
-      bool OLChanged = Cpy != *LiveOutIdx[MBB];
-      *LiveOutIdx[MBB] = Cpy;
+      // Did the live-out locations change?
+      bool OLChanged = JoinedInLocs != *LiveOutIdx[MBB];
 
       // If they haven't changed, there's no need to explore further.
       if (!OLChanged)
         continue;
+
+      // Commit to the live-out record.
+      *LiveOutIdx[MBB] = JoinedInLocs;
 
       // Ignore out of scope successors and those already on the list. All
       // others should be on the pending list next time around.
@@ -2772,7 +2788,7 @@ void LiveDebugValues::vlocDataflow(
   }
 
   BlockOrders.clear();
-  LBlocks.clear();
+  BlocksToExplore.clear();
 }
 
 void LiveDebugValues::dump_mloc_transfer(
