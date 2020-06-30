@@ -1184,6 +1184,11 @@ private:
                          SmallVectorImpl<InValueT> &Values,
                          uint64_t **MOutLocs, uint64_t **MInLocs);
 
+  ValueIDNum vlocDowngradeLattice(const MachineBasicBlock &MBB,
+    const ValueRec &OldLiveInLocation, const SmallVectorImpl<InValueT> &Values,
+    unsigned CurBlockRPONum,
+    const SmallVectorImpl<LocIdx> &CandidateLocations);
+
   /// Given the solutions to the two dataflow problems, machine value locations
   /// in \p MInLocs and live-in variable values in \p SavedLiveIns, runs the
   /// TransferTracker class over the function to produce live-in and transfer
@@ -2031,6 +2036,52 @@ bool LiveDebugValues::tryMergeVLocation(LocIdx L, unsigned BBNum,
   return Valid;
 }
 
+ValueIDNum LiveDebugValues::vlocDowngradeLattice(
+  const MachineBasicBlock &MBB,
+  const ValueRec &OldLiveInLocation,
+  const SmallVectorImpl<InValueT> &Values,
+  unsigned CurBlockRPONum,
+  const SmallVectorImpl<LocIdx> &CandidateLocations
+)
+{
+  ValueIDNum EmptyValue = {0, 0, LocIdx(0)};
+  int OldLiveInRank = BBNumToRPO[OldLiveInLocation.ID.BlockNo] + 1;
+  if (OldLiveInLocation.ID.InstNo != 0)
+    OldLiveInRank = 0;
+
+  auto RankValue = [&](const InValueT &In) -> int {
+    unsigned ThisRPO = BBNumToRPO[In.second->ID.BlockNo];
+    int ThisRank = ThisRPO + 1;
+    if (In.second->ID.InstNo != 0)
+      ThisRank = 0;
+    if (ThisRPO >= CurBlockRPONum)
+      return INT_MAX;
+    if (ThisRank <= OldLiveInRank)
+      return INT_MAX;
+    return ThisRank;
+  };
+  const InValueT *NextValue = std::min_element(Values.begin(), Values.end(), [&](const InValueT &A, const InValueT &B) {
+    return RankValue(A) < RankValue(B);
+    });
+
+  if (RankValue(*NextValue) != INT_MAX)
+    return NextValue->second->ID;
+
+  if (OldLiveInLocation.ID.BlockNo == MBB.getNumber() &&
+      OldLiveInLocation.ID.InstNo == 0)
+    // We've already tried creating a PHI here, and it didn't work.
+    return EmptyValue;
+
+  // Pick a uh, location for the PHI to happen in.
+  // XXX XXX XXX
+  if (CandidateLocations.size() == 0)
+    return EmptyValue;
+
+  LocIdx L = CandidateLocations[0];
+  ValueIDNum NewPHI = {(uint64_t)MBB.getNumber(), 0, L};
+  return NewPHI;
+}
+
 bool LiveDebugValues::vlocJoin(
     MachineBasicBlock &MBB, LiveIdxT &VLOCOutLocs, LiveIdxT &VLOCInLocs,
     SmallPtrSet<const MachineBasicBlock *, 16> *VLOCVisited, unsigned BBNum,
@@ -2212,57 +2263,17 @@ bool LiveDebugValues::vlocJoin(
       continue;
 
     // OK, backedges disagree. We can consider downgrading.
-
-    // No? Try to downgrade then. But not if we haven't been around before.
-    int OldLiveInRank = -1;
     auto OldLiveInIt = ILS.find(Var);
     if (OldLiveInIt == ILS.end())
       continue;
-
     const ValueRec &OldLiveInLocation = OldLiveInIt->second;
-    OldLiveInRank = BBNumToRPO[OldLiveInLocation.ID.BlockNo] + 1;
-    if (OldLiveInLocation.ID.InstNo != 0)
-      OldLiveInRank = 0;
+    ValueIDNum NewValue = vlocDowngradeLattice(MBB, OldLiveInLocation,
+                                  Values, CurBlockRPONum, CandidateLocations);
 
-    auto RankValue = [&](const InValueT &In) -> int {
-      unsigned ThisRPO = BBNumToRPO[In.second->ID.BlockNo];
-      int ThisRank = ThisRPO + 1;
-      if (In.second->ID.InstNo != 0)
-        ThisRank = 0;
-      if (ThisRPO >= CurBlockRPONum)
-        return INT_MAX;
-      if (ThisRank <= OldLiveInRank)
-        return INT_MAX;
-      return ThisRank;
-    };
-    const InValueT *NextValue = std::min_element(Values.begin(), Values.end(), [&](const InValueT &A, const InValueT &B) {
-      return RankValue(A) < RankValue(B);
-      });
-
-    if (RankValue(*NextValue) != INT_MAX) {
-      ConfirmValue(Var, *NextValue->second);
+    if (NewValue.LocNo == 0)
       continue;
-    }
-
-    // Nothing agrees, and we have nothing else to search. One last chance:
-    // generate a PHI value and see if that sticks. If it doesn't, we'll be
-    // back here again next time.
-    if (OldLiveInIt == ILS.end())
-      continue;
-
-    if (OldLiveInLocation.ID.BlockNo == MBB.getNumber() &&
-        OldLiveInLocation.ID.InstNo == 0)
-      // Didn't work.
-      continue;
-
-    // Pick a uh, location for the PHI to happen in.
-    // XXX XXX XXX
-    if (CandidateLocations.size() == 0)
-      continue;
-    LocIdx L = CandidateLocations[0];
-    ValueIDNum NewPHI = {(uint64_t)MBB.getNumber(), 0, L};
     const auto &meta = Values[0].second->meta;
-    ConfirmValue(Var, {NewPHI, None, meta, ValueRec::Def});
+    ConfirmValue(Var, {NewValue, None, meta, ValueRec::Def});
   }
 
   // Store newly calculated in-locs into VLOCInLocs, if they've changed.
