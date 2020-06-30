@@ -1146,7 +1146,7 @@ private:
 
   /// Solve the variable value dataflow problem, for a single lexical scope.
   /// Uses the algorithm from the file comment to resolve control flow joins,
-  /// although there are extra hacks, see vlocJoinLocation. Reads the
+  /// although there are extra hacks, see vlocJoin. Reads the
   /// locations of values from the \p MInLocs and \p MOutLocs arrays (see
   /// mlocDataflow) and reads the variable values transfer function from
   /// \p AllTheVlocs. Live-in and Live-out variable values are stored locally,
@@ -1168,7 +1168,7 @@ private:
   /// are stored in \p VLOCOutLocs and \p VLOCInLocs, while machine value
   /// locations are in \p MOutLocs and \p MInLocs. The live-ins for \p MBB are
   /// computed and stored into \p VLOCInLocs. \returns true if the live-ins
-  /// are modified. Delegates most logic for merging to \ref vlocJoinLocation.
+  /// are modified.
   /// \p InLocsT Output argument, storage for calculated live-ins.
   bool vlocJoin(MachineBasicBlock &MBB, LiveIdxT &VLOCOutLocs,
                 LiveIdxT &VLOCInLocs,
