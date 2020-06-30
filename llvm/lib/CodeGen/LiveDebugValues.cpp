@@ -2241,15 +2241,16 @@ bool LiveDebugValues::vlocJoin(
     // locations are. Or if we're emulating old livedebugvalues, pick only
     // one of them.
     SmallVector<LocIdx, 8> CandidateLocations;
+    unsigned FirstPredBBNum = Values[0].first->getNumber();
     if (EmulateOldLDV) {
-      LocIdx L = FindLocOfDef(Values[0].first->getNumber(), Values[0].second->ID);
+      LocIdx L = FindLocOfDef(FirstPredBBNum, Values[0].second->ID);
       if (L != 0)
         CandidateLocations.push_back(L);
     } else {
       // If we're not emulating old LiveDebugValues, there might be several
       // candidate phi locations.
       unsigned NumLocs = MTracker->getNumLocs();
-      uint64_t *OutLocs = MOutLocs[BBNum];
+      uint64_t *OutLocs = MOutLocs[FirstPredBBNum];
       for (unsigned i = 0; i < NumLocs; ++i)
         if (ValueIDNum::fromU64(OutLocs[i]) == Values[0].second->ID)
           CandidateLocations.push_back(LocIdx(i));
