@@ -2397,21 +2397,13 @@ bool LiveDebugValues::vlocJoin(
     // No? Try to downgrade then. But not if we haven't been around before.
     int OldLiveInRank = -1;
     auto OldLiveInIt = ILS.find(Var);
-    if (OldLiveInIt == ILS.end() && !VLOCVisited) {
+    if (OldLiveInIt == ILS.end())
       continue;
-    } else if (OldLiveInIt == ILS.end() && VLOCVisited) {
-      // This is the first time we've seen a bunch of disagreeing variable
-      // values. Set up the lattice descent situation: leave OldLiveInRank
-      // as zero, which will make the code below pick a non-PHI def or
-      // whatever's closest. The next time we iterate around, we'lll be
-      // descending the lattice until a working value is found, we produce a
-      // PHI value here, or we fail and delete the variable location.
-    } else {
-      const ValueRec &OldLiveInLocation = OldLiveInIt->second;
-      OldLiveInRank = BBNumToRPO[OldLiveInLocation.ID.BlockNo] + 1;
-      if (OldLiveInLocation.ID.InstNo != 0)
-        OldLiveInRank = 0;
-    }
+
+    const ValueRec &OldLiveInLocation = OldLiveInIt->second;
+    OldLiveInRank = BBNumToRPO[OldLiveInLocation.ID.BlockNo] + 1;
+    if (OldLiveInLocation.ID.InstNo != 0)
+      OldLiveInRank = 0;
 
     auto RankValue = [&](const InValueT &In) -> int {
       unsigned ThisRPO = BBNumToRPO[In.second->ID.BlockNo];
@@ -2439,17 +2431,6 @@ bool LiveDebugValues::vlocJoin(
     if (OldLiveInIt == ILS.end())
       continue;
 
-    // And more importantly, don't attempt that downgrade if there isn't a
-    // backedge feeding in: we'll be re-visited via the backedge (XXX will we?)
-    // and be able to downgrade further in the future. Otherwise, we would be
-    // generating speculative locations without any guarantee of them being
-    // correct.
-    auto &LastValue = Values[Values.size() - 1];
-    unsigned LastPredRPO = BBNumToRPO[LastValue.first->getNumber()];
-    if (LastPredRPO < CurBlockRPONum)
-      continue;
-
-    const ValueRec &OldLiveInLocation = OldLiveInIt->second;
     if (OldLiveInLocation.ID.BlockNo == MBB.getNumber() &&
         OldLiveInLocation.ID.InstNo == 0)
       // Didn't work.
