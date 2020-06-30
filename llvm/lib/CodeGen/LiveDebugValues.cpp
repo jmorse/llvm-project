@@ -2149,9 +2149,9 @@ bool LiveDebugValues::vlocJoin(
     InLocsT[DV] = VR;
   };
 
-  // Take two then: iterate over vars.
+  // Attempt to join the values for each variable.
   for (auto &Var : AllVars) {
-    // Collect all the ValueRecs for this var.
+    // Collect all the ValueRecs for this variable.
     SmallVector<InValueT, 8> Values;
     bool Bail = false;
     for (auto p : BlockOrders) {
@@ -2178,8 +2178,8 @@ bool LiveDebugValues::vlocJoin(
     if (Bail || Values.size() == 0)
       continue;
 
-    // Hokay, some quick questions. Are these all the same kind, do they all
-    // have the same meta?
+    // Quick questions: Are these all the same kind, do they all have the same
+    // meta information? Differences in either are unresolvable.
     if (!llvm::all_of(Values, [&](const InValueT &In) -> bool {
         return In.second->Kind == Values[0].second->Kind && 
                In.second->meta == Values[0].second->meta;
@@ -2203,18 +2203,34 @@ bool LiveDebugValues::vlocJoin(
         }))
       break;
 
-    // Can we agree on location, or must there be a PHI?
-    if (llvm::all_of(Values, [&](const InValueT &In) -> bool {
-        return In.second->ID == Values[0].second->ID;
-      })) {
-      // Is uh, that value in the live-ins somewhere?
-      unsigned int I = 0;
-      for (; I < MTracker->getNumLocs(); ++I)
-        if (ValueIDNum::fromU64(MInLocs[MBB.getNumber()][I]) == Values[0].second->ID)
-          break;
-      if (I != MTracker->getNumLocs()) {
-        // The live-in value is the one all the predecessors agree on. No need
-        // to pick a location right now.
+    // Check whether predecessors agree on the variable value. There are several
+    // outcomes:
+    //   * They agree
+    //   * Non-backedge predecessors disagree, requiring a PHI value to be made
+    //   * Only backedge predecessors disagree: we need to explore the lattice
+    //     of which value is live-through this loop.
+    bool NonBackEdgeDisagree = false;
+    bool Disagree = false;
+    for (const auto &V : Values) {
+      if (V.second->ID == Values[0].second->ID)
+        continue;
+      unsigned ThisBBRPONum = BBToOrder[V.first];
+      if (ThisBBRPONum < CurBlockRPONum)
+        NonBackEdgeDisagree = true;
+      Disagree = true;
+    }
+
+    if (!Disagree) {
+      // Is that value in the live-ins somewhere? Disallow variable values that
+      // appear to agree, but can't actually get a location. We should delete
+      // it or start descending the value lattice.
+      uint64_t Val = Values[0].second->ID.asU64();
+      uint64_t *MBBInLocs = MInLocs[MBB.getNumber()];
+      uint64_t *MBBInLocsEnd = MBBInLocs + MTracker->getNumLocs();
+      bool Found = std::any_of(MBBInLocs, MBBInLocsEnd, [Val](uint64_t V) {
+        return V == Val;
+        });
+      if (Found) {
         ConfirmValue(Var, *Values[0].second);
         continue;
       }
@@ -2230,48 +2246,50 @@ bool LiveDebugValues::vlocJoin(
       if (L != 0)
         CandidateLocations.push_back(L);
     } else {
+      // If we're not emulating old LiveDebugValues, there might be several
+      // candidate phi locations.
       unsigned NumLocs = MTracker->getNumLocs();
       uint64_t *OutLocs = MOutLocs[BBNum];
       for (unsigned i = 0; i < NumLocs; ++i)
         if (ValueIDNum::fromU64(OutLocs[i]) == Values[0].second->ID)
           CandidateLocations.push_back(LocIdx(i));
-
     }
 
+    // Given our collection of candidate PHI locations, see whether the correct
+    // values merge into them.
     bool FoundLoc = false;
     for (LocIdx L : CandidateLocations) {
       bool Result = tryMergeVLocation(L, MBB.getNumber(), MBB, Values, MOutLocs, MInLocs);
-      if (Result) {
-        ValueIDNum TheValue = ValueIDNum::fromU64(MInLocs[MBB.getNumber()][L]);
-        const MetaVal &meta = Values[0].second->meta;
-        ConfirmValue(Var, {TheValue, None, meta, ValueRec::Def});
-        FoundLoc = true;
-      }
+      if (!Result)
+        continue;
+      ValueIDNum TheValue = ValueIDNum::fromU64(MInLocs[MBB.getNumber()][L]);
+      const MetaVal &meta = Values[0].second->meta;
+      ConfirmValue(Var, {TheValue, None, meta, ValueRec::Def});
+      FoundLoc = true;
+      break;
     }
     if (FoundLoc)
       continue;
 
     // If the non-backedge preds disagree, we're stuffed.
-    Bail = false;
-    for (auto &V : Values) {
-      if (BBToOrder[V.first] >= CurBlockRPONum)
-        break;
-      if (V.second->ID != Values[0].second->ID)
-        Bail = true;
-    }
-    if (Bail)
+    if (NonBackEdgeDisagree)
       continue;
 
-    // OK, backedges disagree. We can consider downgrading.
+    // OK, backedges disagree. We can consider downgrading. There should have
+    // been a previous live-in value, when backedges weren't explored and the
+    // other predecessors agreed.
     auto OldLiveInIt = ILS.find(Var);
     if (OldLiveInIt == ILS.end())
       continue;
+
     const ValueRec &OldLiveInLocation = OldLiveInIt->second;
     ValueIDNum NewValue = vlocDowngradeLattice(MBB, OldLiveInLocation,
                                   Values, CurBlockRPONum, CandidateLocations);
 
+    // No location means downgrading failed.
     if (NewValue.LocNo == 0)
       continue;
+
     const auto &meta = Values[0].second->meta;
     ConfirmValue(Var, {NewValue, None, meta, ValueRec::Def});
   }
