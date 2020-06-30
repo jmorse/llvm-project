@@ -1195,6 +1195,13 @@ private:
                         const LiveIdxT::mapped_type PrevInLocs, // is ptr
                         const DebugVariable &CurVar, bool ThisIsABackEdge);
 
+
+  typedef std::pair<MachineBasicBlock *,ValueRec *> InValueT;
+  bool tryMergeVLocation(LocIdx L, unsigned BBNum,
+                         const MachineBasicBlock &MBB,
+                         SmallVectorImpl<InValueT> &Values,
+                         uint64_t **MOutLocs, uint64_t **MInLocs);
+
   /// Given the solutions to the two dataflow problems, machine value locations
   /// in \p MInLocs and live-in variable values in \p SavedLiveIns, runs the
   /// TransferTracker class over the function to produce live-in and transfer
@@ -2017,6 +2024,35 @@ void LiveDebugValues::mlocDataflow(
   // fixedpoint.
 }
 
+bool LiveDebugValues::tryMergeVLocation(LocIdx L, unsigned BBNum,
+   const MachineBasicBlock &MBB,
+   SmallVectorImpl<InValueT> &Values,
+   uint64_t **MOutLocs, uint64_t **MInLocs)
+//   const ValueRec *OldLiveIn)
+{
+  // If there's no actual merge here, then nevermind.
+  ValueIDNum InLocVal = ValueIDNum::fromU64(MInLocs[BBNum][L]);
+  if (InLocVal.InstNo != 0 || InLocVal.BlockNo != MBB.getNumber())
+    return false;
+
+  // Two tests: are the right values merging into this mphi; and are they
+  // merging in the right place?
+  bool Valid = true;
+  for (auto &P : Values) {
+    unsigned ThisBB = P.first->getNumber();
+    ValueIDNum LiveOutFromThisBlock = ValueIDNum::fromU64(MOutLocs[ThisBB][L]);
+    if (P.second->ID != LiveOutFromThisBlock) {
+      Valid = false;
+      break;
+    }
+  }
+
+  if (Valid)
+    return true;
+
+  return false;
+}
+
 bool LiveDebugValues::vlocJoinLocation(
     MachineBasicBlock &MBB, const ValueRec &InLoc, const ValueRec &OLoc,
     uint64_t *InLocOutLocs, uint64_t *OLOutLocs,
@@ -2237,93 +2273,196 @@ bool LiveDebugValues::vlocJoin(
 
   llvm::sort(BlockOrders.begin(), BlockOrders.end(), Cmp);
 
-  unsigned ThisBlockRPONum = BBToOrder[&MBB];
+  unsigned CurBlockRPONum = BBToOrder[&MBB];
 
-  // For all predecessors of this MBB, find the set of variable values that
-  // can be joined.
-  int NumVisited = 0;
-  unsigned FirstVisited = 0;
-  for (auto p : BlockOrders) {
-    // Ignore backedges if we have not visited the predecessor yet. As the
-    // predecessor hasn't yet had values propagated into it, all variables will
-    // have an "Unknown" lattice value that meets with everything.
-    // If a value guessed to be correct here is invalidated later, we will
-    // remove it when we revisit this block.
-    if (VLOCVisited && !VLOCVisited->count(p)) {
-      LLVM_DEBUG(dbgs() << "  ignoring unvisited pred MBB: " << p->getNumber()
-                        << "\n");
+  auto ConfirmValue = [&InLocsT](const DebugVariable &DV, ValueRec VR) {
+    InLocsT[DV] = VR;
+  };
+
+  // Take two then: iterate over vars.
+  for (auto &Var : AllVars) {
+    // Collect all the ValueRecs for this var.
+    SmallVector<InValueT, 8> Values;
+    bool Bail = false;
+    for (auto p : BlockOrders) {
+      if (VLOCVisited && !VLOCVisited->count(p))
+        // Unvisited pred; ignore.
+        continue;
+
+      auto OL = VLOCOutLocs.find(p);
+      // Join is null if any predecessors OutLocs is absent or empty.
+      if (OL == VLOCOutLocs.end()) {
+        Bail = true;
+        break;
+      }
+
+      auto VIt = OL->second->find(Var);
+      if (VIt == OL->second->end()) {
+        Bail = true;
+        break;
+      }
+
+      Values.push_back(std::make_pair(p, &VIt->second));
+    }
+
+    if (Bail || Values.size() == 0)
+      continue;
+
+    // Hokay, some quick questions. Are these all the same kind, do they all
+    // have the same meta?
+    if (!llvm::all_of(Values, [&](const InValueT &In) -> bool {
+        return In.second->Kind == Values[0].second->Kind && 
+               In.second->meta == Values[0].second->meta;
+        }))
+      continue;
+
+    // If this is a constant, the only further requirement is that they agree
+    // on operand value.
+    if (Values[0].second->Kind == ValueRec::Const) {
+      if (llvm::all_of(Values, [&](const InValueT &In) -> bool {
+          return In.second->MO->isIdenticalTo(*Values[0].second->MO);
+        })) {
+        ConfirmValue(Var, *Values[0].second);
+      }
       continue;
     }
 
-    auto OL = VLOCOutLocs.find(p);
-    // Join is null if any predecessors OutLocs is absent or empty.
-    if (OL == VLOCOutLocs.end()) {
-      InLocsT.clear();
+    // Any empty locations -> bail.
+    if (llvm::any_of(Values, [&](const InValueT &In) -> bool {
+        return In.second->ID.LocNo == 0;
+        }))
       break;
+
+    // Can we agree on location, or must there be a PHI?
+    if (llvm::all_of(Values, [&](const InValueT &In) -> bool {
+        return In.second->ID == Values[0].second->ID;
+      })) {
+      // Is uh, that value in the live-ins somewhere?
+      unsigned int I = 0;
+      for (; I < MTracker->getNumLocs(); ++I)
+        if (ValueIDNum::fromU64(MInLocs[MBB.getNumber()][I]) == Values[0].second->ID)
+          break;
+      if (I != MTracker->getNumLocs()) {
+        // The live-in value is the one all the predecessors agree on. No need
+        // to pick a location right now.
+        ConfirmValue(Var, *Values[0].second);
+        continue;
+      }
     }
 
-    // For the first predecessor, copy all of its variable values into the
-    // InLocsT map; check whether other predecessors join with each value
-    // later.
-    if (!NumVisited) {
-      InLocsT = *OL->second;
-      FirstVisited = p->getNumber();
-
-      // Additionally: for each variable, check whether the CFG join carries
-      // the value into this block unchanged, or whether an mphi happens,
-      // according to the machine value analysis. If it isn't an mphi, the
-      // result of joining this location must be that value (or fail). If it is,
-      // it has to be that mphi value (or fail).
-      // XXX, this might be a better way to decompose the joining problem?
-
-      for (auto &It : InLocsT) {
-        // Consider only defs,
-        if (It.second.Kind != ValueRec::Def)
-          continue;
-        // Does it have a live-out machine location?
-        LocIdx Idx = FindLocOfDef(FirstVisited, It.second.ID);
-        if (Idx == 0)
-          continue;
-        // And is that what's in the corresponding live-in machine location?
-        ValueIDNum LiveInID = ValueIDNum::fromU64(MInLocs[BBNum][Idx]);
-        if (It.second.ID != LiveInID) {
-          // No, it became an mphi. Turn the candidate live-in location to that
-          // mphi, and check the other predecessors later.
-          assert(LiveInID.BlockNo == BBNum && LiveInID.InstNo == 0);
-          It.second.ID = LiveInID;
-        }
-      }
+    // Otherwise: there needs to be a PHI of these values. The candidate
+    // locations must be contained by whatever one of the predecessors live-out
+    // locations are. Or if we're emulating old livedebugvalues, pick only
+    // one of them.
+    SmallVector<LocIdx, 8> CandidateLocations;
+    if (EmulateOldLDV) {
+      LocIdx L = FindLocOfDef(Values[0].first->getNumber(), Values[0].second->ID);
+      if (L != 0)
+        CandidateLocations.push_back(L);
     } else {
-      // Check whether this predecessors variable values will successfully
-      // join with the first predecessors value, or mphi.
-      for (auto &Var : AllVars) {
-        auto InLocsIt = InLocsT.find(Var);
-        auto OLIt = OL->second->find(Var);
+      unsigned NumLocs = MTracker->getNumLocs();
+      uint64_t *OutLocs = MOutLocs[BBNum];
+      for (unsigned i = 0; i < NumLocs; ++i)
+        if (ValueIDNum::fromU64(OutLocs[i]) == Values[0].second->ID)
+          CandidateLocations.push_back(LocIdx(i));
 
-        // Regardless of what's being joined in, an empty predecessor means
-        // there can be no incoming value here.
-        if (InLocsIt == InLocsT.end())
-          continue;
-
-        if (OLIt == OL->second->end()) {
-          InLocsT.erase(InLocsIt);
-          continue;
-        }
-
-        bool ThisIsABackEdge = ThisBlockRPONum <= BBToOrder[p];
-        bool joins = vlocJoinLocation(
-            MBB, InLocsIt->second, OLIt->second, MOutLocs[FirstVisited],
-            MOutLocs[p->getNumber()], &ILS, InLocsIt->first, ThisIsABackEdge);
-
-        // If we cannot join the two values, erase the live-in variable.
-        if (!joins)
-          InLocsT.erase(InLocsIt);
-      }
     }
 
-    // xXX jmorse deleted debug statement
+    bool FoundLoc = false;
+    for (LocIdx L : CandidateLocations) {
+      bool Result = tryMergeVLocation(L, MBB.getNumber(), MBB, Values, MOutLocs, MInLocs);
+      if (Result) {
+        ValueIDNum TheValue = ValueIDNum::fromU64(MInLocs[MBB.getNumber()][L]);
+        const MetaVal &meta = Values[0].second->meta;
+        ConfirmValue(Var, {TheValue, None, meta, ValueRec::Def});
+        FoundLoc = true;
+      }
+    }
+    if (FoundLoc)
+      continue;
 
-    NumVisited++;
+    // If the non-backedge preds disagree, we're stuffed.
+    Bail = false;
+    for (auto &V : Values) {
+      if (BBToOrder[V.first] >= CurBlockRPONum)
+        break;
+      if (V.second->ID != Values[0].second->ID)
+        Bail = true;
+    }
+    if (Bail)
+      continue;
+
+    // OK, backedges disagree. We can consider downgrading.
+
+    // No? Try to downgrade then. But not if we haven't been around before.
+    int OldLiveInRank = -1;
+    auto OldLiveInIt = ILS.find(Var);
+    if (OldLiveInIt == ILS.end() && !VLOCVisited) {
+      continue;
+    } else if (OldLiveInIt == ILS.end() && VLOCVisited) {
+      // This is the first time we've seen a bunch of disagreeing variable
+      // values. Set up the lattice descent situation: leave OldLiveInRank
+      // as zero, which will make the code below pick a non-PHI def or
+      // whatever's closest. The next time we iterate around, we'lll be
+      // descending the lattice until a working value is found, we produce a
+      // PHI value here, or we fail and delete the variable location.
+    } else {
+      const ValueRec &OldLiveInLocation = OldLiveInIt->second;
+      OldLiveInRank = BBNumToRPO[OldLiveInLocation.ID.BlockNo] + 1;
+      if (OldLiveInLocation.ID.InstNo != 0)
+        OldLiveInRank = 0;
+    }
+
+    auto RankValue = [&](const InValueT &In) -> int {
+      unsigned ThisRPO = BBNumToRPO[In.second->ID.BlockNo];
+      int ThisRank = ThisRPO + 1;
+      if (In.second->ID.InstNo != 0)
+        ThisRank = 0;
+      if (ThisRPO >= CurBlockRPONum)
+        return INT_MAX;
+      if (ThisRank <= OldLiveInRank)
+        return INT_MAX;
+      return ThisRank;
+    };
+    const InValueT *NextValue = std::min_element(Values.begin(), Values.end(), [&](const InValueT &A, const InValueT &B) {
+      return RankValue(A) < RankValue(B);
+      });
+
+    if (RankValue(*NextValue) != INT_MAX) {
+      ConfirmValue(Var, *NextValue->second);
+      continue;
+    }
+
+    // Nothing agrees, and we have nothing else to search. One last chance:
+    // generate a PHI value and see if that sticks. If it doesn't, we'll be
+    // back here again next time.
+    if (OldLiveInIt == ILS.end())
+      continue;
+
+    // And more importantly, don't attempt that downgrade if there isn't a
+    // backedge feeding in: we'll be re-visited via the backedge (XXX will we?)
+    // and be able to downgrade further in the future. Otherwise, we would be
+    // generating speculative locations without any guarantee of them being
+    // correct.
+    auto &LastValue = Values[Values.size() - 1];
+    unsigned LastPredRPO = BBNumToRPO[LastValue.first->getNumber()];
+    if (LastPredRPO < CurBlockRPONum)
+      continue;
+
+    const ValueRec &OldLiveInLocation = OldLiveInIt->second;
+    if (OldLiveInLocation.ID.BlockNo == MBB.getNumber() &&
+        OldLiveInLocation.ID.InstNo == 0)
+      // Didn't work.
+      continue;
+
+    // Pick a uh, location for the PHI to happen in.
+    // XXX XXX XXX
+    if (CandidateLocations.size() == 0)
+      continue;
+    LocIdx L = CandidateLocations[0];
+    ValueIDNum NewPHI = {(uint64_t)MBB.getNumber(), 0, L};
+    const auto &meta = Values[0].second->meta;
+    ConfirmValue(Var, {NewPHI, None, meta, ValueRec::Def});
   }
 
   // Store newly calculated in-locs into VLOCInLocs, if they've changed.
