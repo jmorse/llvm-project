@@ -2010,7 +2010,6 @@ bool LiveDebugValues::tryMergeVLocation(LocIdx L, unsigned BBNum,
    const MachineBasicBlock &MBB,
    SmallVectorImpl<InValueT> &Values,
    uint64_t **MOutLocs, uint64_t **MInLocs)
-//   const ValueRec *OldLiveIn)
 {
   // If there's no actual merge here, then nevermind.
   ValueIDNum InLocVal = ValueIDNum::fromU64(MInLocs[BBNum][L]);
@@ -2029,10 +2028,7 @@ bool LiveDebugValues::tryMergeVLocation(LocIdx L, unsigned BBNum,
     }
   }
 
-  if (Valid)
-    return true;
-
-  return false;
+  return Valid;
 }
 
 bool LiveDebugValues::vlocJoin(
