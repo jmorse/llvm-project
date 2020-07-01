@@ -13,6 +13,7 @@
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/Passes.h"
+#include "llvm/Target/TargetMachine.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 
@@ -41,7 +42,11 @@ public:
   static char ID;
 
   LiveDebugValues();
-  ~LiveDebugValues() { delete TheImpl; }
+  ~LiveDebugValues()
+  {
+    if (TheImpl)
+      delete TheImpl;
+  }
 
   /// Calculate the liveness information for the given machine function.
   bool runOnMachineFunction(MachineFunction &MF) override;
@@ -58,6 +63,7 @@ public:
 
 private:
   LDVImpl *TheImpl;
+  TargetPassConfig *TPC;
 };
 
 char LiveDebugValues::ID = 0;
@@ -70,10 +76,24 @@ INITIALIZE_PASS(LiveDebugValues, DEBUG_TYPE, "Live DEBUG_VALUE analysis", false,
 /// Default construct and initialize the pass.
 LiveDebugValues::LiveDebugValues() : MachineFunctionPass(ID) {
   initializeLiveDebugValuesPass(*PassRegistry::getPassRegistry());
-  TheImpl = llvm::makeVarLocBasedLiveDebugValues();
+  TheImpl = nullptr;
 }
 
 bool LiveDebugValues::runOnMachineFunction(MachineFunction &MF) {
-  auto *TPC = getAnalysisIfAvailable<TargetPassConfig>();
+  if (!TheImpl) {
+    TPC = getAnalysisIfAvailable<TargetPassConfig>();
+
+    bool InstrRefBased = false;
+    if (TPC) {
+      auto &TM = TPC->getTM<TargetMachine>();
+      InstrRefBased = TM.Options.ValueTrackingVariableLocations;
+    }
+
+    if (InstrRefBased)
+      TheImpl = llvm::makeInstrRefBasedLiveDebugValues();
+    else
+      TheImpl = llvm::makeVarLocBasedLiveDebugValues();
+  }
+
   return TheImpl->ExtendRanges(MF, TPC);
 }
