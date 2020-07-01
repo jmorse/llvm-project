@@ -1426,6 +1426,7 @@ void LiveDebugValues::performCopy(Register SrcRegNum, Register DstRegNum) {
     (void)MTracker->readReg(DstSubReg);
     LocIdx DstL = MTracker->getRegMLoc(DstSubReg);
     assert(DstL);
+    (void)DstL;
     CpyValue.LocNo = SrcL;
 
     MTracker->setReg(DstSubReg, CpyValue);
