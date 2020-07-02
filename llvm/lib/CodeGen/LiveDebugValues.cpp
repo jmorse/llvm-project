@@ -2202,7 +2202,7 @@ bool LiveDebugValues::vlocJoin(
     if (llvm::any_of(Values, [&](const InValueT &In) -> bool {
         return In.second->ID.LocNo == 0;
         }))
-      break;
+      continue;
 
     // Check whether predecessors agree on the variable value. There are several
     // outcomes:
