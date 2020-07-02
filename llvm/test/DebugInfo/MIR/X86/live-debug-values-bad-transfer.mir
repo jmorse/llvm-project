@@ -6,16 +6,9 @@
 # loop. There should be no transfer from ecx to ebx -- this is ensured by the
 # FileCheck implicit-check-not option.
 #
-# FIXME: we successfully prevent the false location (ebx) from being
-# propagated into block 2, but the original transfer isn't yet eliminated.
-# Thus we get no DBG_VALUe in block 2, but an invalid one in block 1.
-#
 # CHECK-LABEL: name: foo
 # CHECK-LABEL: bb.0.entry:
 # CHECK:       $ecx = MOV32ri 0
-# CHECK-NEXT:  DBG_VALUE
-# CHECK-LABEL: bb.1.loop:
-# CHECK:       $ebx = COPY killed $ecx
 # CHECK-NEXT:  DBG_VALUE
 
 --- |
@@ -74,30 +67,30 @@ body:             |
     CFI_INSTRUCTION def_cfa_offset 16
     CFI_INSTRUCTION offset $rbx, -16
     $ebx = MOV32rr $edi
-    $eax = MOV32ri 0
-    $ecx = MOV32ri 0
+    $eax = MOV32ri 0, debug-location !10
+    $ecx = MOV32ri 0, debug-location !10
     DBG_VALUE $ecx, $noreg, !9, !DIExpression(), debug-location !10
-    $edi = MOV32ri 0
-    $esi = MOV32ri 0
+    $edi = MOV32ri 0, debug-location !10
+    $esi = MOV32ri 0, debug-location !10
   
   bb.1.loop:
     successors: %bb.1, %bb.2
     liveins: $ebx, $eax, $ecx, $edi, $esi
   
-    $eax = COPY $ecx
-    $ebx = COPY killed $ecx
-    $ecx = COPY killed $edi
-    $edi = COPY killed $esi
-    $esi = MOV32ri 1
+    $eax = COPY $ecx, debug-location !10
+    $ebx = COPY killed $ecx, debug-location !10
+    $ecx = COPY killed $edi, debug-location !10
+    $edi = COPY killed $esi, debug-location !10
+    $esi = MOV32ri 1, debug-location !10
     TEST8ri killed renamable $al, 1, implicit-def $eflags
-    JCC_1 %bb.1, 5, implicit killed $eflags
+    JCC_1 %bb.1, 5, implicit killed $eflags, debug-location !10
   
   bb.2.exit:
     liveins: $ebx
   
-    $eax = MOV32rr killed $ebx
+    $eax = MOV32rr killed $ebx, debug-location !10
     $rbx = frame-destroy POP64r implicit-def $rsp, implicit $rsp
     CFI_INSTRUCTION def_cfa_offset 8
-    RETQ $eax
+    RETQ $eax, debug-location !10
 
 ...
