@@ -974,6 +974,10 @@ void MachineFunction::moveCallSiteInfo(const MachineInstr *Old,
   CallSitesInfo[New] = CSInfo;
 }
 
+void MachineFunction::setDebugInstrNumberingCount(unsigned Num) {
+  DebugInstrNumberingCount = Num;
+}
+
 /// \}
 
 //===----------------------------------------------------------------------===//
