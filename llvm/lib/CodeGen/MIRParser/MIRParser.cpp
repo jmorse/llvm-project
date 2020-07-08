@@ -161,6 +161,9 @@ private:
                                        SMRange SourceRange);
 
   void computeFunctionProperties(MachineFunction &MF);
+
+  void setupDebugValueTracking(MachineFunction &MF,
+    PerFunctionMIParsingState &PFS, const yaml::MachineFunction &YamlMF);
 };
 
 } // end namespace llvm
@@ -397,6 +400,18 @@ bool MIRParserImpl::initializeCallSiteInfo(
   return false;
 }
 
+void MIRParserImpl::setupDebugValueTracking(MachineFunction &MF,
+    PerFunctionMIParsingState &PFS, const yaml::MachineFunction &YamlMF) {
+  // For now, we only compute the value of the "next instruction number"
+  // field.
+  unsigned MaxInstrNum = 0;
+  for (auto &MBB : MF)
+    for (auto &MI : MBB)
+      MaxInstrNum = std::max((unsigned)MI.peekDebugInstrNum(), MaxInstrNum);
+  MF.setDebugInstrNumberingCount(MaxInstrNum);
+}
+
+
 bool
 MIRParserImpl::initializeMachineFunction(const yaml::MachineFunction &YamlMF,
                                          MachineFunction &MF) {
@@ -506,6 +521,8 @@ MIRParserImpl::initializeMachineFunction(const yaml::MachineFunction &YamlMF,
 
   if (initializeCallSiteInfo(PFS, YamlMF))
     return false;
+
+  setupDebugValueTracking(MF, PFS, YamlMF);
 
   MF.getSubtarget().mirFileLoaded(MF);
 
