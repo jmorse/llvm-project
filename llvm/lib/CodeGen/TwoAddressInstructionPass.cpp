@@ -1248,6 +1248,9 @@ tryInstructionTransform(MachineBasicBlock::iterator &mi,
         LLVM_DEBUG(dbgs() << "2addr:    NEW LOAD: " << *NewMIs[0]
                           << "2addr:    NEW INST: " << *NewMIs[1]);
 
+        // jmorse: given that we only ever unfold _loads_,
+        MF->substituteDebugValuesForInst(MI, *NewMIs[1]);
+
         // Transform the instruction, now that it no longer has a load.
         unsigned NewDstIdx = NewMIs[1]->findRegisterDefOperandIdx(regA);
         unsigned NewSrcIdx = NewMIs[1]->findRegisterUseOperandIdx(regB);
@@ -1311,6 +1314,7 @@ tryInstructionTransform(MachineBasicBlock::iterator &mi,
           // improvement. Clean up the unfolded instructions and keep the
           // original.
           LLVM_DEBUG(dbgs() << "2addr: ABANDONING UNFOLD\n");
+          MF->undoDebugValueSubstitution(MI);
           NewMIs[0]->eraseFromParent();
           NewMIs[1]->eraseFromParent();
         }

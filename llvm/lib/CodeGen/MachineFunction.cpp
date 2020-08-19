@@ -1020,6 +1020,20 @@ void MachineFunction::substituteDebugValuesForInst(const MachineInstr &Old,
   }
 }
 
+void MachineFunction::undoDebugValueSubstitution(const MachineInstr &Old,
+                                                 unsigned MaxIdx) {
+  unsigned InstrNum = Old.peekDebugInstrNum();
+  if (!InstrNum)
+    return;
+
+  unsigned MaxOperand = std::min(MaxIdx, Old.getNumOperands());
+  for (unsigned int I = 0; I < MaxOperand; ++I) {
+    const MachineOperand &MO = Old.getOperand(I);
+    if (MO.isReg() && MO.isDef())
+      DebugValueSubstitutions.erase(std::make_pair(InstrNum, I));
+  }
+}
+
 /// \}
 
 //===----------------------------------------------------------------------===//

@@ -461,6 +461,9 @@ public:
   void substituteDebugValuesForInst(const MachineInstr &Old, MachineInstr &New,
                                     unsigned MaxIdx = UINT_MAX);
 
+  void undoDebugValueSubstitution(const MachineInstr &Old,
+                                  unsigned MaxIdx = UINT_MAX);
+
   MachineFunction(Function &F, const LLVMTargetMachine &Target,
                   const TargetSubtargetInfo &STI, unsigned FunctionNum,
                   MachineModuleInfo &MMI);
