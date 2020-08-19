@@ -514,6 +514,13 @@ public:
   ///          value, or None if nothing could be recovered.
   Optional<DebugInstrOperandPair> salvageCopySSA(MachineInstr &MI);
 
+  void undoDebugValueSubstitution(const MachineInstr &Old,
+                                  unsigned MaxIdx = UINT_MAX);
+
+  /// A reserved operand number representing the instructions memory operand,
+  /// for instructions that can morph into storing to stack spills.
+  static unsigned int DebugOperandMemNumber;
+
   MachineFunction(Function &F, const LLVMTargetMachine &Target,
                   const TargetSubtargetInfo &STI, unsigned FunctionNum,
                   MachineModuleInfo &MMI);

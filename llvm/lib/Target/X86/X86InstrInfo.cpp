@@ -5369,6 +5369,14 @@ static MachineInstr *FuseInst(MachineFunction &MF, unsigned Opcode,
       addOperands(MIB, MOs, PtrOffset);
     } else {
       MIB.add(MO);
+
+      if (MI.peekDebugInstrNum()) {
+        if (!MO.isReg())
+          continue;
+        auto OldPair = std::make_pair(MI.peekDebugInstrNum(), i);
+        auto NewPair = std::make_pair(NewMI->getDebugInstrNum(MF), NewMI->getNumOperands()-1);
+        MF.makeDebugValueSubstitution(OldPair, NewPair);
+      }
     }
   }
 
@@ -6267,19 +6275,19 @@ bool X86InstrInfo::unfoldMemoryOperand(
     // performance.
     return false;
   SmallVector<MachineOperand, X86::AddrNumOperands> AddrOps;
-  SmallVector<MachineOperand,2> BeforeOps;
-  SmallVector<MachineOperand,2> AfterOps;
-  SmallVector<MachineOperand,4> ImpOps;
+  SmallVector<std::pair<MachineOperand, unsigned>,2> BeforeOps;
+  SmallVector<std::pair<MachineOperand, unsigned>,2> AfterOps;
+  SmallVector<std::pair<MachineOperand, unsigned>,4> ImpOps;
   for (unsigned i = 0, e = MI.getNumOperands(); i != e; ++i) {
     MachineOperand &Op = MI.getOperand(i);
     if (i >= Index && i < Index + X86::AddrNumOperands)
       AddrOps.push_back(Op);
     else if (Op.isReg() && Op.isImplicit())
-      ImpOps.push_back(Op);
+      ImpOps.push_back({Op, i});
     else if (i < Index)
-      BeforeOps.push_back(Op);
+      BeforeOps.push_back({Op, i});
     else if (i > Index)
-      AfterOps.push_back(Op);
+      AfterOps.push_back({Op, i});
   }
 
   // Emit the load or broadcast instruction.
@@ -6316,21 +6324,37 @@ bool X86InstrInfo::unfoldMemoryOperand(
   MachineInstr *DataMI = MF.CreateMachineInstr(MCID, MI.getDebugLoc(), true);
   MachineInstrBuilder MIB(MF, DataMI);
 
+  auto AddDebugSub = [&](std::pair<MachineOperand, unsigned> &P) {
+    unsigned OldInstrNum = MI.peekDebugInstrNum();
+    if (!OldInstrNum)
+      return;
+    auto OldPair = std::make_pair(OldInstrNum, P.second);
+    unsigned NewInstrNum = MIB->getDebugInstrNum(MF);
+    auto NewPair = std::make_pair(NewInstrNum, MIB->getNumOperands());
+    MF.makeDebugValueSubstitution(OldPair, NewPair);
+  };
+
   if (FoldedStore)
     MIB.addReg(Reg, RegState::Define);
-  for (MachineOperand &BeforeOp : BeforeOps)
-    MIB.add(BeforeOp);
+  for (auto &BeforeOp : BeforeOps) {
+    AddDebugSub(BeforeOp);
+    MIB.add(BeforeOp.first);
+  }
   if (FoldedLoad)
     MIB.addReg(Reg);
-  for (MachineOperand &AfterOp : AfterOps)
-    MIB.add(AfterOp);
-  for (MachineOperand &ImpOp : ImpOps) {
-    MIB.addReg(ImpOp.getReg(),
-               getDefRegState(ImpOp.isDef()) |
+  for (auto &AfterOp : AfterOps) {
+    AddDebugSub(AfterOp);
+    MIB.add(AfterOp.first);
+  }
+  for (auto &ImpOp : ImpOps) {
+    AddDebugSub(ImpOp);
+    const MachineOperand &MO = ImpOp.first;
+    MIB.addReg(MO.getReg(),
+               getDefRegState(MO.isDef()) |
                RegState::Implicit |
-               getKillRegState(ImpOp.isKill()) |
-               getDeadRegState(ImpOp.isDead()) |
-               getUndefRegState(ImpOp.isUndef()));
+               getKillRegState(MO.isKill()) |
+               getDeadRegState(MO.isDead()) |
+               getUndefRegState(MO.isUndef()));
   }
   // Change CMP32ri r, 0 back to TEST32rr r, r, etc.
   switch (DataMI->getOpcode()) {
