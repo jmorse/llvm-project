@@ -5284,6 +5284,14 @@ static MachineInstr *FuseInst(MachineFunction &MF, unsigned Opcode,
   MachineBasicBlock *MBB = InsertPt->getParent();
   MBB->insert(InsertPt, NewMI);
 
+  // Debug-info would like to know that the one instruction replaces the
+  // other. Dealing with folding defs, potentially to memory, is a bit much
+  // right now though. Plus, don't attempt substitutions after the
+  // modified operand: this is an approximation to avoid having to think about
+  // the operands afterwards right now.
+  if (MI.getOperand(OpNo).isReg() && !MI.getOperand(OpNo).isDef())
+    MF.substituteDebugValuesForInst(MI, *NewMI, OpNo);
+
   return MIB;
 }
 

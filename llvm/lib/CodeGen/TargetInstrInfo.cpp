@@ -211,8 +211,50 @@ MachineInstr *TargetInstrInfo::commuteInstructionImpl(MachineInstr &MI,
     // Create a new instruction.
     MachineFunction &MF = *MI.getMF();
     CommutedMI = MF.CloneMachineInstr(&MI);
+
+    unsigned OldInstrNum = MI.peekDebugInstrNum();
+    if (OldInstrNum) {
+      for (unsigned int I = 0; I < MI.getNumOperands(); ++I) {
+        if (I == Idx1 || I == Idx2)
+          continue;
+
+        const auto &OldMO = MI.getOperand(I);
+        auto &NewMO = MI.getOperand(I);
+
+        if (!OldMO.isReg() || !OldMO.isDef())
+          continue;
+
+        assert(NewMO.isDef());
+
+        unsigned NewInstrNum = CommutedMI->getDebugInstrNum();
+        MF.makeDebugValueSubstitution(std::make_pair(OldInstrNum, I),
+                                   std::make_pair(NewInstrNum, I));
+      }
+    }
+
   } else {
     CommutedMI = &MI;
+    // XXX jmorse, need to re-set and re-fabricate this one :|
+    if (unsigned OldInstrNum = MI.peekDebugInstrNum()) {
+      // Get a new number.
+      MI.setDebugInstrNum(0);
+      unsigned NewInstrNum = MI.getDebugInstrNum();
+
+// XXX copy pasta
+      MachineFunction &MF = *MI.getParent()->getParent();
+      for (unsigned int I = 0; I < MI.getNumOperands(); ++I) {
+        if (I == Idx1 || I == Idx2)
+          continue;
+
+        const auto &MO = MI.getOperand(I);
+
+        if (!MO.isReg() || !MO.isDef())
+          continue;
+
+        MF.makeDebugValueSubstitution(std::make_pair(OldInstrNum, I),
+                                   std::make_pair(NewInstrNum, I));
+      }
+    }
   }
 
   if (HasDef) {
