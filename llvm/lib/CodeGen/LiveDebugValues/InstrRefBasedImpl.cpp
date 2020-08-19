@@ -1681,16 +1681,24 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI) {
     const MachineInstr &TargetInstr = *InstrIt->second.first;
     uint64_t BlockNo = TargetInstr.getParent()->getNumber();
 
-    // Pick out the designated operand.
-    assert(OpNo < TargetInstr.getNumOperands());
-    const MachineOperand &MO = TargetInstr.getOperand(OpNo);
+    // Pick out the designated operand. It might be a memory reference, if
+    // a register def was folded into a stack store.
+    if (OpNo == MachineFunction::DebugOperandMemNumber &&
+        TargetInstr.hasOneMemOperand()) {
+      auto SpillLoc =  extractSpillBaseRegAndOffset(TargetInstr);
+      LocIdx L = MTracker->getOrTrackSpillLoc(SpillLoc);
+      NewID = ValueIDNum(BlockNo, InstrIt->second.second, L);
+    } else if (OpNo != MachineFunction::DebugOperandMemNumber) {
+      assert(OpNo < TargetInstr.getNumOperands());
+      const MachineOperand &MO = TargetInstr.getOperand(OpNo);
 
-    // Today, this can only be a register.
-    assert(MO.isReg() && MO.isDef());
+      // Today, this can only be a register.
+      assert(MO.isReg() && MO.isDef());
 
-    unsigned LocID = MTracker->getLocID(MO.getReg(), false);
-    LocIdx L = MTracker->LocIDToLocIdx[LocID];
-    NewID = ValueIDNum(BlockNo, InstrIt->second.second, L);
+      unsigned LocID = MTracker->getLocID(MO.getReg(), false);
+      LocIdx L = MTracker->LocIDToLocIdx[LocID];
+      NewID = ValueIDNum(BlockNo, InstrIt->second.second, L);
+    }
   }
 
   // We, we have a value number or None. Tell the variable value tracker about
@@ -1796,6 +1804,16 @@ void InstrRefBasedLDV::transferRegisterDef(MachineInstr &MI) {
 
   for (auto *MO : RegMaskPtrs)
     MTracker->writeRegMask(MO, CurBB, CurInst);
+
+  // This instruction might have been folded with a stack store.
+  if (MI.hasOneMemOperand() &&
+      (*MI.memoperands_begin())->isStore() &&
+      (*MI.memoperands_begin())->getPseudoValue() &&
+      (*MI.memoperands_begin())->getPseudoValue()->kind() == PseudoSourceValue::FixedStack) {
+    SpillLoc Spill = extractSpillBaseRegAndOffset(MI);
+    LocIdx L = MTracker->getOrTrackSpillLoc(Spill);
+    MTracker->setSpill(Spill, ValueIDNum(CurBB, CurInst, L));
+  }
 }
 
 void InstrRefBasedLDV::performCopy(Register SrcRegNum, Register DstRegNum) {
@@ -1934,6 +1952,13 @@ bool InstrRefBasedLDV::transferSpillOrRestoreInst(MachineInstr &MI) {
   Optional<SpillLoc> Loc;
 
   LLVM_DEBUG(dbgs() << "Examining instruction: "; MI.dump(););
+
+  // Strictly limit ourselves to plain loads and stores, not all instructions
+  // that can access the stack.
+  int FIDummy;
+  if (!TII->isStoreToStackSlotPostFE(MI, FIDummy) &&
+      !TII->isLoadFromStackSlotPostFE(MI, FIDummy))
+    return false;
 
   // First, if there are any DBG_VALUEs pointing at a spill slot that is
   // written to, terminate that variable location. The value in memory

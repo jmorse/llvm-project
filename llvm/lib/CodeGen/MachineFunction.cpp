@@ -987,6 +987,8 @@ void MachineFunction::setDebugInstrNumberingCount(unsigned Num) {
 
 void MachineFunction::makeDebugValueSubstitution(DebugInstrOperandPair A,
                                                  DebugInstrOperandPair B) {
+  // Don't allow any substituitions _from_ the memory operand number.
+  assert(A.second != DebugOperandMemNumber);
   auto Result = DebugValueSubstitutions.insert(std::make_pair(A, B));
   (void)Result;
   assert(Result.second && "Substitution for an already substituted value?");
@@ -1033,6 +1035,9 @@ void MachineFunction::undoDebugValueSubstitution(const MachineInstr &Old,
       DebugValueSubstitutions.erase(std::make_pair(InstrNum, I));
   }
 }
+
+ // Use one million as a high / reserved number.
+unsigned MachineFunction::DebugOperandMemNumber = 1000000;
 
 /// \}
 
