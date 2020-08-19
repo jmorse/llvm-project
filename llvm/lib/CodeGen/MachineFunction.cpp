@@ -990,6 +990,9 @@ void MachineFunction::makeDebugValueSubstitution(DebugInstrOperandPair A,
                                                  unsigned Subreg) {
   // Catch any accidental self-loops.
   assert(A.first != B.first);
+  // Don't allow any substituitions _from_ the memory operand number.
+  assert(A.second != DebugOperandMemNumber);
+
   auto Result = DebugValueSubstitutions.insert({A, {B, Subreg}});
   (void)Result;
   assert(Result.second && "Substitution for an already substituted value?");
@@ -1190,6 +1193,9 @@ void MachineFunction::undoDebugValueSubstitution(const MachineInstr &Old,
       DebugValueSubstitutions.erase(std::make_pair(InstrNum, I));
   }
 }
+
+ // Use one million as a high / reserved number.
+unsigned MachineFunction::DebugOperandMemNumber = 1000000;
 
 /// \}
 
