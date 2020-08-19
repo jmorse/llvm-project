@@ -458,7 +458,8 @@ public:
   /// which has the same signature (i.e., def operands in the same place) but
   /// a modified instruction type, flags, or otherwise. An example: X86 moves
   /// are sometimes transformed into equivalent LEAs.
-  void substituteDebugValuesForInst(const MachineInstr &Old, MachineInstr &New);
+  void substituteDebugValuesForInst(const MachineInstr &Old, MachineInstr &New,
+                                    unsigned MaxIdx = UINT_MAX);
 
   MachineFunction(Function &F, const LLVMTargetMachine &Target,
                   const TargetSubtargetInfo &STI, unsigned FunctionNum,
