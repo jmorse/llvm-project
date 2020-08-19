@@ -514,6 +514,7 @@ bool MachineCSE::ProcessBlockCSE(MachineBasicBlock *MBB) {
   SmallVector<std::pair<unsigned, unsigned>, 8> CSEPairs;
   SmallVector<unsigned, 2> ImplicitDefsToUpdate;
   SmallVector<unsigned, 2> ImplicitDefs;
+  MachineFunction &MF = *MBB->getParent();
   for (MachineBasicBlock::iterator I = MBB->begin(), E = MBB->end(); I != E; ) {
     MachineInstr *MI = &*I;
     ++I;
@@ -542,6 +543,7 @@ bool MachineCSE::ProcessBlockCSE(MachineBasicBlock *MBB) {
       if (MachineInstr *NewMI = TII->commuteInstruction(*MI)) {
         Commuted = true;
         FoundCSE = VNT.count(NewMI);
+        MF.undoDebugValueSubstitution(*MI);
         if (NewMI != MI) {
           // New instruction. It doesn't need to be kept.
           NewMI->eraseFromParent();
@@ -694,6 +696,7 @@ bool MachineCSE::ProcessBlockCSE(MachineBasicBlock *MBB) {
         ++NumCrossBBCSEs;
       }
 
+      MF.substituteDebugValuesForInst(*MI, *CSMI);
       MI->eraseFromParent();
       ++NumCSEs;
       if (!PhysRefs.empty())

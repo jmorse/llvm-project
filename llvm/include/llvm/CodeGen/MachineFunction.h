@@ -506,6 +506,9 @@ public:
   ///          value, or None if nothing could be recovered.
   Optional<DebugInstrOperandPair> salvageCopySSA(MachineInstr &MI);
 
+  void undoDebugValueSubstitution(const MachineInstr &Old,
+                                  unsigned MaxIdx = UINT_MAX);
+
   MachineFunction(Function &F, const LLVMTargetMachine &Target,
                   const TargetSubtargetInfo &STI, unsigned FunctionNum,
                   MachineModuleInfo &MMI);
