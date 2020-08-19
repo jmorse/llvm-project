@@ -490,7 +490,8 @@ public:
   /// which has the same signature (i.e., def operands in the same place) but
   /// a modified instruction type, flags, or otherwise. An example: X86 moves
   /// are sometimes transformed into equivalent LEAs.
-  void substituteDebugValuesForInst(const MachineInstr &Old, MachineInstr &New);
+  void substituteDebugValuesForInst(const MachineInstr &Old, MachineInstr &New,
+                                    unsigned MaxIdx = UINT_MAX);
 
   /// Find the underlying  defining instruction / operand for a COPY instruction
   /// while in SSA form. Copies do not actually define values -- they move them

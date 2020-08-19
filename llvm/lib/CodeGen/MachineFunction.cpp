@@ -996,7 +996,8 @@ void MachineFunction::makeDebugValueSubstitution(DebugInstrOperandPair A,
 }
 
 void MachineFunction::substituteDebugValuesForInst(const MachineInstr &Old,
-                                                   MachineInstr &New) {
+                                                   MachineInstr &New,
+                                                   unsigned MaxIdx) {
   // If the Old instruction wasn't tracked at all, there is no work to do.
   unsigned OldInstrNum = Old.peekDebugInstrNum();
   if (!OldInstrNum)
@@ -1006,7 +1007,9 @@ void MachineFunction::substituteDebugValuesForInst(const MachineInstr &Old,
   // Avoid creating new instr numbers unless we create a new substitution.
   // While this has no functional effect, it risks confusing someone reading
   // MIR output.
-  for (unsigned int I = 0; I < Old.getNumOperands(); ++I) {
+  // Observe callers limit on how many operands to look at.
+  unsigned MaxOperand = std::min(MaxIdx, Old.getNumOperands());
+  for (unsigned int I = 0; I < MaxOperand; ++I) {
     const auto &OldMO = Old.getOperand(I);
     auto &NewMO = Old.getOperand(I);
 
