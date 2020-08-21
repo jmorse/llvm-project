@@ -1096,7 +1096,22 @@ public:
       // If the value has no location, we can't make a variable location.
       const ValueIDNum &Num = Var.second.ID;
       auto ValuesPreferredLoc = ValueToLoc.find(Num);
-      if (ValuesPreferredLoc == ValueToLoc.end()) {
+      Optional<LocIdx> M = None;
+      if (ValuesPreferredLoc != ValueToLoc.end())
+        M = ValuesPreferredLoc->second;
+
+      if (!M && !MTracker->isSpill(Num.getLoc())) {
+        // uuuhhh, are there are any super registers in spills? 
+        for (auto &Reg : TRI.superregs(MTracker->LocIdxToLocID[Num.getLoc()])) {
+          ValueIDNum NewNum(Num.getBlock(), Num.getInst(), MTracker->getRegMLoc(Reg));
+          auto ValuesPreferredLoc = ValueToLoc.find(NewNum);
+          if (ValuesPreferredLoc != ValueToLoc.end())
+            M = ValuesPreferredLoc->second;
+        }
+        // XXX XXX XXX Might need to apply subregisters?
+      }
+
+      if (!M) {
         // If it's a def that occurs in this block, register it as a
         // use-before-def to be resolved as we step through the block.
         if (Num.getBlock() == (unsigned)MBB.getNumber() && !Num.isPHI())
@@ -1106,14 +1121,13 @@ public:
         continue;
       }
 
-      LocIdx M = ValuesPreferredLoc->second;
-      auto NewValue = LocAndProperties{M, Var.second.Properties};
+      auto NewValue = LocAndProperties{*M, Var.second.Properties};
       auto Result = ActiveVLocs.insert(std::make_pair(Var.first, NewValue));
       if (!Result.second)
         Result.first->second = NewValue;
-      ActiveMLocs[M].insert(Var.first);
+      ActiveMLocs[*M].insert(Var.first);
       PendingDbgValues.push_back(
-          MTracker->emitLoc(M, Var.first, Var.second.Properties));
+          MTracker->emitLoc(*M, Var.first, Var.second.Properties));
     }
     flushDbgValues(MBB.instr_begin(), &MBB);
   }
@@ -1153,6 +1167,7 @@ public:
         continue;
 
       PendingDbgValues.push_back(MTracker->emitLoc(L, Use.Var, Use.Properties));
+      // XXX extra tracking should be added, in mlocs/vlocs.
     }
     flushDbgValues(pos, nullptr);
   }
@@ -1969,6 +1984,15 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
                !isCalleeSaved(*FoundLoc) &&
                isCalleeSaved(CurL))
         FoundLoc = CurL; // Callee saved regs are longer term than normal.
+    } else if (NewID && MTracker->isSpill(CurL) &&
+               !MTracker->isSpill(ID.getLoc()) &&
+               !MTracker->isSpill(NewID->getLoc()) &&
+               TRI->isSuperRegister(MTracker->LocIdxToLocID[NewID->getLoc()],
+                                    MTracker->LocIdxToLocID[ID.getLoc()])) {
+      // The contents of this stack slot is a super-register of the thing
+      // that we're looking for. Just pick it for now; mangle an expression
+      // when this goes upstream.
+      FoundLoc = CurL;
     }
   }
 
