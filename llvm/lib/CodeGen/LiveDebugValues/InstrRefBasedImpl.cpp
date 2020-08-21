@@ -1234,23 +1234,45 @@ public:
   /// Explicitly terminate variable locations based on \p mloc. Creates undef
   /// DBG_VALUEs for any variables that were located there, and clears
   /// #ActiveMLoc / #ActiveVLoc tracking information for that location.
-  void clobberMloc(LocIdx MLoc, MachineBasicBlock::iterator Pos) {
-    assert(MTracker->isSpill(MLoc));
+  void clobberMloc(LocIdx MLoc, MachineBasicBlock::iterator Pos, bool make_undef = true) {
     auto ActiveMLocIt = ActiveMLocs.find(MLoc);
     if (ActiveMLocIt == ActiveMLocs.end())
       return;
 
+    ValueIDNum OldValue = VarLocs[MLoc.asU64()];
     VarLocs[MLoc.asU64()] = ValueIDNum::EmptyValue;
 
+    // Hmmmm. Can we find a new location? lolhax.
+    Optional<LocIdx> NewLoc = None;
+    for (unsigned int I = 1; I < MTracker->LocIdxToIDNum.size(); ++I)
+      if (MTracker->getNumAtPos(LocIdx(I)) == OldValue)
+        NewLoc = LocIdx(I);
+
+    if (!NewLoc && !make_undef)
+      return;
+
+    DenseSet<DebugVariable> NewMLocs;
     for (auto &Var : ActiveMLocIt->second) {
       auto ActiveVLocIt = ActiveVLocs.find(Var);
       // Create an undef. We can't feed in a nullptr DIExpression alas,
       // so use the variables last expression. Pass None as the location.
+      // XXX out of date, we might renew now.
       const DIExpression *Expr = ActiveVLocIt->second.Properties.DIExpr;
       DbgValueProperties Properties(Expr, false);
-      PendingDbgValues.push_back(MTracker->emitLoc(None, Var, Properties));
-      ActiveVLocs.erase(ActiveVLocIt);
+      PendingDbgValues.push_back(MTracker->emitLoc(NewLoc, Var, Properties));
+
+      if (!NewLoc) {
+        ActiveVLocs.erase(ActiveVLocIt);
+      } else {
+        ActiveVLocIt->second.Loc = *NewLoc;
+        NewMLocs.insert(Var);
+      }
     }
+    
+    if (!NewMLocs.empty())
+      for (auto &Var : NewMLocs)
+        ActiveMLocs[*NewLoc].insert(Var);
+
     flushDbgValues(Pos, nullptr);
 
     ActiveMLocIt->second.clear();
@@ -1838,6 +1860,14 @@ void InstrRefBasedLDV::transferRegisterDef(MachineInstr &MI) {
     LocIdx L = MTracker->getOrTrackSpillLoc(Spill);
     MTracker->setSpill(Spill, ValueIDNum(CurBB, CurInst, L));
   }
+
+  // Eerrmmm
+  if (TTracker) {
+    for (uint32_t DeadReg : DeadRegs) {
+      LocIdx Loc = MTracker->lookupOrTrackRegister(DeadReg);
+      TTracker->clobberMloc(Loc, MI.getIterator(), false);
+    }
+  }
 }
 
 void InstrRefBasedLDV::performCopy(Register SrcRegNum, Register DstRegNum) {
@@ -2103,6 +2133,10 @@ bool InstrRefBasedLDV::transferRegisterCopy(MachineInstr &MI) {
 
   // Copy MTracker info, including subregs if available.
   InstrRefBasedLDV::performCopy(SrcReg, DestReg);
+
+  // Salvage the old location pls
+  if (TTracker)
+    TTracker->clobberMloc(MTracker->getRegMLoc(DestReg), MI.getIterator(), false);
 
   // Only produce a transfer of DBG_VALUE within a block where old LDV
   // would have. We might make use of the additional value tracking in some
