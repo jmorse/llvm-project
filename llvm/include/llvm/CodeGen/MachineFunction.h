@@ -449,6 +449,16 @@ public:
   std::map<DebugInstrOperandPair, DebugInstrOperandPair>
       DebugValueSubstitutions;
 
+  class PHIPoint {
+  public:
+    MachineBasicBlock *MBB;
+    Register Reg;
+    unsigned SubReg;
+    PHIPoint(MachineBasicBlock *MBB, Register Reg, unsigned SubReg)
+      : MBB(MBB), Reg(Reg), SubReg(SubReg) { }
+  };
+  std::map<unsigned, PHIPoint> exPHIs;
+
   /// Create a substitution between one <instr,operand> value to a different,
   /// new value.
   void makeDebugValueSubstitution(DebugInstrOperandPair, DebugInstrOperandPair);

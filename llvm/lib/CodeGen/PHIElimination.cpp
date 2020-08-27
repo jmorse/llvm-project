@@ -316,6 +316,16 @@ void PHIElimination::LowerPHINode(MachineBasicBlock &MBB,
                                   IncomingReg, DestReg);
   }
 
+  if (MPhi->peekDebugInstrNum()) {
+    // jmorse DBG_INSTR_REF: store where this PHI was.
+    MachineFunction *MF = MBB.getParent();
+    unsigned ID = MPhi->peekDebugInstrNum();
+    auto p = MachineFunction::PHIPoint(&MBB, IncomingReg, 0);
+    auto res = MF->exPHIs.insert(std::make_pair(ID, p));
+    assert(res.second);
+    (void)res;
+  }
+
   // Update live variable information if there is any.
   if (LV) {
     if (IncomingReg) {

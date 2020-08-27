@@ -397,6 +397,16 @@ class LDVImpl {
   using StashedInstrRef =
       std::tuple<unsigned, unsigned, const DILocalVariable *,
                  const DIExpression *, DebugLoc>;
+
+  struct ValPos {
+    SlotIndex SI;
+    Register Reg;
+    unsigned SubReg;
+  };
+
+  std::map<unsigned, ValPos> ValToPos;
+  std::map<Register, std::vector<unsigned>> RegIdx;
+
   std::map<SlotIndex, std::vector<StashedInstrRef>> StashedInstrReferences;
 
   /// Whether emitDebugValues is called.
@@ -473,6 +483,8 @@ public:
   /// Release all memory.
   void clear() {
     MF = nullptr;
+    ValToPos.clear();
+    RegIdx.clear();
     StashedInstrReferences.clear();
     userValues.clear();
     userLabels.clear();
@@ -1017,6 +1029,21 @@ bool LDVImpl::runOnMachineFunction(MachineFunction &mf) {
   bool Changed = collectDebugValues(mf);
   computeIntervals();
   LLVM_DEBUG(print(dbgs()));
+
+  // jmorse DBG_INSTR_REF, collect a bunch of reg/slotindexs we care about
+  // and their current vregs; plus an index of current vreg to reg/slotindexes.
+  // This is what will be split up later on.
+  SlotIndexes *Slots = LIS->getSlotIndexes();
+  for (const auto &lala : MF->exPHIs) {
+    MachineBasicBlock *MBB = lala.second.MBB;
+    Register reg = lala.second.Reg;
+    unsigned SubReg = lala.second.SubReg;
+    SlotIndex SI = Slots->getMBBStartIdx(MBB);
+    ValPos vp = {SI, reg, SubReg};
+    ValToPos.insert(std::make_pair(lala.first, vp));
+    RegIdx[reg].push_back(lala.first);
+  }
+
   ModifiedMF = Changed;
   return Changed;
 }
@@ -1176,6 +1203,39 @@ UserValue::splitRegister(Register OldReg, ArrayRef<Register> NewRegs,
 }
 
 void LDVImpl::splitRegister(Register OldReg, ArrayRef<Register> NewRegs) {
+  // XXX jmorse DBG_INSTR_REF
+
+  // NB: subreg is ignored here. That doesn't get remapped by splitting
+  // and the like.
+
+  auto It = RegIdx.find(OldReg);
+  std::vector<std::pair<Register, unsigned>> newids;
+  // XXX might make more sense to flip this loop
+  if (It != RegIdx.end()) {
+    for (unsigned ID : It->second) {
+      auto It2 = ValToPos.find(ID);
+      assert(It2 != ValToPos.end());
+      const SlotIndex &Slot = It2->second.SI;
+      Register r  = It2->second.Reg;
+      assert(r == OldReg);
+
+      // We only need to examine a single location.
+      for (auto newreg : NewRegs) {
+        const LiveInterval &LI = LIS->getInterval(newreg);
+        auto LII = LI.find(Slot);
+        if (LII != LI.end() && LII->start <= Slot) {
+          // OK, we have a match.
+          newids.push_back(std::make_pair(newreg, ID));
+          It2->second.Reg = newreg;
+          break;
+        }
+      }
+    }
+    RegIdx.erase(It);
+    for (auto &ref : newids)
+      RegIdx[ref.first].push_back(ref.second);
+  }
+
   bool DidChange = false;
   for (UserValue *UV = lookupVirtReg(OldReg); UV; UV = UV->getNext())
     DidChange |= UV->splitRegister(OldReg, NewRegs, *LIS);
@@ -1465,11 +1525,55 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
     userLabel->emitDebugLabel(*LIS, *TII);
   }
 
+  LLVM_DEBUG(dbgs() << "********** EMITTING DEBUG PHIS **********\n");
+
+  auto Slots = LIS->getSlotIndexes();
+  for (auto &it : ValToPos) {
+    // For each exPHI, work out what its reg position is now.
+    unsigned InstNum = it.first;
+    auto Slot = it.second.SI;
+    Register reg = it.second.Reg;
+    unsigned SubReg = it.second.SubReg;
+
+    MachineBasicBlock *OrigMBB = Slots->getMBBFromIndex(Slot);
+    if (VRM->isAssignedReg(reg) &&
+          Register::isPhysicalRegister(VRM->getPhys(reg))) {
+      unsigned physreg = VRM->getPhys(reg);
+      if (SubReg != 0) {
+        unsigned tmp = TRI->getSubReg(physreg, SubReg);
+        if (tmp != 0)
+          physreg = tmp;
+        // XXX -- usually this is because physreg is the correct size, and we
+        // don't need to subregify it any further. Possibility that we've
+        // screwed up though.
+      }
+      auto Builder = BuildMI(*OrigMBB, OrigMBB->begin(), DebugLoc(), TII->get(TargetOpcode::DBG_PHI));
+      Builder.addReg(physreg);
+      Builder.addImm(InstNum);
+    } else if (VRM->getStackSlot(reg) != VirtRegMap::NO_STACK_SLOT) {
+      const MachineRegisterInfo &MRI = MF->getRegInfo();
+      const TargetRegisterClass *TRC = MRI.getRegClass(reg);
+      unsigned SpillSize, SpillOffset;
+      // Examine the subreg situatoin.
+      bool Success = TII->getStackSlotRange(TRC, SubReg, SpillSize, SpillOffset, *MF);
+
+      // FIXME: Invalidate the location if the offset couldn't be calculated.
+      (void)Success;
+
+      auto Builder = BuildMI(*OrigMBB, OrigMBB->begin(), DebugLoc(), TII->get(TargetOpcode::DBG_PHI));
+      Builder.addFrameIndex(VRM->getStackSlot(reg));
+      Builder.addImm(InstNum);
+    } else {
+      //noreg
+      // There is no mapping for this value ID, it's gone. Create no DBG_PHI.
+    }
+  }
+  MF->exPHIs.clear();
+
   LLVM_DEBUG(dbgs() << "********** EMITTING INSTR REFERENCES **********\n");
 
   // Re-insert any DBG_INSTR_REFs back in the position they were. Ordering
   // is preserved by vector.
-  auto Slots = LIS->getSlotIndexes();
   const MCInstrDesc &RefII = TII->get(TargetOpcode::DBG_INSTR_REF);
   for (auto &P : StashedInstrReferences) {
     const SlotIndex &Idx = P.first;
