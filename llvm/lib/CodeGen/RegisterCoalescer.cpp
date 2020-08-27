@@ -133,6 +133,17 @@ namespace {
     AliasAnalysis *AA = nullptr;
     RegisterClassInfo RegClassInfo;
 
+    // XXX, clean this up after it all works.
+    class ValPos {
+    public:
+      SlotIndex SI;
+      Register Reg;
+      unsigned SubReg;
+    };
+
+    std::map<unsigned, ValPos> ValToPos;
+    std::map<Register, std::vector<unsigned>> RegIdx;
+
     /// Debug variable location tracking -- for each VReg, maintain an
     /// ordered-by-slot-index set of DBG_VALUEs, to help quick
     /// identification of whether coalescing may change location validity.
@@ -3450,6 +3461,51 @@ bool RegisterCoalescer::joinVirtRegs(CoalescerPair &CP) {
   // Scan and mark undef any DBG_VALUEs that would refer to a different value.
   checkMergingChangesDbgValues(CP, LHS, LHSVals, RHS, RHSVals);
 
+  // Mangle vreg records for debug phis.
+  auto it = RegIdx.find(CP.getSrcReg());
+  if (it != RegIdx.end()) {
+    for (unsigned InstID : it->second) {
+      auto valit = ValToPos.find(InstID);
+      assert(valit != ValToPos.end());
+// XXX what does this do..
+      auto LII = RHS.find(valit->second.SI);
+      if (LII == RHS.end() || LII->start > valit->second.SI)
+        continue;
+
+      // If this phi location is already a subregister of the overall register,
+      // ignore any further merges. Complicated scenario. But accept switching
+      // from no-subreg to a-subreg: this represents a small register being
+      // coalesced into a superregister.
+      // I thiiiiinnnkkk XXX.
+      if (valit->second.SubReg && valit->second.SubReg != CP.getSrcIdx() &&
+          // Do accept plain merges that don't faff with subregs, even if
+          // we're already in one.
+          !(CP.getSrcIdx() == 0 && CP.getDstIdx() == 0))
+        continue;
+
+      // XXX don't examine resolutions, because we only merge things that
+      // caaannnn mergggeee?? Bold statement.
+      valit->second.Reg = CP.getDstReg();
+      // XXX XXX XXX -- use the src subreg? This is pretty sketchy, I think it
+      // works in my examples because, essentially, both registers are
+      // considered the same class, with the source value in the src idx. So
+      // its location in the destination register is _at_ the src idx. Right?
+      // Tests you say...
+      if (CP.getSrcIdx() != 0)
+        valit->second.SubReg = CP.getSrcIdx();
+    }
+    auto vec = it->second;
+    RegIdx.erase(it);
+
+    // We might be merging two together.
+    auto dst_it = RegIdx.find(CP.getDstReg());
+    if (dst_it != RegIdx.end())
+      dst_it->second.insert(dst_it->second.end(), vec.begin(), vec.end());
+    else
+      RegIdx.insert(std::make_pair(CP.getDstReg(), vec));
+  }
+
+
   // Join RHS into LHS.
   LHS.join(RHS, LHSVals.getAssignments(), RHSVals.getAssignments(), NewVNInfo);
 
@@ -3903,6 +3959,17 @@ bool RegisterCoalescer::runOnMachineFunction(MachineFunction &fn) {
   else
     JoinGlobalCopies = (EnableGlobalCopies == cl::BOU_TRUE);
 
+  SlotIndexes *Slots = LIS->getSlotIndexes();
+  for (const auto &lala : MF->exPHIs) {
+    MachineBasicBlock *MBB = lala.second.MBB;
+    Register reg = lala.second.Reg;
+    unsigned SubReg = lala.second.SubReg;
+    SlotIndex SI = Slots->getMBBStartIdx(MBB);
+    ValPos p = {SI, reg, SubReg};
+    ValToPos.insert(std::make_pair(lala.first, p));
+    RegIdx[reg].push_back(lala.first);
+  }
+
   // The MachineScheduler does not currently require JoinSplitEdges. This will
   // either be enabled unconditionally or replaced by a more general live range
   // splitting optimization.
@@ -3957,6 +4024,16 @@ bool RegisterCoalescer::runOnMachineFunction(MachineFunction &fn) {
       }
     }
   }
+
+  for (auto &p : MF->exPHIs) {
+    auto it = ValToPos.find(p.first);
+    assert(it != ValToPos.end());
+    p.second.Reg = it->second.Reg;
+    p.second.SubReg = it->second.SubReg;
+  }
+
+  ValToPos.clear();
+  RegIdx.clear();
 
   LLVM_DEBUG(dump());
   if (VerifyCoalescing)
