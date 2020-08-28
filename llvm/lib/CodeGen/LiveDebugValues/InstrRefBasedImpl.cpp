@@ -152,6 +152,7 @@
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/UniqueVector.h"
 #include "llvm/CodeGen/LexicalScopes.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
@@ -183,6 +184,7 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils/SSAUpdaterImpl.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
@@ -198,6 +200,8 @@
 
 using namespace llvm;
 
+// SSAUpdaterImple sets DEBUG_TYPE, change it.
+#undef DEBUG_TYPE
 #define DEBUG_TYPE "livedebugvalues"
 
 STATISTIC(NumInserted, "Number of DBG_VALUE instructions inserted");
@@ -1401,6 +1405,11 @@ private:
   /// instruction numbers in DBG_INSTR_REFs into machine value numbers.
   std::map<uint64_t, InstAndNum> DebugInstrNumToInstr;
 
+  /// Map from DBG_PHI instr numbers to value number. Before machine value
+  /// numbering these values are uncorrected; after they are corrected to
+  /// be solved value numbers.
+  std::multimap<uint64_t, std::pair<MachineBasicBlock *,ValueIDNum>> DebugPHINumToValue;
+
   // Map of overlapping variable fragments.
   OverlapMap OverlapFragments;
   VarToFragments SeenFragments;
@@ -1427,7 +1436,7 @@ private:
   SpillLoc extractSpillBaseRegAndOffset(const MachineInstr &MI);
 
   /// Observe a single instruction while stepping through a block.
-  void process(MachineInstr &MI);
+  void process(MachineInstr &MI, ValueIDNum **MLiveOuts = nullptr, ValueIDNum **MLiveIns = nullptr);
 
   /// Examines whether \p MI is a DBG_VALUE and notifies trackers.
   /// \returns true if MI was recognized and processed.
@@ -1435,7 +1444,12 @@ private:
 
   /// Examines whether \p MI is a DBG_INSTR_REF and notifies trackers.
   /// \returns true if MI was recognized and processed.
-  bool transferDebugInstrRef(MachineInstr &MI);
+  bool transferDebugInstrRef(MachineInstr &MI, ValueIDNum **MLiveOuts, ValueIDNum **MLiveIns);
+
+  /// Stores value-information about where this PHI occurred, and what
+  /// instruction number is associated with it.
+  /// \returns true if MI was recognized and processed.
+  bool transferDebugPHI(MachineInstr &MI);
 
   /// Examines whether \p MI is copy instruction, and notifies trackers.
   /// \returns true if MI was recognized and processed.
@@ -1454,6 +1468,16 @@ private:
   void performCopy(Register Src, Register Dst);
 
   void accumulateFragmentMap(MachineInstr &MI);
+
+  /// Determine the machine value number referred to by (potentially several)
+  /// DBG_PHI instructions. Block duplication and tail folding can duplicate
+  /// DBG_PHIs, shifting the position where values in registers merge, and
+  /// forming another mini-ssa problem to solve.
+  /// \p Here the position of a DBG_INSTR_REF seeking a machine value number
+  /// \p Debug instruction number defined by DBG_PHI instructions.
+  /// \returns The machine value number at position Here, or None.
+  Optional<ValueIDNum>
+  resolveDbgPHIs(MachineFunction &MF, ValueIDNum **MLiveOuts, ValueIDNum **MLiveIns, MachineInstr &Here, unsigned InstrNum);
 
   /// Step through the function, recording register definitions and movements
   /// in an MLocTracker. Convert the observations into a per-block transfer
@@ -1670,7 +1694,7 @@ bool InstrRefBasedLDV::transferDebugValue(const MachineInstr &MI) {
   return true;
 }
 
-bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI) {
+bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI, ValueIDNum **MLiveOuts, ValueIDNum **MLiveIns) {
   if (!MI.isDebugRef())
     return false;
 
@@ -1714,6 +1738,7 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI) {
   // Try to lookup the instruction number, and find the machine value number
   // that it defines.
   auto InstrIt = DebugInstrNumToInstr.find(InstNo);
+  auto PHIIt = DebugPHINumToValue.find(InstNo);
   if (InstrIt != DebugInstrNumToInstr.end()) {
     const MachineInstr &TargetInstr = *InstrIt->second.first;
     uint64_t BlockNo = TargetInstr.getParent()->getNumber();
@@ -1736,6 +1761,9 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI) {
       LocIdx L = MTracker->LocIDToLocIdx[LocID];
       NewID = ValueIDNum(BlockNo, InstrIt->second.second, L);
     }
+  } else if (PHIIt != DebugPHINumToValue.end()) {
+    // It's actually a PHI value.
+    NewID = resolveDbgPHIs(*MI.getParent()->getParent(), MLiveOuts, MLiveIns, MI, InstNo);
   }
 
   // We, we have a value number or None. Tell the variable value tracker about
@@ -1799,6 +1827,51 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI) {
   MachineInstr *DbgMI = MTracker->emitLoc(FoundLoc, V, Properties);
   TTracker->PendingDbgValues.push_back(DbgMI);
   TTracker->flushDbgValues(MI.getIterator(), nullptr);
+  return true;
+}
+
+bool InstrRefBasedLDV::transferDebugPHI(MachineInstr &MI) {
+  if (!MI.isDebugPHI())
+    return false;
+
+  // Only pick these out on first pass through...
+  if (VTracker || TTracker)
+    return true;
+
+  // Second operand is instruction number, first is the value location, either
+  // a stack slot or register.
+  unsigned InstrNum = MI.getOperand(1).getImm();
+
+  const MachineOperand &MO = MI.getOperand(0);
+  if (MO.isReg()) {
+    Register Reg = MO.getReg();
+    // XXX -- assert that this register is actually tracked?
+    ValueIDNum Num = MTracker->readReg(Reg);
+    auto LocAndNum = std::make_pair(MI.getParent(), Num);
+    DebugPHINumToValue.insert(std::make_pair(InstrNum, LocAndNum));
+  } else {
+    assert(MO.isFI());
+    unsigned FI = MO.getIndex();
+
+    // If the stack slot is dead, then this was optimized away.
+    // XXX: check whether actually it was _merged_ away, which is different.
+    if (MFI->isDeadObjectIndex(FI))
+      return true;
+
+    Register Base;
+    const MachineFunction *MF = MI.getParent()->getParent();
+    int64_t offs = TFI->getFrameIndexReference(*MF, FI, Base);
+    SpillLoc SL = {Base, (int)offs}; // XXX loss of 64 to 32?
+    Optional<ValueIDNum> Num = MTracker->readSpill(SL);
+
+    if (!Num)
+      // Nothing ever writes to this slot. Curious, but nothing we can do.
+      return true;
+
+    assert(Num->getBlock() != 121 || Num->getLoc() != 121);
+    auto LocAndNum = std::make_pair(MI.getParent(), *Num);
+    DebugPHINumToValue.insert(std::make_pair(InstrNum, LocAndNum));
+  }
 
   return true;
 }
@@ -2207,13 +2280,15 @@ void InstrRefBasedLDV::accumulateFragmentMap(MachineInstr &MI) {
   AllSeenFragments.insert(ThisFragment);
 }
 
-void InstrRefBasedLDV::process(MachineInstr &MI) {
+void InstrRefBasedLDV::process(MachineInstr &MI, ValueIDNum **MLiveOuts, ValueIDNum **MLiveIns) {
   // Try to interpret an MI as a debug or transfer instruction. Only if it's
   // none of these should we interpret it's register defs as new value
   // definitions.
   if (transferDebugValue(MI))
     return;
-  if (transferDebugInstrRef(MI))
+  if (transferDebugInstrRef(MI, MLiveOuts, MLiveIns))
+    return;
+  if (transferDebugPHI(MI))
     return;
   if (transferRegisterCopy(MI))
     return;
@@ -3228,7 +3303,7 @@ void InstrRefBasedLDV::emitLocations(
     CurBB = bbnum;
     CurInst = 1;
     for (auto &MI : MBB) {
-      process(MI);
+      process(MI, MOutLocs, MInLocs);
       TTracker->checkInstForNewValues(CurInst, MI.getIterator());
       ++CurInst;
     }
@@ -3348,6 +3423,24 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   // dataflow problem.
   mlocDataflow(MInLocs, MOutLocs, MLocTransfer);
 
+  // Patch up debug phi numbers, resolving input value numbers into the solved
+  // input value.
+  auto EarlyInc = make_early_inc_range(DebugPHINumToValue);
+  for (auto It = EarlyInc.begin(); It != EarlyInc.end(); ++It) {
+    auto &InstAndNum = *It;
+    ValueIDNum &Num = InstAndNum.second.second;
+    if (!Num.isPHI())
+      continue;
+
+    unsigned BlockNo = Num.getBlock();
+    LocIdx LocNo = Num.getLoc();
+    // XXX, why does this happen...
+    if (MInLocs[BlockNo][LocNo.asU64()] != ValueIDNum::EmptyValue)
+      Num = MInLocs[BlockNo][LocNo.asU64()];
+    else
+      DebugPHINumToValue.erase(InstAndNum.first);
+  }
+
   // Walk back through each block / instruction, collecting DBG_VALUE
   // instructions and recording what machine value their operands refer to.
   for (auto &OrderPair : OrderToBB) {
@@ -3358,7 +3451,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
     MTracker->loadFromArray(MInLocs[CurBB], CurBB);
     CurInst = 1;
     for (auto &MI : MBB) {
-      process(MI);
+      process(MI, MOutLocs, MInLocs);
       ++CurInst;
     }
     MTracker->reset();
@@ -3434,6 +3527,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   BBToOrder.clear();
   BBNumToRPO.clear();
   DebugInstrNumToInstr.clear();
+  DebugPHINumToValue.clear();
 
   return Changed;
 }
@@ -3441,3 +3535,350 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
 LDVImpl *llvm::makeInstrRefBasedLiveDebugValues() {
   return new InstrRefBasedLDV();
 }
+
+namespace {
+class LDVSSABlock;
+class LDVSSAUpdater;
+
+/// Represents an SSA PHI node for the SSA updater class.
+class LDVSSAPhi {
+public:
+  SmallVector<std::pair<LDVSSABlock*, uint64_t>, 4> IncomingValues;
+  LDVSSABlock *ParentBlock;
+  uint64_t PHIValNum;
+  LDVSSAPhi(uint64_t PHIValNum, LDVSSABlock *ParentBlock)
+   : ParentBlock(ParentBlock), PHIValNum(PHIValNum) { }
+
+  LDVSSABlock *getParent() {
+    return ParentBlock;
+  }
+};
+
+/// Thin wrapper around a block predecessor iterator. Only difference from a
+/// normal block iterator is that it dereferences to an LDVSSABlock.
+class LDVSSABlockIterator {
+public:
+  MachineBasicBlock::pred_iterator PredIt;
+  LDVSSAUpdater &Updater;
+
+  LDVSSABlockIterator(MachineBasicBlock::pred_iterator PredIt, LDVSSAUpdater &Updater)
+    : PredIt(PredIt), Updater(Updater) { }
+
+  bool operator!=(const LDVSSABlockIterator &OtherIt) const {
+    return OtherIt.PredIt != PredIt;
+  }
+
+  LDVSSABlockIterator &operator++() {
+    ++PredIt;
+    return *this;
+  }
+
+  LDVSSABlock *operator*();
+};
+
+/// Thin wrapper around a block for SSA Updater interface. Necessary because
+/// we need to track the PHI value(s) that we may have observed as necessary
+/// in this block.
+class LDVSSABlock {
+public:
+  MachineBasicBlock &BB;
+  LDVSSAUpdater &Updater;
+  LDVSSABlock(MachineBasicBlock &BB, LDVSSAUpdater &Updater)
+   : BB(BB), Updater(Updater) { }
+
+  LDVSSABlockIterator succ_begin() {
+    return LDVSSABlockIterator(BB.succ_begin(), Updater);
+  }
+
+  LDVSSABlockIterator succ_end() {
+    return LDVSSABlockIterator(BB.succ_end(), Updater);
+  }
+
+  // Good news! there are no phis.
+  // XXX -- this assumes that we don't need to look up created phis via this
+  // method, which would suck.
+  // XXX, definitely isn't true. 
+  using philist = std::vector<LDVSSAPhi>;
+  iterator_range<typename philist::iterator> phis() {
+    return make_range(nullptr, nullptr);
+  }
+};
+
+class LDVSSAUpdater {
+public:
+  std::map<uint64_t, LDVSSAPhi *> PHIs;
+  std::map<MachineBasicBlock *, SmallSet<uint64_t, 4>> PhiMap;
+  std::set<uint64_t> UndefSet;
+  std::map<MachineBasicBlock *, uint64_t> UndefMap;
+  std::map<MachineBasicBlock *, LDVSSABlock *> bb_map;
+  /// Location where any PHI must occur.
+  LocIdx Loc;
+
+  LDVSSAUpdater(LocIdx L) : Loc(L) { }
+
+  void reset() {
+    for (auto &p : PHIs) {
+      delete p.second;
+    }
+    PHIs.clear();
+    UndefSet.clear();
+  }
+
+  ~LDVSSAUpdater() {
+    reset();
+  }
+
+  LDVSSABlock *getSSALDVBlock(MachineBasicBlock *BB) {
+    auto it = bb_map.find(BB);
+    if (it == bb_map.end()) {
+      bb_map[BB] = new LDVSSABlock(*BB, *this);
+      it = bb_map.find(BB);
+    }
+    return it->second;
+  }
+};
+
+LDVSSABlock *LDVSSABlockIterator::operator*() {
+  return Updater.getSSALDVBlock(*PredIt);
+}
+
+} // anon ns
+
+namespace llvm {
+
+raw_ostream &operator<<(raw_ostream &out, const LDVSSAPhi &PHI) {
+  out << "SSALDVPHI " << PHI.PHIValNum;
+  return out;
+}
+
+template<>
+class SSAUpdaterTraits<LDVSSAUpdater> {
+public:
+  using BlkT = LDVSSABlock;
+  using ValT = uint64_t;
+  using PhiT = LDVSSAPhi;
+  using BlkSucc_iterator = LDVSSABlockIterator;
+
+  static BlkSucc_iterator BlkSucc_begin(BlkT *BB) { return BB->succ_begin(); }
+  static BlkSucc_iterator BlkSucc_end(BlkT *BB) { return BB->succ_end(); }
+
+  /// Iterator for PHI operands.
+  class PHI_iterator {
+  private:
+    LDVSSAPhi *PHI;
+    unsigned Idx;
+
+  public:
+    explicit PHI_iterator(LDVSSAPhi *P) // begin iterator
+      : PHI(P), Idx(0) {}
+    PHI_iterator(LDVSSAPhi *P, bool) // end iterator
+      : PHI(P), Idx(PHI->IncomingValues.size()) {}
+
+    PHI_iterator &operator++() { Idx++; return *this; }
+    bool operator==(const PHI_iterator& X) const { return Idx == X.Idx; }
+    bool operator!=(const PHI_iterator& X) const { return !operator==(X); }
+
+    uint64_t getIncomingValue() { return PHI->IncomingValues[Idx].second; }
+
+    LDVSSABlock *getIncomingBlock() {
+      return PHI->IncomingValues[Idx].first;
+    }
+  };
+
+  static inline PHI_iterator PHI_begin(PhiT *PHI) { return PHI_iterator(PHI); }
+
+  static inline PHI_iterator PHI_end(PhiT *PHI) {
+    return PHI_iterator(PHI, true);
+  }
+
+  /// FindPredecessorBlocks - Put the predecessors of BB into the Preds
+  /// vector.
+  static void FindPredecessorBlocks(LDVSSABlock *BB,
+                                    SmallVectorImpl<LDVSSABlock*> *Preds){
+    for (MachineBasicBlock::pred_iterator PI = BB->BB.pred_begin(),
+           E = BB->BB.pred_end(); PI != E; ++PI)
+      Preds->push_back(BB->Updater.getSSALDVBlock(*PI));
+  }
+
+  /// GetUndefVal - Create an IMPLICIT_DEF instruction with a new register.
+  /// Add it into the specified block and return the register.
+  static uint64_t GetUndefVal(LDVSSABlock *BB,
+                              LDVSSAUpdater *Updater) {
+    // Create a value number for this block -- it needs to be unique and in the
+    // "undef" collection, so that we know it's not real. Use a number
+    // representing a PHI into this block.
+    uint64_t Num = ValueIDNum(BB->BB.getNumber(), 0, Updater->Loc).asU64();
+    Updater->UndefSet.insert(Num);
+    Updater->UndefMap[&BB->BB] = Num;
+    return Num;
+  }
+
+  /// CreateEmptyPHI - Create a PHI instruction that defines a new register.
+  /// Add it into the specified block and return the register.
+  static uint64_t CreateEmptyPHI(LDVSSABlock *BB, unsigned NumPreds,
+                                 LDVSSAUpdater *Updater) {
+    uint64_t PHIValNum = ValueIDNum(BB->BB.getNumber(), 0, Updater->Loc).asU64();
+    LDVSSAPhi *PHI = new LDVSSAPhi(PHIValNum, BB);
+    PHI->PHIValNum = PHIValNum;
+    Updater->PHIs[PHIValNum] = PHI;
+    Updater->PhiMap[&BB->BB].insert(PHIValNum);
+    return PHIValNum;
+  }
+
+  /// AddPHIOperand - Add the specified value as an operand of the PHI for
+  /// the specified predecessor block.
+  static void AddPHIOperand(LDVSSAPhi *PHI, uint64_t Val,
+                            LDVSSABlock *Pred) {
+    PHI->IncomingValues.push_back(std::make_pair(Pred, Val));
+  }
+
+  /// ValueIsPHI - Check if the instruction that defines the specified register
+  /// is a PHI instruction.
+  static LDVSSAPhi *ValueIsPHI(uint64_t Val, LDVSSAUpdater *Updater) {
+    auto PHIIt = Updater->PHIs.find(Val);
+    if (PHIIt == Updater->PHIs.end())
+      return nullptr;
+    return PHIIt->second;;
+  }
+
+  /// ValueIsNewPHI - Like ValueIsPHI but also check if the PHI has no source
+  /// operands, i.e., it was just added.
+  static LDVSSAPhi *ValueIsNewPHI(uint64_t Val, LDVSSAUpdater *Updater) {
+    LDVSSAPhi *PHI = ValueIsPHI(Val, Updater);
+    if (PHI && PHI->IncomingValues.size() == 0)
+      return PHI;
+    return nullptr;
+  }
+
+  /// GetPHIValue - For the specified PHI instruction, return the register
+  /// that it defines.
+  static uint64_t GetPHIValue(LDVSSAPhi *PHI) {
+    return PHI->PHIValNum;
+  }
+};
+
+} // end namespace llvm
+
+Optional<ValueIDNum>
+InstrRefBasedLDV::resolveDbgPHIs(MachineFunction &MF, ValueIDNum **MLiveOuts, ValueIDNum **MLiveIns, MachineInstr &Here, unsigned InstrNum) {
+  // Pick out records of DBG_PHI instructions that have been observed. If there
+  // are none, then we cannot compute a value number.
+  auto RangePair = DebugPHINumToValue.equal_range(InstrNum);
+  auto LowerIt = RangePair.first;
+  auto UpperIt = RangePair.second;
+  if (LowerIt == UpperIt)
+    return None;
+
+  // If there's only one DBG_PHI, then that is our value number.
+  if (std::distance(LowerIt, UpperIt) == 1)
+    return LowerIt->second.second;
+
+  auto DBGPHIRange = make_range(LowerIt, UpperIt);
+
+  // Pick out the location (physreg, slot) where any PHIs must occur. It's
+  // technically possible for us to merge values in different registers in each
+  // block, but highly unlikely that LLVM will generate such code after register
+  // allocation.
+  LocIdx Loc = LowerIt->second.second.getLoc();
+
+  // We have several DBG_PHIs, and a use position (the Here inst). All each
+  // DBG_PHI does is identify a value at a program position. We can treat each
+  // DBG_PHI like it's a Def of a value, and the use position is a Use of a
+  // value, just like SSA. We use the bulk-standard LLVM SSA updater class to
+  // determine which Def is used at the Use, and any PHIs that happen along
+  // the way.
+  // Adapted LLVM SSA Updater:
+  LDVSSAUpdater Updater(Loc);
+  // Map of which Def or PHI is the current value in each block.
+  DenseMap<LDVSSABlock *, uint64_t> AvailableValues;
+  // Set of PHIs that we have created along the way.
+  SmallVector<LDVSSAPhi *, 8> CreatedPHIs;
+
+  // Each existing DBG_PHI is a Def'd value under this model. Record these Defs
+  // for the SSAUpdater.
+  for (auto &DBG_PHI : DBGPHIRange) {
+    auto &BlockAndValue = DBG_PHI.second;
+    LDVSSABlock *Block = Updater.getSSALDVBlock(BlockAndValue.first);
+    const ValueIDNum &Num = BlockAndValue.second;
+    AvailableValues.insert(std::make_pair(Block, Num.asU64()));
+  }
+
+  uint64_t result;
+  LDVSSABlock *HereBlock = Updater.getSSALDVBlock(Here.getParent());
+  const auto &AvailIt = AvailableValues.find(HereBlock);
+  if (AvailIt != AvailableValues.end()) {
+    // Actually, we already know what the value is -- the Use is in the same
+    // block as the Def.
+    result = AvailIt->second;
+    return ValueIDNum::fromU64(result);
+  }
+
+  // Otherwise, we must use the SSA Updater. It will identify the value number
+  // that we are to use, and the PHIs that must happen along the way.
+  SSAUpdaterImpl<LDVSSAUpdater> Impl(&Updater, &AvailableValues, &CreatedPHIs);
+  result = Impl.GetValue(Updater.getSSALDVBlock(Here.getParent()));
+
+  // We have the number for a PHI, or possibly live-through value, to be used
+  // at this Use. There are a number of things we have to check about it though:
+  //  * Does any PHI use an 'Undef' (like an IMPLICIT_DEF) value? If so, this
+  //    Use was not completely dominated by DBG_PHIs and we should abort.
+  //  * Are the Defs or PHIs clobbered in a block? SSAUpdater isn't aware that
+  //    we've left SSA form. Validate that the inputs to each PHI are the
+  //    expected values.
+  //  * Is a PHI we've created actually a merging of values, or are all the 
+  //    predecessor values the same, leading to a non-PHI machine value number?
+  //    (SSAUpdater doesn't know that either). Remap validated PHIs into the
+  //    the ValidatedValues collection below to sort this out.
+  DenseMap<LDVSSABlock *, ValueIDNum> ValidatedValues;
+
+  // Define all the input DBG_PHI values in ValidatedValues.
+  for (auto &DBG_PHI : DBGPHIRange) {
+    auto &BlockAndValue = DBG_PHI.second;
+    LDVSSABlock *Block = Updater.getSSALDVBlock(BlockAndValue.first);
+    const ValueIDNum &Num = BlockAndValue.second;
+    ValidatedValues.insert(std::make_pair(Block, Num));
+  }
+
+  // Sort PHIs to validate into RPO-order.
+  SmallVector<LDVSSAPhi *, 8> SortedPHIs;
+  for (auto &PHI : CreatedPHIs)
+    SortedPHIs.push_back(PHI);
+
+  std::sort(SortedPHIs.begin(), SortedPHIs.end(), [&](LDVSSAPhi *A, LDVSSAPhi *B) {
+    return BBToOrder[&A->getParent()->BB] < BBToOrder[&B->getParent()->BB];
+  });
+
+  for (auto &PHI : SortedPHIs) {
+    // Are all these things actually defined?
+    for (auto &PHIIt : PHI->IncomingValues) {
+      // Any undef input means DBG_PHIs didn't dominate the use point.
+      if (Updater.UndefMap.find(&PHIIt.first->BB) != Updater.UndefMap.end())
+        return None;
+
+      auto VVal = ValidatedValues.find(PHIIt.first);
+
+      // The PHI value passes through a loop; right now, that's too hard to
+      // handle.
+      if (VVal == ValidatedValues.end())
+        return None;
+
+      // Does the block have as a live-out, in the location we're examining,
+      // the value that we expect? If not, it's been moved or clobbered.
+      ValueIDNum *BlockLiveOuts = MLiveOuts[PHIIt.first->BB.getNumber()];
+      ValueIDNum BlockVal = VVal->second;
+      if (BlockLiveOuts[Loc.asU64()] != BlockVal)
+        return None;
+    }
+
+    // Record this value as validated.
+    ValueIDNum Res = MLiveIns[PHI->ParentBlock->BB.getNumber()][Loc.asU64()];
+    ValidatedValues.insert(std::make_pair(PHI->ParentBlock, Res));
+  }
+
+  // Pick out our calculated PHI resolution value.
+  auto BlockIt = ValidatedValues.find(HereBlock);
+  if (BlockIt != ValidatedValues.end())
+    return BlockIt->second;
+  return None;
+}
+
