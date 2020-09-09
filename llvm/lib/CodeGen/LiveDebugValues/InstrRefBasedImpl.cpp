@@ -1365,6 +1365,7 @@ private:
   const TargetRegisterInfo *TRI;
   const TargetInstrInfo *TII;
   const TargetFrameLowering *TFI;
+  const MachineFrameInfo *MFI;
   BitVector CalleeSavedRegs;
   LexicalScopes LS;
   TargetPassConfig *TPC;
@@ -1581,6 +1582,7 @@ private:
   /// right now "order of appearence in function, when explored in RPO", so
   /// that we can compare explictly against VarLocBasedImpl.
   void emitLocations(MachineFunction &MF, LiveInsT SavedLiveIns,
+                     ValueIDNum **MOutLocs,
                      ValueIDNum **MInLocs,
                      DenseMap<DebugVariable, unsigned> &AllVarsNumbering);
 
@@ -1755,6 +1757,8 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI, ValueIDNum **MLiv
       const MachineOperand &MO = TargetInstr.getOperand(OpNo);
 
       // Today, this can only be a register.
+      if (!MO.isReg() || !MO.isDef())
+        return true;// noreg?
       assert(MO.isReg() && MO.isDef());
 
       unsigned LocID = MTracker->getLocID(MO.getReg(), false);
@@ -3285,7 +3289,8 @@ void InstrRefBasedLDV::dump_mloc_transfer(
 }
 
 void InstrRefBasedLDV::emitLocations(
-    MachineFunction &MF, LiveInsT SavedLiveIns, ValueIDNum **MInLocs,
+    MachineFunction &MF, LiveInsT SavedLiveIns, ValueIDNum **MOutLocs,
+    ValueIDNum **MInLocs,
     DenseMap<DebugVariable, unsigned> &AllVarsNumbering) {
   TTracker = new TransferTracker(TII, MTracker, MF, *TRI, CalleeSavedRegs);
   unsigned NumLocs = MTracker->getNumLocs();
@@ -3381,6 +3386,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   TII = MF.getSubtarget().getInstrInfo();
   TFI = MF.getSubtarget().getFrameLowering();
   TFI->getCalleeSaves(MF, CalleeSavedRegs);
+  MFI = &MF.getFrameInfo();
   LS.initialize(MF);
 
   MTracker =
@@ -3506,7 +3512,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   // Using the computed value locations and variable values for each block,
   // create the DBG_VALUE instructions representing the extended variable
   // locations.
-  emitLocations(MF, SavedLiveIns, MInLocs, AllVarsNumbering);
+  emitLocations(MF, SavedLiveIns, MOutLocs, MInLocs, AllVarsNumbering);
 
   for (int Idx = 0; Idx < MaxNumBlocks; ++Idx) {
     delete[] MOutLocs[Idx];
