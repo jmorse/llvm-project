@@ -844,6 +844,9 @@ void X86CmovConverterPass::convertCmovInstsToBranches(
 
     // Add this PHI to the rewrite table.
     RegRewriteTable[DestReg] = std::make_pair(Op1Reg, Op2Reg);
+
+    // And again for debug-info!
+    F->substituteDebugValuesForInst(*MIIt, *MIB);
   }
 
   // Now remove the CMOV(s).
