@@ -166,6 +166,7 @@ bool OptimizePHIs::IsDeadPHICycle(MachineInstr *MI, InstrSet &PHIsInCycle) {
 /// a single value.
 bool OptimizePHIs::OptimizeBB(MachineBasicBlock &MBB) {
   bool Changed = false;
+  MachineFunction &MF = *MBB.getParent();
   for (MachineBasicBlock::iterator
          MII = MBB.begin(), E = MBB.end(); MII != E; ) {
     MachineInstr *MI = &*MII++;
@@ -181,6 +182,8 @@ bool OptimizePHIs::OptimizeBB(MachineBasicBlock &MBB) {
       if (!MRI->constrainRegClass(SingleValReg, MRI->getRegClass(OldReg)))
         continue;
 
+      MachineInstr *DefMI = MRI->getVRegDef(SingleValReg);
+      MF.substituteDebugValuesForInst(*MI, *DefMI);
       MRI->replaceRegWith(OldReg, SingleValReg);
       MI->eraseFromParent();
 
