@@ -120,6 +120,12 @@ bool X86FixupSetCCPass::runOnMachineFunction(MachineFunction &MF) {
           .addImm(X86::sub_8bit);
       MRI->replaceRegWith(ZExt->getOperand(0).getReg(), InsertReg);
       ToErase.push_back(ZExt);
+
+      if (unsigned OldInstrNum = ZExt->peekDebugInstrNum()) {
+        auto OldPair = std::make_pair(OldInstrNum, 0);
+        auto NewPair = std::make_pair(MI.getDebugInstrNum(), 0);
+        MF.makeDebugValueSubstitution(OldPair, NewPair, X86::sub_8bit);
+      }
     }
   }
 

@@ -1377,6 +1377,8 @@ MachineInstr *MachineLICMBase::ExtractHoistableLoad(MachineInstr *MI) {
     return nullptr;
   }
 
+// XXX jmorse, should put substitution into "unfold".
+
   // Update register pressure for the unfolded instruction.
   UpdateRegPressure(NewMIs[1]);
 
@@ -1462,6 +1464,9 @@ bool MachineLICMBase::EliminateCSE(MachineInstr *MI,
       MRI->replaceRegWith(Reg, DupReg);
       MRI->clearKillFlags(DupReg);
     }
+
+    MachineFunction &MF = *MI->getMF();
+    MF.substituteDebugValuesForInst(*MI, const_cast<MachineInstr&>(*Dup));
 
     MI->eraseFromParent();
     ++NumCSEed;

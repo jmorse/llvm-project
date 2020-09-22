@@ -19,6 +19,7 @@
 #include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/CodeGen/TargetInstrInfo.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/InitializePasses.h"
@@ -166,6 +167,7 @@ bool OptimizePHIs::IsDeadPHICycle(MachineInstr *MI, InstrSet &PHIsInCycle) {
 /// a single value.
 bool OptimizePHIs::OptimizeBB(MachineBasicBlock &MBB) {
   bool Changed = false;
+  MachineFunction &MF = *MBB.getParent();
   for (MachineBasicBlock::iterator
          MII = MBB.begin(), E = MBB.end(); MII != E; ) {
     MachineInstr *MI = &*MII++;
@@ -181,6 +183,17 @@ bool OptimizePHIs::OptimizeBB(MachineBasicBlock &MBB) {
       if (!MRI->constrainRegClass(SingleValReg, MRI->getRegClass(OldReg)))
         continue;
 
+      MachineInstr *DefMI = MRI->getVRegDef(SingleValReg);
+      // Might be a copy,
+      if (unsigned OldInstrNum = MI->peekDebugInstrNum()) {
+        if (DefMI->isCopyLike() || TII->isCopyInstr(*DefMI)) {
+          auto OldPair = std::make_pair(OldInstrNum, 0);
+          auto Res = MF.salvageCopySSA(*DefMI);
+          MF.makeDebugValueSubstitution(OldPair, *Res);
+        } else {
+          MF.substituteDebugValuesForInst(*MI, *DefMI, 1);
+        }
+      }
       MRI->replaceRegWith(OldReg, SingleValReg);
       MI->eraseFromParent();
 
