@@ -5516,8 +5516,14 @@ bool SelectionDAGBuilder::EmitFuncArgumentDbgValue(
           continue;
         }
         assert(!IsDbgDeclare && "DbgDeclare operand is not in memory?");
+// XXX XXX XXX DBG_INSTR_REF, used to pass IsDbgDeclare in here? Pass in 1
+// so that it gets set to zero.
+
+
+  auto &inst = (Register(RegAndSize.first).isVirtual()) ? TII->get(TargetOpcode::DBG_INSTR_REF) : TII->get(TargetOpcode::DBG_VALUE);
+
         FuncInfo.ArgDbgValues.push_back(
-          BuildMI(MF, DL, TII->get(TargetOpcode::DBG_VALUE), IsDbgDeclare,
+          BuildMI(MF, DL, inst, 1,
                   RegAndSize.first, Variable, *FragmentExpr));
       }
     };
@@ -5550,9 +5556,11 @@ bool SelectionDAGBuilder::EmitFuncArgumentDbgValue(
   assert(Variable->isValidLocationForIntrinsic(DL) &&
          "Expected inlined-at fields to agree");
   IsIndirect = (Op->isReg()) ? IsIndirect : true;
+  auto &inst = (!Op->isFI() && Op->getReg().isVirtual()) ? TII->get(TargetOpcode::DBG_INSTR_REF) : TII->get(TargetOpcode::DBG_VALUE);
   FuncInfo.ArgDbgValues.push_back(
-      BuildMI(MF, DL, TII->get(TargetOpcode::DBG_VALUE), IsIndirect,
-              *Op, Variable, Expr));
+// XXX XXX XXX DBG_INSTR_REF, pass in 1 instead of IsIndirect to ensure 0
+// is second operand. Drops indirectness here.
+      BuildMI(MF, DL, inst, 1, *Op, Variable, Expr));
 
   return true;
 }

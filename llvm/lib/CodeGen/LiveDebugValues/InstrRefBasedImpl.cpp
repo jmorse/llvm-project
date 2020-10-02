@@ -1807,9 +1807,13 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
   // recorded in the value substitution table. Apply any substitutions to
   // the instruction / operand number in this DBG_INSTR_REF.
   auto Sub = MF.DebugValueSubstitutions.find(std::make_pair(InstNo, OpNo));
+  // Collect any subregister extractions performed during optimization.
+  SmallVector<unsigned, 4> SeenSubregs;
   while (Sub != MF.DebugValueSubstitutions.end()) {
-    InstNo = Sub->second.first;
-    OpNo = Sub->second.second;
+    std::tie(InstNo, OpNo) = Sub->second.Dest;
+    unsigned Subreg = Sub->second.Subreg;
+    if (Subreg)
+      SeenSubregs.push_back(Subreg);
     Sub = MF.DebugValueSubstitutions.find(std::make_pair(InstNo, OpNo));
   }
 
@@ -1841,6 +1845,75 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
     NewID = resolveDbgPHIs(*MI.getParent()->getParent(), MLiveOuts, MLiveIns,
                            MI, InstNo);
   }
+
+  // Apply any subregister extractions, in reverse. We might have seen code
+  // like this:
+  //    CALL64 @foo, implicit-def $rax
+  //    %0:gr64 = COPY $rax
+  //    %1:gr32 = COPY %0.sub_32bit
+  //    %2:gr16 = COPY %1.sub_16bit
+  //    %3:gr8  = COPY %2.sub_8bit
+  // In which case each copy would have been recorded as a substitution with
+  // a subregister qualifier. Apply those qualifiers now.
+  // FIXME: this works on x86 where phony registers such as "r12bh" can be
+  // described in LLVM at least, but more care may be needed for architectures
+  // with a richer set of register classes. It's ultimately solvable with
+  // the addition of more DIExpression elements, but isn't implemented yet.
+  if (NewID && !SeenSubregs.empty()) {
+    unsigned Offset = 0;
+    unsigned Size = 0;
+    for (unsigned Subreg : reverse(SeenSubregs)) {
+      unsigned ThisSize = TRI->getSubRegIdxSize(Subreg);
+      unsigned ThisOffset = TRI->getSubRegIdxOffset(Subreg);
+
+      // XXX no longer a thing? We do narrow down after all.
+      // If we at some point extracted from a location smaller than all the
+      // bits expected to be used, something went terribly wrong.
+
+      Offset += ThisOffset;
+      Size = (Size == 0) ? ThisSize : std::min(Size, ThisSize);
+    }
+
+    // If that worked, look for an appropriate subregister.
+    if (NewID) {
+      // In rare circumstances, a definition can be folded into a memory
+      // operand. Don't try to apply subregisters to this right now.
+      LocIdx L = NewID->getLoc();
+      if (MTracker->isSpill(L)) {
+        NewID = None;
+        goto lol;
+      }
+
+      Register Reg = MTracker->LocIdxToLocID[L];
+      const TargetRegisterClass *TRC = nullptr;
+      for (auto *TRCI : TRI->regclasses())
+        if (TRCI->contains(Reg))
+          TRC = TRCI;
+      assert(TRC && "Couldn't find target register class?");
+      unsigned MainRegSize = TRI->getRegSizeInBits(*TRC);
+      if (Size != MainRegSize || Offset) {
+        Register NewReg;
+        for (MCSubRegIterator SRI(Reg, TRI, false);  SRI.isValid(); ++SRI) {
+          unsigned Subreg = TRI->getSubRegIndex(Reg, *SRI);
+          unsigned SubregSize = TRI->getSubRegIdxSize(Subreg);
+          unsigned SubregOffset = TRI->getSubRegIdxOffset(Subreg);
+          if (SubregSize == Size && SubregOffset == Offset) {
+            NewReg = *SRI;
+            break;
+          }
+        }
+
+        // If no new register -> Oooof
+        if (!NewReg) {
+          NewID = None;
+        } else {
+          LocIdx NewLoc = MTracker->lookupOrTrackRegister(NewReg);
+          NewID = ValueIDNum(NewID->getBlock(), NewID->getInst(), NewLoc);
+        }
+      }
+    }
+  }
+lol:
 
   // We, we have a value number or None. Tell the variable value tracker about
   // it. The rest of this LiveDebugValues implementation acts exactly the same

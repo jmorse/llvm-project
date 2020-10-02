@@ -10,6 +10,8 @@
 ; Test that SelectionDAG produces DBG_VALUEs normally, but DBG_INSTR_REFs when
 ; asked.
 
+; NORMAL-LABEL: name: foo
+
 ; NORMAL:      %[[REG0:[0-9]+]]:gr32 = ADD32rr
 ; NORMAL-NEXT: DBG_VALUE %[[REG0]]
 ; NORMAL-NEXT: %[[REG1:[0-9]+]]:gr32 = ADD32rr
@@ -18,6 +20,8 @@
 ; Note that I'm baking in an assumption of one-based ordering here. We could
 ; capture and check for the instruction numbers, we'd rely on machine verifier
 ; ensuring there were no duplicates.
+
+; INSTRREF-LABEL: name: foo
 
 ; INSTRREF:      ADD32rr
 ; INSTRREF-SAME: debug-instr-number 1
@@ -37,6 +41,66 @@ entry:
   ret i32 %1, !dbg !14
 }
 
+; In the code below, isel produces a large number of copies between subregisters
+; to represent the gradually decreasing width of the argument. This gets
+; optimized away into three stores, but it's an objective of the instruction
+; referencing design that COPYs are not numbered: they move values, not define
+; them. Test that nothing is numbered, and instead that appropriate
+; substitutions with subregister details are recorded.
+
+; NORMAL-LABEL: name: bar
+
+; NORMAL:      DBG_VALUE $rdi
+; NORMAL-NEXT: %0:gr64_with_sub_8bit = COPY $rdi
+; NORMAL-NEXT: %1:gr32 = COPY %0.sub_32bit,
+; NORMAL-NEXT: DBG_VALUE %1
+; NORMAL:      %2:gr16 = COPY %0.sub_16bit,
+; NORMAL-NEXT: DBG_VALUE %2
+; NORMAL:      %3:gr8 = COPY %0.sub_8bit,
+; NORMAL-NEXT: DBG_VALUE %3
+
+; INSTRREF-LABEL: name: bar
+
+;; 
+; INSTRREF:      debugValueSubstitutions:
+; INSTRREF-NEXT: - { srcinst: 2, srcop: 0, dstinst: 1, dstop: 0, subreg: 6 }
+; INSTRREF-NEXT: - { srcinst: 4, srcop: 0, dstinst: 3, dstop: 0, subreg: 4 }
+; INSTRREF-NEXT: - { srcinst: 6, srcop: 0, dstinst: 5, dstop: 0, subreg: 1 }
+
+;; As a slight inefficiency today, multiple DBG_PHIs are created.
+
+; INSTRREF:      DBG_PHI $rdi, 5
+; INSTRREF-NEXT: DBG_PHI $rdi, 3
+; INSTRREF-NEXT: DBG_PHI $rdi, 1
+;; Allow arguments to be specified by physreg DBG_VALUEs.
+; INSTRREF-NEXT: DBG_VALUE $rdi
+
+;; Don't test the location of these instr-refs, only that the three non-argument
+;; dbg.values become DBG_INSTR_REFs. We previously checked that these numbers
+;; get substituted, with appropriate subregister qualifiers.
+; INSTRREF:      DBG_INSTR_REF 2, 0
+; INSTRREF:      DBG_INSTR_REF 4, 0
+; INSTRREF:      DBG_INSTR_REF 6, 0
+
+@glob32 = global i32 0
+@glob16 = global i16 0
+@glob8 = global i8 0
+
+define i32 @bar(i64 %bar) !dbg !20 {
+entry:
+  call void @llvm.dbg.value(metadata i64 %bar, metadata !21, metadata !DIExpression()), !dbg !22
+  %0 = trunc i64 %bar to i32, !dbg !22
+  call void @llvm.dbg.value(metadata i32 %0, metadata !21, metadata !DIExpression()), !dbg !22
+  store i32 %0, i32 *@glob32, !dbg !22
+  %1 = trunc i32 %0 to i16, !dbg !22
+  call void @llvm.dbg.value(metadata i16 %1, metadata !21, metadata !DIExpression()), !dbg !22
+  store i16 %1, i16 *@glob16, !dbg !22
+  %2 = trunc i16 %1 to i8, !dbg !22
+  call void @llvm.dbg.value(metadata i8 %2, metadata !21, metadata !DIExpression()), !dbg !22
+  store i8 %2, i8 *@glob8, !dbg !22
+  ret i32 0, !dbg !22
+}
+
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!3, !4}
 
@@ -52,3 +116,6 @@ entry:
 !11 = !{!13}
 !13 = !DILocalVariable(name: "baz", scope: !7, file: !1, line: 6, type: !10)
 !14 = !DILocation(line: 1, scope: !7)
+!20 = distinct !DISubprogram(name: "bar", scope: !1, file: !1, line: 5, type: !8, scopeLine: 5, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition | DISPFlagOptimized, unit: !0, retainedNodes: !11)
+!21 = !DILocalVariable(name: "xyzzy", scope: !20, file: !1, line: 6, type: !10)
+!22 = !DILocation(line: 1, scope: !20)

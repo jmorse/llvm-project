@@ -38,9 +38,11 @@
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/SlotIndexes.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
 #include "llvm/CodeGen/TargetOpcodes.h"
+#include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/CodeGen/VirtRegMap.h"
@@ -57,6 +59,7 @@
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetMachine.h"
 #include <algorithm>
 #include <cassert>
 #include <iterator>
@@ -394,10 +397,6 @@ class LDVImpl {
   LiveIntervals *LIS;
   const TargetRegisterInfo *TRI;
 
-  using StashedInstrRef =
-      std::tuple<unsigned, unsigned, const DILocalVariable *,
-                 const DIExpression *, DebugLoc>;
-
   /// Position and VReg of a PHI instruction during register allocation.
   struct PHIValPos {
     SlotIndex SI;    /// Slot where this PHI occurs.
@@ -412,7 +411,12 @@ class LDVImpl {
   /// at different positions.
   DenseMap<Register, std::vector<unsigned>> RegToPHIIdx;
 
-  std::map<SlotIndex, std::vector<StashedInstrRef>> StashedInstrReferences;
+  struct InstrPos {
+    MachineInstr *MI;
+    SlotIndex Idx;
+    MachineBasicBlock *MBB;
+  };
+  SmallVector<InstrPos, 32> StashedDebugInstrs;
 
   /// Whether emitDebugValues is called.
   bool EmitDone = false;
@@ -458,7 +462,7 @@ class LDVImpl {
   /// \param Idx Last valid SlotIndex before instruction
   ///
   /// \returns True if the DBG_VALUE instruction should be deleted.
-  bool handleDebugInstrRef(MachineInstr &MI, SlotIndex Idx);
+  MachineBasicBlock::iterator handleDebugInstr(MachineInstr &MI, SlotIndex Idx);
 
   /// Add DBG_LABEL instruction to UserLabel.
   ///
@@ -474,7 +478,7 @@ class LDVImpl {
   /// \param mf MachineFunction to be scanned.
   ///
   /// \returns True if any debug values were found.
-  bool collectDebugValues(MachineFunction &mf);
+  bool collectDebugValues(MachineFunction &mf, bool InstrRef);
 
   /// Compute the live intervals of all user values after collecting all
   /// their def points.
@@ -483,14 +487,14 @@ class LDVImpl {
 public:
   LDVImpl(LiveDebugVariables *ps) : pass(*ps) {}
 
-  bool runOnMachineFunction(MachineFunction &mf);
+  bool runOnMachineFunction(MachineFunction &mf, bool InstrRef);
 
   /// Release all memory.
   void clear() {
     MF = nullptr;
     PHIValToPos.clear();
     RegToPHIIdx.clear();
-    StashedInstrReferences.clear();
+    StashedDebugInstrs.clear();
     userValues.clear();
     userLabels.clear();
     virtRegToEqClass.clear();
@@ -702,17 +706,15 @@ bool LDVImpl::handleDebugValue(MachineInstr &MI, SlotIndex Idx) {
   return true;
 }
 
-bool LDVImpl::handleDebugInstrRef(MachineInstr &MI, SlotIndex Idx) {
-  assert(MI.isDebugRef());
-  unsigned InstrNum = MI.getOperand(0).getImm();
-  unsigned OperandNum = MI.getOperand(1).getImm();
-  auto *Var = MI.getDebugVariable();
-  auto *Expr = MI.getDebugExpression();
-  auto &DL = MI.getDebugLoc();
-  StashedInstrRef Stashed =
-      std::make_tuple(InstrNum, OperandNum, Var, Expr, DL);
-  StashedInstrReferences[Idx].push_back(Stashed);
-  return true;
+MachineBasicBlock::iterator LDVImpl::handleDebugInstr(MachineInstr &MI, SlotIndex Idx) {
+  assert(MI.isDebugValue() || MI.isDebugRef() || MI.isDebugPHI());
+  if (MI.isDebugValue())
+    assert(!MI.getOperand(0).isReg() || !MI.getOperand(0).getReg().isVirtual());
+  auto NextInst = std::next(MI.getIterator());
+  auto *MBB = MI.getParent();
+  MI.removeFromParent();
+  StashedDebugInstrs.push_back({&MI, Idx, MBB});
+  return NextInst;
 }
 
 bool LDVImpl::handleDebugLabel(MachineInstr &MI, SlotIndex Idx) {
@@ -738,7 +740,7 @@ bool LDVImpl::handleDebugLabel(MachineInstr &MI, SlotIndex Idx) {
   return true;
 }
 
-bool LDVImpl::collectDebugValues(MachineFunction &mf) {
+bool LDVImpl::collectDebugValues(MachineFunction &mf, bool InstrRef) {
   bool Changed = false;
   for (MachineFunction::iterator MFI = mf.begin(), MFE = mf.end(); MFI != MFE;
        ++MFI) {
@@ -761,8 +763,12 @@ bool LDVImpl::collectDebugValues(MachineFunction &mf) {
       do {
         // Only handle DBG_VALUE in handleDebugValue(). Skip all other
         // kinds of debug instructions.
-        if ((MBBI->isDebugValue() && handleDebugValue(*MBBI, Idx)) ||
-            (MBBI->isDebugRef() && handleDebugInstrRef(*MBBI, Idx)) ||
+        if (InstrRef && (
+            MBBI->isDebugValue() || MBBI->isDebugPHI() || MBBI->isDebugRef())) {
+          MBBI = handleDebugInstr(*MBBI, Idx);
+          Changed = true;
+        } else if (
+            (MBBI->isDebugValue() && handleDebugValue(*MBBI, Idx)) ||
             (MBBI->isDebugLabel() && handleDebugLabel(*MBBI, Idx))) {
           MBBI = MBB->erase(MBBI);
           Changed = true;
@@ -1027,7 +1033,7 @@ void LDVImpl::computeIntervals() {
   }
 }
 
-bool LDVImpl::runOnMachineFunction(MachineFunction &mf) {
+bool LDVImpl::runOnMachineFunction(MachineFunction &mf, bool InstrRef) {
   clear();
   MF = &mf;
   LIS = &pass.getAnalysis<LiveIntervals>();
@@ -1035,7 +1041,7 @@ bool LDVImpl::runOnMachineFunction(MachineFunction &mf) {
   LLVM_DEBUG(dbgs() << "********** COMPUTING LIVE DEBUG VARIABLES: "
                     << mf.getName() << " **********\n");
 
-  bool Changed = collectDebugValues(mf);
+  bool Changed = collectDebugValues(mf, InstrRef);
   computeIntervals();
   LLVM_DEBUG(print(dbgs()));
 
@@ -1076,9 +1082,17 @@ bool LiveDebugVariables::runOnMachineFunction(MachineFunction &mf) {
     removeDebugValues(mf);
     return false;
   }
+
+  bool InstrRef = false;
+  auto *TPC = getAnalysisIfAvailable<TargetPassConfig>();
+  if (TPC) {
+    auto &TM = TPC->getTM<TargetMachine>();
+    InstrRef = TM.Options.ValueTrackingVariableLocations;
+  }
+
   if (!pImpl)
     pImpl = new LDVImpl(this);
-  return static_cast<LDVImpl*>(pImpl)->runOnMachineFunction(mf);
+  return static_cast<LDVImpl*>(pImpl)->runOnMachineFunction(mf, InstrRef);
 }
 
 void LiveDebugVariables::releaseMemory() {
@@ -1592,21 +1606,39 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
 
   LLVM_DEBUG(dbgs() << "********** EMITTING INSTR REFERENCES **********\n");
 
-  // Re-insert any DBG_INSTR_REFs back in the position they were. Ordering
+  // Re-insert any debug instrs back in the position they were. Ordering
   // is preserved by vector.
-  const MCInstrDesc &RefII = TII->get(TargetOpcode::DBG_INSTR_REF);
-  for (auto &P : StashedInstrReferences) {
-    const SlotIndex &Idx = P.first;
-    auto *MBB = Slots->getMBBFromIndex(Idx);
-    MachineBasicBlock::iterator insertPos = findInsertLocation(MBB, Idx, *LIS);
-    for (auto &Stashed : P.second) {
-      auto MIB = BuildMI(*MF, std::get<4>(Stashed), RefII);
-      MIB.addImm(std::get<0>(Stashed));
-      MIB.addImm(std::get<1>(Stashed));
-      MIB.addMetadata(std::get<2>(Stashed));
-      MIB.addMetadata(std::get<3>(Stashed));
-      MachineInstr *New = MIB;
-      MBB->insert(insertPos, New);
+  for (auto &P : StashedDebugInstrs) {
+    SlotIndex Idx = P.Idx;
+
+    if (Idx == Slots->getMBBStartIdx(P.MBB)) {
+      auto It = P.MBB->instr_begin();
+      auto PostDebug = skipDebugInstructionsForward(It, P.MBB->instr_end());
+      P.MBB->insert(PostDebug, P.MI);
+      continue;
+    }
+
+    MachineInstr *Pos = Slots->getInstructionFromIndex(Idx);;
+    if (Pos) {
+      // Insert back in in the same order please.
+      auto PostDebug = std::next(Pos->getIterator());
+      PostDebug = skipDebugInstructionsForward(PostDebug, P.MBB->instr_end());
+      P.MBB->insert(PostDebug, P.MI);
+    } else {
+      // Insert position disappeared; try to seek a new one.
+      SlotIndex End = Slots->getMBBEndIdx(P.MBB);
+      for (; Idx < End; Idx = Slots->getNextNonNullIndex(Idx)) {
+        Pos = Slots->getInstructionFromIndex(Idx);
+        if (Pos) {
+          P.MBB->insert(Pos->getIterator(), P.MI);
+          break;
+        }
+      }
+
+      // Did everything up to the end disappear?
+      if (Idx >= End) {
+        // XXX discards!
+      }
     }
   }
 

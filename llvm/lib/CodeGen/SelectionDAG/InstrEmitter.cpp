@@ -791,58 +791,98 @@ InstrEmitter::EmitDbgValue(SDDbgValue *SD,
 MachineInstr *
 InstrEmitter::EmitDbgInstrRef(SDDbgValue *SD,
                               DenseMap<SDValue, Register> &VRBaseMap) {
-  // Instruction referencing is still in a prototype state: for now we're only
-  // going to support SDNodes within a block. Copies are not supported, they
-  // don't actually define a value.
-  if (SD->getKind() != SDDbgValue::SDNODE)
-    return nullptr;
-
-  SDNode *Node = SD->getSDNode();
-  SDValue Op = SDValue(Node, SD->getResNo());
-  DenseMap<SDValue, Register>::iterator I = VRBaseMap.find(Op);
-  if (I==VRBaseMap.end())
-    return nullptr; // undef value: let EmitDbgValue produce a DBG_VALUE $noreg.
-
   MDNode *Var = SD->getVariable();
   MDNode *Expr = SD->getExpression();
   DebugLoc DL = SD->getDebugLoc();
 
-  // Try to pick out a defining instruction at this point.
-  unsigned VReg = getVR(Op, VRBaseMap);
-  MachineInstr *ResultInstr = nullptr;
+  // Instruction referencing is still in a prototype state: for now we're only
+  // going to support SDNodes within a block. Copies are not supported, they
+  // don't actually define a value.
+  MachineInstr *DefMI = nullptr;
+  unsigned VReg;
+  if (SD->getKind() != SDDbgValue::SDNODE) {
+    if (SD->getKind() == SDDbgValue::VREG) {
+      VReg = SD->getVReg();
+      if (!MRI->hasOneDef(VReg)) {
+        const MCInstrDesc &RefII = TII->get(TargetOpcode::DBG_INSTR_REF);
+        auto MIB = BuildMI(*MF, DL, RefII);
+        MIB.addReg(VReg);
+        MIB.addImm(0);
+        MIB.addMetadata(Var);
+        MIB.addMetadata(Expr);
+        return MIB;
+      }
 
-  // No definition corresponds to scenarios where a vreg is live-in to a block,
-  // and doesn't have a defining instruction (yet). This can be patched up
-  // later; at this early stage of implementation, fall back to using DBG_VALUE.
-  if (!MRI->hasOneDef(VReg))
-    return nullptr;
+      DefMI = &*MRI->def_instr_begin(VReg);
+      if (DefMI->isCopyLike()) {
+        const MCInstrDesc &RefII = TII->get(TargetOpcode::DBG_INSTR_REF);
+        auto MIB = BuildMI(*MF, DL, RefII);
+        MIB.addReg(VReg);
+        MIB.addImm(0);
+        MIB.addMetadata(Var);
+        MIB.addMetadata(Expr);
+        return MIB;
+      }
+    } else {
+      return nullptr;
+    }
+  } else {
+    // SDNODEs,
+    SDNode *Node = SD->getSDNode();
+    SDValue Op = SDValue(Node, SD->getResNo());
+    DenseMap<SDValue, Register>::iterator I = VRBaseMap.find(Op);
+    if (I==VRBaseMap.end())
+      return nullptr; // undef value: let EmitDbgValue produce a DBG_VALUE $noreg.
 
-  MachineInstr &DefMI = *MRI->def_instr_begin(VReg);
-  // Some target specific opcodes can become copies. As stated above, we're
-  // ignoring those for now.
-  if (DefMI.isCopy() || DefMI.getOpcode() == TargetOpcode::SUBREG_TO_REG)
-    return nullptr;
+    // Try to pick out a defining instruction at this point.
+    VReg = getVR(Op, VRBaseMap);
+
+    // No definition corresponds to scenarios where a vreg is live-in to a block,
+    // and doesn't have a defining instruction (yet). This can be patched up
+    // later; at this early stage of implementation, fall back to using DBG_VALUE.
+    if (!MRI->hasOneDef(VReg)) {
+      const MCInstrDesc &RefII = TII->get(TargetOpcode::DBG_INSTR_REF);
+      auto MIB = BuildMI(*MF, DL, RefII);
+      MIB.addReg(VReg);
+      MIB.addImm(0);
+      MIB.addMetadata(Var);
+      MIB.addMetadata(Expr);
+      return MIB;
+    }
+
+    DefMI = &*MRI->def_instr_begin(VReg);
+  }
+
+  // Patch up later.
+  if (DefMI->isCopy() || DefMI->getOpcode() == TargetOpcode::SUBREG_TO_REG) {
+    const MCInstrDesc &RefII = TII->get(TargetOpcode::DBG_INSTR_REF);
+    auto MIB = BuildMI(*MF, DL, RefII);
+    MIB.addReg(VReg);
+    MIB.addImm(0);
+    MIB.addMetadata(Var);
+    MIB.addMetadata(Expr);
+    return MIB;
+  }
 
   const MCInstrDesc &RefII = TII->get(TargetOpcode::DBG_INSTR_REF);
   auto MIB = BuildMI(*MF, DL, RefII);
 
   // Find the operand which defines the specified VReg.
   unsigned OperandIdx = 0;
-  for (const auto &MO : DefMI.operands()) {
+  for (const auto &MO : DefMI->operands()) {
     if (MO.isReg() && MO.isDef() && MO.getReg() == VReg)
       break;
     ++OperandIdx;
   }
-  assert(OperandIdx < DefMI.getNumOperands());
+  assert(OperandIdx < DefMI->getNumOperands());
 
   // Make the DBG_INSTR_REF refer to that instruction, and that operand.
-  unsigned InstrNum = DefMI.getDebugInstrNum();
+  unsigned InstrNum = DefMI->getDebugInstrNum();
   MIB.addImm(InstrNum);
   MIB.addImm(OperandIdx);
   MIB.addMetadata(Var);
   MIB.addMetadata(Expr);
-  ResultInstr = &*MIB;
-  return ResultInstr;
+  return &*MIB;
 }
 
 MachineInstr *

@@ -587,7 +587,63 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
         LLVM_DEBUG(dbgs() << "Dropping debug info for dead vreg"
                           << Register::virtReg2Index(Reg) << "\n");
     }
+  }
 
+  auto MakeDbgValue = [&](MachineInstr &MI) {
+    const MCInstrDesc &RefII = TII->get(TargetOpcode::DBG_VALUE);
+    MI.setDesc(RefII);
+    MI.getOperand(1).ChangeToRegister(0, false);
+    MI.getOperand(0).setIsDebug();
+  };
+
+  // XXX jmorse DBG_INSTR_REF, update any points-at-vreg DBG_INSTR_REF insts
+  // to point at the corresponding def.
+  for (auto &MBB : *MF) {
+    for (auto &MI : MBB) {
+      if (MI.isDebugRef() && MI.getOperand(0).isReg()) {
+        Register Reg = MI.getOperand(0).getReg();
+
+        // It uh, might have become undef in the meantime.
+        if (Reg == 0) {
+          MakeDbgValue(MI);
+          continue;
+        } else if (!Reg.isVirtual())
+          continue;
+
+        MachineInstr &DefMI = *MRI.def_instr_begin(Reg);
+        assert(std::distance(MRI.def_instr_begin(Reg), MRI.def_instr_end()) == 1);
+        assert(MRI.hasOneDef(Reg));
+
+        // Errmmm
+        unsigned OperandIdx = 0;
+        for (const auto &MO : DefMI.operands()) {
+          if (MO.isReg() && MO.isDef() && MO.getReg() == Reg)
+            break;
+          ++OperandIdx;
+        }
+        assert(OperandIdx < DefMI.getNumOperands());
+
+        if (DefMI.isCopyLike() || TII->isCopyInstr(DefMI)) {
+          auto result = MF->salvageCopySSA(DefMI);
+          MI.getOperand(0).ChangeToImmediate(result->first);
+          MI.getOperand(1).setImm(result->second);
+        } else {
+          unsigned ID = DefMI.getDebugInstrNum();
+          MI.getOperand(0).ChangeToImmediate(ID);
+          MI.getOperand(1).setImm(OperandIdx);
+       }
+      }
+    }
+  }
+
+  for (auto &MBB : *MF) {
+    for (auto &MI : MBB) {
+      assert(!MI.isDebugRef() || !MI.getOperand(0).isReg());
+    }
+  }
+
+
+#if 0
     // If Reg is live-in then update debug info to track its copy in a vreg.
     DenseMap<unsigned, unsigned>::iterator LDI = LiveInMap.find(Reg);
     if (LDI != LiveInMap.end()) {
@@ -636,6 +692,7 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
       }
     }
   }
+#endif
 
   // Determine if there are any calls in this machine function.
   MachineFrameInfo &MFI = MF->getFrameInfo();
