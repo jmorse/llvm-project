@@ -12,6 +12,7 @@
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/Passes.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
@@ -32,6 +33,12 @@
 #define DEBUG_TYPE "livedebugvalues"
 
 using namespace llvm;
+
+static cl::opt<bool>
+    ForceInstrRefLDV("force-instr-ref-livedebugvalues", cl::Hidden,
+                     cl::desc("Use instruction-ref based LiveDebugValues with "
+                              "normal DBG_VALUE inputs"),
+                     cl::init(false));
 
 /// Generic LiveDebugValues pass. Calls through to VarLocBasedLDV or
 /// InstrRefBasedLDV to perform location propagation, via the LDVImpl
@@ -87,6 +94,9 @@ bool LiveDebugValues::runOnMachineFunction(MachineFunction &MF) {
       auto &TM = TPC->getTM<TargetMachine>();
       InstrRefBased = TM.Options.ValueTrackingVariableLocations;
     }
+
+    // Allow the user to force selection of InstrRef LDV.
+    InstrRefBased |= ForceInstrRefLDV;
 
     if (InstrRefBased)
       TheImpl = llvm::makeInstrRefBasedLiveDebugValues();
