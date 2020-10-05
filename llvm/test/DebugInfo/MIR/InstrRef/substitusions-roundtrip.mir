@@ -2,7 +2,7 @@
 # RUN:     -experimental-debug-variable-locations -o - 2>&1 | FileCheck %s
 #
 # CHECK:      debugValueSubstitutions:
-# CHECK-NEXT: - { srcinst: 1, srcop: 0, dstinst: 2, dstop: 0 }
+# CHECK-NEXT: - { srcinst: 1, srcop: 0, dstinst: 2, dstop: 0, subreg: 0 }
 #
 # CHECK:      MOV64rr $rdi, debug-instr-number 2
 # CHECK-NEXT: DBG_INSTR_REF 1, 0
@@ -12,7 +12,7 @@ tracksRegLiveness: true
 liveins:
   - { reg: '$rdi', virtual-reg: '' }
 debugValueSubstitutions:
-  - { srcinst: 1, srcop: 0, dstinst: 2, dstop: 0 }
+  - { srcinst: 1, srcop: 0, dstinst: 2, dstop: 0, subreg: 0 }
 body:  |
   bb.0:
   liveins: $rdi, $rax
