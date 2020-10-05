@@ -1115,7 +1115,7 @@ public:
       PendingDbgValues.push_back(
           MTracker->emitLoc(M, Var.first, Var.second.Properties));
     }
-    flushDbgValues(MBB.begin(), &MBB);
+    flushDbgValues(MBB.instr_begin(), &MBB);
   }
 
   /// Record that \p Var has value \p ID, a value that becomes available
@@ -1131,7 +1131,8 @@ public:
   /// processed, check whether it defines a variable value in a use-before-def.
   /// If so, and the variable value hasn't changed since the start of the
   /// block, create a DBG_VALUE.
-  void checkInstForNewValues(unsigned Inst, MachineBasicBlock::iterator pos) {
+  void checkInstForNewValues(unsigned Inst,
+                             MachineBasicBlock::instr_iterator pos) {
     auto MIt = UseBeforeDefs.find(Inst);
     if (MIt == UseBeforeDefs.end())
       return;
@@ -1157,9 +1158,12 @@ public:
   }
 
   /// Helper to move created DBG_VALUEs into Transfers collection.
-  void flushDbgValues(MachineBasicBlock::iterator Pos, MachineBasicBlock *MBB) {
+  void flushDbgValues(MachineBasicBlock::instr_iterator Pos,
+                      MachineBasicBlock *MBB) {
     if (PendingDbgValues.size() > 0) {
-      auto BundleStart = getBundleStart(Pos->getIterator());
+      MachineBasicBlock::instr_iterator BundleStart = Pos;
+      if (!MBB || Pos != MBB->end())
+        Pos = getBundleStart(Pos->getIterator());
       Transfers.push_back({BundleStart, MBB, PendingDbgValues});
       PendingDbgValues.clear();
     }
@@ -1290,7 +1294,7 @@ public:
   /// locations that will be terminated: and try to recover them by using
   /// another location. Optionally, given \p make_undef, emit a DBG_VALUE to
   /// explicitly terminate a location if it can't be recovered.
-  void clobberMloc(LocIdx MLoc, MachineBasicBlock::iterator Pos,
+  void clobberMloc(LocIdx MLoc, MachineBasicBlock::instr_iterator Pos,
                    bool make_undef = true) {
     auto ActiveMLocIt = ActiveMLocs.find(MLoc);
     if (ActiveMLocIt == ActiveMLocs.end())
@@ -1358,7 +1362,8 @@ public:
   /// Transfer variables based on \p Src to be based on \p Dst. This handles
   /// both register copies as well as spills and restores. Creates DBG_VALUEs
   /// describing the movement.
-  void transferMlocs(LocIdx Src, LocIdx Dst, MachineBasicBlock::iterator Pos) {
+  void transferMlocs(LocIdx Src, LocIdx Dst,
+                     MachineBasicBlock::instr_iterator Pos) {
     // Does Src still contain the value num we expect? If not, it's been
     // clobbered in the meantime, and our variable locations are stale.
     if (VarLocs[Src.asU64()] != MTracker->getNumAtPos(Src))
