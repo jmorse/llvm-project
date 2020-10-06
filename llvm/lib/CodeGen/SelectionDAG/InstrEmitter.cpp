@@ -705,36 +705,18 @@ InstrEmitter::EmitDbgValue(SDDbgValue *SD,
 
   SD->setIsEmitted();
 
-  if (SD->isInvalidated()) {
-    // An invalidated SDNode must generate an undef DBG_VALUE: although the
-    // original value is no longer computed, earlier DBG_VALUEs live ranges
-    // must not leak into later code.
-    auto MIB = BuildMI(*MF, DL, TII->get(TargetOpcode::DBG_VALUE));
-    MIB.addReg(0U);
-    MIB.addReg(0U, RegState::Debug);
-    MIB.addMetadata(Var);
-    MIB.addMetadata(Expr);
-    return &*MIB;
-  }
+  if (SD->isInvalidated())
+    return EmitDbgNoLocation(SD);
 
   // Attempt to produce a DBG_INSTR_REF if we've been asked to.
   if (EmitDebugInstrRefs)
     if (auto *InstrRef = EmitDbgInstrRef(SD, VRBaseMap))
       return InstrRef;
 
-  if (SD->getKind() == SDDbgValue::FRAMEIX) {
-    // Stack address; this needs to be lowered in target-dependent fashion.
-    // EmitTargetCodeForFrameDebugValue is responsible for allocation.
-    auto FrameMI = BuildMI(*MF, DL, TII->get(TargetOpcode::DBG_VALUE))
-                       .addFrameIndex(SD->getFrameIx());
-    if (SD->isIndirect())
-      // Push [fi + 0] onto the DIExpression stack.
-      FrameMI.addImm(0);
-    else
-      // Push fi onto the DIExpression stack.
-      FrameMI.addReg(0);
-    return FrameMI.addMetadata(Var).addMetadata(Expr);
-  }
+  // Frame indexes don't need to use the register map.
+  if (SD->getKind() == SDDbgValue::FRAMEIX)
+    return EmitDbgFrameIndex(SD);
+
   // Otherwise, we're going to create an instruction here.
   const MCInstrDesc &II = TII->get(TargetOpcode::DBG_VALUE);
   MachineInstrBuilder MIB = BuildMI(*MF, DL, II);
@@ -791,58 +773,167 @@ InstrEmitter::EmitDbgValue(SDDbgValue *SD,
 MachineInstr *
 InstrEmitter::EmitDbgInstrRef(SDDbgValue *SD,
                               DenseMap<SDValue, Register> &VRBaseMap) {
-  // Instruction referencing is still in a prototype state: for now we're only
-  // going to support SDNodes within a block. Copies are not supported, they
-  // don't actually define a value.
-  if (SD->getKind() != SDDbgValue::SDNODE)
-    return nullptr;
-
-  SDNode *Node = SD->getSDNode();
-  SDValue Op = SDValue(Node, SD->getResNo());
-  DenseMap<SDValue, Register>::iterator I = VRBaseMap.find(Op);
-  if (I==VRBaseMap.end())
-    return nullptr; // undef value: let EmitDbgValue produce a DBG_VALUE $noreg.
-
   MDNode *Var = SD->getVariable();
   MDNode *Expr = SD->getExpression();
   DebugLoc DL = SD->getDebugLoc();
-
-  // Try to pick out a defining instruction at this point.
-  unsigned VReg = getVR(Op, VRBaseMap);
-  MachineInstr *ResultInstr = nullptr;
-
-  // No definition corresponds to scenarios where a vreg is live-in to a block,
-  // and doesn't have a defining instruction (yet). This can be patched up
-  // later; at this early stage of implementation, fall back to using DBG_VALUE.
-  if (!MRI->hasOneDef(VReg))
-    return nullptr;
-
-  MachineInstr &DefMI = *MRI->def_instr_begin(VReg);
-  // Some target specific opcodes can become copies. As stated above, we're
-  // ignoring those for now.
-  if (DefMI.isCopy() || DefMI.getOpcode() == TargetOpcode::SUBREG_TO_REG)
-    return nullptr;
-
   const MCInstrDesc &RefII = TII->get(TargetOpcode::DBG_INSTR_REF);
+
+  // Handle variable locations that don't actually depend on the instructions
+  // in the program: constants and stack locations.
+  if (SD->getKind() == SDDbgValue::FRAMEIX)
+    return EmitDbgFrameIndex(SD);
+
+  if (SD->getKind() == SDDbgValue::CONST)
+    return EmitDbgConst(SD);
+
+  // It may not be immediately possible to identify the MachineInstr that
+  // defines a VReg, it can depend for example on the order blocks are
+  // emitted in. When this happens, or when further analysis is needed later,
+  // produce an instruction like this:
+  //
+  //    DBG_INSTR_REF %0:gr64, 0, !123, !456
+  //
+  // i.e., point the instruction at the vreg, and patch it up later in
+  // SelectionDAG when more information is available.
+  auto EmitHalfDoneInstrRef = [&](unsigned VReg) -> MachineInstr * {
+    auto MIB = BuildMI(*MF, DL, RefII);
+    MIB.addReg(VReg);
+    MIB.addImm(0);
+    MIB.addMetadata(Var);
+    MIB.addMetadata(Expr);
+    return MIB;
+  };
+
+  // Try to find both the defined register and the instruction defining it.
+  MachineInstr *DefMI = nullptr;
+  unsigned VReg;
+
+  if (SD->getKind() == SDDbgValue::VREG) {
+    VReg = SD->getVReg();
+
+    // No definition means that block hasn't been emitted yet. Leave a vreg
+    // reference to be fixed later.
+    if (!MRI->hasOneDef(VReg))
+      return EmitHalfDoneInstrRef(VReg);
+
+    DefMI = &*MRI->def_instr_begin(VReg);
+  } else {
+    assert(SD->getKind() == SDDbgValue::SDNODE);
+    // Look up the corresponding VReg for the given SDNode, if any.
+    SDNode *Node = SD->getSDNode();
+    SDValue Op = SDValue(Node, SD->getResNo());
+    DenseMap<SDValue, Register>::iterator I = VRBaseMap.find(Op);
+    // No VReg -> produce a DBG_VALUE $noreg instead.
+    if (I==VRBaseMap.end())
+      return EmitDbgNoLocation(SD);
+
+    // Try to pick out a defining instruction at this point.
+    VReg = getVR(Op, VRBaseMap);
+
+    // Again, if there's no instruction defining the VReg right now, fix it up
+    // later.
+    if (!MRI->hasOneDef(VReg))
+      return EmitHalfDoneInstrRef(VReg);
+
+    DefMI = &*MRI->def_instr_begin(VReg);
+  }
+
+  // Avoid copy like instructions: they don't define values, only move them.
+  // Leave a virtual-register reference until it can be fixed up later, to find
+  // the underlying value definition.
+  if (DefMI->isCopyLike() || TII->isCopyInstr(*DefMI))
+    return EmitHalfDoneInstrRef(VReg);
+
   auto MIB = BuildMI(*MF, DL, RefII);
 
-  // Find the operand which defines the specified VReg.
+  // Find the operand number which defines the specified VReg.
   unsigned OperandIdx = 0;
-  for (const auto &MO : DefMI.operands()) {
+  for (const auto &MO : DefMI->operands()) {
     if (MO.isReg() && MO.isDef() && MO.getReg() == VReg)
       break;
     ++OperandIdx;
   }
-  assert(OperandIdx < DefMI.getNumOperands());
+  assert(OperandIdx < DefMI->getNumOperands());
 
   // Make the DBG_INSTR_REF refer to that instruction, and that operand.
-  unsigned InstrNum = DefMI.getDebugInstrNum();
+  unsigned InstrNum = DefMI->getDebugInstrNum();
   MIB.addImm(InstrNum);
   MIB.addImm(OperandIdx);
   MIB.addMetadata(Var);
   MIB.addMetadata(Expr);
-  ResultInstr = &*MIB;
-  return ResultInstr;
+  return &*MIB;
+}
+
+MachineInstr *
+InstrEmitter::EmitDbgNoLocation(SDDbgValue *SD) {
+  // An invalidated SDNode must generate an undef DBG_VALUE: although the
+  // original value is no longer computed, earlier DBG_VALUEs live ranges
+  // must not leak into later code.
+  MDNode *Var = SD->getVariable();
+  MDNode *Expr = SD->getExpression();
+  DebugLoc DL = SD->getDebugLoc();
+  auto MIB = BuildMI(*MF, DL, TII->get(TargetOpcode::DBG_VALUE));
+  MIB.addReg(0U);
+  MIB.addReg(0U, RegState::Debug);
+  MIB.addMetadata(Var);
+  MIB.addMetadata(Expr);
+  return &*MIB;
+}
+
+MachineInstr *
+InstrEmitter::EmitDbgFrameIndex(SDDbgValue *SD) {
+  assert (SD->getKind() == SDDbgValue::FRAMEIX);
+  MDNode *Var = SD->getVariable();
+  MDNode *Expr = SD->getExpression();
+  DebugLoc DL = SD->getDebugLoc();
+
+  // Emit a DBG_VALUE with a FrameIndex operand.
+  auto FrameMI = BuildMI(*MF, DL, TII->get(TargetOpcode::DBG_VALUE))
+                     .addFrameIndex(SD->getFrameIx());
+
+  if (SD->isIndirect())
+    // Push [fi + 0] onto the DIExpression stack.
+    FrameMI.addImm(0);
+  else
+    // Push fi onto the DIExpression stack.
+    FrameMI.addReg(0);
+
+  return FrameMI.addMetadata(Var).addMetadata(Expr);
+}
+
+MachineInstr *
+InstrEmitter::EmitDbgConst(SDDbgValue *SD) {
+  assert(SD->getKind() == SDDbgValue::CONST);
+  const MCInstrDesc &II = TII->get(TargetOpcode::DBG_VALUE);
+  MDNode *Var = SD->getVariable();
+  MDNode *Expr = SD->getExpression();
+  DebugLoc DL = SD->getDebugLoc();
+
+  // Build a DBG_VALUE instruction...
+  MachineInstrBuilder MIB = BuildMI(*MF, DL, II);
+
+  // ... and now find out what kind of constant operand to attach to it.
+  const Value *V = SD->getConst();
+  if (const ConstantInt *CI = dyn_cast<ConstantInt>(V)) {
+    if (CI->getBitWidth() > 64)
+      MIB.addCImm(CI);
+    else
+      MIB.addImm(CI->getSExtValue());
+  } else if (const ConstantFP *CF = dyn_cast<ConstantFP>(V)) {
+    MIB.addFPImm(CF);
+  } else if (isa<ConstantPointerNull>(V)) {
+    // Note: This assumes that all nullptr constants are zero-valued.
+    MIB.addImm(0);
+  } else {
+    // Could be an Undef.  In any case insert an Undef so we can see what we
+    // dropped.
+    MIB.addReg(0U, RegState::Debug);
+  }
+
+  MIB.addReg(0U, RegState::Debug);
+  MIB.addMetadata(Var);
+  MIB.addMetadata(Expr);
+  return MIB;
 }
 
 MachineInstr *

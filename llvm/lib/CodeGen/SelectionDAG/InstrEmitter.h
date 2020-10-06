@@ -112,10 +112,20 @@ public:
   MachineInstr *EmitDbgValue(SDDbgValue *SD,
                              DenseMap<SDValue, Register> &VRBaseMap);
 
-  /// Attempt to emit a dbg_value as a DBG_INSTR_REF. May fail and return
-  /// nullptr, in which case we fall back to plain EmitDbgValue.
+  /// Emit a dbg_value as a DBG_INSTR_REF. May produce DBG_VALUE $noreg instead
+  /// if there is no variable location; alternately a half-formed DBG_INSTR_REF
+  /// that refers to a virtual register and is corrected later in isel.
   MachineInstr *EmitDbgInstrRef(SDDbgValue *SD,
                                 DenseMap<SDValue, Register> &VRBaseMap);
+
+  /// Emit a DBG_VALUE $noreg, indicating a variable has no location.
+  MachineInstr *EmitDbgNoLocation(SDDbgValue *SD);
+
+  /// Emit a DBG_VALUE %stack, referring to a frame index.
+  MachineInstr *EmitDbgFrameIndex(SDDbgValue *SD);
+
+  /// Emit a DBG_VALUE of some constant value.
+  MachineInstr *EmitDbgConst(SDDbgValue *SD);
 
   /// Generate machine instruction for a dbg_label node.
   MachineInstr *EmitDbgLabel(SDDbgLabel *SD);
