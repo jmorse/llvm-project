@@ -1484,11 +1484,17 @@ private:
   /// instruction numbers in DBG_INSTR_REFs into machine value numbers.
   std::map<uint64_t, InstAndNum> DebugInstrNumToInstr;
 
+struct DebugPHIRecord {
+  MachineBasicBlock *MBB;
+  ValueIDNum ValueRead;
+  LocIdx ReadLoc;
+};
+
   /// Map from DBG_PHI instr numbers to value number. Before machine value
   /// numbering these values are uncorrected; after they are corrected to
   /// be solved value numbers.
-  std::multimap<uint64_t, std::pair<MachineBasicBlock *, ValueIDNum>>
-      DebugPHINumToValue;
+// XXX update for new rec
+  std::multimap<uint64_t, struct DebugPHIRecord> DebugPHINumToValue;
 
   // Map of overlapping variable fragments.
   OverlapMap OverlapFragments;
@@ -2002,8 +2008,8 @@ bool InstrRefBasedLDV::transferDebugPHI(MachineInstr &MI) {
     // The value is whatever's currently in the register. Read and record it.
     Register Reg = MO.getReg();
     ValueIDNum Num = MTracker->readReg(Reg);
-    auto LocAndNum = std::make_pair(MI.getParent(), Num);
-    DebugPHINumToValue.insert(std::make_pair(InstrNum, LocAndNum));
+    auto PHIRec = DebugPHIRecord({MI.getParent(), Num, MTracker->lookupOrTrackRegister(Reg)});
+    DebugPHINumToValue.insert(std::make_pair(InstrNum, PHIRec));
   } else {
     // The value is whatever's in this stack slot.
     assert(MO.isFI());
@@ -2025,7 +2031,7 @@ bool InstrRefBasedLDV::transferDebugPHI(MachineInstr &MI) {
       // Nothing ever writes to this slot. Curious, but nothing we can do.
       return true;
 
-    auto LocAndNum = std::make_pair(MI.getParent(), *Num);
+    auto LocAndNum = DebugPHIRecord({MI.getParent(), *Num, *MTracker->getSpillMLoc(SL)});
     DebugPHINumToValue.insert(std::make_pair(InstrNum, LocAndNum));
   }
 
@@ -3625,7 +3631,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   for (auto It = EarlyInc.begin(); It != EarlyInc.end(); ++It) {
     // Identify unresolved block-live-ins.
     auto &InstAndNum = *It;
-    ValueIDNum &Num = InstAndNum.second.second;
+    ValueIDNum &Num = InstAndNum.second.ValueRead;
     if (!Num.isPHI())
       continue;
 
@@ -3988,7 +3994,7 @@ Optional<ValueIDNum> InstrRefBasedLDV::resolveDbgPHIs(MachineFunction &MF,
 
   // If there's only one DBG_PHI, then that is our value number.
   if (std::distance(LowerIt, UpperIt) == 1)
-    return LowerIt->second.second;
+    return LowerIt->second.ValueRead;
 
   auto DBGPHIRange = make_range(LowerIt, UpperIt);
 
@@ -3996,7 +4002,7 @@ Optional<ValueIDNum> InstrRefBasedLDV::resolveDbgPHIs(MachineFunction &MF,
   // technically possible for us to merge values in different registers in each
   // block, but highly unlikely that LLVM will generate such code after register
   // allocation.
-  LocIdx Loc = LowerIt->second.second.getLoc();
+  LocIdx Loc = LowerIt->second.ReadLoc;
 
   // We have several DBG_PHIs, and a use position (the Here inst). All each
   // DBG_PHI does is identify a value at a program position. We can treat each
@@ -4015,8 +4021,8 @@ Optional<ValueIDNum> InstrRefBasedLDV::resolveDbgPHIs(MachineFunction &MF,
   // for the SSAUpdater.
   for (auto &DBG_PHI : DBGPHIRange) {
     auto &BlockAndValue = DBG_PHI.second;
-    LDVSSABlock *Block = Updater.getSSALDVBlock(BlockAndValue.first);
-    const ValueIDNum &Num = BlockAndValue.second;
+    LDVSSABlock *Block = Updater.getSSALDVBlock(BlockAndValue.MBB);
+    const ValueIDNum &Num = BlockAndValue.ValueRead;
     AvailableValues.insert(std::make_pair(Block, Num.asU64()));
   }
 
@@ -4050,8 +4056,8 @@ Optional<ValueIDNum> InstrRefBasedLDV::resolveDbgPHIs(MachineFunction &MF,
   // Define all the input DBG_PHI values in ValidatedValues.
   for (auto &DBG_PHI : DBGPHIRange) {
     auto &BlockAndValue = DBG_PHI.second;
-    LDVSSABlock *Block = Updater.getSSALDVBlock(BlockAndValue.first);
-    const ValueIDNum &Num = BlockAndValue.second;
+    LDVSSABlock *Block = Updater.getSSALDVBlock(BlockAndValue.MBB);
+    const ValueIDNum &Num = BlockAndValue.ValueRead;
     ValidatedValues.insert(std::make_pair(Block, Num));
   }
 
