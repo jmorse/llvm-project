@@ -183,7 +183,7 @@ bool OptimizePHIs::OptimizeBB(MachineBasicBlock &MBB) {
         continue;
 
       MachineInstr *DefMI = MRI->getVRegDef(SingleValReg);
-      MF.substituteDebugValuesForInst(*MI, *DefMI);
+      MF.substituteDebugValuesForInst(*MI, *DefMI, 1);
       MRI->replaceRegWith(OldReg, SingleValReg);
       MI->eraseFromParent();
 
