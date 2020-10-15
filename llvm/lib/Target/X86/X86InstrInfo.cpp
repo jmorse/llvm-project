@@ -1360,6 +1360,13 @@ MachineInstr *X86InstrInfo::convertToThreeAddressWithLEA(
       LV->replaceKillInstruction(Dest, MI, *ExtMI);
   }
 
+  if (unsigned OldInstrNum = MI.peekDebugInstrNum()) {
+    MachineFunction &MF = *MFI->getParent();
+    auto OldPair = std::make_pair(OldInstrNum, 0);
+    auto NewPair = std::make_pair(NewMI->getDebugInstrNum(MF), 0);
+    MF.makeDebugValueSubstitution(OldPair, NewPair, SubReg);
+  }
+
   return ExtMI;
 }
 
@@ -1805,6 +1812,13 @@ X86InstrInfo::convertToThreeAddress(MachineFunction::iterator &MFI,
       LV->replaceKillInstruction(Src.getReg(), MI, *NewMI);
     if (Dest.isDead())
       LV->replaceKillInstruction(Dest.getReg(), MI, *NewMI);
+  }
+
+  if (unsigned OldInstrNum = MI.peekDebugInstrNum()) {
+    MachineFunction &MF = *MFI->getParent();
+    auto OldPair = std::make_pair(OldInstrNum, 0);
+    auto NewPair = std::make_pair(NewMI->getDebugInstrNum(MF), 0);
+    MF.makeDebugValueSubstitution(OldPair, NewPair);
   }
 
   MFI->insert(MI.getIterator(), NewMI); // Insert the new inst
