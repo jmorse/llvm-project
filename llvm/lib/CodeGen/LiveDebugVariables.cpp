@@ -398,14 +398,19 @@ class LDVImpl {
   const TargetRegisterInfo *TRI;
 
   /// Position and VReg of a PHI instruction during register allocation.
-  struct PHIValPos {
+  class PHIValPos {
+  public:
+    unsigned InstrNum; /// AAAAAHHHH THE BEEESSS
     SlotIndex SI;    /// Slot where this PHI occurs.
     Register Reg;    /// VReg this PHI occurs in.
     unsigned SubReg; /// Qualifiying subregister for Reg.
+
+    operator unsigned() const { return InstrNum; }
   };
 
   /// Map from debug instruction number to PHI position during allocation.
-  std::map<unsigned, PHIValPos> PHIValToPos;
+  /// XXX now we can have multiple sprunges.
+  SmallVector<PHIValPos, 16> PHIValToPos;
   /// Index of, for each VReg, which debug instruction numbers and corresponding
   /// PHIs are sensitive to splitting. Each VReg may have multiple PHI defs,
   /// at different positions.
@@ -724,6 +729,17 @@ MachineBasicBlock::iterator LDVImpl::handleDebugInstr(MachineInstr &MI,
   // that refer to virtual registers. They might still refer to constants.
   if (MI.isDebugValue())
     assert(!MI.getOperand(0).isReg() || !MI.getOperand(0).getReg().isVirtual());
+
+  if (MI.isDebugPHI() && MI.getOperand(0).getReg().isVirtual()) {
+    Register Reg = MI.getOperand(0).getReg();
+    unsigned InstNo = MI.getOperand(1).getImm();
+    PHIValPos VP = {InstNo, Idx, Reg, 0};
+    PHIValToPos.push_back(VP);
+    RegToPHIIdx[Reg].push_back(InstNo);
+    auto NextInst = std::next(MI.getIterator());
+    MI.eraseFromParent();
+    return NextInst;
+  }
 
   // Unlink the instruction, store it in the debug instructions collection.
   auto NextInst = std::next(MI.getIterator());
@@ -1071,10 +1087,14 @@ bool LDVImpl::runOnMachineFunction(MachineFunction &mf, bool InstrRef) {
     Register Reg = Position.Reg;
     unsigned SubReg = Position.SubReg;
     SlotIndex SI = Slots->getMBBStartIdx(MBB);
-    PHIValPos VP = {SI, Reg, SubReg};
-    PHIValToPos.insert(std::make_pair(PHIIt.first, VP));
+    PHIValPos VP = {PHIIt.first, SI, Reg, SubReg};
+    PHIValToPos.push_back(VP);
     RegToPHIIdx[Reg].push_back(PHIIt.first);
   }
+
+  llvm::sort(PHIValToPos, [](const PHIValPos &ElemA, const PHIValPos &ElemB) {
+      return ElemA.InstrNum < ElemB.InstrNum;
+    });
 
   ModifiedMF = Changed;
   return Changed;
@@ -1250,13 +1270,18 @@ void LDVImpl::splitPHIRegister(Register OldReg, ArrayRef<Register> NewRegs) {
     return;
 
   std::vector<std::pair<Register, unsigned>> NewRegIdxes;
-  // Iterate over all the debug instruction numbers affected by this split.
-  for (unsigned InstrID : RegIt->second) {
-    auto PHIIt = PHIValToPos.find(InstrID);
-    assert(PHIIt != PHIValToPos.end());
-    const SlotIndex &Slot = PHIIt->second.SI;
+
+  struct PHIValPos {
+    SlotIndex SI;    /// Slot where this PHI occurs.
+    Register Reg;    /// VReg this PHI occurs in.
+    unsigned SubReg; /// Qualifiying subregister for Reg.
+  };
+
+// XXX XXX XXX dafuq is up with the qualifier
+  auto FindNewRegIdx = [&](LDVImpl::PHIValPos &PHI) {
+    const SlotIndex &Slot = PHI.SI;
 #ifndef NDEBUG
-    Register r = PHIIt->second.Reg;
+    Register r = PHI.Reg;
     assert(r == OldReg);
 #endif
 
@@ -1266,9 +1291,9 @@ void LDVImpl::splitPHIRegister(Register OldReg, ArrayRef<Register> NewRegs) {
       auto LII = LI.find(Slot);
       if (LII != LI.end() && LII->start <= Slot) {
         // This new register covers this PHI position, record this for indexing.
-        NewRegIdxes.push_back(std::make_pair(NewReg, InstrID));
+        NewRegIdxes.push_back(std::make_pair(NewReg, PHI.InstrNum));
         // Record that this value lives in a different VReg now.
-        PHIIt->second.Reg = NewReg;
+        PHI.Reg = NewReg;
         break;
       }
     }
@@ -1277,6 +1302,15 @@ void LDVImpl::splitPHIRegister(Register OldReg, ArrayRef<Register> NewRegs) {
     // allocation has dropped its location, for example because it's not live.
     // The old VReg will not be mapped to a physreg, and the instruction
     // number will have been optimized out.
+  };
+
+
+  // Iterate over all the debug instruction numbers affected by this split.
+  for (unsigned InstrID : RegIt->second) {
+    auto PHIs = std::equal_range(PHIValToPos.begin(), PHIValToPos.end(), InstrID);
+    assert(PHIs.first != PHIValToPos.end());
+    for (auto It = PHIs.first; It != PHIs.second; ++It)
+      FindNewRegIdx(*It);
   }
 
   // Re-create register index using the new register numbers.
@@ -1586,10 +1620,10 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
   for (auto &It : PHIValToPos) {
     // For each ex-PHI, identify its physreg location or stack slot, and emit
     // a DBG_PHI for it.
-    unsigned InstNum = It.first;
-    auto Slot = It.second.SI;
-    Register Reg = It.second.Reg;
-    unsigned SubReg = It.second.SubReg;
+    unsigned InstNum = It.InstrNum;
+    auto Slot = It.SI;
+    Register Reg = It.Reg;
+    unsigned SubReg = It.SubReg;
 
     MachineBasicBlock *OrigMBB = Slots->getMBBFromIndex(Slot);
     if (VRM->isAssignedReg(Reg) &&
@@ -1630,13 +1664,14 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
   // debug instructions don't swap, which could re-order assignments.
   for (auto &P : StashedDebugInstrs) {
     SlotIndex Idx = P.Idx;
+    MachineInstr *MI = P.MI;
 
     // Start block index: find the first non-debug instr in the block, and
     // insert in front of it.
     if (Idx == Slots->getMBBStartIdx(P.MBB)) {
       auto It = P.MBB->instr_begin();
       auto PostDebug = skipDebugInstructionsForward(It, P.MBB->instr_end());
-      P.MBB->insert(PostDebug, P.MI);
+      P.MBB->insert(PostDebug, MI);
       continue;
     }
 
@@ -1645,7 +1680,7 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
       // Insert at the end of any debug instructions.
       auto PostDebug = std::next(Pos->getIterator());
       PostDebug = skipDebugInstructionsForward(PostDebug, P.MBB->instr_end());
-      P.MBB->insert(PostDebug, P.MI);
+      P.MBB->insert(PostDebug, MI);
     } else {
       // Insert position disappeared; walk forwards through slots until we
       // find a new one.
@@ -1653,7 +1688,7 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
       for (; Idx < End; Idx = Slots->getNextNonNullIndex(Idx)) {
         Pos = Slots->getInstructionFromIndex(Idx);
         if (Pos) {
-          P.MBB->insert(Pos->getIterator(), P.MI);
+          P.MBB->insert(Pos->getIterator(), MI);
           break;
         }
       }
@@ -1663,7 +1698,7 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
       // in front of the first terminator, or in front of end().
       if (Idx >= End) {
         auto TermIt = P.MBB->getFirstTerminator();
-        P.MBB->insert(TermIt, P.MI);
+        P.MBB->insert(TermIt, MI);
       }
     }
   }

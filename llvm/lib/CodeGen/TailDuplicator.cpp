@@ -225,7 +225,8 @@ bool TailDuplicator::tailDuplicateAndUpdate(
           // a debug instruction that is a kill.
           // FIXME: Should it SSAUpdate job to delete debug instructions
           // instead of replacing the use with undef?
-          UseMI->eraseFromParent();
+          //UseMI->eraseFromParent();
+          UseMI->getOperand(0).setReg(0);
           continue;
         }
         if (UseMI->getParent() == DefBB && !UseMI->isPHI())
@@ -366,6 +367,15 @@ void TailDuplicator::processPHI(
 
   if (!Remove)
     return;
+
+  if (auto InstrNum = MI->peekDebugInstrNum()) {
+    auto Builder = BuildMI(*PredBB, PredBB->end(), DebugLoc(),
+                       TII->get(TargetOpcode::DBG_PHI));
+    Builder.addReg(SrcReg);
+    Builder.addImm(InstrNum);
+    MachineInstr *NewInst = Builder;
+    NewInst->getOperand(0).setIsDebug(true);
+  }
 
   // Remove PredBB from the PHI node.
   MI->RemoveOperand(SrcOpIdx + 1);
