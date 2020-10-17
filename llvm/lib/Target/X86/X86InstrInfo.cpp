@@ -5286,6 +5286,14 @@ static MachineInstr *FuseInst(MachineFunction &MF, unsigned Opcode,
       addOperands(MIB, MOs, PtrOffset);
     } else {
       MIB.add(MO);
+
+      if (MI.peekDebugInstrNum()) {
+        if (!MO.isReg())
+          continue;
+        auto OldPair = std::make_pair(MI.peekDebugInstrNum(), i);
+        auto NewPair = std::make_pair(NewMI->getDebugInstrNum(MF), NewMI->getNumOperands()-1);
+        MF.makeDebugValueSubstitution(OldPair, NewPair);
+      }
     }
   }
 
@@ -5297,14 +5305,6 @@ static MachineInstr *FuseInst(MachineFunction &MF, unsigned Opcode,
 
   MachineBasicBlock *MBB = InsertPt->getParent();
   MBB->insert(InsertPt, NewMI);
-
-  // Debug-info would like to know that the one instruction replaces the
-  // other. Dealing with folding defs, potentially to memory, is a bit much
-  // right now though. Plus, don't attempt substitutions after the
-  // modified operand: this is an approximation to avoid having to think about
-  // the operands afterwards right now.
-  if (MI.getOperand(OpNo).isReg() && !MI.getOperand(OpNo).isDef())
-    MF.substituteDebugValuesForInst(MI, *NewMI, OpNo);
 
   return MIB;
 }
