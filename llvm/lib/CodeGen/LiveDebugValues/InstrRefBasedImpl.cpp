@@ -2594,7 +2594,7 @@ void InstrRefBasedLDV::produceMLocTransferFunction(
         TransferMap.insert(std::make_pair(Idx.asU64(), NotGeneratedNum));
       if (!Result.second) {
         ValueIDNum &ValueID = Result.first->second;
-        if (ValueID.getBlock() == I && ValueID.isPHI())
+        if (ValueID.getBlock() == I && ValueID.isPHI() && Idx == ValueID.getLoc())
           // It was left as live-through. Set it to clobbered.
           ValueID = NotGeneratedNum;
       }
