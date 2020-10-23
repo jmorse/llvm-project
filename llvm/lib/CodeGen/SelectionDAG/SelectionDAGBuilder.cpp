@@ -1263,7 +1263,7 @@ bool SelectionDAGBuilder::handleDebugValue(const Value *V, DILocalVariable *Var,
   SDDbgValue *SDV;
   if (isa<ConstantInt>(V) || isa<ConstantFP>(V) || isa<UndefValue>(V) ||
       isa<ConstantPointerNull>(V)) {
-    SDV = DAG.getConstantDbgValue(Var, Expr, V, dl, SDNodeOrder);
+    SDV = DAG.getConstantDbgValue(Var, Expr, V, dl, Order);
     DAG.AddDbgValue(SDV, nullptr, false);
     return true;
   }
@@ -1275,7 +1275,7 @@ bool SelectionDAGBuilder::handleDebugValue(const Value *V, DILocalVariable *Var,
     if (SI != FuncInfo.StaticAllocaMap.end()) {
       auto SDV =
           DAG.getFrameIndexDbgValue(Var, Expr, SI->second,
-                                    /*IsIndirect*/ false, dl, SDNodeOrder);
+                                    /*IsIndirect*/ false, dl, Order);
       // Do not attach the SDNodeDbgValue to an SDNode: this variable location
       // is still available even if the SDNode gets optimized out.
       DAG.AddDbgValue(SDV, nullptr, false);
@@ -1291,7 +1291,7 @@ bool SelectionDAGBuilder::handleDebugValue(const Value *V, DILocalVariable *Var,
   if (N.getNode()) {
     if (EmitFuncArgumentDbgValue(V, Var, Expr, dl, false, N))
       return true;
-    SDV = getDbgValue(N, Var, Expr, dl, SDNodeOrder);
+    SDV = getDbgValue(N, Var, Expr, dl, Order);
     DAG.AddDbgValue(SDV, N.getNode(), false);
     return true;
   }
@@ -1334,12 +1334,12 @@ bool SelectionDAGBuilder::handleDebugValue(const Value *V, DILocalVariable *Var,
           if (!FragmentExpr)
               continue;
           SDV = DAG.getVRegDbgValue(Var, *FragmentExpr, RegAndSize.first,
-                                    false, dl, SDNodeOrder);
+                                    false, dl, Order);
           DAG.AddDbgValue(SDV, nullptr, false);
           Offset += RegisterSize;
         }
       } else {
-        SDV = DAG.getVRegDbgValue(Var, Expr, Reg, false, dl, SDNodeOrder);
+        SDV = DAG.getVRegDbgValue(Var, Expr, Reg, false, dl, Order);
         DAG.AddDbgValue(SDV, nullptr, false);
       }
       return true;
