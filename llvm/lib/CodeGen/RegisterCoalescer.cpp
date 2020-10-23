@@ -1256,6 +1256,7 @@ static bool definesFullReg(const MachineInstr &MI, unsigned Reg) {
 bool RegisterCoalescer::reMaterializeTrivialDef(const CoalescerPair &CP,
                                                 MachineInstr *CopyMI,
                                                 bool &IsDefCopy) {
+return false;
   IsDefCopy = false;
   unsigned SrcReg = CP.isFlipped() ? CP.getDstReg() : CP.getSrcReg();
   unsigned SrcIdx = CP.isFlipped() ? CP.getDstIdx() : CP.getSrcIdx();

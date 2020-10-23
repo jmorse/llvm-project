@@ -21,6 +21,7 @@
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/GraphTraits.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/iterator.h"
@@ -512,6 +513,9 @@ public:
   /// A reserved operand number representing the instructions memory operand,
   /// for instructions that can morph into storing to stack spills.
   static unsigned int DebugOperandMemNumber;
+
+  // lolololol
+  SmallSet<unsigned, 16> DebugInstrsThatAreTrivRemat;
 
   MachineFunction(Function &F, const LLVMTargetMachine &Target,
                   const TargetSubtargetInfo &STI, unsigned FunctionNum,

@@ -170,6 +170,10 @@ SlotIndex LiveRangeEdit::rematerializeAt(MachineBasicBlock &MBB,
                                          bool Late) {
   assert(RM.OrigMI && "Invalid remat");
   TII.reMaterialize(MBB, MI, DestReg, 0, *RM.OrigMI, tri);
+
+  if (unsigned InstrNum = RM.OrigMI->peekDebugInstrNum())
+    MBB.getParent()->DebugInstrsThatAreTrivRemat.insert(InstrNum);
+
   // DestReg of the cloned instruction cannot be Dead. Set isDead of DestReg
   // to false anyway in case the isDead flag of RM.OrigMI's dest register
   // is true.
