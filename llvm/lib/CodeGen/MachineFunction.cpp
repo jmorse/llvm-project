@@ -995,7 +995,10 @@ void MachineFunction::makeDebugValueSubstitution(DebugInstrOperandPair A,
 
   auto Result = DebugValueSubstitutions.insert({A, {B, Subreg}});
   (void)Result;
+// Allow substitutions to fail, earlytaildup etc.
+#if 0
   assert(Result.second && "Substitution for an already substituted value?");
+#endif
 }
 
 void MachineFunction::substituteDebugValuesForInst(const MachineInstr &Old,

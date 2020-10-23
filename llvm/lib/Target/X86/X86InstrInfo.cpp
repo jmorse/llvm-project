@@ -1151,6 +1151,10 @@ void X86InstrInfo::reMaterialize(MachineBasicBlock &MBB,
 
   MachineInstr &NewMI = *std::prev(I);
   NewMI.substituteRegister(Orig.getOperand(0).getReg(), DestReg, SubIdx, TRI);
+
+  // Hey, remember that thing we were never going to do?
+  if (unsigned Num = Orig.peekDebugInstrNum())
+    NewMI.setDebugInstrNum(Num);
 }
 
 /// True if MI has a condition code def, e.g. EFLAGS, that is not marked dead.
