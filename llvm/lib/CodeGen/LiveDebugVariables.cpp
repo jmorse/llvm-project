@@ -1309,8 +1309,11 @@ void LDVImpl::splitPHIRegister(Register OldReg, ArrayRef<Register> NewRegs) {
   for (unsigned InstrID : RegIt->second) {
     auto PHIs = std::equal_range(PHIValToPos.begin(), PHIValToPos.end(), InstrID);
     assert(PHIs.first != PHIValToPos.end());
-    for (auto It = PHIs.first; It != PHIs.second; ++It)
-      FindNewRegIdx(*It);
+    for (auto It = PHIs.first; It != PHIs.second; ++It) {
+      // PHIs might not refer to the same values now,
+      if (It->Reg == OldReg)
+        FindNewRegIdx(*It);
+    }
   }
 
   // Re-create register index using the new register numbers.
@@ -1617,6 +1620,35 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
   LLVM_DEBUG(dbgs() << "********** EMITTING DEBUG PHIS **********\n");
 
   auto Slots = LIS->getSlotIndexes();
+  auto InsertAtPos = [&](MachineInstr *MI, MachineBasicBlock *MBB, const SlotIndex &Idx) {
+    MachineInstr *Pos = Slots->getInstructionFromIndex(Idx);
+    if (Pos) {
+      // Insert at the end of any debug instructions.
+      auto PostDebug = std::next(Pos->getIterator());
+      PostDebug = skipDebugInstructionsForward(PostDebug, MBB->instr_end());
+      MBB->insert(PostDebug, MI);
+    } else {
+      // Insert position disappeared; walk forwards through slots until we
+      // find a new one.
+      SlotIndex End = Slots->getMBBEndIdx(MBB);
+      SlotIndex SearchIdx = Idx;
+      for (; SearchIdx < End; SearchIdx = Slots->getNextNonNullIndex(SearchIdx)) {
+        Pos = Slots->getInstructionFromIndex(SearchIdx);
+        if (Pos) {
+          MBB->insert(Pos->getIterator(), MI);
+          return;
+        }
+      }
+
+      // We have reached the end of the block and didn't find anywhere to
+      // insert! It's not safe to discard any debug instructions; place them
+      // in front of the first terminator, or in front of end().
+      assert(SearchIdx >= End);
+      auto TermIt = MBB->getFirstTerminator();
+      MBB->insert(TermIt, MI);
+    }
+  };
+
   for (auto &It : PHIValToPos) {
     // For each ex-PHI, identify its physreg location or stack slot, and emit
     // a DBG_PHI for it.
@@ -1632,10 +1664,12 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
       if (SubReg != 0)
         PhysReg = TRI->getSubReg(PhysReg, SubReg);
 
-      auto Builder = BuildMI(*OrigMBB, OrigMBB->begin(), DebugLoc(),
+      auto Builder = BuildMI(*MF, DebugLoc(),
                              TII->get(TargetOpcode::DBG_PHI));
       Builder.addReg(PhysReg);
       Builder.addImm(InstNum);
+
+      InsertAtPos(Builder, OrigMBB, Slot);
     } else if (VRM->getStackSlot(Reg) != VirtRegMap::NO_STACK_SLOT) {
       const MachineRegisterInfo &MRI = MF->getRegInfo();
       const TargetRegisterClass *TRC = MRI.getRegClass(Reg);
@@ -1646,10 +1680,12 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
           TII->getStackSlotRange(TRC, SubReg, SpillSize, SpillOffset, *MF);
 
       if (Success) {
-        auto Builder = BuildMI(*OrigMBB, OrigMBB->begin(), DebugLoc(),
+        auto Builder = BuildMI(*MF, DebugLoc(),
                                TII->get(TargetOpcode::DBG_PHI));
         Builder.addFrameIndex(VRM->getStackSlot(Reg));
         Builder.addImm(InstNum);
+
+        InsertAtPos(Builder, OrigMBB, Slot);
       }
     } else {
       // There is no mapping for this value ID, it's gone. Create no DBG_PHI.
@@ -1665,42 +1701,7 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
   for (auto &P : StashedDebugInstrs) {
     SlotIndex Idx = P.Idx;
     MachineInstr *MI = P.MI;
-
-    // Start block index: find the first non-debug instr in the block, and
-    // insert in front of it.
-    if (Idx == Slots->getMBBStartIdx(P.MBB)) {
-      auto It = P.MBB->instr_begin();
-      auto PostDebug = skipDebugInstructionsForward(It, P.MBB->instr_end());
-      P.MBB->insert(PostDebug, MI);
-      continue;
-    }
-
-    MachineInstr *Pos = Slots->getInstructionFromIndex(Idx);
-    if (Pos) {
-      // Insert at the end of any debug instructions.
-      auto PostDebug = std::next(Pos->getIterator());
-      PostDebug = skipDebugInstructionsForward(PostDebug, P.MBB->instr_end());
-      P.MBB->insert(PostDebug, MI);
-    } else {
-      // Insert position disappeared; walk forwards through slots until we
-      // find a new one.
-      SlotIndex End = Slots->getMBBEndIdx(P.MBB);
-      for (; Idx < End; Idx = Slots->getNextNonNullIndex(Idx)) {
-        Pos = Slots->getInstructionFromIndex(Idx);
-        if (Pos) {
-          P.MBB->insert(Pos->getIterator(), MI);
-          break;
-        }
-      }
-
-      // We have reached the end of the block and didn't find anywhere to
-      // insert! It's not safe to discard any debug instructions; place them
-      // in front of the first terminator, or in front of end().
-      if (Idx >= End) {
-        auto TermIt = P.MBB->getFirstTerminator();
-        P.MBB->insert(TermIt, MI);
-      }
-    }
+    InsertAtPos(MI, P.MBB, Idx);
   }
 
   EmitDone = true;
