@@ -676,6 +676,10 @@ bool X86RegisterInfo::hasReservedSpillSlot(const MachineFunction &MF,
 // TODO: In this case we should be really trying first to entirely eliminate
 // this instruction which is a plain copy.
 static bool tryOptimizeLEAtoMOV(MachineBasicBlock::iterator II) {
+
+// xxx jmorse
+return false;
+
   MachineInstr &MI = *II;
   unsigned Opc = II->getOpcode();
   // Check if this is a LEA of the form 'lea (%esp), %ebx'

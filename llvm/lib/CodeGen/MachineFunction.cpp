@@ -1017,7 +1017,7 @@ void MachineFunction::substituteDebugValuesForInst(const MachineInstr &Old,
   unsigned MaxOperand = std::min(MaxIdx, Old.getNumOperands());
   for (unsigned int I = 0; I < MaxOperand; ++I) {
     const auto &OldMO = Old.getOperand(I);
-    auto &NewMO = Old.getOperand(I);
+    auto &NewMO = New.getOperand(I);
 
     if (!OldMO.isReg() || !OldMO.isDef())
       continue;
