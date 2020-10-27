@@ -6,6 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <iostream>
+
 #include "llvm-dwarfdump.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringSet.h"
@@ -220,7 +222,7 @@ static uint64_t calculateOverlap(DWARFAddressRange A, DWARFAddressRange B) {
 }
 
 /// Collect debug info quality metrics for one DIE.
-static void collectStatsForDie(DWARFDie Die, std::string FnPrefix,
+static void collectStatsForDie(DWARFDie Die, std::string FnPrefix, std::string jeremyprefix,
                                std::string VarPrefix, uint64_t BytesInScope,
                                uint32_t InlineDepth,
                                StringMap<PerFunctionStats> &FnStatMap,
@@ -397,6 +399,9 @@ static void collectStatsForDie(DWARFDie Die, std::string FnPrefix,
 
   FnStats.TotalVarWithLoc += (unsigned)HasLoc;
 
+if (HasLoc)
+std::cout << "Var: " << jeremyprefix << "/" << constructDieID(Die) << std::endl;
+
   if (Die.find(dwarf::DW_AT_artificial)) {
     FnStats.NumArtificial++;
     return;
@@ -439,7 +444,7 @@ static void collectInlinedFnInfo(DWARFDie Die,
 }
 
 /// Recursively collect debug info quality metrics.
-static void collectStatsRecursive(DWARFDie Die, std::string FnPrefix,
+static void collectStatsRecursive(DWARFDie Die, std::string FnPrefix, std::string jeremyprefix,
                                   std::string VarPrefix, uint64_t BytesInScope,
                                   uint32_t InlineDepth,
                                   StringMap<PerFunctionStats> &FnStatMap,
@@ -527,6 +532,7 @@ static void collectStatsRecursive(DWARFDie Die, std::string FnPrefix,
           Die.findRecursively(dwarf::DW_AT_decl_line))
         FnStats.HasSourceLocation = true;
       // Update function prefix.
+jeremyprefix = FnPrefix + std::string("/") + FnID;
       FnPrefix = FnID;
     }
 
@@ -539,7 +545,7 @@ static void collectStatsRecursive(DWARFDie Die, std::string FnPrefix,
     }
   } else {
     // Not a scope, visit the Die itself. It could be a variable.
-    collectStatsForDie(Die, FnPrefix, VarPrefix, BytesInScope, InlineDepth,
+    collectStatsForDie(Die, FnPrefix, jeremyprefix, VarPrefix, BytesInScope, InlineDepth,
                        FnStatMap, GlobalStats, LocStats, InlinedVarsPtr);
   }
 
@@ -560,7 +566,8 @@ static void collectStatsRecursive(DWARFDie Die, std::string FnPrefix,
     if (Child.getTag() == dwarf::DW_TAG_formal_parameter)
       ChildVarPrefix += 'p' + toHex(FormalParameterIndex++) + '.';
 
-    collectStatsRecursive(Child, FnPrefix, ChildVarPrefix, BytesInScope,
+    std::string tmpprefix = jeremyprefix + std::string("/") + ChildVarPrefix;
+    collectStatsRecursive(Child, FnPrefix, jeremyprefix, ChildVarPrefix, BytesInScope,
                           InlineDepth, FnStatMap, GlobalStats, LocStats,
                           GlobalInlinedFnInfo, InlinedFnsToBeProcessed,
                           InlinedVarsPtr);
@@ -712,7 +719,7 @@ bool dwarfdump::collectStatsForObjectFile(ObjectFile &Obj, DWARFContext &DICtx,
   StringMap<PerFunctionStats> Statistics;
   for (const auto &CU : static_cast<DWARFContext *>(&DICtx)->compile_units()) {
     if (DWARFDie CUDie = CU->getNonSkeletonUnitDIE(false)) {
-      collectStatsRecursive(CUDie, "/", "g", 0, 0, Statistics, GlobalStats,
+      collectStatsRecursive(CUDie, "/", "/", "g", 0, 0, Statistics, GlobalStats,
                             LocStats, GlobalInlinedFnInfo,
                             InlinedFnsToBeProcessed);
 
