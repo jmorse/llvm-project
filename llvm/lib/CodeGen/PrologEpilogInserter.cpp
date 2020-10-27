@@ -1239,6 +1239,8 @@ void PEI::replaceFrameIndices(MachineBasicBlock *BB, MachineFunction &MF,
         DIExpr = DIExpression::prepend(DIExpr, PrependFlags, Offset);
         MI.getDebugExpressionOp().setMetadata(DIExpr);
         continue;
+      } else if (MI.isDebugPHI()) {
+        continue; // Allow stack ref to continue onwards.
       }
 
       // TODO: This code should be commoned with the code for
