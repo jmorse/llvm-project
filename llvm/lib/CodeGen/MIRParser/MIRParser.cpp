@@ -419,7 +419,7 @@ void MIRParserImpl::setupDebugValueTracking(
   // Load any substitutions.
   for (auto &Sub : YamlMF.DebugValueSubstitutions) {
     MF.makeDebugValueSubstitution(std::make_pair(Sub.SrcInst, Sub.SrcOp),
-                                  std::make_pair(Sub.DstInst, Sub.DstOp));
+                                  {Sub.DstInst, Sub.DstOp}, Sub.Subreg);
   }
 }
 
