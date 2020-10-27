@@ -465,7 +465,7 @@ public:
   /// to a DebugSubstitution identifying another. Used to record changes in
   /// where a value is defined, so that debug variable locations can find it
   /// later.
-  std::map<DebugInstrOperandPair, DebugSubstitution> DebugValueSubstitutions;
+  DenseMap<DebugInstrOperandPair, DebugSubstitution> DebugValueSubstitutions;
 
   /// Location of a PHI instruction that is also a debug-info variable value,
   /// for the duration of register allocation. Loaded by the PHI-elimination
@@ -483,7 +483,7 @@ public:
 
   /// Map of debug instruction numbers to the position of their PHI instructions
   /// during register allocation. See DebugPHIRegallocPos.
-  std::map<unsigned, DebugPHIRegallocPos> DebugPHIPositions;
+  DenseMap<unsigned, DebugPHIRegallocPos> DebugPHIPositions;
 
   /// Create a substitution between one <instr,operand> value to a different,
   /// new value.
