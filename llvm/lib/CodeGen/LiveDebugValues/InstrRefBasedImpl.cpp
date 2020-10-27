@@ -2118,7 +2118,9 @@ void InstrRefBasedLDV::transferRegisterDef(MachineInstr &MI) {
   if (MI.hasOneMemOperand() &&
       (*MI.memoperands_begin())->isStore() &&
       (*MI.memoperands_begin())->getPseudoValue() &&
-      (*MI.memoperands_begin())->getPseudoValue()->kind() == PseudoSourceValue::FixedStack) {
+      (*MI.memoperands_begin())->getPseudoValue()->kind() == PseudoSourceValue::FixedStack &&
+      !(*MI.memoperands_begin())->getPseudoValue()->isAliased(MFI))
+ {
     SpillLoc Spill = extractSpillBaseRegAndOffset(MI);
     LocIdx L = MTracker->getOrTrackSpillLoc(Spill);
     MTracker->setSpill(Spill, ValueIDNum(CurBB, CurInst, L));
@@ -2153,7 +2155,8 @@ void InstrRefBasedLDV::transferRegisterDef(MachineInstr &MI) {
   if (MI.hasOneMemOperand() &&
       (*MI.memoperands_begin())->isStore() &&
       (*MI.memoperands_begin())->getPseudoValue() &&
-      (*MI.memoperands_begin())->getPseudoValue()->kind() == PseudoSourceValue::FixedStack) {
+      (*MI.memoperands_begin())->getPseudoValue()->kind() == PseudoSourceValue::FixedStack &&
+      !(*MI.memoperands_begin())->getPseudoValue()->isAliased(MFI)) {
     SpillLoc Spill = extractSpillBaseRegAndOffset(MI);
     LocIdx L = MTracker->getOrTrackSpillLoc(Spill);
     TTracker->clobberMloc(L, MI.getIterator(), true);
@@ -2213,6 +2216,12 @@ bool InstrRefBasedLDV::isSpillInstruction(const MachineInstr &MI,
   // TODO: Handle multiple stores folded into one.
   if (!MI.hasOneMemOperand())
     return false;
+
+auto MMOI = MI.memoperands_begin();
+const PseudoSourceValue *PVal = (*MMOI)->getPseudoValue();
+if (PVal->isAliased(MFI))
+  return false;
+
 
   if (!MI.getSpillSize(TII) && !MI.getFoldedSpillSize(TII))
     return false; // This is not a spill instruction, since no valid size was
