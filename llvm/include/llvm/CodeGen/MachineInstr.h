@@ -1166,8 +1166,9 @@ public:
   bool isDebugValue() const { return getOpcode() == TargetOpcode::DBG_VALUE; }
   bool isDebugLabel() const { return getOpcode() == TargetOpcode::DBG_LABEL; }
   bool isDebugRef() const { return getOpcode() == TargetOpcode::DBG_INSTR_REF; }
+  bool isDebugPHI() const { return getOpcode() == TargetOpcode::DBG_PHI; }
   bool isDebugInstr() const {
-    return isDebugValue() || isDebugLabel() || isDebugRef();
+    return isDebugValue() || isDebugLabel() || isDebugRef() || isDebugPHI();
   }
   bool isDebugOrPseudoInstr() const {
     return isDebugInstr() || isPseudoProbe();
@@ -1265,6 +1266,7 @@ public:
     case TargetOpcode::GC_LABEL:
     case TargetOpcode::DBG_VALUE:
     case TargetOpcode::DBG_INSTR_REF:
+    case TargetOpcode::DBG_PHI:
     case TargetOpcode::DBG_LABEL:
     case TargetOpcode::LIFETIME_START:
     case TargetOpcode::LIFETIME_END:
