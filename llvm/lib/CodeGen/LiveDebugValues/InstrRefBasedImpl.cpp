@@ -1995,17 +1995,18 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
       else if (!MTracker->isSpill(*FoundLoc) &&
                !MTracker->isSpill(CurL) &&
                !isCalleeSaved(*FoundLoc) &&
-               isCalleeSaved(CurL))
+               isCalleeSaved(CurL)) {
         FoundLoc = CurL; // Callee saved regs are longer term than normal.
-    } else if (NewID && MTracker->isSpill(CurL) &&
-               !MTracker->isSpill(ID.getLoc()) &&
-               !MTracker->isSpill(NewID->getLoc()) &&
-               TRI->isSuperRegister(MTracker->LocIdxToLocID[NewID->getLoc()],
-                                    MTracker->LocIdxToLocID[ID.getLoc()])) {
-      // The contents of this stack slot is a super-register of the thing
-      // that we're looking for. Just pick it for now; mangle an expression
-      // when this goes upstream.
-      FoundLoc = CurL;
+      } else if (NewID && MTracker->isSpill(CurL) &&
+                 !MTracker->isSpill(ID.getLoc()) &&
+                 !MTracker->isSpill(NewID->getLoc()) &&
+                 TRI->isSuperRegister(MTracker->LocIdxToLocID[NewID->getLoc()],
+                                      MTracker->LocIdxToLocID[ID.getLoc()])) {
+        // The contents of this stack slot is a super-register of the thing
+        // that we're looking for. Just pick it for now; mangle an expression
+        // when this goes upstream.
+        FoundLoc = CurL;
+      }
     }
   }
 
