@@ -2262,11 +2262,13 @@ void InstrRefBasedLDV::performCopy(Register SrcRegNum, Register DstRegNum) {
     // Do copy. There are two matching subregisters, the source value should
     // have been def'd when the super-reg was, the latter might not be tracked
     // yet.
-    // This will force SrcSubReg to be tracked, if it isn't yet.
+    // This will force SrcSubReg to be tracked, if it isn't yet. Will read
+    // mphi values if it wasn't tracked.
     LocIdx SrcL = MTracker->lookupOrTrackRegister(SrcSubReg);
     LocIdx DstL = MTracker->lookupOrTrackRegister(DstSubReg);
+    (void)SrcL;
     (void)DstL;
-    ValueIDNum CpyValue = {SrcValue.getBlock(), SrcValue.getInst(), SrcL};
+    ValueIDNum CpyValue = MTracker->readReg(SrcSubReg);
 
     MTracker->setReg(DstSubReg, CpyValue);
   }
@@ -2666,6 +2668,10 @@ void InstrRefBasedLDV::produceMLocTransferFunction(
   for (auto &BV : BlockMasks)
     BV.resize(TRI->getNumRegs(), true);
 
+// A vector recording _when_ a location began being tracked, indexed by
+// LocIdx number. Used for faffing register masks.
+IndexedMap<unsigned, LocIdxToIndexFunctor> OriginBlock;
+
   // Step through all instructions and inhale the transfer function.
   for (auto &MBB : MF) {
     // Object fields that are read by trackers to know where we are in the
@@ -2727,6 +2733,15 @@ ValueIDNum NewID2 = MTracker->getNumAtPos(NewID.getLoc());
     for (auto &P : MTracker->Masks) {
       BlockMasks[CurBB].clearBitsNotInMask(P.first->getRegMask(), BVWords);
     }
+
+    // Record any new locations being tracked, specify their origin block.
+    unsigned OriginBlockSize = OriginBlock.size();
+    unsigned NumLocs = MTracker->getNumLocs();
+    if (OriginBlockSize < NumLocs) {
+      OriginBlock.grow(NumLocs);
+      for (unsigned I = OriginBlockSize; I < NumLocs; ++I)
+        OriginBlock[LocIdx(I)] = MBB.getNumber();
+    }
   }
 
   // Compute a bitvector of all the registers that are tracked in this block.
@@ -2753,6 +2768,14 @@ ValueIDNum NewID2 = MTracker->getNumAtPos(NewID.getLoc());
     for (unsigned Bit : BV.set_bits()) {
       unsigned ID = MTracker->getLocID(Bit, false, 0);
       LocIdx Idx = MTracker->LocIDToLocIdx[ID];
+
+      // Don't do this past the point where we started tracking the register.
+      // After that point, regmasks are observed for this register. XXX,
+      // MLocTracker has hacks to ensure that this works within a block, add
+      // a test for that. 
+      if (OriginBlock[Idx] <= I)
+        continue;
+
       auto &TransferMap = MLocTransfer[I];
 
       // Install a value representing the fact that this location is effectively
