@@ -453,6 +453,8 @@ public:
   /// Cached local copy of the number of registers the target has.
   unsigned NumRegs;
 
+unsigned NumSubRegs;
+
   /// Collection of register mask operands that have been observed. Second part
   /// of pair indicates the instruction that they happened in. Used to
   /// reconstruct where defs happened if we start tracking a location later
@@ -502,6 +504,7 @@ public:
         LocIdxToIDNum(ValueIDNum::EmptyValue),
         LocIdxToLocID(0) {
     NumRegs = TRI.getNumRegs();
+    NumSubRegs = TRI.getNumSubRegIndices();
     reset();
     LocIDToLocIdx.resize(NumRegs, LocIdx::MakeIllegalLoc());
     assert(NumRegs < (1u << NUM_LOC_BITS)); // Detect bit packing failure
@@ -511,15 +514,36 @@ public:
     // regmasks that claim to clobber SP).
     Register SP = TLI.getStackPointerRegisterToSaveRestore();
     if (SP) {
-      unsigned ID = getLocID(SP, false);
+      unsigned ID = getLocID(SP, false, 0);
       (void)lookupOrTrackRegister(ID);
     }
   }
 
   /// Produce location ID number for indexing LocIDToLocIdx. Takes the register
   /// or spill number, and flag for whether it's a spill or not.
-  unsigned getLocID(Register RegOrSpill, bool isSpill) {
-    return (isSpill) ? RegOrSpill.id() + NumRegs - 1 : RegOrSpill.id();
+  unsigned getLocID(Register RegOrSpill, bool isSpill, unsigned SpillSubReg) {
+    if (!isSpill)
+      return RegOrSpill.id();
+
+    unsigned SlotNo = RegOrSpill.id() - 1;
+    SlotNo *= NumSubRegs;
+    SlotNo += SpillSubReg;
+    SlotNo += NumRegs;
+    return SlotNo;
+  }
+
+  unsigned locIDToSpill(unsigned ID) const {
+    assert(ID >= NumRegs);
+    ID -= NumRegs;
+    ID /= NumSubRegs;
+    return ID + 1; // The UniqueVector is one-based.
+  }
+
+  unsigned locIDToSpillSubReg(unsigned ID) const {
+    assert(ID >= NumRegs);
+    ID -= NumRegs;
+    unsigned SubReg = ID % NumSubRegs;
+    return SubReg;
   }
 
   /// Accessor for reading the value at Idx.
@@ -611,7 +635,7 @@ public:
   /// This doesn't take a ValueIDNum, because the definition and its location
   /// are synonymous.
   void defReg(Register R, unsigned BB, unsigned Inst) {
-    unsigned ID = getLocID(R, false);
+    unsigned ID = getLocID(R, false, 0);
     LocIdx Idx = lookupOrTrackRegister(ID);
     ValueIDNum ValueID = {BB, Inst, Idx};
     LocIdxToIDNum[Idx] = ValueID;
@@ -620,13 +644,13 @@ public:
   /// Set a register to a value number. To be used if the value number is
   /// known in advance.
   void setReg(Register R, ValueIDNum ValueID) {
-    unsigned ID = getLocID(R, false);
+    unsigned ID = getLocID(R, false, 0);
     LocIdx Idx = lookupOrTrackRegister(ID);
     LocIdxToIDNum[Idx] = ValueID;
   }
 
   ValueIDNum readReg(Register R) {
-    unsigned ID = getLocID(R, false);
+    unsigned ID = getLocID(R, false, 0);
     LocIdx Idx = lookupOrTrackRegister(ID);
     return LocIdxToIDNum[Idx];
   }
@@ -636,14 +660,16 @@ public:
   /// clears the contents of the source register. (Values can only have one
   ///  machine location in VarLocBasedImpl).
   void wipeRegister(Register R) {
-    unsigned ID = getLocID(R, false);
+    unsigned ID = getLocID(R, false, 0);
     LocIdx Idx = LocIDToLocIdx[ID];
     LocIdxToIDNum[Idx] = ValueIDNum::EmptyValue;
   }
 
   /// Determine the LocIdx of an existing register.
-  LocIdx getRegMLoc(Register R) {
-    unsigned ID = getLocID(R, false);
+  Optional<LocIdx> getRegMLoc(Register R) {
+    unsigned ID = getLocID(R, false, 0);
+    if (LocIDToLocIdx[ID] == UINT_MAX) // Sentinal for IndexedMap.
+      return None;
     return LocIDToLocIdx[ID];
   }
 
@@ -667,48 +693,51 @@ public:
   }
 
   /// Find LocIdx for SpillLoc \p L, creating a new one if it's not tracked.
-  LocIdx getOrTrackSpillLoc(SpillLoc L) {
+  LocIdx getOrTrackSpillLoc(SpillLoc L, unsigned ReqdSubReg) {
     unsigned SpillID = SpillLocs.idFor(L);
     if (SpillID == 0) {
       SpillID = SpillLocs.insert(L);
-      unsigned L = getLocID(SpillID, true);
-      LocIdx Idx = LocIdx(LocIdxToIDNum.size()); // New idx
-      LocIdxToIDNum.grow(Idx);
-      LocIdxToLocID.grow(Idx);
-      LocIDToLocIdx.push_back(Idx);
-      LocIdxToLocID[Idx] = L;
-      return Idx;
+      for (unsigned SubReg = 0; SubReg < NumSubRegs; ++SubReg) {
+        unsigned L = getLocID(SpillID, true, SubReg);
+        LocIdx Idx = LocIdx(LocIdxToIDNum.size()); // New idx
+        LocIdxToIDNum.grow(Idx);
+        LocIdxToLocID.grow(Idx);
+        LocIDToLocIdx.push_back(Idx);
+        LocIdxToLocID[Idx] = L;
+      }
+      unsigned L = getLocID(SpillID, true, ReqdSubReg);
+      return LocIDToLocIdx[L];
     } else {
-      unsigned L = getLocID(SpillID, true);
+      unsigned L = getLocID(SpillID, true, ReqdSubReg);
       LocIdx Idx = LocIDToLocIdx[L];
       return Idx;
     }
   }
 
   /// Set the value stored in a spill slot.
-  void setSpill(SpillLoc L, ValueIDNum ValueID) {
-    LocIdx Idx = getOrTrackSpillLoc(L);
+  void setSpill(SpillLoc L, unsigned SubReg, ValueIDNum ValueID) {
+    LocIdx Idx = getOrTrackSpillLoc(L, SubReg);
     LocIdxToIDNum[Idx] = ValueID;
   }
 
   /// Read whatever value is in a spill slot, or None if it isn't tracked.
-  Optional<ValueIDNum> readSpill(SpillLoc L) {
+  Optional<ValueIDNum> readSpill(SpillLoc L, unsigned SubReg) {
     unsigned SpillID = SpillLocs.idFor(L);
     if (SpillID == 0)
       return None;
 
-    unsigned LocID = getLocID(SpillID, true);
+    unsigned LocID = getLocID(SpillID, true, SubReg);
     LocIdx Idx = LocIDToLocIdx[LocID];
     return LocIdxToIDNum[Idx];
   }
 
   /// Determine the LocIdx of a spill slot. Return None if it previously
   /// hasn't had a value assigned.
-  Optional<LocIdx> getSpillMLoc(SpillLoc L) {
+  Optional<LocIdx> getSpillMLoc(SpillLoc L, unsigned SubReg) {
     unsigned SpillID = SpillLocs.idFor(L);
     if (SpillID == 0)
       return None;
-    unsigned LocNo = getLocID(SpillID, true);
+    unsigned LocNo = getLocID(SpillID, true, SubReg);
     return LocIDToLocIdx[LocNo];
   }
 
@@ -732,10 +761,14 @@ public:
 
   std::string LocIdxToName(LocIdx Idx) const {
     unsigned ID = LocIdxToLocID[Idx];
-    if (ID >= NumRegs)
-      return Twine("slot ").concat(Twine(ID - NumRegs)).str();
-    else
+    if (ID >= NumRegs) {
+      ID -= NumRegs;
+      unsigned Slot = ID / NumSubRegs;
+      unsigned SubReg = ID % NumSubRegs;
+      return Twine("slot ").concat(Twine(Slot).concat(Twine(" subreg ").concat(Twine(SubReg)))).str();
+    } else {
       return TRI.getRegAsmName(ID).str();
+    }
   }
 
   std::string IDAsString(const ValueIDNum &Num) const {
@@ -777,8 +810,9 @@ public:
       MIB.addReg(0, RegState::Debug);
     } else if (LocIdxToLocID[*MLoc] >= NumRegs) {
       unsigned LocID = LocIdxToLocID[*MLoc];
-      const SpillLoc &Spill = SpillLocs[LocID - NumRegs + 1];
-
+      unsigned SpillID = locIDToSpill(LocID);
+      // XXX XXX XXX we drop subregisters here.
+      const SpillLoc &Spill = SpillLocs[SpillID];
       auto *TRI = MF.getSubtarget().getRegisterInfo();
       Expr = TRI->prependOffsetExpression(Expr, DIExpression::ApplyOffset,
                                           Spill.SpillOffset);
@@ -1108,6 +1142,7 @@ public:
       if (ValuesPreferredLoc != ValueToLoc.end())
         M = ValuesPreferredLoc->second;
 
+#if 0
       if (!M && !MTracker->isSpill(Num.getLoc())) {
         // uuuhhh, are there are any super registers in spills? 
         for (auto &Reg : TRI.superregs(MTracker->LocIdxToLocID[Num.getLoc()])) {
@@ -1118,6 +1153,7 @@ public:
         }
         // XXX XXX XXX Might need to apply subregisters?
       }
+#endif
 
       if (!M) {
         // If it's a def that occurs in this block, register it as a
@@ -1268,7 +1304,7 @@ public:
     }
 
     Register Reg = MO.getReg();
-    LocIdx NewLoc = MTracker->getRegMLoc(Reg);
+    LocIdx NewLoc = *MTracker->getRegMLoc(Reg);
     redefVar(MI, Properties, NewLoc);
   }
 
@@ -1873,8 +1909,17 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
     if (OpNo == MachineFunction::DebugOperandMemNumber &&
         TargetInstr.hasOneMemOperand()) {
       auto SpillLoc =  extractSpillBaseRegAndOffset(TargetInstr);
-      LocIdx L = MTracker->getOrTrackSpillLoc(SpillLoc);
-      NewID = ValueIDNum(BlockNo, InstrIt->second.second, L);
+      // XXX XXX XXX -- good assumption that folded spills always write the
+      // whole slot? I guess it always writes something large with no offset,
+      // so defs everything.
+      auto Opt = MTracker->getSpillMLoc(SpillLoc, 0);
+      if (Opt) {
+        LocIdx L = MTracker->getOrTrackSpillLoc(SpillLoc, 0);
+        NewID = ValueIDNum(BlockNo, InstrIt->second.second, L);
+      } else {
+        // If the slot wasn't tracked, don't try to track it!
+        NewID = None;
+      }
     } else if (OpNo != MachineFunction::DebugOperandMemNumber) {
       assert(OpNo < TargetInstr.getNumOperands());
       const MachineOperand &MO = TargetInstr.getOperand(OpNo);
@@ -1882,7 +1927,7 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
       // Today, this can only be a register.
       assert(MO.isReg() && MO.isDef());
 
-      unsigned LocID = MTracker->getLocID(MO.getReg(), false);
+      unsigned LocID = MTracker->getLocID(MO.getReg(), false, 0);
       LocIdx L = MTracker->LocIDToLocIdx[LocID];
       NewID = ValueIDNum(BlockNo, InstrIt->second.second, L);
     }
@@ -2053,6 +2098,12 @@ bool InstrRefBasedLDV::transferDebugPHI(MachineInstr &MI) {
     assert(MO.isFI());
     unsigned FI = MO.getIndex();
 
+    // We could track a subregister within a slot where a PHI occurs...
+    // however it's not clear that this ever happens. It should be Easy (TM)
+    // to express that if it happens. In the mean time, the PHI always refers
+    // to the whole slot, with no subreg.
+    unsigned SubReg = 0;
+
     // If the stack slot is dead, then this was optimized away.
     // FIXME: stack slot colouring should account for slots that get merged.
     if (MFI->isDeadObjectIndex(FI))
@@ -2063,13 +2114,13 @@ bool InstrRefBasedLDV::transferDebugPHI(MachineInstr &MI) {
     const MachineFunction *MF = MI.getParent()->getParent();
     int64_t offs = TFI->getFrameIndexReference(*MF, FI, Base);
     SpillLoc SL = {Base, (int)offs};
-    Optional<ValueIDNum> Num = MTracker->readSpill(SL);
+    Optional<ValueIDNum> Num = MTracker->readSpill(SL, SubReg);
 
     if (!Num)
       // Nothing ever writes to this slot. Curious, but nothing we can do.
       return true;
 
-    auto LocAndNum = DebugPHIRecord({InstrNum, MI.getParent(), *Num, *MTracker->getSpillMLoc(SL)});
+    auto LocAndNum = DebugPHIRecord({InstrNum, MI.getParent(), *Num, *MTracker->getSpillMLoc(SL, SubReg)});
     DebugPHINumToValue.push_back(LocAndNum);
   }
 
@@ -2132,8 +2183,10 @@ void InstrRefBasedLDV::transferRegisterDef(MachineInstr &MI) {
       !(*MI.memoperands_begin())->getPseudoValue()->isAliased(MFI))
  {
     SpillLoc Spill = extractSpillBaseRegAndOffset(MI);
-    LocIdx L = MTracker->getOrTrackSpillLoc(Spill);
-    MTracker->setSpill(Spill, ValueIDNum(CurBB, CurInst, L));
+    for (unsigned SubReg = 0; SubReg < MTracker->NumSubRegs; ++SubReg) {
+      LocIdx L = MTracker->getOrTrackSpillLoc(Spill, SubReg);
+      MTracker->setSpill(Spill, SubReg, ValueIDNum(CurBB, CurInst, L));
+    }
   }
 
   if (!TTracker)
@@ -2168,8 +2221,10 @@ void InstrRefBasedLDV::transferRegisterDef(MachineInstr &MI) {
       (*MI.memoperands_begin())->getPseudoValue()->kind() == PseudoSourceValue::FixedStack &&
       !(*MI.memoperands_begin())->getPseudoValue()->isAliased(MFI)) {
     SpillLoc Spill = extractSpillBaseRegAndOffset(MI);
-    LocIdx L = MTracker->getOrTrackSpillLoc(Spill);
-    TTracker->clobberMloc(L, MI.getIterator(), true);
+    for (unsigned SubReg = 0; SubReg < MTracker->NumSubRegs; ++SubReg) {
+      LocIdx L = MTracker->getOrTrackSpillLoc(Spill, SubReg);
+      TTracker->clobberMloc(L, MI.getIterator(), true);
+    }
   }
 }
 
@@ -2208,12 +2263,8 @@ void InstrRefBasedLDV::performCopy(Register SrcRegNum, Register DstRegNum) {
     // have been def'd when the super-reg was, the latter might not be tracked
     // yet.
     // This will force SrcSubReg to be tracked, if it isn't yet.
-    (void)MTracker->readReg(SrcSubReg);
-    LocIdx SrcL = MTracker->getRegMLoc(SrcSubReg);
-    assert(SrcL.asU64());
-    (void)MTracker->readReg(DstSubReg);
-    LocIdx DstL = MTracker->getRegMLoc(DstSubReg);
-    assert(DstL.asU64());
+    LocIdx SrcL = MTracker->lookupOrTrackRegister(SrcSubReg);
+    LocIdx DstL = MTracker->lookupOrTrackRegister(DstSubReg);
     (void)DstL;
     ValueIDNum CpyValue = {SrcValue.getBlock(), SrcValue.getInst(), SrcL};
 
@@ -2330,9 +2381,11 @@ bool InstrRefBasedLDV::transferSpillOrRestoreInst(MachineInstr &MI) {
     Loc = extractSpillBaseRegAndOffset(MI);
 
     if (TTracker) {
-      Optional<LocIdx> MLoc = MTracker->getSpillMLoc(*Loc);
-      if (MLoc)
-        TTracker->clobberMloc(*MLoc, MI.getIterator());
+      for (unsigned SubReg = 0; SubReg < MTracker->NumSubRegs; ++SubReg) {
+        Optional<LocIdx> MLoc = MTracker->getSpillMLoc(*Loc, SubReg);
+        if (MLoc)
+          TTracker->clobberMloc(*MLoc, MI.getIterator());
+      }
     }
   }
 
@@ -2341,55 +2394,116 @@ bool InstrRefBasedLDV::transferSpillOrRestoreInst(MachineInstr &MI) {
     Loc = extractSpillBaseRegAndOffset(MI);
     auto ValueID = MTracker->readReg(Reg);
 
+// Find the greatest super register.
+Register lolreg = Reg;
+do {
+  auto range = TRI->superregs(lolreg);
+  if (range.empty())
+    break;
+  lolreg = *range.begin();
+} while (true);
+
+unsigned subreg = TRI->getSubRegIndex(lolreg, Reg);
+if (subreg && TRI->getSubRegIdxOffset(subreg))
+  __asm__("int $3");
+
     // If the location is empty, produce a phi, signify it's the live-in value.
     if (ValueID.getLoc() == 0)
-      ValueID = {CurBB, 0, MTracker->getRegMLoc(Reg)};
+      ValueID = {CurBB, 0, *MTracker->getRegMLoc(Reg)};
 
-    MTracker->setSpill(*Loc, ValueID);
-    auto OptSpillLocIdx = MTracker->getSpillMLoc(*Loc);
-    assert(OptSpillLocIdx && "Spill slot set but has no LocIdx?");
-    LocIdx SpillLocIdx = *OptSpillLocIdx;
+// Ensure tracked.
+MTracker->getOrTrackSpillLoc(*Loc, 0);
+
+// First def all the subregs,
+for (unsigned SubReg = 0; SubReg < MTracker->NumSubRegs; ++SubReg) {
+  ValueIDNum clobbervalue = {CurBB, CurInst, *MTracker->getSpillMLoc(*Loc, SubReg)};
+  MTracker->setSpill(*Loc, SubReg, clobbervalue);
+}
+
+// OK, transfer subreg bits.
+for (MCSubRegIterator foo(Reg, TRI, true); foo.isValid(); ++foo) {
+  unsigned subreg = TRI->getSubRegIndex(lolreg, *foo);
+  // Risk that this reg isn't yet tracked,
+  LocIdx SrcIdx = MTracker->lookupOrTrackRegister(*foo);
+  ValueIDNum ValTwo = MTracker->readReg(*foo);
+  MTracker->setSpill(*Loc, subreg, ValTwo);
+  LocIdx DstLoc = *MTracker->getSpillMLoc(*Loc, subreg);
+  
+  if (TTracker)
+    TTracker->transferMlocs(SrcIdx, DstLoc, MI.getIterator());
+
+}
 
     // Tell TransferTracker about this spill, produce DBG_VALUEs for it.
-    if (TTracker)
-      TTracker->transferMlocs(MTracker->getRegMLoc(Reg), SpillLocIdx,
-                              MI.getIterator());
+
+    // VarLocBasedImpl would, at this point, stop tracking the source
+    // register of the store.
+// XXX!
   } else {
     if (!(Loc = isRestoreInstruction(MI, MF, Reg)))
       return false;
 
     // Is there a value to be restored?
-    auto OptValueID = MTracker->readSpill(*Loc);
+    auto OptValueID = MTracker->readSpill(*Loc, 0);
     if (OptValueID) {
+
+// Assumption: we're reading from the base of the stack slot, not some offset
+// into it. This then becomes a question of what subregisters line up with
+// that point.
+
+Register lolreg = Reg;
+do {
+  auto range = TRI->superregs(lolreg);
+  if (range.empty())
+    break;
+  lolreg = *range.begin();
+} while (true);
+
+// Assume that we only load to a register with no offset, i.e. no load
+// of ah from a 64 bit slot.
+unsigned subreg = TRI->getSubRegIndex(lolreg, Reg);
+if (subreg && TRI->getSubRegIdxOffset(subreg))
+  __asm__("int $3");
+
+// Def all aliasing values,
+for (MCRegAliasIterator RAI(Reg, TRI, true); RAI.isValid(); ++RAI)
+  MTracker->defReg(*RAI, CurBB, CurInst);
+
+
       ValueIDNum ValueID = *OptValueID;
-      LocIdx SpillLocIdx = *MTracker->getSpillMLoc(*Loc);
-      // XXX -- can we recover sub-registers of this value? Until we can, first
-      // overwrite all defs of the register being restored to.
-      for (MCRegAliasIterator RAI(Reg, TRI, true); RAI.isValid(); ++RAI)
-        MTracker->defReg(*RAI, CurBB, CurInst);
 
-      // Now override the reg we're restoring to.
-      MTracker->setReg(Reg, ValueID);
+// Now load all subregs.
+for (MCSubRegIterator foo(Reg, TRI, true); foo.isValid(); ++foo) {
+  unsigned subreg = TRI->getSubRegIndex(lolreg, *foo);
+  LocIdx SrcIdx = *MTracker->getRegMLoc(*foo);
+  ValueIDNum ValTwo = {ValueID.getBlock(), ValueID.getInst(), SrcIdx};
+  auto ReadValue = *MTracker->readSpill(*Loc, subreg);
+  MTracker->setReg(*foo, ReadValue);
+  LocIdx DstLoc = *MTracker->getSpillMLoc(*Loc, subreg);
+  
+  if (TTracker)
+    TTracker->transferMlocs(SrcIdx, DstLoc, MI.getIterator());
 
-      // Report this restore to the transfer tracker too.
-      if (TTracker)
-        TTracker->transferMlocs(SpillLocIdx, MTracker->getRegMLoc(Reg),
-                                MI.getIterator());
+}
     } else {
       // There isn't anything in the location; not clear if this is a code path
       // that still runs. Def this register anyway just in case.
       for (MCRegAliasIterator RAI(Reg, TRI, true); RAI.isValid(); ++RAI)
         MTracker->defReg(*RAI, CurBB, CurInst);
 
-      // Force the spill slot to be tracked.
-      LocIdx L = MTracker->getOrTrackSpillLoc(*Loc);
+for (unsigned SubReg = 0; SubReg < MTracker->NumSubRegs; ++SubReg) {
+      // Force the spill slot to be tracked. Pass in zero subreg, getOrTrack...
+      // will create all the subreg points.
+      LocIdx L = MTracker->getOrTrackSpillLoc(*Loc, SubReg);
 
       // Set the restored value to be a machine phi number, signifying that it's
       // whatever the spills live-in value is in this block. Definitely has
       // a LocIdx due to the setSpill above.
+
       ValueIDNum ValueID = {CurBB, 0, L};
       MTracker->setReg(Reg, ValueID);
-      MTracker->setSpill(*Loc, ValueID);
+      MTracker->setSpill(*Loc, SubReg, ValueID);
+}
     }
   }
   return true;
@@ -2440,8 +2554,8 @@ bool InstrRefBasedLDV::transferRegisterCopy(MachineInstr &MI) {
   // would have. We might make use of the additional value tracking in some
   // other way, later.
   if (TTracker && isCalleeSavedReg(DestReg) && SrcRegOp->isKill())
-    TTracker->transferMlocs(MTracker->getRegMLoc(SrcReg),
-                            MTracker->getRegMLoc(DestReg), MI.getIterator());
+    TTracker->transferMlocs(*MTracker->getRegMLoc(SrcReg),
+                            *MTracker->getRegMLoc(DestReg), MI.getIterator());
 
   // VarLocBasedImpl would quit tracking the old location after copying.
   if (EmulateOldLDV && SrcReg != DestReg)
@@ -2451,8 +2565,9 @@ bool InstrRefBasedLDV::transferRegisterCopy(MachineInstr &MI) {
   // register. Tell TTracker about it, in case a backup location exists.
   if (TTracker) {
     for (MCRegAliasIterator RAI(DestReg, TRI, true); RAI.isValid(); ++RAI) {
-      LocIdx ClobberedLoc = MTracker->getRegMLoc(*RAI);
-      TTracker->clobberMloc(ClobberedLoc, MI.getIterator(), false);
+      if (auto OptClobberedLoc = MTracker->getRegMLoc(*RAI)) {
+        TTracker->clobberMloc(*OptClobberedLoc, MI.getIterator(), false);
+      }
     }
   }
 
@@ -2595,6 +2710,11 @@ void InstrRefBasedLDV::produceMLocTransferFunction(
       if (P.isPHI() && P.getLoc() == Idx.asU64())
         continue;
 
+// XXX for assertions,
+ValueIDNum NewID = MTracker->getNumAtPos(Location.Idx);
+ValueIDNum NewID2 = MTracker->getNumAtPos(NewID.getLoc());
+(void)NewID2;
+
       // Insert-or-update.
       auto &TransferMap = MLocTransfer[CurBB];
       auto Result = TransferMap.insert(std::make_pair(Idx.asU64(), P));
@@ -2631,7 +2751,7 @@ void InstrRefBasedLDV::produceMLocTransferFunction(
     // they're all clobbered or at least set in the designated transfer
     // elem.
     for (unsigned Bit : BV.set_bits()) {
-      unsigned ID = MTracker->getLocID(Bit, false);
+      unsigned ID = MTracker->getLocID(Bit, false, 0);
       LocIdx Idx = MTracker->LocIDToLocIdx[ID];
       auto &TransferMap = MLocTransfer[I];
 
