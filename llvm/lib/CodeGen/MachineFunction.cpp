@@ -991,6 +991,34 @@ void MachineFunction::substituteDebugValuesForInst(const MachineInstr &Old,
   }
 }
 
+auto MachineFunction::testForArgumentToDebugSalvage(MachineInstr &MI) -> Optional<DebugInstrOperandPair>{
+  const TargetInstrInfo &TII = *getSubtarget().getInstrInfo();
+  int FI;
+  unsigned Bytes;
+  if (MI.getParent() == &*begin() && MI.hasOneMemOperand() &&
+      TII.isLoadFromStackSlot(MI, FI, Bytes)) {
+    auto MemOp = *MI.memoperands_begin();
+    auto *PSV = MemOp->getPseudoValue();
+    // Ooof: it's an argument. Let a later salvage thing handle this. This
+    // wouldn't be needed if trivial remats were handled well.
+    if (PSV && !PSV->isAliased(&getFrameInfo()) && PSV->kind() == PseudoSourceValue::FixedStack) {
+
+// XXX XXX XXX
+  auto Builder = BuildMI(*begin(), begin()->getFirstNonPHI(), DebugLoc(),
+                         TII.get(TargetOpcode::DBG_PHI));
+  Builder.addFrameIndex(FI);
+  unsigned NewNum = getNewDebugInstrNum();
+  Builder.addImm(NewNum);
+  MachineInstr *NewInst = Builder;
+  return DebugInstrOperandPair(NewNum, 0u);
+
+
+      }
+    }
+
+  return None;
+}
+
 auto MachineFunction::salvageCopySSA(MachineInstr &MI)
     -> Optional<DebugInstrOperandPair> {
   MachineRegisterInfo &MRI = getRegInfo();
@@ -1097,6 +1125,32 @@ auto MachineFunction::salvageCopySSA(MachineInstr &MI)
   if (State.first.isVirtual()) {
     // Virtual register def -- we can just look up where this happens.
     MachineInstr *Inst = MRI.def_begin(State.first)->getParent();
+
+    // An exceptional case: if this looks like a load-from-stack-slot of an
+    // argument, then issue a DBG_PHI for the slot.
+    int FI;
+    unsigned Bytes;
+    if (Inst->getParent() == &*begin() && Inst->hasOneMemOperand() &&
+        TII.isLoadFromStackSlot(*Inst, FI, Bytes)) {
+      auto MemOp = *Inst->memoperands_begin();
+      auto *PSV = MemOp->getPseudoValue();
+      // Ooof: it's an argument. Let a later salvage thing handle this. This
+      // wouldn't be needed if trivial remats were handled well.
+      if (PSV && !PSV->isAliased(&getFrameInfo()) && PSV->kind() == PseudoSourceValue::FixedStack) {
+
+// XXX XXX XXX
+  auto Builder = BuildMI(*begin(), begin()->getFirstNonPHI(), DebugLoc(),
+                         TII.get(TargetOpcode::DBG_PHI));
+  Builder.addFrameIndex(FI);
+  unsigned NewNum = getNewDebugInstrNum();
+  Builder.addImm(NewNum);
+  MachineInstr *NewInst = Builder;
+  return ApplySubregisters({NewNum, 0u});
+
+
+      }
+    }
+
     for (auto &MO : Inst->operands()) {
       if (!MO.isReg() || !MO.isDef() || MO.getReg() != State.first)
         continue;
