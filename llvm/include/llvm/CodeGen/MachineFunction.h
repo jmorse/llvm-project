@@ -509,6 +509,8 @@ public:
   ///          value, or None if nothing could be recovered.
   Optional<DebugInstrOperandPair> salvageCopySSA(MachineInstr &MI);
 
+Optional<DebugInstrOperandPair> testForArgumentToDebugSalvage(MachineInstr &MI);
+
   void undoDebugValueSubstitution(const MachineInstr &Old,
                                   unsigned MaxIdx = UINT_MAX);
 
