@@ -2094,6 +2094,12 @@ bool InstrRefBasedLDV::transferDebugPHI(MachineInstr &MI) {
     ValueIDNum Num = MTracker->readReg(Reg);
     auto PHIRec = DebugPHIRecord({InstrNum, MI.getParent(), Num, MTracker->lookupOrTrackRegister(Reg)});
     DebugPHINumToValue.push_back(PHIRec);
+
+    // Also track all the subregisters, we may end up referring to one of them.
+    // We can't express subregister variable locations otherwise.
+    for (MCSubRegIterator SRI(Reg, TRI, false); SRI.isValid(); ++SRI)
+      MTracker->trackRegister(*SRI);
+
   } else {
     // The value is whatever's in this stack slot.
     assert(MO.isFI());
