@@ -1284,6 +1284,7 @@ tryInstructionTransform(MachineBasicBlock::iterator &mi,
           LLVM_DEBUG(dbgs() << "2addr: ABANDONING UNFOLD\n");
           NewMIs[0]->eraseFromParent();
           NewMIs[1]->eraseFromParent();
+          MF->undoDebugValueSubstitution(MI);
         }
       }
     }
