@@ -704,6 +704,7 @@ unsigned NumSubRegs;
         LocIdxToLocID.grow(Idx);
         LocIDToLocIdx.push_back(Idx);
         LocIdxToLocID[Idx] = L;
+        LocIdxToIDNum[Idx] = ValueIDNum(CurBB, 0, Idx); // Set as MPhi
       }
       unsigned L = getLocID(SpillID, true, ReqdSubReg);
       return LocIDToLocIdx[L];
