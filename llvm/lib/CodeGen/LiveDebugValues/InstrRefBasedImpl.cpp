@@ -2123,11 +2123,20 @@ bool InstrRefBasedLDV::transferDebugPHI(MachineInstr &MI) {
     SpillLoc SL = {Base, (int)offs};
     Optional<ValueIDNum> Num = MTracker->readSpill(SL, SubReg);
 
-    if (!Num)
+    if (!Num && !MFI->isFixedObjectIndex(FI))
       // Nothing ever writes to this slot. Curious, but nothing we can do.
       return true;
 
-    auto LocAndNum = DebugPHIRecord({InstrNum, MI.getParent(), *Num, *MTracker->getSpillMLoc(SL, SubReg)});
+    // XXX -- document that it's super important that DBG_PHIs are only made
+    // for PSVs that are not aliased. If we can't see all writes in
+    // LiveDebugValues, it's not safe to use that location at all.
+
+    // Allow un-read fixed object indexes. They can be arguments!
+    LocIdx MLoc = MTracker->getOrTrackSpillLoc(SL, SubReg);
+    Num = MTracker->readSpill(SL, SubReg);
+    assert(Num);
+
+    auto LocAndNum = DebugPHIRecord({InstrNum, MI.getParent(), *Num, MLoc});
     DebugPHINumToValue.push_back(LocAndNum);
   }
 
