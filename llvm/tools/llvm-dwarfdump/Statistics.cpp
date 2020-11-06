@@ -410,6 +410,11 @@ static void collectStatsRecursive(DWARFDie Die, std::string FnPrefix, std::strin
   const bool IsFunction = Tag == dwarf::DW_TAG_subprogram;
   const bool IsBlock = Tag == dwarf::DW_TAG_lexical_block;
   const bool IsInlinedFunction = Tag == dwarf::DW_TAG_inlined_subroutine;
+
+if (IsFunction) {
+std::cout << "GOOD MORNING " << constructDieID(Die) << std::endl;
+}
+
   if (IsFunction || IsInlinedFunction || IsBlock) {
 
     // Reset VarPrefix when entering a new function.
@@ -457,7 +462,7 @@ static void collectStatsRecursive(DWARFDie Die, std::string FnPrefix, std::strin
           Die.findRecursively(dwarf::DW_AT_decl_line))
         FnStats.HasSourceLocation = true;
       // Update function prefix.
-jeremyprefix = FnPrefix + std::string("/") + FnID;
+jeremyprefix = jeremyprefix + std::string("/") + FnID;
       FnPrefix = FnID;
     }
 
@@ -491,7 +496,7 @@ jeremyprefix = FnPrefix + std::string("/") + FnID;
     if (Child.getTag() == dwarf::DW_TAG_formal_parameter)
       ChildVarPrefix += 'p' + toHex(FormalParameterIndex++) + '.';
 
-    std::string tmpprefix = jeremyprefix + std::string("/") + ChildVarPrefix;
+    std::string tmpprefix = jeremyprefix + std::string("/") + VarPrefix;
     collectStatsRecursive(Child, FnPrefix, tmpprefix, ChildVarPrefix, BytesInScope,
                           InlineDepth, FnStatMap, GlobalStats, LocStats);
     Child = Child.getSibling();
