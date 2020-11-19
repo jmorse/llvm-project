@@ -2098,7 +2098,7 @@ bool InstrRefBasedLDV::transferDebugPHI(MachineInstr &MI) {
     // Also track all the subregisters, we may end up referring to one of them.
     // We can't express subregister variable locations otherwise.
     for (MCSubRegIterator SRI(Reg, TRI, false); SRI.isValid(); ++SRI)
-      MTracker->trackRegister(*SRI);
+      MTracker->lookupOrTrackRegister(*SRI);
 
   } else {
     // The value is whatever's in this stack slot.
