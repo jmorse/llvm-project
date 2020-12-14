@@ -10,6 +10,7 @@
 #define LLVM_LIB_CODEGEN_LIVEDEBUGVALUES_LIVEDEBUGVALUES_H
 
 #include "llvm/CodeGen/MachineFunction.h"
+#include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
 
 namespace llvm {
@@ -32,6 +33,38 @@ public:
 // Factory functions for LiveDebugValues implementations.
 extern LDVImpl *makeVarLocBasedLiveDebugValues();
 extern LDVImpl *makeInstrRefBasedLiveDebugValues();
+
+/// Generic LiveDebugValues pass. Calls through to VarLocBasedLDV or
+/// InstrRefBasedLDV to perform location propagation, via the LDVImpl
+/// base class.
+class LiveDebugValues : public MachineFunctionPass {
+public:
+  static char ID;
+
+  LiveDebugValues();
+  ~LiveDebugValues() {
+    if (TheImpl)
+      delete TheImpl;
+  }
+
+  /// Calculate the liveness information for the given machine function.
+  bool runOnMachineFunction(MachineFunction &MF) override;
+
+  MachineFunctionProperties getRequiredProperties() const override {
+    return MachineFunctionProperties().set(
+        MachineFunctionProperties::Property::NoVRegs);
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.setPreservesCFG();
+    MachineFunctionPass::getAnalysisUsage(AU);
+  }
+
+private:
+  LDVImpl *TheImpl;
+  TargetPassConfig *TPC;
+};
+
 } // namespace llvm
 
 #endif // LLVM_LIB_CODEGEN_LIVEDEBUGVALUES_LIVEDEBUGVALUES_H

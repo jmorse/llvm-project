@@ -40,37 +40,6 @@ static cl::opt<bool>
                               "normal DBG_VALUE inputs"),
                      cl::init(false));
 
-/// Generic LiveDebugValues pass. Calls through to VarLocBasedLDV or
-/// InstrRefBasedLDV to perform location propagation, via the LDVImpl
-/// base class.
-class LiveDebugValues : public MachineFunctionPass {
-public:
-  static char ID;
-
-  LiveDebugValues();
-  ~LiveDebugValues() {
-    if (TheImpl)
-      delete TheImpl;
-  }
-
-  /// Calculate the liveness information for the given machine function.
-  bool runOnMachineFunction(MachineFunction &MF) override;
-
-  MachineFunctionProperties getRequiredProperties() const override {
-    return MachineFunctionProperties().set(
-        MachineFunctionProperties::Property::NoVRegs);
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.setPreservesCFG();
-    MachineFunctionPass::getAnalysisUsage(AU);
-  }
-
-private:
-  LDVImpl *TheImpl;
-  TargetPassConfig *TPC;
-};
-
 char LiveDebugValues::ID = 0;
 
 char &llvm::LiveDebugValuesID = LiveDebugValues::ID;
