@@ -76,8 +76,9 @@ public:
   public:
     enum EntryKind { DbgValue, Clobber };
 
-    Entry(const MachineInstr *Instr, EntryKind Kind)
-        : Instr(Instr, Kind), EndIndex(NoEntry) {}
+    Entry(const MachineInstr *Instr, EntryKind Kind, const DebugVariable &Var,
+          const DIExpression *Expr)
+        : Instr(Instr, Kind), EndIndex(NoEntry), Expr(Expr), Var(Var) {}
 
     const MachineInstr *getInstr() const { return Instr.getPointer(); }
     EntryIndex getEndIndex() const { return EndIndex; }
@@ -92,6 +93,8 @@ public:
   private:
     PointerIntPair<const MachineInstr *, 1, EntryKind> Instr;
     EntryIndex EndIndex;
+    const DIExpression *Expr;
+    DebugVariable Var;
   };
   using Entries = SmallVector<Entry, 4>;
   using InlinedEntity = std::pair<const DINode *, const DILocation *>;
@@ -101,9 +104,9 @@ private:
   EntriesMap VarEntries;
 
 public:
-  bool startDbgValue(InlinedEntity Var, const MachineInstr &MI,
-                     EntryIndex &NewIndex);
-  EntryIndex startClobber(InlinedEntity Var, const MachineInstr &MI);
+  bool startDbgValue(const MachineInstr &MI, EntryIndex &NewIndex,
+                     const DebugVariable &Var, const DIExpression *Expr);
+  EntryIndex startClobber(const MachineInstr &MI, const DebugVariable &Var);
 
   Entry &getEntry(InlinedEntity Var, EntryIndex Index) {
     auto &Entries = VarEntries[Var];
