@@ -1174,7 +1174,6 @@ public:
       PendingDbgValues.push_back(
           MTracker->emitLoc(*M, Var.first, Var.second.Properties));
     }
-    flushDbgValues(MBB.instr_begin(), &MBB);
   }
 
   /// Record that \p Var has value \p ID, a value that becomes available
@@ -1214,7 +1213,6 @@ public:
       PendingDbgValues.push_back(MTracker->emitLoc(L, Use.Var, Use.Properties));
       // XXX extra tracking should be added, in mlocs/vlocs.
     }
-    flushDbgValues(pos, nullptr);
   }
 
   /// Helper to move created DBG_VALUEs into Transfers collection.
@@ -1379,7 +1377,6 @@ public:
         auto &Prop = ActiveVLocs.find(Var)->second.Properties;
         recoverAsEntryValue(Var, Prop, OldValue);
       }
-      flushDbgValues(Pos, nullptr);
       return;
     }
 
@@ -1414,8 +1411,6 @@ public:
     if (NewLoc)
       VarLocs[NewLoc->asU64()] = OldValue;
 
-    flushDbgValues(Pos, nullptr);
-
     ActiveMLocIt->second.clear();
   }
 
@@ -1446,7 +1441,6 @@ public:
       PendingDbgValues.push_back(MI);
     }
     ActiveMLocs[Src].clear();
-    flushDbgValues(Pos, nullptr);
 
     // XXX XXX XXX "pretend to be old LDV" means dropping all tracking data
     // about the old location.
@@ -2071,7 +2065,6 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
   // (XXX -- could morph the DBG_INSTR_REF in the future).
   MachineInstr *DbgMI = MTracker->emitLoc(FoundLoc, V, Properties);
   TTracker->PendingDbgValues.push_back(DbgMI);
-  TTracker->flushDbgValues(MI.getIterator(), nullptr);
   return true;
 }
 
@@ -3694,12 +3687,14 @@ void InstrRefBasedLDV::emitLocations(
     MTracker->loadFromArray(MInLocs[bbnum], bbnum);
     TTracker->loadInlocs(MBB, MInLocs[bbnum], SavedLiveIns[MBB.getNumber()],
                          NumLocs);
+    TTracker->flushDbgValues(MBB.instr_begin(), &MBB);
 
     CurBB = bbnum;
     CurInst = 1;
     for (auto &MI : MBB) {
       process(MI, MOutLocs, MInLocs);
       TTracker->checkInstForNewValues(CurInst, MI.getIterator());
+      TTracker->flushDbgValues(MI.getIterator(), nullptr);
       ++CurInst;
     }
   }
@@ -3721,8 +3716,9 @@ void InstrRefBasedLDV::emitLocations(
   // both the live-ins to a block, and any movements of values that happen
   // in the middle.
   for (auto &P : TTracker->Transfers) {
-    // Sort them according to appearance order.
-    llvm::sort(P.Insts, OrderDbgValues);
+    // Sort them according to appearance order. Needs to be stable sort;
+    // transferred copies appear to occasionally create two records...
+    llvm::stable_sort(P.Insts, OrderDbgValues);
     // Insert either before or after the designated point...
     if (P.MBB) {
       MachineBasicBlock &MBB = *P.MBB;
