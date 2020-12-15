@@ -2119,8 +2119,9 @@ bool InstrRefBasedLDV::transferDebugPHI(MachineInstr &MI) {
     // Identify this spill slot.
     Register Base;
     const MachineFunction *MF = MI.getParent()->getParent();
-    int64_t offs = TFI->getFrameIndexReference(*MF, FI, Base);
-    SpillLoc SL = {Base, (int)offs};
+    StackOffset Offs = TFI->getFrameIndexReference(*MF, FI, Base);
+    assert(Offs.getScalable() == 0);
+    SpillLoc SL = {Base, Offs};
     Optional<ValueIDNum> Num = MTracker->readSpill(SL, SubReg);
 
     if (!Num && !MFI->isFixedObjectIndex(FI))
