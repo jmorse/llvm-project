@@ -87,7 +87,9 @@ bool InstructionOrdering::isBefore(const MachineInstr *A,
 bool DbgValueHistoryMap::startDbgValue(const MachineInstr &MI,
                                        EntryIndex &NewIndex,
                                        const DebugVariable &Var,
-                                       const DIExpression *Expr) {
+                                       const DIExpression *Expr,
+                                       const MachineOperand &MO,
+                                       bool IsIndirect) {
   // Instruction range should start with a DBG_VALUE instruction for the
   // variable.
   assert(MI.isDebugValue() && "not a DBG_VALUE");
@@ -101,20 +103,21 @@ bool DbgValueHistoryMap::startDbgValue(const MachineInstr &MI,
                       << "\n");
     return false;
   }
-  Entries.emplace_back(&MI, Entry::DbgValue, Var, Expr);
+  Entries.emplace_back(&MI, Entry::DbgValue, Var, Expr, MO, IsIndirect);
   NewIndex = Entries.size() - 1;
   return true;
 }
 
 EntryIndex DbgValueHistoryMap::startClobber(const MachineInstr &MI,
-                                            const DebugVariable &Var) {
+                                            const DebugVariable &Var,
+                                            const MachineOperand &MO) {
   InlinedEntity Entity(Var.getVariable(), Var.getInlinedAt());
   auto &Entries = VarEntries[Entity];
   // If an instruction clobbers multiple registers that the variable is
   // described by, then we may have already created a clobbering instruction.
   if (Entries.back().isClobber() && Entries.back().getInstr() == &MI)
     return Entries.size() - 1;
-  Entries.emplace_back(&MI, Entry::Clobber, Var, nullptr);
+  Entries.emplace_back(&MI, Entry::Clobber, Var, nullptr, MO, false);
   return Entries.size() - 1;
 }
 
@@ -343,7 +346,8 @@ static void clobberRegEntries(const InlinedEntity &Entity, unsigned RegNo,
                               DbgValueHistoryMap &HistMap) {
   const DILocalVariable *DIVar = dyn_cast<const DILocalVariable>(Entity.first);
   DebugVariable Var(DIVar, None, Entity.second);
-  EntryIndex ClobberIndex = HistMap.startClobber(ClobberingInstr, Var);
+  MachineOperand MO = MachineOperand::CreateReg(RegNo, false);
+  EntryIndex ClobberIndex = HistMap.startClobber(ClobberingInstr, Var, MO);
 
   // Close all entries whose values are described by the register.
   SmallVector<EntryIndex, 4> IndicesToErase;
@@ -365,12 +369,14 @@ static void clobberRegEntries(const InlinedEntity &Entity, unsigned RegNo,
 static void handleNewDebugValue(const DebugVariable &Var,
                                 const DIExpression *Expr,
                                 const MachineInstr &DV,
+                                const MachineOperand &MO,
+                                bool IsIndirect,
                                 RegDescribedVarsMap &RegVars,
                                 DbgValueEntriesMap &LiveEntries,
                                 DbgValueHistoryMap &HistMap) {
   EntryIndex NewIndex;
   InlinedEntity Entity(Var.getVariable(), Var.getInlinedAt());
-  if (HistMap.startDbgValue(DV, NewIndex, Var, Expr)) {
+  if (HistMap.startDbgValue(DV, NewIndex, Var, Expr, MO, IsIndirect)) {
     SmallDenseMap<unsigned, bool, 4> TrackedRegs;
 
     // If we have created a new debug value entry, close all preceding
@@ -381,7 +387,7 @@ static void handleNewDebugValue(const DebugVariable &Var,
       auto &Entry = HistMap.getEntry(Entity, Index);
       assert(Entry.isDbgValue() && "Not a DBG_VALUE in LiveEntries");
       const MachineInstr &DV = *Entry.getInstr();
-      bool Overlaps = DIExpr->fragmentsOverlap(DV.getDebugExpression());
+      bool Overlaps = DIExpr->fragmentsOverlap(Entry.getExpr());
       if (Overlaps) {
         IndicesToErase.push_back(Index);
         Entry.endEntry(NewIndex);
@@ -459,7 +465,7 @@ void llvm::calculateDbgEntityHistory(const MachineFunction *MF,
                "Expected inlined-at fields to agree");
         DebugVariable Var(RawVar, Expr, MI.getDebugLoc()->getInlinedAt());
 
-        handleNewDebugValue(Var, Expr, MI, RegVars, LiveEntries, DbgValues);
+        handleNewDebugValue(Var, Expr, MI, MI.getDebugOperand(0), MI.isIndirectDebugValue(), RegVars, LiveEntries, DbgValues);
       } else if (MI.isDebugLabel()) {
         assert(MI.getNumOperands() == 1 && "Invalid DBG_LABEL instruction!");
         const DILabel *RawLabel = MI.getDebugLabel();
@@ -532,7 +538,9 @@ void llvm::calculateDbgEntityHistory(const MachineFunction *MF,
         // Create a clobbering entry. Variable with no fragment info.
         const DILocalVariable *DIVar = dyn_cast<const DILocalVariable>(Pair.first.first);
         DebugVariable Var(DIVar, None, Pair.first.second);
-        EntryIndex ClobIdx = DbgValues.startClobber(MBB.back(), Var);
+        // Use a $noreg as the end clobber.
+        MachineOperand MO = MachineOperand::CreateReg(0, false);
+        EntryIndex ClobIdx = DbgValues.startClobber(MBB.back(), Var, MO);
 
         // End all entries.
         InlinedEntity Entity(DIVar, Pair.first.second);

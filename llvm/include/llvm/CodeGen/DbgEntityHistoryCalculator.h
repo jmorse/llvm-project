@@ -13,6 +13,7 @@
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/LexicalScopes.h"
+#include "llvm/CodeGen/MachineOperand.h"
 #include <utility>
 
 namespace llvm {
@@ -77,10 +78,14 @@ public:
     enum EntryKind { DbgValue, Clobber };
 
     Entry(const MachineInstr *Instr, EntryKind Kind, const DebugVariable &Var,
-          const DIExpression *Expr)
-        : Instr(Instr, Kind), EndIndex(NoEntry), Expr(Expr), Var(Var) {}
+          const DIExpression *Expr, const MachineOperand &MO, bool IsIndirect)
+        : Instr(Instr, Kind), EndIndex(NoEntry), Expr(Expr), Var(Var), MO(MO), IsIndirect(IsIndirect) {}
 
     const MachineInstr *getInstr() const { return Instr.getPointer(); }
+    const DIExpression *getExpr() const { return Expr; }
+    const DebugVariable &getVar() const { return Var; }
+    const MachineOperand &getMO() const { return MO; }
+    bool getIsIndirect() const { return IsIndirect; }
     EntryIndex getEndIndex() const { return EndIndex; }
     EntryKind getEntryKind() const { return Instr.getInt(); }
 
@@ -95,6 +100,8 @@ public:
     EntryIndex EndIndex;
     const DIExpression *Expr;
     DebugVariable Var;
+    MachineOperand MO;
+    bool IsIndirect;
   };
   using Entries = SmallVector<Entry, 4>;
   using InlinedEntity = std::pair<const DINode *, const DILocation *>;
@@ -105,8 +112,10 @@ private:
 
 public:
   bool startDbgValue(const MachineInstr &MI, EntryIndex &NewIndex,
-                     const DebugVariable &Var, const DIExpression *Expr);
-  EntryIndex startClobber(const MachineInstr &MI, const DebugVariable &Var);
+                     const DebugVariable &Var, const DIExpression *Expr,
+                     const MachineOperand &MO, bool IsIndirect);
+  EntryIndex startClobber(const MachineInstr &MI, const DebugVariable &Var,
+                     const MachineOperand &MO);
 
   Entry &getEntry(InlinedEntity Var, EntryIndex Index) {
     auto &Entries = VarEntries[Var];

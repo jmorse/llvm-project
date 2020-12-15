@@ -161,7 +161,7 @@ public:
   }
 
   /// Initialize from a DBG_VALUE instruction.
-  void initializeDbgValue(const MachineInstr *DbgValue);
+  void initializeDbgValue(const MachineOperand &MO, const DIExpression *Expr, bool IsIndirect);
 
   // Accessors.
   const DILocalVariable *getVariable() const {

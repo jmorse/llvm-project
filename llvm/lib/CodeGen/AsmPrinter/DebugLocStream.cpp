@@ -40,7 +40,8 @@ void DebugLocStream::finalizeEntry() {
 DebugLocStream::ListBuilder::~ListBuilder() {
   if (!Locs.finalizeList(Asm))
     return;
-  V.initializeDbgValue(&MI);
+  auto MO = MachineOperand::CreateReg(0, false);
+//  V.initializeDbgValue(MO, nullptr, false); // XXX jmorse, un-necesasry? Dropping exprs?
   V.setDebugLocListIndex(ListIndex);
   if (TagOffset)
     V.setDebugLocListTagOffset(*TagOffset);

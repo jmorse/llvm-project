@@ -233,45 +233,36 @@ const DIType *DbgVariable::getType() const {
 }
 
 /// Get .debug_loc entry for the instruction range starting at MI.
-static DbgValueLoc getDebugLocValue(const MachineInstr *MI) {
-  const DIExpression *Expr = MI->getDebugExpression();
-  assert(MI->getNumOperands() == 4);
-  if (MI->getDebugOperand(0).isReg()) {
-    const auto &RegOp = MI->getDebugOperand(0);
-    const auto &Op1 = MI->getDebugOffset();
-    // If the second operand is an immediate, this is a
-    // register-indirect address.
-    assert((!Op1.isImm() || (Op1.getImm() == 0)) && "unexpected offset");
-    MachineLocation MLoc(RegOp.getReg(), Op1.isImm());
+static DbgValueLoc getDebugLocValue(const MachineOperand &MO,
+                                    const DIExpression *Expr, bool IsIndirect) {
+  if (MO.isReg()) {
+    MachineLocation MLoc(MO.getReg(), IsIndirect);
     return DbgValueLoc(Expr, MLoc);
   }
-  if (MI->getDebugOperand(0).isTargetIndex()) {
-    const auto &Op = MI->getDebugOperand(0);
+  if (MO.isTargetIndex()) {
     return DbgValueLoc(Expr,
-                       TargetIndexLocation(Op.getIndex(), Op.getOffset()));
+                       TargetIndexLocation(MO.getIndex(), MO.getOffset()));
   }
-  if (MI->getDebugOperand(0).isImm())
-    return DbgValueLoc(Expr, MI->getDebugOperand(0).getImm());
-  if (MI->getDebugOperand(0).isFPImm())
-    return DbgValueLoc(Expr, MI->getDebugOperand(0).getFPImm());
-  if (MI->getDebugOperand(0).isCImm())
-    return DbgValueLoc(Expr, MI->getDebugOperand(0).getCImm());
+  if (MO.isImm())
+    return DbgValueLoc(Expr, MO.getImm());
+  if (MO.isFPImm())
+    return DbgValueLoc(Expr, MO.getFPImm());
+  if (MO.isCImm())
+    return DbgValueLoc(Expr, MO.getCImm());
 
   llvm_unreachable("Unexpected 4-operand DBG_VALUE instruction!");
 }
 
-void DbgVariable::initializeDbgValue(const MachineInstr *DbgValue) {
+void DbgVariable::initializeDbgValue(const MachineOperand &MO, const DIExpression *Expr, bool IsIndirect) {
   assert(FrameIndexExprs.empty() && "Already initialized?");
   assert(!ValueLoc.get() && "Already initialized?");
 
-  assert(getVariable() == DbgValue->getDebugVariable() && "Wrong variable");
-  assert(getInlinedAt() == DbgValue->getDebugLoc()->getInlinedAt() &&
-         "Wrong inlined-at");
+  ValueLoc = std::make_unique<DbgValueLoc>(getDebugLocValue(MO, Expr, IsIndirect));
+  if (!Expr)
+    return;
 
-  ValueLoc = std::make_unique<DbgValueLoc>(getDebugLocValue(DbgValue));
-  if (auto *E = DbgValue->getDebugExpression())
-    if (E->getNumElements())
-      FrameIndexExprs.push_back({0, E});
+  if (Expr->getNumElements())
+    FrameIndexExprs.push_back({0, Expr});
 }
 
 ArrayRef<DbgVariable::FrameIndexExpr> DbgVariable::getFrameIndexExprs() const {
@@ -1698,8 +1689,8 @@ bool DwarfDebug::buildLocationList(SmallVectorImpl<DebugLocEntry> &DebugLoc,
       // with empty location descriptions will automatically be inserted, and if
       // all fragments are undef then the whole location list entry is
       // redundant.
-      if (!Instr->isUndefDebugValue()) {
-        auto Value = getDebugLocValue(Instr);
+      if (!EI->getMO().isReg() || EI->getMO().getReg())  {
+        auto Value = getDebugLocValue(EI->getMO(), EI->getExpr(), EI->getIsIndirect());
         OpenRanges.emplace_back(EI->getEndIndex(), Value);
 
         // TODO: Add support for single value fragment locations.
@@ -1817,7 +1808,8 @@ void DwarfDebug::collectEntityInfo(DwarfCompileUnit &TheCU,
       const auto *End =
           SingleValueWithClobber ? HistoryMapEntries[1].getInstr() : nullptr;
       if (validThroughout(LScopes, MInsn, End, getInstOrdering())) {
-        RegVar->initializeDbgValue(MInsn);
+        auto &HistEntry = HistoryMapEntries.front();
+        RegVar->initializeDbgValue(HistEntry.getMO(), HistEntry.getExpr(), HistEntry.getIsIndirect());
         continue;
       }
     }
