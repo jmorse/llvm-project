@@ -90,9 +90,6 @@ bool DbgValueHistoryMap::startDbgValue(const MachineInstr &MI,
                                        const DIExpression *Expr,
                                        const MachineOperand &MO,
                                        bool IsIndirect) {
-  // Instruction range should start with a DBG_VALUE instruction for the
-  // variable.
-  assert(MI.isDebugValue() && "not a DBG_VALUE");
   InlinedEntity Entity(Var.getVariable(), Var.getInlinedAt());
   auto &Entries = VarEntries[Entity];
   if (!Entries.empty() && Entries.back().isDbgValue() &&
@@ -540,6 +537,7 @@ void llvm::calculateDbgEntityHistory(const MachineFunction *MF,
         DebugVariable Var(DIVar, None, Pair.first.second);
         // Use a $noreg as the end clobber.
         MachineOperand MO = MachineOperand::CreateReg(0, false);
+        MO.setIsDebug();
         EntryIndex ClobIdx = DbgValues.startClobber(MBB.back(), Var, MO);
 
         // End all entries.

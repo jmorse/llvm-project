@@ -154,7 +154,9 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/UniqueVector.h"
+#include "llvm/CodeGen/DbgEntityHistoryCalculator.h"
 #include "llvm/CodeGen/LexicalScopes.h"
+#include "llvm/CodeGen/LiveDebugValues.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
@@ -198,8 +200,6 @@
 #include <vector>
 #include <limits.h>
 #include <limits>
-
-#include "LiveDebugValues.h"
 
 using namespace llvm;
 
@@ -794,6 +794,24 @@ unsigned NumSubRegs;
     }
   }
 
+  std::tuple<MachineOperand, StackOffset, bool> locToMO(LocIdx MLoc) {
+    if (LocIdxToLocID[MLoc] >= NumRegs) {
+      unsigned LocID = LocIdxToLocID[MLoc];
+      unsigned SpillID = locIDToSpill(LocID);
+      // XXX XXX XXX we drop subregisters here.
+      const SpillLoc &Spill = SpillLocs[SpillID];
+      unsigned Base = Spill.SpillBase;
+      MachineOperand MO = MachineOperand::CreateReg(Base, false);
+      MO.setIsDebug();
+      return std::make_tuple(MO, Spill.SpillOffset, true);
+    } else {
+      unsigned LocID = LocIdxToLocID[MLoc];
+      MachineOperand MO = MachineOperand::CreateReg(LocID, false);
+      MO.setIsDebug();
+      return std::make_tuple(MO, StackOffset::getFixed(0), false);
+    }
+  }
+
   /// Create a DBG_VALUE based on  machine location \p MLoc. Qualify it with the
   /// information in \pProperties, for variable Var. Don't insert it anywhere,
   /// just return the builder for it.
@@ -809,21 +827,14 @@ unsigned NumSubRegs;
       // No location -> DBG_VALUE $noreg
       MIB.addReg(0, RegState::Debug);
       MIB.addReg(0, RegState::Debug);
-    } else if (LocIdxToLocID[*MLoc] >= NumRegs) {
-      unsigned LocID = LocIdxToLocID[*MLoc];
-      unsigned SpillID = locIDToSpill(LocID);
-      // XXX XXX XXX we drop subregisters here.
-      const SpillLoc &Spill = SpillLocs[SpillID];
-      auto *TRI = MF.getSubtarget().getRegisterInfo();
-      Expr = TRI->prependOffsetExpression(Expr, DIExpression::ApplyOffset,
-                                          Spill.SpillOffset);
-      unsigned Base = Spill.SpillBase;
-      MIB.addReg(Base, RegState::Debug);
-      MIB.addImm(0);
     } else {
-      unsigned LocID = LocIdxToLocID[*MLoc];
-      MIB.addReg(LocID, RegState::Debug);
-      if (Properties.Indirect)
+      auto Tuple = locToMO(*MLoc);
+      MIB.add(std::get<MachineOperand>(Tuple));
+      StackOffset Offset = std::get<StackOffset>(Tuple);
+      if (Offset)
+        Expr = TRI.prependOffsetExpression(Expr, DIExpression::ApplyOffset,
+                                            Offset);
+      if (std::get<bool>(Tuple) || Properties.Indirect)
         MIB.addImm(0);
       else
         MIB.addReg(0, RegState::Debug);
@@ -983,13 +994,38 @@ public:
 
 class LocEmitter {
 public:
-  LocEmitter() { }
+  // All emitters need to order their emission.
+  typedef DenseMap<DebugVariable, unsigned> VarNumbering;
+  const VarNumbering *AllVarsNumbering;
+  MLocTracker *MTracker;
+  bool Changed;
+
+  LocEmitter() : Changed(false) { }
   virtual ~LocEmitter() { }
 
   virtual void emitLoc(Optional<LocIdx> MLoc, const DebugVariable &Var,
                        const DbgValueProperties &Properties) = 0;
   virtual void emitLoc(const MachineOperand &MO, const DebugVariable &Var,
                        const DbgValueProperties &Properties) = 0;
+  virtual void clobberLoc(LocIdx MLoc, const DebugVariable &Var,
+                          const DbgValueProperties &Properties) = 0;
+  virtual void preFlushEmitter(MachineBasicBlock::instr_iterator Pos,
+                               MachineBasicBlock *MBB) = 0;
+  virtual void postFlushEmitter(MachineBasicBlock::instr_iterator Pos,
+                               MachineBasicBlock *MBB) = 0;
+  virtual void finalizeBlock(MachineBasicBlock &MBB) = 0;
+  virtual void setup(VarNumbering *Vars, MLocTracker *MTracker) {
+    AllVarsNumbering = Vars;
+    this->MTracker = MTracker;
+  }
+
+  // We have to insert DBG_VALUEs in a consistent order, otherwise they appeaer
+  // in DWARF in different orders. Use the order that they appear when walking
+  // through each block / each instruction, stored in AllVarsNumbering.
+  bool OrderDbgValues(const DebugVariable &VarA, const DebugVariable &VarB) const {
+    return AllVarsNumbering->find(VarA)->second <
+           AllVarsNumbering->find(VarB)->second;
+  }
 };
 
 class InstrLocEmitter : public LocEmitter {
@@ -1008,21 +1044,20 @@ public:
 
   SmallVector<MachineInstr *, 4> PendingDbgValues;
 
-  MLocTracker &MTracker;
   MachineFunction &MF;
   const TargetInstrInfo &TII;
 
-  InstrLocEmitter(MachineFunction &MF, MLocTracker &MTracker)
-    : LocEmitter(), MTracker(MTracker), MF(MF), TII(*MF.getSubtarget().getInstrInfo()) { }
+  InstrLocEmitter(MachineFunction &MF)
+    : LocEmitter(), MF(MF), TII(*MF.getSubtarget().getInstrInfo()) { }
 
   virtual void emitLoc(Optional<LocIdx> MLoc, const DebugVariable &Var,
-                       const DbgValueProperties &Properties) {
-    MachineInstr *MI = MTracker.emitLoc(MLoc, Var, Properties);
+                       const DbgValueProperties &Properties) override {
+    MachineInstr *MI = MTracker->emitLoc(MLoc, Var, Properties);
     PendingDbgValues.push_back(MI);
   }
 
   void emitLoc(const MachineOperand &MO, const DebugVariable &Var,
-               const DbgValueProperties &Properties) {
+               const DbgValueProperties &Properties) override {
     DebugLoc DL = DILocation::get(Var.getVariable()->getContext(), 0, 0,
                                   Var.getVariable()->getScope(),
                                   const_cast<DILocation *>(Var.getInlinedAt()));
@@ -1037,17 +1072,299 @@ public:
     PendingDbgValues.push_back(MIB);
   }
 
+  void clobberLoc(LocIdx MLoc, const DebugVariable &Var,
+                  const DbgValueProperties &Properties) override
+  {
+    // We are producing DBG_VALUE instructions to represent variable locations,
+    // and DbgEntityHistoryCalculator will do it's own tracking to determine
+    // whether or not a location is clobbered.
+    // TODO: this isn't true of stack locations, and higher level logic
+    // controls the emission of DBG_VALUE $noreg's for stack locations. Ideally
+    // this would be refactored to happen here, at a lower level.
+    (void)MLoc;
+    (void)Var;
+    (void)Properties;
+  }
+
+  void preFlushEmitter(MachineBasicBlock::instr_iterator Pos,
+                       MachineBasicBlock *MBB) override {
+    (void)Pos;
+    (void)MBB;
+  }
+
   /// Helper to move created DBG_VALUEs into Transfers collection. To be called
   // after each instruction is processed.
-  void flushDbgValues(MachineBasicBlock::instr_iterator Pos,
-                      MachineBasicBlock *MBB) {
+  void postFlushEmitter(MachineBasicBlock::instr_iterator Pos,
+                        MachineBasicBlock *MBB) override {
     if (!PendingDbgValues.empty()) {
+      Changed = true;
       MachineBasicBlock::instr_iterator BundleStart = Pos;
       if (!MBB || Pos != MBB->end())
         Pos = getBundleStart(Pos->getIterator());
       Transfers.push_back({BundleStart, MBB, std::move(PendingDbgValues)});
       PendingDbgValues = decltype(PendingDbgValues)();
     }
+  }
+
+  bool OrderInst(const MachineInstr *A, const MachineInstr *B) const {
+    DebugVariable VarA(A->getDebugVariable(), A->getDebugExpression(), A->getDebugLoc()->getInlinedAt());
+    DebugVariable VarB(B->getDebugVariable(), B->getDebugExpression(), B->getDebugLoc()->getInlinedAt());
+    return OrderDbgValues(VarA, VarB);
+  }
+
+  void finalizeBlock(MachineBasicBlock &MBB) override {
+    (void)MBB;
+    // Order all transfers into a cannonical order according to variables,
+    // then insert into the block.
+    for (auto &P : Transfers) {
+      // Sort them according to appearance order. Needs to be stable sort;
+      // transferred copies appear to occasionally create two records...
+      auto Order = std::bind(&InstrLocEmitter::OrderInst, this,
+          std::placeholders::_1, std::placeholders::_2);
+      llvm::stable_sort(make_range(P.Insts.begin(), P.Insts.end()),
+                        Order);
+      // Insert either before or after the designated point...
+      if (P.MBB) {
+        MachineBasicBlock &MBB = *P.MBB;
+        for (auto *MI : P.Insts) {
+          MBB.insert(P.Pos, MI);
+        }
+      } else {
+        // Terminators, like tail calls, can clobber things. Don't try and place
+        // transfers after them.
+        if (P.Pos->isTerminator())
+          continue;
+
+        MachineBasicBlock &MBB = *P.Pos->getParent();
+        for (auto *MI : P.Insts) {
+          MBB.insertAfterBundle(P.Pos, MI);
+        }
+      }
+    }
+
+    Transfers.clear();
+  }
+};
+
+class HistoryLocEmitter : public LocEmitter {
+public:
+using EntryIndex = DbgValueHistoryMap::EntryIndex;
+using InlinedEntity = DbgValueHistoryMap::InlinedEntity;
+using DbgValueEntriesMap = std::map<InlinedEntity, SmallSet<EntryIndex, 1>>;
+  DbgValueEntriesMap LiveEntries;
+  DbgValueHistoryMap HistMap;
+  DbgLabelInstrMap LabelMap;
+
+  class PendingChange {
+  public:
+    MachineOperand MO;
+    DebugVariable Var;
+    DbgValueProperties Properties;
+
+    PendingChange(const MachineOperand &MO, const DebugVariable &Var,
+                   const DbgValueProperties &Properties)
+      : MO(MO), Var(Var), Properties(Properties) { }
+  };
+
+  SmallVector<PendingChange, 8> PendingDbgValues;
+  SmallVector<PendingChange, 8> PendingClobbers;
+  const TargetRegisterInfo &TRI;
+
+  HistoryLocEmitter(const TargetRegisterInfo &TRI) : LocEmitter(), TRI(TRI) { }
+  virtual ~HistoryLocEmitter() { }
+
+  void handleDbgValue(MachineInstr *Pos, const PendingChange &Change) {
+    EntryIndex NewIndex;
+    const auto &Prop = Change.Properties;
+    bool Created = HistMap.startDbgValue(*Pos, NewIndex, Change.Var, Prop.DIExpr, Change.MO, Prop.Indirect);
+
+    // The history map may coalesce identical variable locations, leaving us
+    // with nothing to do.
+    if (!Created)
+      return;
+
+    // Close any overlapping variable locations. Duplicate of logic in
+    // DbgEntityHistoryCalculator, but it's hard to separate that from location
+    // tracking.
+    InlinedEntity Entity(Change.Var.getVariable(), Change.Var.getInlinedAt());
+    SmallVector<EntryIndex, 4> IndicesToErase;
+    for (auto Index : LiveEntries[Entity]) {
+      auto &Entry = HistMap.getEntry(Entity, Index);
+      assert(Entry.isDbgValue() && "Not a DBG_VALUE in LiveEntries");
+      bool Overlaps = Prop.DIExpr->fragmentsOverlap(Entry.getExpr());
+      if (!Overlaps)
+        continue;
+      IndicesToErase.push_back(Index);
+      Entry.endEntry(NewIndex);
+    }
+
+    // Drop all entries that have ended, and mark the new entry as live.
+    for (auto Index : IndicesToErase)
+      LiveEntries[Entity].erase(Index);
+    LiveEntries[Entity].insert(NewIndex);
+  }
+
+  void handleClobber(MachineInstr *Pos, const PendingChange &Change) {
+    // Skip clobber creation if there are no live entries, or no fragments live
+    // for the given variable.
+    if (LiveEntries.empty())
+      return;
+
+    const DebugVariable &Var = Change.Var;
+    InlinedEntity Entity(Var.getVariable(), Var.getInlinedAt());
+    auto EntityIt = LiveEntries.find(Entity);
+    if (EntityIt == LiveEntries.end() || EntityIt->second.empty())
+      return;
+
+    // Diverging from DbgEntityHistoryCalculator, we don't look up what vars
+    // to terminate from the register. Instead, look for the var fragment
+    // terminated itself.
+    // XXX, means higher memory usage due to more clobber entries?
+    // XXX can be reduced by passing in an index from caller.
+    // XXX, means startClobber happens in loop.
+    for (auto Index : EntityIt->second) {
+      auto &Entry = HistMap.getEntry(Entity, Index);
+      // Matches per fragment.
+      if (!(Entry.getVar() == Var)) // XXX avoid recompile for now
+        continue;
+
+      EntryIndex ClobberIndex = HistMap.startClobber(*Pos, Var, Change.MO);
+      // Entry ref may have been invalidated,
+      auto &Entry2 = HistMap.getEntry(Entity, Index);
+      Entry2.endEntry(ClobberIndex);
+      EntityIt->second.erase(Index);
+      return;
+    }
+  }
+
+
+  void clobberLoc(LocIdx MLoc, const DebugVariable &Var,
+                  const DbgValueProperties &Properties) override
+  {
+    // We record a clobbered location the same as a manual DBG_VALUE $noreg,
+    // it's the termination of a range. Handle it in the same way.
+    emitLoc(None, Var, Properties);
+  }
+
+  virtual void emitLoc(Optional<LocIdx> MLoc, const DebugVariable &Var,
+                       const DbgValueProperties &Properties) override
+  {
+    if (!MLoc) {
+      auto MO = MachineOperand::CreateReg(0, false);
+      MO.setIsDebug();
+      PendingClobbers.emplace_back(MO, Var, Properties);
+    } else {
+      auto Tuple = MTracker->locToMO(*MLoc);
+      const DIExpression *Expr = Properties.DIExpr;
+      StackOffset Offset = std::get<StackOffset>(Tuple);
+      if (Offset)
+        Expr = TRI.prependOffsetExpression(Expr, DIExpression::ApplyOffset,
+                                           Offset);
+      bool Indirect = Properties.Indirect | std::get<bool>(Tuple);
+      emitLoc(std::get<MachineOperand>(Tuple), Var, {Expr, Indirect});
+    }
+  }
+  virtual void emitLoc(const MachineOperand &MO, const DebugVariable &Var,
+                       const DbgValueProperties &Properties) override
+  {
+    PendingDbgValues.emplace_back(MO, Var, Properties);
+  }
+
+  bool OrderChange(const PendingChange &A, const PendingChange &B) const {
+    return OrderDbgValues(A.Var, B.Var);
+  }
+
+  void preFlushEmitter(MachineBasicBlock::instr_iterator Pos,
+                       MachineBasicBlock *MBB) override {
+    if (PendingDbgValues.empty())
+      return;
+
+    auto Order = std::bind(&HistoryLocEmitter::OrderChange, this,
+        std::placeholders::_1, std::placeholders::_2);
+    llvm::stable_sort(make_range(PendingDbgValues.begin(), PendingDbgValues.end()), Order);
+
+    for (auto &Change : PendingDbgValues)
+      handleDbgValue(&*Pos, Change);
+
+    Changed = true;
+    PendingDbgValues.clear();
+  }
+
+  void postFlushEmitter(MachineBasicBlock::instr_iterator Pos,
+                       MachineBasicBlock *MBB) override {
+    // Pre-existing DBG_VALUEs and DBG_LABELs must still be handled. All
+    // juggling of the lifetime of DBG_VALUEs is handled through the rest of
+    // InstrRefBasedLDV, we just need to record the start here.
+    if (Pos->isDebugValue()) {
+      DebugVariable Var(Pos->getDebugVariable(), Pos->getDebugExpression(),
+                        Pos->getDebugLoc().getInlinedAt());
+      DbgValueProperties Prop(Pos->getDebugExpression(), Pos->isIndirectDebugValue());
+      handleDbgValue(&*Pos, {Pos->getOperand(0), Var, Prop});
+    }
+
+    if (Pos->isDebugLabel()) {
+        assert(Pos->getNumOperands() == 1 && "Invalid DBG_LABEL instruction!");
+        const DILabel *RawLabel = Pos->getDebugLabel();
+        assert(RawLabel->isValidLocationForIntrinsic(Pos->getDebugLoc()) &&
+            "Expected inlined-at fields to agree");
+        // Keep MI in DbgLabels so that it can be used for an MCSymbol.
+        InlinedEntity L(RawLabel, Pos->getDebugLoc()->getInlinedAt());
+        LabelMap.addInstr(L, *Pos);
+    }
+
+    // Clobbers happen after intrs.
+    if (PendingClobbers.empty())
+      return;
+
+    // To preserve stability of output ordering: sort variable changes
+    // according to appearance order. Needs to be stable sort;
+    // transferred copies appear to occasionally create two records...
+    auto Order = std::bind(&HistoryLocEmitter::OrderChange, this,
+        std::placeholders::_1, std::placeholders::_2);
+    llvm::stable_sort(make_range(PendingClobbers.begin(), PendingClobbers.end()), Order);
+
+    for (auto &Change : PendingClobbers)
+      handleClobber(&*Pos, Change);
+
+    Changed = true;
+    PendingClobbers.clear();
+  }
+
+  void finalizeBlock(MachineBasicBlock &MBB) override {
+    assert(PendingClobbers.empty());
+
+    // There may be some dangling DBG_VALUEs here, if we recover a location on
+    // the last instruction in a block. But, the DBG_VALUE will not cover
+    // anything, so it's safe to ignore.
+    PendingDbgValues.clear();
+
+    // Don't terminate locations on empty blocks; or the final block.
+    if (MBB.empty() || &MBB == &MBB.getParent()->back())
+      return;
+
+    // Clobber all remaining live entries.
+    for (auto &Pair : LiveEntries) {
+      if (Pair.second.empty())
+        continue;
+
+      // Create a clobbering entry. Variable with no fragment info.
+      const DILocalVariable *DIVar = dyn_cast<const DILocalVariable>(Pair.first.first);
+      DebugVariable Var(DIVar, None, Pair.first.second);
+      // Use a $noreg as the end clobber.
+      MachineOperand MO = MachineOperand::CreateReg(0, false);
+      MO.setIsDebug();
+      EntryIndex ClobIdx = HistMap.startClobber(MBB.back(), Var, MO);
+
+      // End all entries.
+      InlinedEntity Entity(DIVar, Pair.first.second);
+      for (EntryIndex Idx : Pair.second) {
+        DbgValueHistoryMap::Entry &Ent = HistMap.getEntry(Entity, Idx);
+        assert(Ent.isDbgValue() && !Ent.isClosed());
+        Ent.endEntry(ClobIdx);
+      }
+    }
+
+    LiveEntries.clear();
   }
 };
 
@@ -1411,12 +1728,15 @@ public:
         NewLoc = Loc.Idx;
 
     // If there is no location, and we weren't asked to make the variable
-    // explicitly undef, then stop here.
+    // explicitly undef, then stop here. Tell a listener that a clobber
+    // occurred, in case it's building a location list.
     if (!NewLoc && !make_undef) {
       // Try and recover a few more locations with entry values.
       for (auto &Var : ActiveMLocIt->second) {
         auto &Prop = ActiveVLocs.find(Var)->second.Properties;
-        recoverAsEntryValue(Var, Prop, OldValue);
+        bool Recovered = recoverAsEntryValue(Var, Prop, OldValue);
+        if (!Recovered)
+          Emitter.clobberLoc(MLoc, Var, Prop);
       }
       return;
     }
@@ -1753,13 +2073,18 @@ public:
   bool emitLocations(MachineFunction &MF, LiveInsT SavedLiveIns,
                      ValueIDNum **MOutLocs, ValueIDNum **MInLocs,
                      DenseMap<DebugVariable, unsigned> &AllVarsNumbering,
-                     const TargetPassConfig &TPC);
+                     const TargetPassConfig &TPC,
+                     LocEmitter &Emitter);
 
   /// Boilerplate computation of some initial sets, artifical blocks and
   /// RPOT block ordering.
   void initialSetup(MachineFunction &MF);
 
+  bool ExtendRangesImpl(MachineFunction &MF, TargetPassConfig *TPC,
+                        LocEmitter &Emitter);
+
   bool ExtendRanges(MachineFunction &MF, TargetPassConfig *TPC) override;
+  LDVHistoryMaps ExtendRangesAndCalculateHistory(MachineFunction &MF, TargetPassConfig *TPC) override;
 
 public:
   /// Default construct and initialize the pass.
@@ -3694,8 +4019,8 @@ void InstrRefBasedLDV::dump_mloc_transfer(
 bool InstrRefBasedLDV::emitLocations(
     MachineFunction &MF, LiveInsT SavedLiveIns, ValueIDNum **MOutLocs,
     ValueIDNum **MInLocs, DenseMap<DebugVariable, unsigned> &AllVarsNumbering,
-    const TargetPassConfig &TPC) {
-  InstrLocEmitter Emitter(MF, *MTracker);
+    const TargetPassConfig &TPC, LocEmitter &Emitter) {
+  Emitter.setup(&AllVarsNumbering, MTracker);
   TTracker = new TransferTracker(TII, MTracker, MF, *TRI, CalleeSavedRegs, TPC,
                                  Emitter);
   unsigned NumLocs = MTracker->getNumLocs();
@@ -3704,64 +4029,31 @@ bool InstrRefBasedLDV::emitLocations(
   // live-ins, then step through each instruction in the block. New DBG_VALUEs
   // to be inserted will be created along the way.
   for (MachineBasicBlock &MBB : MF) {
+    if (MBB.empty())
+      continue;
+
     unsigned bbnum = MBB.getNumber();
     MTracker->reset();
     MTracker->loadFromArray(MInLocs[bbnum], bbnum);
     TTracker->loadInlocs(MBB, MInLocs[bbnum], SavedLiveIns[MBB.getNumber()],
                          NumLocs);
-    Emitter.flushDbgValues(MBB.instr_begin(), &MBB);
+    Emitter.preFlushEmitter(MBB.instr_begin(), &MBB);
+    Emitter.postFlushEmitter(MBB.instr_begin(), &MBB);
 
     CurBB = bbnum;
     CurInst = 1;
     for (auto &MI : MBB) {
+      Emitter.preFlushEmitter(MI.getIterator(), nullptr);
       process(MI, MOutLocs, MInLocs);
       TTracker->checkInstForNewValues(CurInst);
-      Emitter.flushDbgValues(MI.getIterator(), nullptr);
+      Emitter.postFlushEmitter(MI.getIterator(), nullptr);
       ++CurInst;
     }
+
+    Emitter.finalizeBlock(MBB);
   }
 
-  // We have to insert DBG_VALUEs in a consistent order, otherwise they appeaer
-  // in DWARF in different orders. Use the order that they appear when walking
-  // through each block / each instruction, stored in AllVarsNumbering.
-  auto OrderDbgValues = [&](const MachineInstr *A,
-                            const MachineInstr *B) -> bool {
-    DebugVariable VarA(A->getDebugVariable(), A->getDebugExpression(),
-                       A->getDebugLoc()->getInlinedAt());
-    DebugVariable VarB(B->getDebugVariable(), B->getDebugExpression(),
-                       B->getDebugLoc()->getInlinedAt());
-    return AllVarsNumbering.find(VarA)->second <
-           AllVarsNumbering.find(VarB)->second;
-  };
-
-  // Go through all the transfers recorded in the TransferTracker -- this is
-  // both the live-ins to a block, and any movements of values that happen
-  // in the middle.
-  for (auto &P : Emitter.Transfers) {
-    // Sort them according to appearance order. Needs to be stable sort;
-    // transferred copies appear to occasionally create two records...
-    llvm::stable_sort(P.Insts, OrderDbgValues);
-    // Insert either before or after the designated point...
-    if (P.MBB) {
-      MachineBasicBlock &MBB = *P.MBB;
-      for (auto *MI : P.Insts) {
-        MBB.insert(P.Pos, MI);
-      }
-    } else {
-      // Terminators, like tail calls, can clobber things. Don't try and place
-      // transfers after them.
-      if (P.Pos->isTerminator())
-        continue;
-
-      MachineBasicBlock &MBB = *P.Pos->getParent();
-      for (auto *MI : P.Insts) {
-        MBB.insertAfterBundle(P.Pos, MI);
-      }
-    }
-  }
-
-  // Did we actually make any changes? If we created any DBG_VALUEs, then yes.
-  return !Emitter.Transfers.empty();
+  return Emitter.Changed;
 }
 
 void InstrRefBasedLDV::initialSetup(MachineFunction &MF) {
@@ -3789,8 +4081,9 @@ void InstrRefBasedLDV::initialSetup(MachineFunction &MF) {
 
 /// Calculate the liveness information for the given machine function and
 /// extend ranges across basic blocks.
-bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
-                                    TargetPassConfig *TPC) {
+bool InstrRefBasedLDV::ExtendRangesImpl(MachineFunction &MF,
+                                        TargetPassConfig *TPC,
+                                        LocEmitter &Emitter) {
   // No subprogram means this function contains no debuginfo.
   if (!MF.getFunction().getSubprogram())
     return false;
@@ -3927,7 +4220,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   // Using the computed value locations and variable values for each block,
   // create the DBG_VALUE instructions representing the extended variable
   // locations.
-  bool Changed = emitLocations(MF, SavedLiveIns, MOutLocs, MInLocs, AllVarsNumbering, *TPC);
+  bool Changed = emitLocations(MF, SavedLiveIns, MOutLocs, MInLocs, AllVarsNumbering, *TPC, Emitter);
 
   for (int Idx = 0; Idx < MaxNumBlocks; ++Idx) {
     delete[] MOutLocs[Idx];
@@ -3950,6 +4243,22 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   DebugPHINumToValue.clear();
 
   return Changed;
+}
+
+bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
+                                    TargetPassConfig *TPC) {
+  InstrLocEmitter Emitter(MF);
+  ExtendRangesImpl(MF, TPC, Emitter);
+  return Emitter.Changed;
+}
+
+LDVHistoryMaps InstrRefBasedLDV::ExtendRangesAndCalculateHistory(MachineFunction &MF, TargetPassConfig *TPC) {
+  HistoryLocEmitter Emitter;
+  ExtendRangesImpl(MF, TPC, Emitter);
+  LDVHistoryMaps Maps;
+  Maps.DbgValueMap = std::move(Emitter.HistMap);
+  Maps.LabelMap = std::move(Emitter.LabelMap);
+  return Maps;
 }
 
 LDVImpl *llvm::makeInstrRefBasedLiveDebugValues() {

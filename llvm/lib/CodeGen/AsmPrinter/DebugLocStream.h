@@ -157,14 +157,13 @@ class DebugLocStream::ListBuilder {
   DebugLocStream &Locs;
   AsmPrinter &Asm;
   DbgVariable &V;
-  const MachineInstr &MI;
   size_t ListIndex;
   Optional<uint8_t> TagOffset;
 
 public:
   ListBuilder(DebugLocStream &Locs, DwarfCompileUnit &CU, AsmPrinter &Asm,
-              DbgVariable &V, const MachineInstr &MI)
-      : Locs(Locs), Asm(Asm), V(V), MI(MI), ListIndex(Locs.startList(&CU)),
+              DbgVariable &V)
+      : Locs(Locs), Asm(Asm), V(V), ListIndex(Locs.startList(&CU)),
         TagOffset(None) {}
 
   void setTagOffset(uint8_t TO) {

@@ -1546,13 +1546,15 @@ void DwarfDebug::collectVariableInfoFromMFTable(
 /// in the same lexical scope preceding the DBG_VALUE and that its range is
 /// either open or otherwise rolls off the end of the scope.
 static bool validThroughout(LexicalScopes &LScopes,
-                            const MachineInstr *DbgValue,
+                            const DbgValueHistoryMap::Entry &Entry,
                             const MachineInstr *RangeEnd,
                             const InstructionOrdering &Ordering) {
-  assert(DbgValue->getDebugLoc() && "DBG_VALUE without a debug location");
-  auto MBB = DbgValue->getParent();
-  auto DL = DbgValue->getDebugLoc();
-  auto *LScope = LScopes.findLexicalScope(DL);
+  assert(Entry.isDbgValue());
+  const MachineInstr *StartPos = Entry.getInstr();
+  const MachineBasicBlock *MBB = StartPos->getParent();
+  const DebugVariable &Var = Entry.getVar();
+  const DILocalScope *Scope = Var.getVariable()->getScope();
+  auto *LScope = LScopes.findLexicalScope(Scope, Var.getInlinedAt());
   // Scope doesn't exist; this is a dead DBG_VALUE.
   if (!LScope)
     return false;
@@ -1564,12 +1566,12 @@ static bool validThroughout(LexicalScopes &LScopes,
   // If the scope starts before the DBG_VALUE then we may have a negative
   // result. Otherwise the location is live coming into the scope and we
   // can skip the following checks.
-  if (!Ordering.isBefore(DbgValue, LScopeBegin)) {
+  if (!Ordering.isBefore(StartPos, LScopeBegin)) {
     // Exit if the lexical scope begins outside of the current block.
     if (LScopeBegin->getParent() != MBB)
       return false;
 
-    MachineBasicBlock::const_reverse_iterator Pred(DbgValue);
+    MachineBasicBlock::const_reverse_iterator Pred(StartPos);
     for (++Pred; Pred != MBB->rend(); ++Pred) {
       if (Pred->getFlag(MachineInstr::FrameSetup))
         break;
@@ -1578,7 +1580,7 @@ static bool validThroughout(LexicalScopes &LScopes,
         continue;
       // Check whether the instruction preceding the DBG_VALUE is in the same
       // (sub)scope as the DBG_VALUE.
-      if (DL->getScope() == PredDL->getScope())
+      if (Scope == PredDL->getScope())
         return false;
       auto *PredScope = LScopes.findLexicalScope(PredDL);
       if (!PredScope || LScope->dominates(PredScope))
@@ -1594,7 +1596,7 @@ static bool validThroughout(LexicalScopes &LScopes,
   // throughout the function. This is a hack, presumably for DWARF v2 and not
   // necessarily correct. It would be much better to use a dbg.declare instead
   // if we know the constant is live throughout the scope.
-  if (DbgValue->getDebugOperand(0).isImm() && MBB->pred_empty())
+  if (Entry.getMO().isImm() && MBB->pred_empty())
     return true;
 
   // Test if the location terminates before the end of the scope.
@@ -1694,7 +1696,7 @@ bool DwarfDebug::buildLocationList(SmallVectorImpl<DebugLocEntry> &DebugLoc,
         OpenRanges.emplace_back(EI->getEndIndex(), Value);
 
         // TODO: Add support for single value fragment locations.
-        if (Instr->getDebugExpression()->isFragment())
+        if (EI->getExpr()->isFragment())
           isSafeForSingleLocation = false;
 
         if (!StartDebugMI)
@@ -1736,7 +1738,7 @@ bool DwarfDebug::buildLocationList(SmallVectorImpl<DebugLocEntry> &DebugLoc,
   }
 
   return DebugLoc.size() == 1 && isSafeForSingleLocation &&
-         validThroughout(LScopes, StartDebugMI, EndMI, getInstOrdering());
+         validThroughout(LScopes, Entries.front(), EndMI, getInstOrdering());
 }
 
 DbgEntity *DwarfDebug::createConcreteEntity(DwarfCompileUnit &TheCU,
@@ -1795,9 +1797,6 @@ void DwarfDebug::collectEntityInfo(DwarfCompileUnit &TheCU,
     DbgVariable *RegVar = cast<DbgVariable>(createConcreteEntity(TheCU,
                                             *Scope, LocalVar, IV.second));
 
-    const MachineInstr *MInsn = HistoryMapEntries.front().getInstr();
-    assert(MInsn->isDebugValue() && "History must begin with debug value");
-
     // Check if there is a single DBG_VALUE, valid throughout the var's scope.
     // If the history map contains a single debug value, there may be an
     // additional entry which clobbers the debug value.
@@ -1807,7 +1806,7 @@ void DwarfDebug::collectEntityInfo(DwarfCompileUnit &TheCU,
     if (HistSize == 1 || SingleValueWithClobber) {
       const auto *End =
           SingleValueWithClobber ? HistoryMapEntries[1].getInstr() : nullptr;
-      if (validThroughout(LScopes, MInsn, End, getInstOrdering())) {
+      if (validThroughout(LScopes, HistoryMapEntries.front(), End, getInstOrdering())) {
         auto &HistEntry = HistoryMapEntries.front();
         RegVar->initializeDbgValue(HistEntry.getMO(), HistEntry.getExpr(), HistEntry.getIsIndirect());
         continue;
@@ -1819,7 +1818,7 @@ void DwarfDebug::collectEntityInfo(DwarfCompileUnit &TheCU,
       continue;
 
     // Handle multiple DBG_VALUE instructions describing one variable.
-    DebugLocStream::ListBuilder List(DebugLocs, TheCU, *Asm, *RegVar, *MInsn);
+    DebugLocStream::ListBuilder List(DebugLocs, TheCU, *Asm, *RegVar);
 
     // Build the location list for this variable.
     SmallVector<DebugLocEntry, 8> Entries;

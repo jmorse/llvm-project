@@ -39,6 +39,7 @@
 #include "llvm/CodeGen/GCMetadata.h"
 #include "llvm/CodeGen/GCMetadataPrinter.h"
 #include "llvm/CodeGen/GCStrategy.h"
+#include "llvm/CodeGen/LiveDebugValues.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
 #include "llvm/CodeGen/MachineDominators.h"
@@ -258,6 +259,7 @@ const MCSection *AsmPrinter::getCurrentSection() const {
 void AsmPrinter::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   MachineFunctionPass::getAnalysisUsage(AU);
+  AU.addRequired<LiveDebugValues>();
   AU.addRequired<MachineOptimizationRemarkEmitterPass>();
   AU.addRequired<GCModuleInfo>();
 }
@@ -3516,4 +3518,8 @@ unsigned int AsmPrinter::getDwarfOffsetByteSize() const {
 unsigned int AsmPrinter::getUnitLengthFieldByteSize() const {
   return dwarf::getUnitLengthFieldByteSize(
       OutStreamer->getContext().getDwarfFormat());
+}
+
+LiveDebugValues &AsmPrinter::fetchDebugLocations() {
+  return getAnalysis<LiveDebugValues>();
 }

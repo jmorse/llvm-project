@@ -122,7 +122,11 @@ void LexicalScopes::extractLexicalScopes(
 /// findLexicalScope - Find lexical scope, either regular or inlined, for the
 /// given DebugLoc. Return NULL if not found.
 LexicalScope *LexicalScopes::findLexicalScope(const DILocation *DL) {
-  DILocalScope *Scope = DL->getScope();
+  return findLexicalScope(DL->getScope(), DL->getInlinedAt());
+}
+
+LexicalScope *LexicalScopes::findLexicalScope(const DILocalScope *Scope,
+                                              const DILocation *InlinedAt) {
   if (!Scope)
     return nullptr;
 
@@ -130,8 +134,8 @@ LexicalScope *LexicalScopes::findLexicalScope(const DILocation *DL) {
   // isn't what we care about in this case.
   Scope = Scope->getNonLexicalBlockFileScope();
 
-  if (auto *IA = DL->getInlinedAt()) {
-    auto I = InlinedLexicalScopeMap.find(std::make_pair(Scope, IA));
+  if (InlinedAt) {
+    auto I = InlinedLexicalScopeMap.find(std::make_pair(Scope, InlinedAt));
     return I != InlinedLexicalScopeMap.end() ? &I->second : nullptr;
   }
   return findLexicalScope(Scope);

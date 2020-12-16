@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/CodeGen/DebugHandlerBase.h"
+#include "llvm/CodeGen/LiveDebugValues.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/CodeGen/AsmPrinter.h"
@@ -247,8 +248,14 @@ void DebugHandlerBase::beginFunction(const MachineFunction *MF) {
   // Calculate history for local variables.
   assert(DbgValues.empty() && "DbgValues map wasn't cleaned!");
   assert(DbgLabels.empty() && "DbgLabels map wasn't cleaned!");
+  LiveDebugValues &LDV = Asm->fetchDebugLocations();
+  LDVHistoryMaps Maps = std::move(LDV.getMaps());
+  DbgValues = std::move(Maps.DbgValueMap);
+  DbgLabels = std::move(Maps.LabelMap);
+#if 0
   calculateDbgEntityHistory(MF, Asm->MF->getSubtarget().getRegisterInfo(),
                             DbgValues, DbgLabels);
+#endif
   InstOrdering.initialize(*MF);
   if (TrimVarLocs)
     DbgValues.trimLocationRanges(*MF, LScopes, InstOrdering);
@@ -260,8 +267,9 @@ void DebugHandlerBase::beginFunction(const MachineFunction *MF) {
     if (Entries.empty())
       continue;
 
-    auto IsDescribedByReg = [](const MachineInstr *MI) {
-      return MI->getDebugOperand(0).isReg() && MI->getDebugOperand(0).getReg();
+    auto IsDescribedByReg = [](const DbgValueHistoryMap::Entry &Entry) {
+      const MachineOperand &MO = Entry.getMO();
+      return MO.isReg() && MO.getReg();
     };
 
     // The first mention of a function argument gets the CurrentFnBegin label,
@@ -279,30 +287,30 @@ void DebugHandlerBase::beginFunction(const MachineFunction *MF) {
     // information or DW_AT_const_value when the block is in a different
     // section.
     const DILocalVariable *DIVar =
-        Entries.front().getInstr()->getDebugVariable();
+        Entries.front().getVar().getVariable();
     if (DIVar->isParameter() &&
         getDISubprogram(DIVar->getScope())->describes(&MF->getFunction()) &&
         Entries.front().getInstr()->getParent()->sameSection(&MF->front())) {
-      if (!IsDescribedByReg(Entries.front().getInstr()))
+      if (!IsDescribedByReg(Entries.front()))
         LabelsBeforeInsn[Entries.front().getInstr()] = Asm->getFunctionBegin();
-      if (Entries.front().getInstr()->getDebugExpression()->isFragment()) {
+      if (Entries.front().getExpr()->isFragment()) {
         // Mark all non-overlapping initial fragments.
         for (auto I = Entries.begin(); I != Entries.end(); ++I) {
           if (!I->isDbgValue())
             continue;
-          const DIExpression *Fragment = I->getInstr()->getDebugExpression();
+          const DIExpression *Fragment = I->getExpr();
           if (std::any_of(Entries.begin(), I,
                           [&](DbgValueHistoryMap::Entry Pred) {
                             return Pred.isDbgValue() &&
                                    Fragment->fragmentsOverlap(
-                                       Pred.getInstr()->getDebugExpression());
+                                       Pred.getExpr());
                           }))
             break;
           // The code that generates location lists for DWARF assumes that the
           // entries' start labels are monotonically increasing, and since we
           // don't change the label for fragments that are described by
           // registers, we must bail out when encountering such a fragment.
-          if (IsDescribedByReg(I->getInstr()))
+          if (IsDescribedByReg(*I))
             break;
           LabelsBeforeInsn[I->getInstr()] = Asm->getFunctionBegin();
         }

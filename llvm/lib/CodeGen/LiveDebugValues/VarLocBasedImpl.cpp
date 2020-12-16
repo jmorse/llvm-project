@@ -106,8 +106,6 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "LiveDebugValues.h"
-
 #include "llvm/ADT/CoalescingBitVector.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/PostOrderIterator.h"
@@ -117,6 +115,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/UniqueVector.h"
 #include "llvm/CodeGen/LexicalScopes.h"
+#include "llvm/CodeGen/LiveDebugValues.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
@@ -837,6 +836,7 @@ private:
   void flushPendingLocs(VarLocInMBB &PendingInLocs, VarLocMap &VarLocIDs);
 
   bool ExtendRanges(MachineFunction &MF, TargetPassConfig *TPC) override;
+  LDVHistoryMaps ExtendRangesAndCalculateHistory(MachineFunction &MF, TargetPassConfig *TPC) override;
 
 public:
   /// Default construct and initialize the pass.
@@ -1984,6 +1984,10 @@ bool VarLocBasedLDV::ExtendRanges(MachineFunction &MF, TargetPassConfig *TPC) {
   LLVM_DEBUG(printVarLocInMBB(MF, OutLocs, VarLocIDs, "Final OutLocs", dbgs()));
   LLVM_DEBUG(printVarLocInMBB(MF, InLocs, VarLocIDs, "Final InLocs", dbgs()));
   return Changed;
+}
+
+LDVHistoryMaps VarLocBasedLDV::ExtendRangesAndCalculateHistory(MachineFunction &MF, TargetPassConfig *TPC) {
+  llvm_unreachable("Using range histories and VarLoc LiveDebugValues isn't currently supported");
 }
 
 LDVImpl *

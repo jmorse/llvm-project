@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "LiveDebugValues.h"
 
+#include "llvm/CodeGen/LiveDebugValues.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
@@ -45,7 +45,7 @@ char LiveDebugValues::ID = 0;
 char &llvm::LiveDebugValuesID = LiveDebugValues::ID;
 
 INITIALIZE_PASS(LiveDebugValues, DEBUG_TYPE, "Live DEBUG_VALUE analysis", false,
-                false)
+                true)
 
 /// Default construct and initialize the pass.
 LiveDebugValues::LiveDebugValues() : MachineFunctionPass(ID) {
@@ -72,5 +72,7 @@ bool LiveDebugValues::runOnMachineFunction(MachineFunction &MF) {
       TheImpl = llvm::makeVarLocBasedLiveDebugValues();
   }
 
-  return TheImpl->ExtendRanges(MF, TPC);
+//  return TheImpl->ExtendRanges(MF, TPC);
+  Maps = std::move(TheImpl->ExtendRangesAndCalculateHistory(MF, TPC));
+  return !Maps.DbgValueMap.empty();
 }

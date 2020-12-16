@@ -170,6 +170,8 @@ public:
   /// findLexicalScope - Find lexical scope, either regular or inlined, for the
   /// given DebugLoc. Return NULL if not found.
   LexicalScope *findLexicalScope(const DILocation *DL);
+  LexicalScope *findLexicalScope(const DILocalScope *Scope,
+                                 const DILocation *InlinedAt);
 
   /// getAbstractScopesList - Return a reference to list of abstract scopes.
   ArrayRef<LexicalScope *> getAbstractScopesList() const {

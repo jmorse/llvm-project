@@ -19,6 +19,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/AsmPrinterHandler.h"
 #include "llvm/CodeGen/DwarfStringPoolEntry.h"
+#include "llvm/CodeGen/LiveDebugValues.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/LLVMContext.h"
@@ -794,6 +795,10 @@ private:
 
   /// This method decides whether the specified basic block requires a label.
   bool shouldEmitLabelForBasicBlock(const MachineBasicBlock &MBB) const;
+
+public:
+  // XXX jmorse
+  LiveDebugValues &fetchDebugLocations();
 };
 
 } // end namespace llvm
