@@ -1873,20 +1873,56 @@ void DwarfDebug::collectEntityInfo(DwarfCompileUnit &TheCU,
     createConcreteEntity(TheCU, *Scope, Label, IL.second, Sym);
   }
 
-  // Collect info for variables/labels that were optimized out.
-  for (const DINode *DN : SP->getRetainedNodes()) {
-    if (!Processed.insert(InlinedEntity(DN, nullptr)).second)
+  // Collect info for variables/labels that were optimized out. This includes
+  // variables/labels in inlined subroutines.
+  auto CollectRetained = [&](const DISubprogram *CurrentSP) {
+    for (const DINode *DN : CurrentSP->getRetainedNodes()) {
+      if (!Processed.insert(InlinedEntity(DN, nullptr)).second)
+        continue;
+      LexicalScope *Scope = nullptr;
+      if (auto *DV = dyn_cast<DILocalVariable>(DN)) {
+        Scope = LScopes.findLexicalScope(DV->getScope());
+      } else if (auto *DL = dyn_cast<DILabel>(DN)) {
+        Scope = LScopes.findLexicalScope(DL->getScope());
+      }
+
+      if (Scope)
+        createConcreteEntity(TheCU, *Scope, DN, nullptr);
+    }
+  };
+
+  // Implement a stack-based exploration of child scopes, looking for inlined.
+  // subroutines. The cursor identifies blah blah blah document later
+  using Cursor = std::pair<SmallVectorImpl<LexicalScope *> *, unsigned>;
+  SmallVector<Cursor, 8> Stack;
+  // Initialize with blah
+  SmallVector<LexicalScope *, 1> Foo;
+  Foo.push_back(LScopes.findLexicalScope(SP));
+  Stack.push_back({&Foo, 0});
+
+  do {
+    Cursor &Cur = Stack.back();
+
+    // Go back up?
+    if (Cur.second >= Cur.first->size()) {
+      Stack.pop_back();
       continue;
-    LexicalScope *Scope = nullptr;
-    if (auto *DV = dyn_cast<DILocalVariable>(DN)) {
-      Scope = LScopes.findLexicalScope(DV->getScope());
-    } else if (auto *DL = dyn_cast<DILabel>(DN)) {
-      Scope = LScopes.findLexicalScope(DL->getScope());
     }
 
-    if (Scope)
-      createConcreteEntity(TheCU, *Scope, DN, nullptr);
-  }
+    // Maybe call Collect on this scope,
+    LexicalScope *Scope = (*Cur.first)[Cur.second];
+    if (auto *CurrentSP = dyn_cast<DISubprogram>(Scope->getDesc()))
+      CollectRetained(CurrentSP);
+
+    ++Cur.second;
+
+    // Start exploring any children.
+    auto &Children = Scope->getChildren();
+    if (!Children.empty()) {
+      Stack.push_back({&Children, 0});
+      continue;
+    }
+  } while (!Stack.empty());
 }
 
 // Process beginning of an instruction.
