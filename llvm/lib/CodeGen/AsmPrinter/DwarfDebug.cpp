@@ -1566,7 +1566,7 @@ static bool validThroughout(LexicalScopes &LScopes,
   // If the scope starts before the DBG_VALUE then we may have a negative
   // result. Otherwise the location is live coming into the scope and we
   // can skip the following checks.
-  if (!Ordering.isBefore(StartPos, LScopeBegin)) {
+  if (!Ordering.isBeforeOrEq(StartPos, LScopeBegin)) {
     // Exit if the lexical scope begins outside of the current block.
     if (LScopeBegin->getParent() != MBB)
       return false;
@@ -1601,7 +1601,7 @@ static bool validThroughout(LexicalScopes &LScopes,
 
   // Test if the location terminates before the end of the scope.
   const MachineInstr *LScopeEnd = LSRange.back().second;
-  if (Ordering.isBefore(RangeEnd, LScopeEnd))
+  if (Ordering.isBeforeOrEq(RangeEnd, LScopeEnd))
     return false;
 
   // There's a single location which starts at the scope start, and ends at or
