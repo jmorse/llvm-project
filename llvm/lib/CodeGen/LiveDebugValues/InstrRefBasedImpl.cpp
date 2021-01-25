@@ -999,8 +999,12 @@ public:
   const VarNumbering *AllVarsNumbering;
   MLocTracker *MTracker;
   bool Changed;
+  Register FrameReg;
 
-  LocEmitter() : Changed(false) { }
+  LocEmitter(const MachineFunction &MF) : Changed(false) {
+    const auto &TRI = *MF.getRegInfo().getTargetRegisterInfo();
+    FrameReg = TRI.getFrameRegister(MF);
+  }
   virtual ~LocEmitter() { }
 
   virtual void emitLoc(Optional<LocIdx> MLoc, const DebugVariable &Var,
@@ -1026,6 +1030,15 @@ public:
     return AllVarsNumbering->find(VarA)->second <
            AllVarsNumbering->find(VarB)->second;
   }
+
+  bool SkipFrameRegOp(const MachineOperand &MO, const MachineInstr &MI) {
+    // Is this the frame register?
+    if (!MO.isReg() || MO.getReg() != FrameReg)
+      return false;
+
+    return (MI.getFlag(MachineInstr::FrameDestroy) ||
+            MI.getFlag(MachineInstr::FrameSetup));
+  }
 };
 
 class InstrLocEmitter : public LocEmitter {
@@ -1048,7 +1061,7 @@ public:
   const TargetInstrInfo &TII;
 
   InstrLocEmitter(MachineFunction &MF)
-    : LocEmitter(), MF(MF), TII(*MF.getSubtarget().getInstrInfo()) { }
+    : LocEmitter(MF), MF(MF), TII(*MF.getSubtarget().getInstrInfo()) { }
 
   virtual void emitLoc(Optional<LocIdx> MLoc, const DebugVariable &Var,
                        const DbgValueProperties &Properties) override {
@@ -1168,7 +1181,7 @@ using DbgValueEntriesMap = std::map<InlinedEntity, SmallSet<EntryIndex, 1>>;
   SmallVector<PendingChange, 8> PendingClobbers;
   const TargetRegisterInfo &TRI;
 
-  HistoryLocEmitter(const TargetRegisterInfo &TRI) : LocEmitter(), TRI(TRI) { }
+  HistoryLocEmitter(const MachineFunction &MF, const TargetRegisterInfo &TRI) : LocEmitter(MF), TRI(TRI) { }
   virtual ~HistoryLocEmitter() { }
 
   void handleDbgValue(MachineInstr *Pos, const PendingChange &Change) {
@@ -1206,6 +1219,10 @@ using DbgValueEntriesMap = std::map<InlinedEntity, SmallSet<EntryIndex, 1>>;
     // Skip clobber creation if there are no live entries, or no fragments live
     // for the given variable.
     if (LiveEntries.empty())
+      return;
+
+    // Matching calculator, don't do it for frame reg in setup or destruction.
+    if (SkipFrameRegOp(Change.MO, *Pos))
       return;
 
     const DebugVariable &Var = Change.Var;
@@ -4235,7 +4252,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
 }
 
 LDVHistoryMaps InstrRefBasedLDV::ExtendRangesAndCalculateHistory(MachineFunction &MF, TargetPassConfig *TPC) {
-  HistoryLocEmitter Emitter;
+  HistoryLocEmitter Emitter(MF);
   ExtendRangesImpl(MF, TPC, Emitter);
   LDVHistoryMaps Maps;
   Maps.DbgValueMap = std::move(Emitter.HistMap);
