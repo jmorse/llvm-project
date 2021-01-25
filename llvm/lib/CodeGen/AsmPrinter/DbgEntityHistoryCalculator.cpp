@@ -76,6 +76,14 @@ void InstructionOrdering::initialize(const MachineFunction &MF) {
       InstNumberMap[&MI] = MI.isMetaInstruction() ? Position : ++Position;
 }
 
+bool InstructionOrdering::isBefore(const MachineInstr *A,
+                                   const MachineInstr *B) const {
+  assert(A->getParent() && B->getParent() && "Operands must have a parent");
+  assert(A->getMF() == B->getMF() &&
+         "Operands must be in the same MachineFunction");
+  return InstNumberMap.lookup(A) < InstNumberMap.lookup(B);
+}
+
 bool InstructionOrdering::isBeforeOrEq(const MachineInstr *A,
                                        const MachineInstr *B) const {
   assert(A->getParent() && B->getParent() && "Operands must have a parent");
@@ -136,7 +144,7 @@ intersects(const MachineInstr *StartMI, const MachineInstr *EndMI,
            const InstructionOrdering &Ordering) {
   for (auto RangesI = Ranges.begin(), RangesE = Ranges.end();
        RangesI != RangesE; ++RangesI) {
-    if (EndMI && Ordering.isBeforeOrEq(EndMI, RangesI->first))
+    if (EndMI && Ordering.isBefore(EndMI, RangesI->first))
       return None;
     if (EndMI && !Ordering.isBeforeOrEq(RangesI->second, EndMI))
       return RangesI;

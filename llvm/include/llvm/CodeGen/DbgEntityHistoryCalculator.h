@@ -36,6 +36,9 @@ public:
 
   /// Check if instruction \p A comes before \p B, where \p A and \p B both
   /// belong to the MachineFunction passed to initialize().
+  bool isBefore(const MachineInstr *A, const MachineInstr *B) const;
+
+  /// XXX docs
   bool isBeforeOrEq(const MachineInstr *A, const MachineInstr *B) const;
 
 private:
