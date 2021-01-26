@@ -1586,8 +1586,7 @@ public:
       if (!UseBeforeDefVariables.count(Use.Var))
         continue;
 
-      Emitter.emitLoc(L, Use.Var, Use.Properties);
-      // XXX extra tracking should be added, in mlocs/vlocs.
+      redefVar(Use.Var, Use.Properties, L);
     }
   }
 
@@ -1671,13 +1670,18 @@ public:
     redefVar(MI, Properties, NewLoc);
   }
 
-  /// Handle a change in variable location within a block. Terminate the
-  /// variables current location, and record the value it now refers to, so
-  /// that we can detect location transfers later on.
   void redefVar(const MachineInstr &MI, const DbgValueProperties &Properties,
                 Optional<LocIdx> OptNewLoc) {
     DebugVariable Var(MI.getDebugVariable(), MI.getDebugExpression(),
                       MI.getDebugLoc()->getInlinedAt());
+    redefVar(Var, Properties, OptNewLoc);
+  }
+
+  /// Handle a change in variable location within a block. Terminate the
+  /// variables current location, and record the value it now refers to, so
+  /// that we can detect location transfers later on.
+  void redefVar(const DebugVariable &Var, const DbgValueProperties &Properties,
+                Optional<LocIdx> OptNewLoc) {
     // Any use-before-defs no longer apply.
     UseBeforeDefVariables.erase(Var);
 
