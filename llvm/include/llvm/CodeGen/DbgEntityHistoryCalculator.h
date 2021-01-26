@@ -116,7 +116,8 @@ private:
 public:
   bool startDbgValue(const MachineInstr &MI, EntryIndex &NewIndex,
                      const DebugVariable &Var, const DIExpression *Expr,
-                     const MachineOperand &MO, bool IsIndirect);
+                     const MachineOperand &MO, bool IsIndirect,
+                     bool NoCoalesce = false);
   EntryIndex startClobber(const MachineInstr &MI, const DebugVariable &Var,
                      const MachineOperand &MO);
 

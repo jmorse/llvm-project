@@ -99,12 +99,13 @@ bool DbgValueHistoryMap::startDbgValue(const MachineInstr &MI,
                                        const DebugVariable &Var,
                                        const DIExpression *Expr,
                                        const MachineOperand &MO,
-                                       bool IsIndirect) {
+                                       bool IsIndirect,
+                                       bool NoCoalesce) {
   InlinedEntity Entity(Var.getVariable(), Var.getInlinedAt());
   auto &Entries = VarEntries[Entity];
-  if (!Entries.empty() && Entries.back().isDbgValue() &&
+  if (!NoCoalesce && !Entries.empty() && Entries.back().isDbgValue() &&
       !Entries.back().isClosed() &&
-      MI.isDebugValue() && Entries.back().getInstr()->isIdenticalTo(MI)) {
+       Entries.back().getInstr()->isIdenticalTo(MI)) {
     LLVM_DEBUG(dbgs() << "Coalescing identical DBG_VALUE entries:\n"
                       << "\t" << Entries.back().getInstr() << "\t" << MI
                       << "\n");

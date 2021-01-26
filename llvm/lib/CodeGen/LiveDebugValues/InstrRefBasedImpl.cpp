@@ -1174,7 +1174,7 @@ using DbgValueEntriesMap = std::map<InlinedEntity, SmallSet<EntryIndex, 1>>;
   void handleDbgValue(MachineInstr *Pos, const PendingChange &Change) {
     EntryIndex NewIndex;
     const auto &Prop = Change.Properties;
-    bool Created = HistMap.startDbgValue(*Pos, NewIndex, Change.Var, Prop.DIExpr, Change.MO, Prop.Indirect);
+    bool Created = HistMap.startDbgValue(*Pos, NewIndex, Change.Var, Prop.DIExpr, Change.MO, Prop.Indirect, /*NoCoalesce*/true);
 
     // The history map may coalesce identical variable locations, leaving us
     // with nothing to do.
