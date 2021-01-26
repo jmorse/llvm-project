@@ -71,9 +71,11 @@ void InstructionOrdering::initialize(const MachineFunction &MF) {
   //                       variables declared in the scope will have no effect.
   clear();
   unsigned Position = 0;
-  for (const MachineBasicBlock &MBB : MF)
+  for (const MachineBasicBlock &MBB : MF) {
     for (const MachineInstr &MI : MBB)
       InstNumberMap[&MI] = MI.isMetaInstruction() ? Position : ++Position;
+    ++Position; // A new block is a new location.
+  }
 }
 
 bool InstructionOrdering::isBefore(const MachineInstr *A,
