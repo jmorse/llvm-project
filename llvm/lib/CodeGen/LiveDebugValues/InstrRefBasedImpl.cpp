@@ -1205,18 +1205,21 @@ using DbgValueEntriesMap = std::map<InlinedEntity, SmallSet<EntryIndex, 1>>;
   void handleClobber(MachineInstr *Pos, const PendingChange &Change) {
     // Skip clobber creation if there are no live entries, or no fragments live
     // for the given variable.
-    if (LiveEntries.empty())
+    if (LiveEntries.empty()) {
+// XXX a recorded clobber of something not open is a DBG_VALUE undef.
+      handleDbgValue(Pos, Change);
       return;
-
-    // Matching calculator, don't do it for frame reg in setup or destruction.
-    if (SkipFrameRegOp(Change.MO, *Pos))
-      return;
+    }
 
     const DebugVariable &Var = Change.Var;
     InlinedEntity Entity(Var.getVariable(), Var.getInlinedAt());
     auto EntityIt = LiveEntries.find(Entity);
-    if (EntityIt == LiveEntries.end() || EntityIt->second.empty())
+    if (EntityIt == LiveEntries.end() || EntityIt->second.empty()) {
+// XXX a recorded clobber of something not open is a DBG_VALUE undef.
+      handleDbgValue(Pos, Change);
+
       return;
+    }
 
     // Diverging from DbgEntityHistoryCalculator, we don't look up what vars
     // to terminate from the register. Instead, look for the var fragment
