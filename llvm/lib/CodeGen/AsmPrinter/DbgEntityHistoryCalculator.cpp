@@ -102,7 +102,7 @@ bool DbgValueHistoryMap::startDbgValue(const MachineInstr &MI,
   auto &Entries = VarEntries[Entity];
   if (!Entries.empty() && Entries.back().isDbgValue() &&
       !Entries.back().isClosed() &&
-      Entries.back().getInstr()->isIdenticalTo(MI)) {
+      MI.isDebugValue() && Entries.back().getInstr()->isIdenticalTo(MI)) {
     LLVM_DEBUG(dbgs() << "Coalescing identical DBG_VALUE entries:\n"
                       << "\t" << Entries.back().getInstr() << "\t" << MI
                       << "\n");
