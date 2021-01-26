@@ -148,7 +148,7 @@ intersects(const MachineInstr *StartMI, const MachineInstr *EndMI,
        RangesI != RangesE; ++RangesI) {
     if (EndMI && Ordering.isBefore(EndMI, RangesI->first))
       return None;
-    if (EndMI && !Ordering.isBeforeOrEq(RangesI->second, EndMI))
+    if (EndMI && !Ordering.isBefore(RangesI->second, EndMI))
       return RangesI;
     if (Ordering.isBeforeOrEq(StartMI, RangesI->second))
       return RangesI;
