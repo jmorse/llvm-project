@@ -999,12 +999,8 @@ public:
   const VarNumbering *AllVarsNumbering;
   MLocTracker *MTracker;
   bool Changed;
-  Register FrameReg;
 
-  LocEmitter(const MachineFunction &MF) : Changed(false) {
-    const auto &TRI = *MF.getRegInfo().getTargetRegisterInfo();
-    FrameReg = TRI.getFrameRegister(MF);
-  }
+  LocEmitter() : Changed(false) { }
   virtual ~LocEmitter() { }
 
   virtual void emitLoc(Optional<LocIdx> MLoc, const DebugVariable &Var,
@@ -1030,15 +1026,6 @@ public:
     return AllVarsNumbering->find(VarA)->second <
            AllVarsNumbering->find(VarB)->second;
   }
-
-  bool SkipFrameRegOp(const MachineOperand &MO, const MachineInstr &MI) {
-    // Is this the frame register?
-    if (!MO.isReg() || MO.getReg() != FrameReg)
-      return false;
-
-    return (MI.getFlag(MachineInstr::FrameDestroy) ||
-            MI.getFlag(MachineInstr::FrameSetup));
-  }
 };
 
 class InstrLocEmitter : public LocEmitter {
@@ -1061,7 +1048,7 @@ public:
   const TargetInstrInfo &TII;
 
   InstrLocEmitter(MachineFunction &MF)
-    : LocEmitter(MF), MF(MF), TII(*MF.getSubtarget().getInstrInfo()) { }
+    : LocEmitter(), MF(MF), TII(*MF.getSubtarget().getInstrInfo()) { }
 
   virtual void emitLoc(Optional<LocIdx> MLoc, const DebugVariable &Var,
                        const DbgValueProperties &Properties) override {
@@ -1181,7 +1168,7 @@ using DbgValueEntriesMap = std::map<InlinedEntity, SmallSet<EntryIndex, 1>>;
   SmallVector<PendingChange, 8> PendingClobbers;
   const TargetRegisterInfo &TRI;
 
-  HistoryLocEmitter(const MachineFunction &MF, const TargetRegisterInfo &TRI) : LocEmitter(MF), TRI(TRI) { }
+  HistoryLocEmitter(const TargetRegisterInfo &TRI) : LocEmitter(), TRI(TRI) { }
   virtual ~HistoryLocEmitter() { }
 
   void handleDbgValue(MachineInstr *Pos, const PendingChange &Change) {
@@ -2500,6 +2487,7 @@ void InstrRefBasedLDV::transferRegisterDef(MachineInstr &MI) {
   MachineFunction *MF = MI.getMF();
   const TargetLowering *TLI = MF->getSubtarget().getTargetLowering();
   Register SP = TLI->getStackPointerRegisterToSaveRestore();
+  Register FrameReg = TRI->getFrameRegister(*MF);
 
   // Find the regs killed by MI, and find regmasks of preserved regs.
   // Max out the number of statically allocated elements in `DeadRegs`, as this
@@ -2507,11 +2495,17 @@ void InstrRefBasedLDV::transferRegisterDef(MachineInstr &MI) {
   SmallSet<uint32_t, 32> DeadRegs;
   SmallVector<const uint32_t *, 4> RegMasks;
   SmallVector<const MachineOperand *, 4> RegMaskPtrs;
+  bool IsSetupDestroy = MI.getFlag(MachineInstr::FrameDestroy) || MI.getFlag(MachineInstr::FrameSetup);
   for (const MachineOperand &MO : MI.operands()) {
     // Determine whether the operand is a register def.
     if (MO.isReg() && MO.isDef() && MO.getReg() &&
         Register::isPhysicalRegister(MO.getReg()) &&
         !(MI.isCall() && MO.getReg() == SP)) {
+      // Ignore frame register being clobbered on function entry/exit. Avoids
+      // making location lists needlessly complicated.
+      if (MO.getReg() == FrameReg && IsSetupDestroy)
+        continue;
+      
       // Remove ranges of all aliased registers.
       for (MCRegAliasIterator RAI(MO.getReg(), TRI, true); RAI.isValid(); ++RAI)
         // FIXME: Can we break out of this loop early if no insertion occurs?
@@ -4252,7 +4246,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
 }
 
 LDVHistoryMaps InstrRefBasedLDV::ExtendRangesAndCalculateHistory(MachineFunction &MF, TargetPassConfig *TPC) {
-  HistoryLocEmitter Emitter(MF);
+  HistoryLocEmitter Emitter(*MF.getRegInfo().getTargetRegisterInfo());
   ExtendRangesImpl(MF, TPC, Emitter);
   LDVHistoryMaps Maps;
   Maps.DbgValueMap = std::move(Emitter.HistMap);
