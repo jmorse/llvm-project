@@ -292,10 +292,9 @@ bool DbgValueHistoryMap::hasNonEmptyLocation(const Entries &Entries) const {
     if (!Entry.isDbgValue())
       continue;
 
-    const MachineInstr *MI = Entry.getInstr();
-    assert(MI->isDebugValue());
-    // A DBG_VALUE $noreg is an empty variable location
-    if (MI->getOperand(0).isReg() && MI->getOperand(0).getReg() == 0)
+    // An empty DBG_VALUE may have been left behind to uh, match past
+    // behaviours?
+    if (Entry.MO.isReg() && Entry.MO.getReg() == 0)
       continue;
 
     return true;
