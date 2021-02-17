@@ -1566,7 +1566,7 @@ static bool validThroughout(LexicalScopes &LScopes,
   // If the scope starts before the DBG_VALUE then we may have a negative
   // result. Otherwise the location is live coming into the scope and we
   // can skip the following checks.
-  if (!Ordering.isBeforeOrEq(StartPos, LScopeBegin)) {
+  if (!Ordering.isBefore(StartPos, LScopeBegin)) {
     // Exit if the lexical scope begins outside of the current block.
     if (LScopeBegin->getParent() != MBB)
       return false;
