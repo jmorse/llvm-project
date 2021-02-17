@@ -1240,6 +1240,10 @@ using DbgValueEntriesMap = std::map<InlinedEntity, SmallSet<EntryIndex, 1>>;
       EntityIt->second.erase(Index);
       return;
     }
+
+    // Add a clobbering index anyway if we were an explicit DBG_VALUE $noreg
+    if (Change.MO.isReg() && Change.MO.getReg() == 0)
+      handleDbgValue(Pos, Change);
   }
 
 
