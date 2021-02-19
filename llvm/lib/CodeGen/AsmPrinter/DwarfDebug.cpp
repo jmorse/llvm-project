@@ -1611,7 +1611,7 @@ bool isbefore = !Ordering.isBefore(StartPos, LScopeBegin);
 
   // Test if the location terminates before the end of the scope.
   const MachineInstr *LScopeEnd = LSRange.back().second;
-  if (Ordering.isBeforeOrEq(RangeEnd, LScopeEnd))
+  if (Ordering.isBefore(RangeEnd, LScopeEnd))
     return false;
 
   // There's a single location which starts at the scope start, and ends at or
