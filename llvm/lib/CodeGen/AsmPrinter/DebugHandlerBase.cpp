@@ -328,7 +328,7 @@ void DebugHandlerBase::beginFunction(const MachineFunction *MF) {
         continue;
 
       requestLabelBeforeInsn(Entry.getInstr());
-      if (Entry.isClosed())
+      if (Entry.isClosed() && Entries[Entry.getEndIndex()].isClobber())
         requestLabelAfterInsn(Entries[Entry.getEndIndex()].getInstr());
     }
   }
