@@ -342,11 +342,11 @@ bool DbgValueHistoryMap::hasNonEmptyLocation(const Entries &Entries,
 
 bool DbgValueHistoryMap::rangeIsEmpty(const Entry &Entry,
      const Entries &Entries, const InstructionOrdering &Ordering) {
-  if (!Entry.isClosed())
-    return false;
-
   if (Entry.MO.isReg() && Entry.MO.getReg() == 0)
     return true;
+
+  if (!Entry.isClosed())
+    return false;
 
   // If we start and end at two dbg instrs with the same number it's an
   // empty range. Can't do this for "normal" ranges because they might
