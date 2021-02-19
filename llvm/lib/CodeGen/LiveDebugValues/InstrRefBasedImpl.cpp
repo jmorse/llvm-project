@@ -1165,6 +1165,7 @@ using DbgValueEntriesMap = std::map<InlinedEntity, SmallSet<EntryIndex, 1>>;
   };
 
   SmallVector<PendingChange, 8> PendingDbgValues;
+  SmallVector<PendingChange, 8> SortedPendingDbgValues;
   SmallVector<PendingChange, 8> PendingClobbers;
   const TargetRegisterInfo &TRI;
 
@@ -1285,28 +1286,32 @@ using DbgValueEntriesMap = std::map<InlinedEntity, SmallSet<EntryIndex, 1>>;
 
   void preFlushEmitter(MachineBasicBlock::instr_iterator Pos,
                        MachineBasicBlock *MBB) override {
-    if (PendingDbgValues.empty())
+    if (SortedPendingDbgValues.empty())
       return;
-
-    auto Order = std::bind(&HistoryLocEmitter::OrderChange, this,
-        std::placeholders::_1, std::placeholders::_2);
-    llvm::stable_sort(make_range(PendingDbgValues.begin(), PendingDbgValues.end()), Order);
 
     // Ignore any duplicates, i.e. dbg_values that are immediately overwritten
     // by another one.
-    for (auto I = PendingDbgValues.begin(); I != PendingDbgValues.end(); ++I) {
+    for (auto I = SortedPendingDbgValues.begin(); I != SortedPendingDbgValues.end(); ++I) {
       auto NextI = std::next(I);
-      if (NextI != PendingDbgValues.end() && I->Var == NextI->Var)
+      if (NextI != SortedPendingDbgValues.end() && I->Var == NextI->Var)
         continue;
       handleDbgValue(&*Pos, *I);
     }
 
     Changed = true;
-    PendingDbgValues.clear();
+    SortedPendingDbgValues.clear();
   }
 
   void postFlushEmitter(MachineBasicBlock::instr_iterator Pos,
                        MachineBasicBlock *MBB) override {
+    // Sort any transfers created by the instr and commit them.
+    auto Order = std::bind(&HistoryLocEmitter::OrderChange, this,
+        std::placeholders::_1, std::placeholders::_2);
+    llvm::stable_sort(make_range(PendingDbgValues.begin(), PendingDbgValues.end()), Order);
+    for (const auto &I : PendingDbgValues)
+      SortedPendingDbgValues.push_back(I);
+    PendingDbgValues.clear();
+
     // Pre-existing DBG_VALUEs and DBG_LABELs must still be handled. All
     // juggling of the lifetime of DBG_VALUEs is handled through the rest of
     // InstrRefBasedLDV, we just need to record the start here.
@@ -1323,7 +1328,7 @@ Leads to differences in debug line labels from DBG_VALUE emission
 #endif
 
       // Have this handled at the next instr pls.
-      PendingDbgValues.emplace_back(Pos->getOperand(0), Var, Prop);
+      SortedPendingDbgValues.emplace_back(Pos->getOperand(0), Var, Prop);
     }
 
     if (Pos->isDebugLabel()) {
@@ -1343,12 +1348,17 @@ Leads to differences in debug line labels from DBG_VALUE emission
     // To preserve stability of output ordering: sort variable changes
     // according to appearance order. Needs to be stable sort;
     // transferred copies appear to occasionally create two records...
-    auto Order = std::bind(&HistoryLocEmitter::OrderChange, this,
-        std::placeholders::_1, std::placeholders::_2);
     llvm::stable_sort(make_range(PendingClobbers.begin(), PendingClobbers.end()), Order);
 
-    for (auto &Change : PendingClobbers)
-      handleClobber(&*Pos, Change);
+    if (Pos->isDebugInstr()) {
+      // Actually this is a re-DBG_VALUE. Doesn't really matter, but this is
+      // something that can change location list ordering from DBG_VALUE mode
+      for (auto &Change : PendingClobbers)
+        SortedPendingDbgValues.push_back(Change);
+    } else {
+      for (auto &Change : PendingClobbers)
+        handleClobber(&*Pos, Change);
+    }
 
     Changed = true;
     PendingClobbers.clear();
@@ -1360,7 +1370,7 @@ Leads to differences in debug line labels from DBG_VALUE emission
     // There may be some dangling DBG_VALUEs here, if we recover a location on
     // the last instruction in a block. But, the DBG_VALUE will not cover
     // anything, so it's safe to ignore.
-    PendingDbgValues.clear();
+    SortedPendingDbgValues.clear();
 
     // Don't terminate locations on empty blocks; or the final block.
     if (MBB.empty() || &MBB == &MBB.getParent()->back())
