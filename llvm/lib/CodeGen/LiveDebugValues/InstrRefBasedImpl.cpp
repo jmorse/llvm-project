@@ -2606,13 +2606,20 @@ void InstrRefBasedLDV::performCopy(Register SrcRegNum, Register DstRegNum) {
   ValueIDNum SrcValue = MTracker->readReg(SrcRegNum);
 
   MTracker->setReg(DstRegNum, SrcValue);
+  auto MLoc = MTracker->getRegMLoc(DstRegNum);
+  if (MLoc && TTracker)
+    TTracker->clobberMloc(*MLoc);
 
   // In all circumstances, re-def the super registers. It's definitely a new
   // value now. This doesn't uniquely identify the composition of subregs, for
   // example, two identical values in subregisters composed in different
   // places would not get equal value numbers.
-  for (MCSuperRegIterator SRI(DstRegNum, TRI); SRI.isValid(); ++SRI)
+  for (MCSuperRegIterator SRI(DstRegNum, TRI); SRI.isValid(); ++SRI) {
     MTracker->defReg(*SRI, CurBB, CurInst);
+    auto MLoc = MTracker->getRegMLoc(*SRI);
+    if (MLoc && TTracker)
+      TTracker->clobberMloc(*MLoc);
+  }
 
   // If we're emulating VarLocBasedImpl, just define all the subregisters.
   // DBG_VALUEs of them will expect to be tracked from the DBG_VALUE, not
@@ -2645,6 +2652,9 @@ void InstrRefBasedLDV::performCopy(Register SrcRegNum, Register DstRegNum) {
     ValueIDNum CpyValue = MTracker->readReg(SrcSubReg);
 
     MTracker->setReg(DstSubReg, CpyValue);
+
+    if (TTracker)
+      TTracker->clobberMloc(DstL);
   }
 }
 
@@ -2923,7 +2933,8 @@ bool InstrRefBasedLDV::transferRegisterCopy(MachineInstr &MI) {
   if (EmulateOldLDV && !SrcRegOp->isKill())
     return false;
 
-  // Copy MTracker info, including subregs if available.
+  // Copy MTracker info, including subregs if available. performCopy will
+  // tell TTracker about any clobbers, but not transfers.
   InstrRefBasedLDV::performCopy(SrcReg, DestReg);
 
   // Only produce a transfer of DBG_VALUE within a block where old LDV
@@ -2936,16 +2947,6 @@ bool InstrRefBasedLDV::transferRegisterCopy(MachineInstr &MI) {
   // VarLocBasedImpl would quit tracking the old location after copying.
   if (EmulateOldLDV && SrcReg != DestReg)
     MTracker->defReg(SrcReg, CurBB, CurInst);
-
-  // Finally, the copy might have clobbered variables based on the destination
-  // register. Tell TTracker about it, in case a backup location exists.
-  if (TTracker) {
-    for (MCRegAliasIterator RAI(DestReg, TRI, true); RAI.isValid(); ++RAI) {
-      if (auto OptClobberedLoc = MTracker->getRegMLoc(*RAI)) {
-        TTracker->clobberMloc(*OptClobberedLoc);
-      }
-    }
-  }
 
   return true;
 }
