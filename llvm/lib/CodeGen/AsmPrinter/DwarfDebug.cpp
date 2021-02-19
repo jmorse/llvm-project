@@ -1670,7 +1670,7 @@ bool DwarfDebug::buildLocationList(SmallVectorImpl<DebugLocEntry> &DebugLoc,
     size_t Index = std::distance(EB, EI);
     erase_if(OpenRanges, [&](OpenRange &R) { return R.first <= Index; });
 
-    if (DbgValueHistoryMap::rangeIsEmpty(*EI, Entries, getInstOrdering()))
+    if (EI->isDbgValue() && DbgValueHistoryMap::rangeIsEmpty(*EI, Entries, getInstOrdering()))
       continue;
 
     if (EI->isClosed())
