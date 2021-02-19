@@ -72,7 +72,12 @@ bool LiveDebugValues::runOnMachineFunction(MachineFunction &MF) {
       TheImpl = llvm::makeVarLocBasedLiveDebugValues();
   }
 
-//  return TheImpl->ExtendRanges(MF, TPC);
+#define HAHA_INLDV_CALC 1
+
+#if HAHA_INLDV_CALC
   Maps = std::move(TheImpl->ExtendRangesAndCalculateHistory(MF, TPC));
   return !Maps.DbgValueMap.empty();
+#else
+  return TheImpl->ExtendRanges(MF, TPC);
+#endif
 }

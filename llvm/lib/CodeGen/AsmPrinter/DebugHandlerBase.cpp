@@ -248,11 +248,15 @@ void DebugHandlerBase::beginFunction(const MachineFunction *MF) {
   // Calculate history for local variables.
   assert(DbgValues.empty() && "DbgValues map wasn't cleaned!");
   assert(DbgLabels.empty() && "DbgLabels map wasn't cleaned!");
+
+#define HAHA_INLDV_CALC 1
+
+#if HAHA_INLDV_CALC
   LiveDebugValues &LDV = Asm->fetchDebugLocations();
   LDVHistoryMaps Maps = std::move(LDV.getMaps());
   DbgValues = std::move(Maps.DbgValueMap);
   DbgLabels = std::move(Maps.LabelMap);
-#if 0
+#else
   calculateDbgEntityHistory(MF, Asm->MF->getSubtarget().getRegisterInfo(),
                             DbgValues, DbgLabels);
 #endif
@@ -318,10 +322,14 @@ void DebugHandlerBase::beginFunction(const MachineFunction *MF) {
     }
 
     for (const auto &Entry : Entries) {
-      if (Entry.isDbgValue())
-        requestLabelBeforeInsn(Entry.getInstr());
-      else
-        requestLabelAfterInsn(Entry.getInstr());
+      if (!Entry.isDbgValue())
+        continue;
+      if (DbgValues.rangeIsEmpty(Entry, Entries, InstOrdering))
+        continue;
+
+      requestLabelBeforeInsn(Entry.getInstr());
+      if (Entry.isClosed())
+        requestLabelAfterInsn(Entries[Entry.getEndIndex()].getInstr());
     }
   }
 

@@ -1292,8 +1292,14 @@ using DbgValueEntriesMap = std::map<InlinedEntity, SmallSet<EntryIndex, 1>>;
         std::placeholders::_1, std::placeholders::_2);
     llvm::stable_sort(make_range(PendingDbgValues.begin(), PendingDbgValues.end()), Order);
 
-    for (auto &Change : PendingDbgValues)
-      handleDbgValue(&*Pos, Change);
+    // Ignore any duplicates, i.e. dbg_values that are immediately overwritten
+    // by another one.
+    for (auto I = PendingDbgValues.begin(); I != PendingDbgValues.end(); ++I) {
+      auto NextI = std::next(I);
+      if (NextI != PendingDbgValues.end() && I->Var == NextI->Var)
+        continue;
+      handleDbgValue(&*Pos, *I);
+    }
 
     Changed = true;
     PendingDbgValues.clear();
@@ -1307,8 +1313,17 @@ using DbgValueEntriesMap = std::map<InlinedEntity, SmallSet<EntryIndex, 1>>;
     if (Pos->isDebugValue()) {
       DebugVariable Var(Pos->getDebugVariable(), Pos->getDebugExpression(),
                         Pos->getDebugLoc().getInlinedAt());
+
       DbgValueProperties Prop(Pos->getDebugExpression(), Pos->isIndirectDebugValue());
-      handleDbgValue(&*Pos, {Pos->getOperand(0), Var, Prop});
+
+#if 0
+Leads to differences in debug line labels from DBG_VALUE emission
+      // Do nothing if this variable hasn't ever determined to be in scope.
+      if (AllVarsNumbering->count(Var) != 0)
+#endif
+
+      // Have this handled at the next instr pls.
+      PendingDbgValues.emplace_back(Pos->getOperand(0), Var, Prop);
     }
 
     if (Pos->isDebugLabel()) {
@@ -4047,7 +4062,8 @@ bool InstrRefBasedLDV::emitLocations(
     CurBB = bbnum;
     CurInst = 1;
     for (auto &MI : MBB) {
-      Emitter.preFlushEmitter(MI.getIterator(), nullptr);
+      if (!MI.isDebugValue())
+        Emitter.preFlushEmitter(MI.getIterator(), nullptr);
       process(MI, MOutLocs, MInLocs);
       TTracker->checkInstForNewValues(CurInst);
       Emitter.postFlushEmitter(MI.getIterator(), nullptr);
@@ -4159,6 +4175,10 @@ bool InstrRefBasedLDV::ExtendRangesImpl(MachineFunction &MF,
 
   llvm::sort(DebugPHINumToValue.begin(), DebugPHINumToValue.end());
 
+  // Number all variables in the order that they appear, to be used as a stable
+  // insertion order later.
+  DenseMap<DebugVariable, unsigned> AllVarsNumbering;
+
   // Walk back through each block / instruction, collecting DBG_VALUE
   // instructions and recording what machine value their operands refer to.
   for (auto &OrderPair : OrderToBB) {
@@ -4170,14 +4190,15 @@ bool InstrRefBasedLDV::ExtendRangesImpl(MachineFunction &MF,
     CurInst = 1;
     for (auto &MI : MBB) {
       process(MI, MOutLocs, MInLocs);
+      if (MI.isDebugValue() || MI.isDebugRef()) {
+        DebugVariable Var(MI.getDebugVariable(), MI.getDebugExpression(),
+                          MI.getDebugLoc()->getInlinedAt());
+        AllVarsNumbering.insert(std::make_pair(Var, AllVarsNumbering.size()));
+      }
       ++CurInst;
     }
     MTracker->reset();
   }
-
-  // Number all variables in the order that they appear, to be used as a stable
-  // insertion order later.
-  DenseMap<DebugVariable, unsigned> AllVarsNumbering;
 
   // Map from one LexicalScope to all the variables in that scope.
   DenseMap<const LexicalScope *, SmallSet<DebugVariable, 4>> ScopeToVars;
@@ -4204,7 +4225,6 @@ bool InstrRefBasedLDV::ExtendRangesImpl(MachineFunction &MF,
       // No insts in scope -> shouldn't have been recorded.
       assert(Scope != nullptr);
 
-      AllVarsNumbering.insert(std::make_pair(Var, AllVarsNumbering.size()));
       ScopeToVars[Scope].insert(Var);
       ScopeToBlocks[Scope].insert(VTracker->MBB);
       ScopeToDILocation[Scope] = ScopeLoc;

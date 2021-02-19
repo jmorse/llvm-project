@@ -6,6 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#define HAHA_INLDV_CALC 1
+
 #include "llvm/CodeGen/DbgEntityHistoryCalculator.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/Optional.h"
@@ -94,6 +96,14 @@ bool InstructionOrdering::isBeforeOrEq(const MachineInstr *A,
   return InstNumberMap.lookup(A) <= InstNumberMap.lookup(B);
 }
 
+bool InstructionOrdering::isEq(const MachineInstr *A,
+                               const MachineInstr *B) const {
+  assert(A->getParent() && B->getParent() && "Operands must have a parent");
+  assert(A->getMF() == B->getMF() &&
+         "Operands must be in the same MachineFunction");
+  return InstNumberMap.lookup(A) == InstNumberMap.lookup(B);
+}
+
 bool DbgValueHistoryMap::startDbgValue(const MachineInstr &MI,
                                        EntryIndex &NewIndex,
                                        const DebugVariable &Var,
@@ -141,8 +151,32 @@ void DbgValueHistoryMap::Entry::endEntry(EntryIndex Index) {
 /// range in Ranges. EndMI can be nullptr to indicate that the range is
 /// unbounded. Assumes Ranges is ordered and disjoint. Returns true and points
 /// to the first intersecting scope range if one exists.
+// XXX jmorse, this relies on the opening DBG_VALUE not being inclusive
 static Optional<ArrayRef<InsnRange>::iterator>
 intersects(const MachineInstr *StartMI, const MachineInstr *EndMI,
+           const ArrayRef<InsnRange> &Ranges,
+           const InstructionOrdering &Ordering) {
+
+// XXX -- if both start and end have the same number, they cover no instrs in
+// "old" DBG_VALUE mode.
+if (EndMI && Ordering.isEq(StartMI, EndMI))
+  return None;
+
+  for (auto RangesI = Ranges.begin(), RangesE = Ranges.end();
+       RangesI != RangesE; ++RangesI) {
+    if (EndMI && Ordering.isBefore(EndMI, RangesI->first))
+      return None;
+    if (EndMI && !Ordering.isBefore(RangesI->second, EndMI))
+      return RangesI;
+    if (Ordering.isBefore(StartMI, RangesI->second))
+      return RangesI;
+  }
+  return None;
+}
+
+// XXX jmorse, this one does not
+static Optional<ArrayRef<InsnRange>::iterator>
+intersects_inc(const MachineInstr *StartMI, const MachineInstr *EndMI,
            const ArrayRef<InsnRange> &Ranges,
            const InstructionOrdering &Ordering) {
   for (auto RangesI = Ranges.begin(), RangesE = Ranges.end();
@@ -231,7 +265,13 @@ void DbgValueHistoryMap::trimLocationRanges(
                                       : nullptr;
       // Check if the location range [StartMI, EndMI] intersects with any scope
       // range for the variable.
-      if (auto R = intersects(StartMI, EndMI, ScopeRanges, Ordering)) {
+#if HAHA_INLDV_CALC
+  auto R = intersects_inc(StartMI, EndMI,  ScopeRanges, Ordering);
+#else
+  auto R = intersects(StartMI, EndMI,  ScopeRanges, Ordering);
+#endif
+
+      if (R) {
         // Adjust ScopeRanges to exclude ranges which subsequent location ranges
         // cannot possibly intersect.
         ScopeRanges = ArrayRef<InsnRange>(R.getValue(), ScopeRanges.end());
@@ -287,22 +327,39 @@ void DbgValueHistoryMap::trimLocationRanges(
   }
 }
 
-bool DbgValueHistoryMap::hasNonEmptyLocation(const Entries &Entries) const {
+bool DbgValueHistoryMap::hasNonEmptyLocation(const Entries &Entries,
+    const InstructionOrdering &Ordering) {
   for (const auto &Entry : Entries) {
     if (!Entry.isDbgValue())
       continue;
 
-    // An empty DBG_VALUE may have been left behind to uh, match past
-    // behaviours?
-    if (Entry.MO.isReg() && Entry.MO.getReg() == 0)
-      continue;
-
-    return true;
+    if (!rangeIsEmpty(Entry, Entries, Ordering))
+      return true;
   }
 
   return false;
 }
 
+bool DbgValueHistoryMap::rangeIsEmpty(const Entry &Entry,
+     const Entries &Entries, const InstructionOrdering &Ordering) {
+  if (!Entry.isClosed())
+    return false;
+
+  if (Entry.MO.isReg() && Entry.MO.getReg() == 0)
+    return true;
+
+  // If we start and end at two dbg instrs with the same number it's an
+  // empty range. Can't do this for "normal" ranges because they might
+  // represent a single-instr location.
+  if (Entry.isClosed() &&
+      Entries[Entry.getEndIndex()].getInstr()->isDebugValue() &&
+      Entry.getInstr()->isDebugValue() &&
+      Ordering.isEq(Entries[Entry.getEndIndex()].getInstr(), Entry.getInstr()))
+    return true;
+
+  return false;
+}
+ 
 void DbgLabelInstrMap::addInstr(InlinedEntity Label, const MachineInstr &MI) {
   assert(MI.isDebugLabel() && "not a DBG_LABEL");
   LabelInstr[Label] = &MI;
@@ -488,6 +545,12 @@ void llvm::calculateDbgEntityHistory(const MachineFunction *MF,
       // Meta Instructions have no output and do not change any values and so
       // can be safely ignored.
       if (MI.isMetaInstruction())
+        continue;
+
+      // HACK to prove equivalence,
+      // If this is the final terminator of the function, bail. Clobbers in
+      // tail calls are irrelevant because there's no code behind them.
+      if (MI.isTerminator() && &MI == &MBB.back() && &MBB == &MF->back())
         continue;
 
       // Not a DBG_VALUE instruction. It may clobber registers which describe

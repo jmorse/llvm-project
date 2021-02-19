@@ -17,6 +17,7 @@
 #include "DwarfExpression.h"
 #include "DwarfUnit.h"
 #include "llvm/ADT/APInt.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/ADT/Twine.h"
@@ -1562,11 +1563,20 @@ static bool validThroughout(LexicalScopes &LScopes,
   if (LSRange.size() == 0)
     return false;
 
+#define HAHA_INLDV_CALC 1
+
   const MachineInstr *LScopeBegin = LSRange.front().first;
   // If the scope starts before the DBG_VALUE then we may have a negative
   // result. Otherwise the location is live coming into the scope and we
   // can skip the following checks.
-  if (!Ordering.isBefore(StartPos, LScopeBegin)) {
+
+#if HAHA_INLDV_CALC
+bool isbefore = !Ordering.isBeforeOrEq(StartPos, LScopeBegin);
+#else
+bool isbefore = !Ordering.isBefore(StartPos, LScopeBegin);
+#endif
+
+  if (isbefore) {
     // Exit if the lexical scope begins outside of the current block.
     if (LScopeBegin->getParent() != MBB)
       return false;
@@ -1651,12 +1661,24 @@ bool DwarfDebug::buildLocationList(SmallVectorImpl<DebugLocEntry> &DebugLoc,
   const MachineInstr *StartDebugMI = nullptr;
   const MachineInstr *EndMI = nullptr;
 
+  SmallSet<DbgValueHistoryMap::EntryIndex, 8> ClobbersWeCareAbout;
+
   for (auto EB = Entries.begin(), EI = EB, EE = Entries.end(); EI != EE; ++EI) {
     const MachineInstr *Instr = EI->getInstr();
 
     // Remove all values that are no longer live.
     size_t Index = std::distance(EB, EI);
     erase_if(OpenRanges, [&](OpenRange &R) { return R.first <= Index; });
+
+    if (DbgValueHistoryMap::rangeIsEmpty(*EI, Entries, getInstOrdering()))
+      continue;
+
+    if (EI->isClosed())
+      ClobbersWeCareAbout.insert(EI->getEndIndex());
+    if (EI->isClobber() && ClobbersWeCareAbout.count(Index) == 0)
+      continue;
+    if (EI->isClobber())
+      ClobbersWeCareAbout.erase(Index);
 
     // If we are dealing with a clobbering entry, this iteration will result in
     // a location list entry starting after the clobbering instruction.
@@ -1666,16 +1688,28 @@ bool DwarfDebug::buildLocationList(SmallVectorImpl<DebugLocEntry> &DebugLoc,
            "Forgot label before/after instruction starting a range!");
 
     const MCSymbol *EndLabel;
-    if (std::next(EI) == Entries.end()) {
+    auto NextI = std::next(EI);
+    while (NextI != Entries.end()) {
+      if (NextI->isDbgValue() && DbgValueHistoryMap::rangeIsEmpty(*NextI, Entries, getInstOrdering()))
+        NextI = std::next(NextI);
+      else if (NextI->isClobber() && ClobbersWeCareAbout.count(std::distance(EB, NextI)) == 0)
+        NextI = std::next(NextI);
+      else
+        break;
+    };
+
+    if (NextI == Entries.end()) {
       const MachineBasicBlock &EndMBB = Asm->MF->back();
       EndLabel = Asm->MBBSectionRanges[EndMBB.getSectionIDNum()].EndLabel;
       if (EI->isClobber())
         EndMI = EI->getInstr();
+    } else {
+      if (NextI->isClobber())
+        EndLabel = getLabelAfterInsn(NextI->getInstr());
+      else
+        EndLabel = getLabelBeforeInsn(NextI->getInstr());
     }
-    else if (std::next(EI)->isClobber())
-      EndLabel = getLabelAfterInsn(std::next(EI)->getInstr());
-    else
-      EndLabel = getLabelBeforeInsn(std::next(EI)->getInstr());
+
     assert(EndLabel && "Forgot label after instruction ending a range!");
 
     if (EI->isDbgValue())
@@ -1780,7 +1814,7 @@ void DwarfDebug::collectEntityInfo(DwarfCompileUnit &TheCU,
 
     // Try to find any non-empty variable location. Do not create a concrete
     // entity if there are no locations.
-    if (!DbgValues.hasNonEmptyLocation(HistoryMapEntries))
+    if (!DbgValues.hasNonEmptyLocation(HistoryMapEntries, getInstOrdering()))
       continue;
 
     LexicalScope *Scope = nullptr;
