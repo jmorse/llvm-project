@@ -4063,7 +4063,7 @@ bool InstrRefBasedLDV::emitLocations(
     CurBB = bbnum;
     CurInst = 1;
     for (auto &MI : MBB) {
-      if (!MI.isDebugValue())
+      if (!MI.isDebugInstr())
         Emitter.preFlushEmitter(MI.getIterator(), nullptr);
       process(MI, MOutLocs, MInLocs);
       TTracker->checkInstForNewValues(CurInst);
