@@ -1182,8 +1182,16 @@ auto MachineFunction::salvageCopySSA(MachineInstr &MI)
   }
 
   // We reached the start of the block before finding a defining instruction.
-  // It must be an argument: assert that this is the entry block, and produce
-  // a DBG_PHI.
+  // It could be from a constant register, otherwise it must be an argument:
+  // assert that this is the entry block, and produce a DBG_PHI.
+  if (TRI.isConstantPhysReg(State.first)) {
+    assert(CurInst->isCopy());
+    // Utter misery: label the copy.
+    // XXX this needs addressing at a later date, and LDV made aware of it.
+    // And triv-remat stuff needs to handle it!
+    return {{CurInst->getDebugInstrNum(), 0u}};
+  }
+
   assert(!State.first.isVirtual());
   MachineBasicBlock &TargetBB = *CurInst->getParent();
   assert(&*TargetBB.getParent()->begin() == &TargetBB);
