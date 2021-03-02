@@ -1022,7 +1022,17 @@ AArch64LoadStoreOpt::mergePairedInsns(MachineBasicBlock::iterator I,
       .cloneMergedMemRefs({&*I, &*Paired})
       .setMIFlags(I->mergeFlagsWith(*Paired));
 
-  (void)MIB;
+  MachineInstr *NewInstr = MIB;
+
+  // Lambda for debug substitutions: transfer any instruction number on an old
+  // instruction to the specified opernad on the new instruction.
+  auto &MF = *NewInstr->getMF();
+  auto DebugSub = [&MF,NewInstr](const MachineInstr *OldInstr, unsigned NewOp) {
+    if (unsigned OldInstrNum = OldInstr->peekDebugInstrNum()) {
+      unsigned NewInstrNum = NewInstr->getDebugInstrNum();
+      MF.makeDebugValueSubstitution({OldInstrNum, 0}, {NewInstrNum, NewOp}, 0);
+    }
+  };
 
   LLVM_DEBUG(
       dbgs() << "Creating pair load/store. Replacing instructions:\n    ");
@@ -1060,11 +1070,31 @@ AArch64LoadStoreOpt::mergePairedInsns(MachineBasicBlock::iterator I,
             .addReg(DstRegX)
             .addImm(0)
             .addImm(31);
-    (void)MIBSXTW;
     LLVM_DEBUG(dbgs() << "  Extend operand:\n    ");
     LLVM_DEBUG(((MachineInstr *)MIBSXTW)->print(dbgs()));
+
+    // For the non-extended value, point it to the new instruction; the extended
+    // value should point at the SBFM.
+    auto DebugSubSBFM = [&MF,&MIBSXTW](const MachineInstr *OldInstr) {
+      if (unsigned OldInstrNum = OldInstr->peekDebugInstrNum()) {
+        unsigned NewInstrNum = MIBSXTW->getDebugInstrNum();
+        MF.makeDebugValueSubstitution({OldInstrNum, 0}, {NewInstrNum, 0}, 0);
+      }
+    };
+
+    if (SExtIdx == 0) {
+      DebugSub(Rt2MI, 1);
+      DebugSubSBFM(RtMI);
+    } else {
+      DebugSub(RtMI, 0);
+      DebugSubSBFM(Rt2MI);
+    }
   } else {
     LLVM_DEBUG(((MachineInstr *)MIB)->print(dbgs()));
+
+    // Point debug variable values from RtMI to operand 0, Rt2MI to operand 1.
+    DebugSub(RtMI, 0);
+    DebugSub(Rt2MI, 1);
   }
   LLVM_DEBUG(dbgs() << "\n");
 

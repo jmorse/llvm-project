@@ -1,0 +1,95 @@
+# RUN: llc -run-pass=aarch64-ldst-opt -o - -mtriple=aarch64-- %s | FileCheck %s
+# Copied from ldst-miflags.mir, test for cases where instruction references
+# should be preserved when loads and stores are merged.
+---
+name:            case3
+# CHECK-LABEL: name: case3
+body:             |
+  bb.0:
+
+    $x0 = frame-setup LDRXui $x2, 0, debug-instr-number 1 :: (load 8)
+    $x1 = frame-destroy LDRXui $x2, 1, debug-instr-number 2 :: (load 8)
+
+  ; CHECK:      debugValueSubstitutions:
+  ; CHECK-NEXT: - { srcinst: 1, srcop: 0, dstinst: 3, dstop: 0, subreg: 0 }
+  ; CHECK-NEXT: - { srcinst: 2, srcop: 0, dstinst: 3, dstop: 1, subreg: 0 }
+  ; CHECK: frame-setup frame-destroy LDPXi {{.*}} debug-instr-number 3
+    RET_ReallyLR
+...
+---
+name:            case4
+# CHECK-LABEL: name: case4
+body:             |
+  bb.0:
+    $x26, $x25 = frame-setup LDPXi $sp, 0, debug-instr-number 1
+    $sp = frame-destroy ADDXri $sp, 64, 0
+
+  ;; TODO: support this addressing mode optimisation.
+  ;; Ensure we don't label to LDPXpost in the meantime.
+  ; CHECK-NOT: LDPXpost {{.*}} debug-instr-number
+  ; CHECK: = frame-setup frame-destroy LDPXpost
+  ; CHECK-NOT: LDPXpost {{.*}} debug-instr-number
+    RET_ReallyLR
+
+...
+---
+name:            ldp_half_sext_res0_int
+# CHECK-LABEL: name: ldp_half_sext_res0_int
+alignment:       4
+tracksRegLiveness: true
+liveins:
+  - { reg: '$x0' }
+frameInfo:
+  maxAlignment:    1
+  maxCallFrameSize: 0
+machineFunctionInfo:
+  hasRedZone:      false
+body:             |
+  bb.0:
+    liveins: $x0
+  
+    renamable $x8 = LDRSWui renamable $x0, 0, debug-instr-number 1 :: (load 4)
+    renamable $w9 = LDRWui killed renamable $x0, 1, implicit-def $x9, debug-instr-number 2 :: (load 4)
+    $x0 = ADDXrs killed renamable $x9, killed renamable $x8, 0
+    RET undef $lr, implicit $x0
+
+  ;; The two loads get merged, but one only has the right value after sign
+  ;; extension. Label the sign extending instruction.
+  ; CHECK:      debugValueSubstitutions:
+  ; CHECK-NEXT: - { srcinst: 1, srcop: 0, dstinst: 4, dstop: 0, subreg: 0 }
+  ; CHECK-NEXT: - { srcinst: 2, srcop: 0, dstinst: 3, dstop: 1, subreg: 0 }
+  ; 
+  ; CHECK: $w8, renamable $w9 = LDPWi renamable $x0, 0, debug-instr-number 3
+  ; CHECK: $x8 = SBFMXri $x8, 0, 31, debug-instr-number 4
+...
+---
+name:            ldp_half_sext_res0_int_flipped
+# CHECK-LABEL: name: ldp_half_sext_res0_int_flipped
+alignment:       4
+tracksRegLiveness: true
+liveins:
+  - { reg: '$x0' }
+frameInfo:
+  maxAlignment:    1
+  maxCallFrameSize: 0
+machineFunctionInfo:
+  hasRedZone:      false
+body:             |
+  bb.0:
+    liveins: $x0
+  
+    renamable $w9 = LDRWui renamable $x0, 1, implicit-def $x9, debug-instr-number 1 :: (load 4)
+    renamable $x8 = LDRSWui killed renamable $x0, 0, debug-instr-number 2 :: (load 4)
+    $x0 = ADDXrs killed renamable $x9, killed renamable $x8, 0
+    RET undef $lr, implicit $x0
+
+  ;; Similar to previous test, but with the instruction numbers swapped.
+  ; CHECK:      debugValueSubstitutions:
+  ; CHECK-NEXT: - { srcinst: 1, srcop: 0, dstinst: 3, dstop: 1, subreg: 0 }
+  ; CHECK-NEXT: - { srcinst: 2, srcop: 0, dstinst: 4, dstop: 0, subreg: 0 }
+  ; 
+  ; CHECK: $w8, renamable $w9 = LDPWi renamable $x0, 0, debug-instr-number 3
+  ; CHECK: $x8 = SBFMXri $x8, 0, 31, debug-instr-number 4
+
+
+...
