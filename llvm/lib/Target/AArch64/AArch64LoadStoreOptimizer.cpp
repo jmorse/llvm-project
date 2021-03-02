@@ -947,7 +947,25 @@ AArch64LoadStoreOpt::mergePairedInsns(MachineBasicBlock::iterator I,
             .cloneMergedMemRefs({&*I, &*Paired})
             .setMIFlags(I->mergeFlagsWith(*Paired));
 
-  (void)MIB;
+  MachineInstr *NewInstr = MIB;
+
+  // XXX jmorse -- substitute old instr numbers for a new one. XXX XXX note
+  // that some sign extension shennanigans happen below and need testing for.
+  // Probably wrong right now.
+
+  // This is simple enough it doesn't need lambda-ing. RtMI first, which is
+  // operand zero of the new instruction.
+  auto &MF = *RtMI->getMF();
+  if (unsigned OldInstrNum = RtMI->peekDebugInstrNum()) {
+    unsigned NewInstrNum = NewInstr->getDebugInstrNum();
+    MF.makeDebugValueSubstitution({OldInstrNum, 0}, {NewInstrNum, 0}, 0);
+  }
+
+  // Rt2MI next, this is operand one of the new instruction.
+  if (unsigned OldInstrNum = Rt2MI->peekDebugInstrNum()) {
+    unsigned NewInstrNum = NewInstr->getDebugInstrNum();
+    MF.makeDebugValueSubstitution({OldInstrNum, 0}, {NewInstrNum, 1}, 0);
+  }
 
   LLVM_DEBUG(
       dbgs() << "Creating pair load/store. Replacing instructions:\n    ");
