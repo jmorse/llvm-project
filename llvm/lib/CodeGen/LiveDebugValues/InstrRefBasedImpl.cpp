@@ -1944,6 +1944,9 @@ public:
   /// address the spill slot in a target independent way.
   SpillLoc extractSpillBaseRegAndOffset(const MachineInstr &MI);
 
+  // XXX docs.
+  Register getStackSlotMaxSuperReg(const MachineFunction &MF, int FI, Register BaseReg) const;
+
   /// Observe a single instruction while stepping through a block.
   void process(MachineInstr &MI, ValueIDNum **MLiveOuts = nullptr,
                ValueIDNum **MLiveIns = nullptr);
@@ -2157,6 +2160,32 @@ InstrRefBasedLDV::extractSpillBaseRegAndOffset(const MachineInstr &MI) {
   Register Reg;
   StackOffset Offset = TFI->getFrameIndexReference(*MBB->getParent(), FI, Reg);
   return {Reg, Offset};
+}
+
+// Fetches: the largest super-register of BaseReg that will fit in the slot.
+// The idea being that we can identify all of the subreg indexes that need
+// to be clobbered.
+Register
+InstrRefBasedLDV::getStackSlotMaxSuperReg(const MachineFunction &MF, int FI, Register BaseReg) const {
+  int64_t slot_size = MFI->getObjectSize(FI);
+
+  // Find the greatest super register.
+  Register lolreg = BaseReg;
+  do {
+    auto range = TRI->superregs(lolreg);
+    if (range.empty())
+      break;
+
+    Register tmp = *range.begin();
+    unsigned sz = TRI->getRegSizeInBits(tmp, MF.getRegInfo()) / 8;
+    if (sz > slot_size)
+      // Next super-register is bigger than the stack slot. No need to go there
+      break;
+
+    lolreg = *range.begin();
+  } while (true);
+
+  return lolreg;
 }
 
 /// End all previous ranges related to @MI and start a new range from @MI
@@ -2765,9 +2794,9 @@ bool InstrRefBasedLDV::transferSpillOrRestoreInst(MachineInstr &MI) {
 
   // Strictly limit ourselves to plain loads and stores, not all instructions
   // that can access the stack.
-  int FIDummy;
-  if (!TII->isStoreToStackSlotPostFE(MI, FIDummy) &&
-      !TII->isLoadFromStackSlotPostFE(MI, FIDummy))
+  int FI = -1;
+  if (!TII->isStoreToStackSlotPostFE(MI, FI) &&
+      !TII->isLoadFromStackSlotPostFE(MI, FI))
     return false;
 
   // First, if there are any DBG_VALUEs pointing at a spill slot that is
@@ -2790,18 +2819,13 @@ bool InstrRefBasedLDV::transferSpillOrRestoreInst(MachineInstr &MI) {
     Loc = extractSpillBaseRegAndOffset(MI);
     auto ValueID = MTracker->readReg(Reg);
 
-// Find the greatest super register.
-Register lolreg = Reg;
-do {
-  auto range = TRI->superregs(lolreg);
-  if (range.empty())
-    break;
-  lolreg = *range.begin();
-} while (true);
+Register lolreg = getStackSlotMaxSuperReg(*MF, FI, Reg);
 
 unsigned subreg = TRI->getSubRegIndex(lolreg, Reg);
-if (subreg && TRI->getSubRegIdxOffset(subreg))
-  __asm__("int $3");
+if (subreg && TRI->getSubRegIdxOffset(subreg)) {
+  dbgs() << "a\n";
+  __builtin_trap();
+}
 
     // If the location is empty, produce a phi, signify it's the live-in value.
     if (ValueID.getLoc() == 0)
@@ -2847,19 +2871,15 @@ for (MCSubRegIterator foo(Reg, TRI, true); foo.isValid(); ++foo) {
 // into it. This then becomes a question of what subregisters line up with
 // that point.
 
-Register lolreg = Reg;
-do {
-  auto range = TRI->superregs(lolreg);
-  if (range.empty())
-    break;
-  lolreg = *range.begin();
-} while (true);
+Register lolreg = getStackSlotMaxSuperReg(*MF, FI, Reg);
 
 // Assume that we only load to a register with no offset, i.e. no load
 // of ah from a 64 bit slot.
 unsigned subreg = TRI->getSubRegIndex(lolreg, Reg);
-if (subreg && TRI->getSubRegIdxOffset(subreg))
-  __asm__("int $3");
+if (subreg && TRI->getSubRegIdxOffset(subreg)) {
+  dbgs() << "b\n";
+  __builtin_trap();
+}
 
 // Def all aliasing values,
 for (MCRegAliasIterator RAI(Reg, TRI, true); RAI.isValid(); ++RAI)
