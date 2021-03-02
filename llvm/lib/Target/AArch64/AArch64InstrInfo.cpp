@@ -2162,6 +2162,73 @@ unsigned AArch64InstrInfo::isStoreToStackSlot(const MachineInstr &MI,
   return 0;
 }
 
+unsigned AArch64InstrInfo::isLoadFromStackSlotPostFE(const MachineInstr &MI,
+                                               int &FrameIndex) const {
+  if (!MI.hasOneMemOperand())
+    return 0;
+
+  auto MMOI = MI.memoperands_begin();
+  const PseudoSourceValue *PVal = (*MMOI)->getPseudoValue();
+  if (!PVal)
+    return 0;
+  if (PVal->kind() != PseudoSourceValue::FixedStack)
+    return 0;
+  FrameIndex = cast<FixedStackPseudoSourceValue>(PVal)->getFrameIndex();
+
+  switch (MI.getOpcode()) {
+  default:
+    break;
+  case AArch64::LDRWui:
+  case AArch64::LDRXui:
+  case AArch64::LDRBui:
+  case AArch64::LDRHui:
+  case AArch64::LDRSui:
+  case AArch64::LDRDui:
+  case AArch64::LDRQui:
+    if (MI.getOperand(1).isReg() && MI.getOperand(2).isImm() &&
+        (MI.getOperand(1).getReg() == AArch64::SP ||
+         MI.getOperand(1).getReg() == AArch64::WSP))
+      return MI.getOperand(0).getReg();
+    break;
+  }
+
+  return 0;
+}
+
+unsigned AArch64InstrInfo::isStoreToStackSlotPostFE(const MachineInstr &MI,
+                                                    int &FrameIndex) const {
+  if (!MI.hasOneMemOperand())
+    return 0;
+
+  auto MMOI = MI.memoperands_begin();
+  const PseudoSourceValue *PVal = (*MMOI)->getPseudoValue();
+  if (!PVal)
+    return 0;
+  if (PVal->kind() != PseudoSourceValue::FixedStack)
+    return 0;
+  FrameIndex = cast<FixedStackPseudoSourceValue>(PVal)->getFrameIndex();
+
+  switch (MI.getOpcode()) {
+  default:
+    break;
+  case AArch64::STRWui:
+  case AArch64::STRXui:
+  case AArch64::STRBui:
+  case AArch64::STRHui:
+  case AArch64::STRSui:
+  case AArch64::STRDui:
+  case AArch64::STRQui:
+  case AArch64::LDR_PXI:
+  case AArch64::STR_PXI:
+    if (MI.getOperand(1).isReg() && MI.getOperand(2).isImm() &&
+        (MI.getOperand(1).getReg() == AArch64::SP ||
+         MI.getOperand(1).getReg() == AArch64::WSP))
+      return MI.getOperand(0).getReg();
+    break;
+  }
+  return 0;
+}
+
 /// Check all MachineMemOperands for a hint to suppress pairing.
 bool AArch64InstrInfo::isLdStPairSuppressed(const MachineInstr &MI) {
   return llvm::any_of(MI.memoperands(), [](MachineMemOperand *MMO) {
