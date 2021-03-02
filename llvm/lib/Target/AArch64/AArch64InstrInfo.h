@@ -63,6 +63,9 @@ public:
   unsigned isStoreToStackSlot(const MachineInstr &MI,
                               int &FrameIndex) const override;
 
+  unsigned isStoreToStackSlotPostFE(const MachineInstr &MI, int &FrameIndex) const override;
+  unsigned isLoadFromStackSlotPostFE(const MachineInstr &MI, int &FrameIndex) const override;
+
   /// Does this instruction set its full destination register to zero?
   static bool isGPRZero(const MachineInstr &MI);
 
