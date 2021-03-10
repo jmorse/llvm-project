@@ -2822,11 +2822,15 @@ bool InstrRefBasedLDV::transferSpillOrRestoreInst(MachineInstr &MI) {
 
 Register lolreg = getStackSlotMaxSuperReg(*MF, FI, Reg);
 
+#if 0
+This is prooooobably fine, if we assume / believe that all spills and restores
+are always made at the lowest byte of the spill slot.
 unsigned subreg = TRI->getSubRegIndex(lolreg, Reg);
 if (subreg && TRI->getSubRegIdxOffset(subreg)) {
   dbgs() << "a\n";
   __builtin_trap();
 }
+#endif
 
     // If the location is empty, produce a phi, signify it's the live-in value.
     if (ValueID.getLoc() == 0)
@@ -2876,11 +2880,15 @@ Register lolreg = getStackSlotMaxSuperReg(*MF, FI, Reg);
 
 // Assume that we only load to a register with no offset, i.e. no load
 // of ah from a 64 bit slot.
+#if 0
+This is prooooobably fine, if we assume / believe that all spills and restores
+are always made at the lowest byte of the spill slot.
 unsigned subreg = TRI->getSubRegIndex(lolreg, Reg);
 if (subreg && TRI->getSubRegIdxOffset(subreg)) {
   dbgs() << "b\n";
   __builtin_trap();
 }
+#endif
 
 // Def all aliasing values,
 for (MCRegAliasIterator RAI(Reg, TRI, true); RAI.isValid(); ++RAI)
