@@ -1616,6 +1616,7 @@ public:
         continue;
 
       redefVar(Use.Var, Use.Properties, L);
+      Emitter.emitLoc(L, Use.Var, Use.Properties);
     }
   }
 
