@@ -111,6 +111,25 @@ static void transferImpOps(MachineInstr &OldMI, MachineInstrBuilder &UseMI,
   }
 }
 
+// XXX jmorse documentation
+static void transferDefDebugInfo(const MachineInstr &OldMI, MachineInstr &NewMI,
+                                 unsigned OldOpNo, unsigned NewOpNo) {
+  unsigned OldInstNum = OldMI.peekDebugInstrNum();
+  if (!OldInstNum)
+    return;
+
+#ifndef NDEBUG
+  const MachineOperand &OldMO = OldMI.getOperand(OldOpNo);
+  const MachineOperand &NewMO = OldMI.getOperand(NewOpNo);
+  assert(OldMO.isReg() && OldMO.isDef());
+  assert(NewMO.isReg() && NewMO.isDef());
+#endif
+
+  auto &MF = *NewMI.getMF();
+  unsigned NewInstNum = NewMI.getDebugInstrNum();
+  MF.makeDebugValueSubstitution({OldInstNum, OldOpNo}, {NewInstNum, NewOpNo});
+}
+
 /// Expand a MOVi32imm or MOVi64imm pseudo instruction to one or more
 /// real move-immediate instructions to synthesize the immediate.
 bool AArch64ExpandPseudo::expandMOVImm(MachineBasicBlock &MBB,
@@ -175,6 +194,8 @@ bool AArch64ExpandPseudo::expandMOVImm(MachineBasicBlock &MBB,
     }
   }
   transferImpOps(MI, MIBS.front(), MIBS.back());
+  // Final instr finishes the value definition for debug-info
+  transferDefDebugInfo(MI, *MIBS.back(), 0,  0);
   MI.eraseFromParent();
   return true;
 }
@@ -212,8 +233,9 @@ bool AArch64ExpandPseudo::expandCMP_SWAP(
   if (!StatusDead)
     BuildMI(LoadCmpBB, DL, TII->get(AArch64::MOVZWi), StatusReg)
       .addImm(0).addImm(0);
-  BuildMI(LoadCmpBB, DL, TII->get(LdarOp), Dest.getReg())
-      .addReg(AddrReg);
+  MachineInstr *LdaxrInstr =
+    BuildMI(LoadCmpBB, DL, TII->get(LdarOp), Dest.getReg())
+        .addReg(AddrReg);
   BuildMI(LoadCmpBB, DL, TII->get(CmpOp), ZeroReg)
       .addReg(Dest.getReg(), getKillRegState(Dest.isDead()))
       .addReg(DesiredReg)
@@ -243,6 +265,9 @@ bool AArch64ExpandPseudo::expandCMP_SWAP(
   MBB.addSuccessor(LoadCmpBB);
 
   NextMBBI = MBB.end();
+  // If there was debug-info attached to the pseudo instr, move it to the
+  // new one.
+  transferDefDebugInfo(MI, *LdaxrInstr, 0, 0);
   MI.eraseFromParent();
 
   // Recompute livein lists.
@@ -291,10 +316,11 @@ bool AArch64ExpandPseudo::expandCMP_SWAP_128(
   //     cmp xDestLo, xDesiredLo
   //     sbcs xDestHi, xDesiredHi
   //     b.ne .Ldone
-  BuildMI(LoadCmpBB, DL, TII->get(AArch64::LDAXPX))
-      .addReg(DestLo.getReg(), RegState::Define)
-      .addReg(DestHi.getReg(), RegState::Define)
-      .addReg(AddrReg);
+  MachineInstr *LdaxpInstr =
+    BuildMI(LoadCmpBB, DL, TII->get(AArch64::LDAXPX))
+        .addReg(DestLo.getReg(), RegState::Define)
+        .addReg(DestHi.getReg(), RegState::Define)
+        .addReg(AddrReg);
   BuildMI(LoadCmpBB, DL, TII->get(AArch64::SUBSXrs), AArch64::XZR)
       .addReg(DestLo.getReg(), getKillRegState(DestLo.isDead()))
       .addReg(DesiredLoReg)
@@ -336,6 +362,9 @@ bool AArch64ExpandPseudo::expandCMP_SWAP_128(
   MBB.addSuccessor(LoadCmpBB);
 
   NextMBBI = MBB.end();
+  // If there was debug-info attached to the pseudo instr, move it to the
+  // new one.
+  transferDefDebugInfo(MI, *LdaxpInstr, 0, 0);
   MI.eraseFromParent();
 
   // Recompute liveness bottom up.
@@ -831,6 +860,7 @@ bool AArch64ExpandPseudo::expandMI(MachineBasicBlock &MBB,
             .add(MI.getOperand(2))
             .addImm(AArch64_AM::getShifterImm(AArch64_AM::LSL, 0));
     transferImpOps(MI, MIB1, MIB1);
+    transferDefDebugInfo(MI, *MIB1, 0, 0);
     MI.eraseFromParent();
     return true;
   }
@@ -855,6 +885,7 @@ bool AArch64ExpandPseudo::expandMI(MachineBasicBlock &MBB,
                "Only expect globals, externalsymbols, or constant pools");
         MIB.addConstantPoolIndex(MO1.getIndex(), MO1.getOffset(), Flags);
       }
+      transferDefDebugInfo(MI, *MIB, 0, 0);
     } else {
       // Small codemodel expand into ADRP + LDR.
       MachineFunction &MF = *MI.getParent()->getParent();
@@ -898,6 +929,7 @@ bool AArch64ExpandPseudo::expandMI(MachineBasicBlock &MBB,
       }
 
       transferImpOps(MI, MIB1, MIB2);
+      transferDefDebugInfo(MI, *MIB2, 0, 0);
     }
     MI.eraseFromParent();
     return true;
@@ -965,18 +997,23 @@ bool AArch64ExpandPseudo::expandMI(MachineBasicBlock &MBB,
             .addImm(0);
 
     transferImpOps(MI, MIB1, MIB2);
+    transferDefDebugInfo(MI, *MIB2, 0, 0);
     MI.eraseFromParent();
     return true;
   }
   case AArch64::ADDlowTLS:
+  {
     // Produce a plain ADD
+    MachineInstrBuilder MIB =
     BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(AArch64::ADDXri))
         .add(MI.getOperand(0))
         .add(MI.getOperand(1))
         .add(MI.getOperand(2))
         .addImm(0);
+    transferDefDebugInfo(MI, *MIB, 0, 0);
     MI.eraseFromParent();
     return true;
+  }
 
   case AArch64::MOVbaseTLS: {
     Register DstReg = MI.getOperand(0).getReg();
@@ -988,8 +1025,10 @@ bool AArch64ExpandPseudo::expandMI(MachineBasicBlock &MBB,
       SysReg = AArch64SysReg::TPIDR_EL2;
     else if (MF->getSubtarget<AArch64Subtarget>().useEL1ForTP())
       SysReg = AArch64SysReg::TPIDR_EL1;
+    MachineInstrBuilder MIB =
     BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(AArch64::MRS), DstReg)
         .addImm(SysReg);
+    transferDefDebugInfo(MI, *MIB, 0, 0);
     MI.eraseFromParent();
     return true;
   }
