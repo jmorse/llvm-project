@@ -3308,6 +3308,9 @@ void InstrRefBasedLDV::mlocDataflow(
   std::priority_queue<unsigned int, std::vector<unsigned int>,
                       std::greater<unsigned int>>
       Worklist, Pending;
+#ifndef NDEBUG
+   unsigned TripCount = 0;
+#endif
 
   // We track what is on the current and pending worklist to avoid inserting
   // the same thing twice. We could avoid this with a custom priority queue,
@@ -3386,6 +3389,12 @@ void InstrRefBasedLDV::mlocDataflow(
         MOutLocs[CurBB][Location.Idx.asU64()] = Location.Value;
       }
 
+      LLVM_DEBUG({
+        dbgs() << "Iteration " << TripCount << " block " << CurBB;
+        dbgs() << " live-in map:\n\n";
+        MTracker->dump();
+      });
+
       MTracker->reset();
 
       // No need to examine successors again if out-locs didn't change.
@@ -3415,6 +3424,10 @@ void InstrRefBasedLDV::mlocDataflow(
     // At this point, pending must be empty, since it was just the empty
     // worklist
     assert(Pending.empty() && "Pending should be empty");
+
+    LLVM_DEBUG({
+      ++TripCount;
+    });
   }
 
   // Once all the live-ins don't change on mlocJoin(), we've reached a
@@ -3837,12 +3850,22 @@ void InstrRefBasedLDV::vlocDataflow(
                       std::greater<unsigned int>>
       Worklist, Pending;
   SmallPtrSet<MachineBasicBlock *, 16> OnWorklist, OnPending;
+#ifndef NDEBUG
+  unsigned int TripCount = 0;
+#endif
 
   // The set of blocks we'll be examining.
   SmallPtrSet<const MachineBasicBlock *, 8> BlocksToExplore;
 
   // The order in which to examine them (RPO).
   SmallVector<MachineBasicBlock *, 8> BlockOrders;
+
+  LLVM_DEBUG({
+    // FIXME: we could do a lot better at naming the scope that's being
+    // dataflow'd, instead of just dumping some pointers.
+    dbgs() << "Calculating variable locations in scope:\n";
+    Scope->getScopeNode()->dump();
+  });
 
   // RPO ordering function.
   auto Cmp = [&](MachineBasicBlock *A, MachineBasicBlock *B) {
@@ -4004,6 +4027,20 @@ void InstrRefBasedLDV::vlocDataflow(
         }
       }
 
+      LLVM_DEBUG({
+        dbgs() << "Trip " << TripCount << " block " << CurBB;
+        dbgs() << " vloc live-in map:\n";
+        // This involves iterating over a DenseMap, the order of which will
+        // not be stable -- but it will be for this invocation of vlocDataflow
+        // which is all we care about.
+        for (auto VarValue : LiveIns[CurBB]) {
+          // FIXME: produce a better printer for DebugVariables
+          dbgs() << VarValue.first.getVariable()->getName();
+          dbgs() << " -> ";
+          VarValue.second.dump(MTracker);
+        }
+      });
+
       // Did the live-out locations change?
       bool OLChanged = JoinedInLocs != *LiveOutIdx[MBB];
 
@@ -4035,7 +4072,24 @@ void InstrRefBasedLDV::vlocDataflow(
     OnPending.clear();
     assert(Pending.empty());
     FirstTrip = false;
+
+    LLVM_DEBUG({
+      ++TripCount;
+    });
   }
+
+  LLVM_DEBUG({
+    dbgs() << "After vloc dataflow, variable live ins look like this:\n";
+    // This involves iterating over a DenseMap, the order of which will
+    // not be stable -- but it will be for this invocation of vlocDataflow
+    // which is all we care about.
+    for (auto VarValue : LiveIns[CurBB]) {
+      // FIXME: produce a better printer for DebugVariables
+      dbgs() << VarValue.first.getVariable()->getName();
+      dbgs() << " -> ";
+      VarValue.second.dump(MTracker);
+    }
+  });
 
   // Dataflow done. Now what? Save live-ins. Ignore any that are still marked
   // as being variable-PHIs, because those did not have their machine-PHI
@@ -4172,6 +4226,19 @@ bool InstrRefBasedLDV::ExtendRangesImpl(MachineFunction &MF,
 
   produceMLocTransferFunction(MF, MLocTransfer, MaxNumBlocks);
 
+  LLVM_DEBUG({
+    dbgs() << "Per block transfer function:\n\n";
+
+    for (unsigned int Idx = 0; Idx < MLocTransfer.size(); ++Idx) {
+      auto &TransferMap = MLocTransfer[Idx];
+      if (!TransferMap.size())
+        continue;
+      dbgs() << "Block " << Idx << ":\n";
+      dump_mloc_transfer(TransferMap);
+      dbgs() << "\n";
+    }
+  });
+
   // Allocate and initialize two array-of-arrays for the live-in and live-out
   // machine values. The outer dimension is the block number; while the inner
   // dimension is a LocIdx from MLocTracker.
@@ -4188,6 +4255,16 @@ bool InstrRefBasedLDV::ExtendRangesImpl(MachineFunction &MF,
   // both live-ins and live-outs for decision making in the variable value
   // dataflow problem.
   mlocDataflow(MInLocs, MOutLocs, MLocTransfer);
+
+  LLVM_DEBUG({
+    dbgs() << "After machine-locataion dataflow, block live-ins are thus:\n\n";
+    MTracker->reset();
+    for (int Idx = 0; Idx < MaxNumBlocks; ++Idx) {
+      // FIXME: how about skipped block numbers?
+      MTracker->loadFromArray(MInLocs[Idx], Idx);
+      MTracker->dump();
+    }
+  });
 
   // Patch up debug phi numbers, turning unknown block-live-in values into
   // either live-through machine values, or PHIs.
