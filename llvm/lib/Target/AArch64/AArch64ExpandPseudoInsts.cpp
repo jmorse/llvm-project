@@ -177,6 +177,9 @@ bool AArch64ExpandPseudo::expandMOVImm(MachineBasicBlock &MBB,
     }
   }
   transferImpOps(MI, MIBS.front(), MIBS.back());
+  // Final instr finishes the value definition for debug-info.
+  auto &MF = *MI.getMF();
+  MF.substituteDebugValuesForInst(MI, *MIBS.back(), 1);
   MI.eraseFromParent();
   return true;
 }
@@ -214,8 +217,9 @@ bool AArch64ExpandPseudo::expandCMP_SWAP(
   if (!StatusDead)
     BuildMI(LoadCmpBB, DL, TII->get(AArch64::MOVZWi), StatusReg)
       .addImm(0).addImm(0);
+  MachineInstr *LdarxInstr =
   BuildMI(LoadCmpBB, DL, TII->get(LdarOp), Dest.getReg())
-      .addReg(AddrReg);
+        .addReg(AddrReg);
   BuildMI(LoadCmpBB, DL, TII->get(CmpOp), ZeroReg)
       .addReg(Dest.getReg(), getKillRegState(Dest.isDead()))
       .addReg(DesiredReg)
@@ -245,6 +249,11 @@ bool AArch64ExpandPseudo::expandCMP_SWAP(
   MBB.addSuccessor(LoadCmpBB);
 
   NextMBBI = MBB.end();
+
+  // Was there debug-info attached to the pseudo instr? If so, substitute it
+  // with the result of the load, which has the swap result.
+  MF->substituteDebugValuesForInst(MI, *LdarxInstr, 1);
+
   MI.eraseFromParent();
 
   // Recompute livein lists.
@@ -293,10 +302,11 @@ bool AArch64ExpandPseudo::expandCMP_SWAP_128(
   //     cmp xDestLo, xDesiredLo
   //     sbcs xDestHi, xDesiredHi
   //     b.ne .Ldone
-  BuildMI(LoadCmpBB, DL, TII->get(AArch64::LDAXPX))
-      .addReg(DestLo.getReg(), RegState::Define)
-      .addReg(DestHi.getReg(), RegState::Define)
-      .addReg(AddrReg);
+  MachineInstr *LdaxpInstr =
+    BuildMI(LoadCmpBB, DL, TII->get(AArch64::LDAXPX))
+        .addReg(DestLo.getReg(), RegState::Define)
+        .addReg(DestHi.getReg(), RegState::Define)
+        .addReg(AddrReg);
   BuildMI(LoadCmpBB, DL, TII->get(AArch64::SUBSXrs), AArch64::XZR)
       .addReg(DestLo.getReg(), getKillRegState(DestLo.isDead()))
       .addReg(DesiredLoReg)
@@ -338,6 +348,9 @@ bool AArch64ExpandPseudo::expandCMP_SWAP_128(
   MBB.addSuccessor(LoadCmpBB);
 
   NextMBBI = MBB.end();
+  // Was there debug-info attached to the pseudo instr? If so, substitute it
+  // with the result of the load, which has the swap result.
+  MF->substituteDebugValuesForInst(MI, *LdaxpInstr, 2);
   MI.eraseFromParent();
 
   // Recompute liveness bottom up.
@@ -892,6 +905,8 @@ bool AArch64ExpandPseudo::expandMI(MachineBasicBlock &MBB,
             .add(MI.getOperand(2))
             .addImm(AArch64_AM::getShifterImm(AArch64_AM::LSL, 0));
     transferImpOps(MI, MIB1, MIB1);
+    auto &MF = *MI.getMF();
+    MF.substituteDebugValuesForInst(MI, *MIB1, 1);
     MI.eraseFromParent();
     return true;
   }
@@ -916,6 +931,7 @@ bool AArch64ExpandPseudo::expandMI(MachineBasicBlock &MBB,
                "Only expect globals, externalsymbols, or constant pools");
         MIB.addConstantPoolIndex(MO1.getIndex(), MO1.getOffset(), Flags);
       }
+      MF->substituteDebugValuesForInst(MI, *MIB, 1);
     } else {
       // Small codemodel expand into ADRP + LDR.
       MachineFunction &MF = *MI.getParent()->getParent();
@@ -959,6 +975,7 @@ bool AArch64ExpandPseudo::expandMI(MachineBasicBlock &MBB,
       }
 
       transferImpOps(MI, MIB1, MIB2);
+      MF.substituteDebugValuesForInst(MI, *MIB2, 1);
     }
     MI.eraseFromParent();
     return true;
@@ -1025,19 +1042,26 @@ bool AArch64ExpandPseudo::expandMI(MachineBasicBlock &MBB,
             .add(MI.getOperand(2))
             .addImm(0);
 
+    auto &MF = *MI.getMF();
     transferImpOps(MI, MIB1, MIB2);
+    MF.substituteDebugValuesForInst(MI, *MIB2, 1);
     MI.eraseFromParent();
     return true;
   }
   case AArch64::ADDlowTLS:
+  {
     // Produce a plain ADD
+    MachineInstrBuilder MIB =
     BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(AArch64::ADDXri))
         .add(MI.getOperand(0))
         .add(MI.getOperand(1))
         .add(MI.getOperand(2))
         .addImm(0);
+    auto &MF = *MI.getMF();
+    MF.substituteDebugValuesForInst(MI, *MIB, 1);
     MI.eraseFromParent();
     return true;
+  }
 
   case AArch64::MOVbaseTLS: {
     Register DstReg = MI.getOperand(0).getReg();
@@ -1049,8 +1073,10 @@ bool AArch64ExpandPseudo::expandMI(MachineBasicBlock &MBB,
       SysReg = AArch64SysReg::TPIDR_EL2;
     else if (MF->getSubtarget<AArch64Subtarget>().useEL1ForTP())
       SysReg = AArch64SysReg::TPIDR_EL1;
+    MachineInstrBuilder MIB =
     BuildMI(MBB, MBBI, MI.getDebugLoc(), TII->get(AArch64::MRS), DstReg)
         .addImm(SysReg);
+    MF->substituteDebugValuesForInst(MI, *MIB, 1);
     MI.eraseFromParent();
     return true;
   }
