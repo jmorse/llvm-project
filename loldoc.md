@@ -145,28 +145,28 @@ of which have their values clobbered or duplicated. The two problems are then:
 
 To show that we can consider this an SSA problem, consider the following MIR:
 
-  entry:
-    $rcx = MOV64ri 1
-    JMP %bb.1
+    entry:
+      $rcx = MOV64ri 1
+      JMP %bb.1
 
-  bb.1:
-    CMP32ri8 $rax, 1
-    JL %bb.5.exit
+    bb.1:
+      CMP32ri8 $rax, 1
+      JL %bb.5.exit
 
-  bb.2:
-    CMP32ri8 $rbx, 1
-    JL %bb.4
+    bb.2:
+      CMP32ri8 $rbx, 1
+      JL %bb.4
 
-  bb.3:
-    $rbx = LSHR $rbx, 1
-    JMP %bb.2
+    bb.3:
+      $rbx = LSHR $rbx, 1
+      JMP %bb.2
 
-  bb.4:
-    $rax = LSHR $rax, 1
-    JMP %bb.1
+    bb.4:
+      $rax = LSHR $rax, 1
+      JMP %bb.1
 
-  bb.5.exit:
-    RETQ
+    bb.5.exit:
+      RETQ
 
 Here we have two loops that nest, looping over the values of $rax and $rbx,
 shifting the registers within the loops. To better understand how SSA will
