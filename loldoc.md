@@ -303,10 +303,10 @@ LLVM-IR, but where a potentially dead PHI has been placed at each loop head,
 identified by having a back-edge under reverse-post-order.
 
 Intuitively: we explore loop heads in RPO, and determine whether the PHI at
-a loop head is dead by assuming it is not and propagating the common incoming
-values on non-backedges through the function. If that value does not return
-on the backedges, the PHI is not dead and must be preserved. We then move on
-to next loop head in RPO.
+a loop head is dead by assuming it is dead and propagating the common incoming
+values on non-backedges through the function. If that value returns on the
+backedges, the PHI is dead, otherwise it is still needed. We then move on to
+the next loop head in RPO.
 
 Unfortunately, whether a loop head PHI is dead can depend on behaviours that
 are not exposed in a single pass through the function. Thus, we rely on
