@@ -403,7 +403,8 @@ we terminate.
 
 Sample 2:
 
- # Include here: BadlyBehavedLoops
+Include here: BadlyBehavedLoops
+  ![Brains](BadlyBehaved.png)
 
 Here we have a number of loops between three blocks; entering at A and exiting
 at C. The RPO exploration order is A-B-C. A single value, live-in-to-A enters
@@ -424,7 +425,8 @@ B-A backedge, and thus cause a PHI to be created in block A:
 
 Sample three:
 
- # Include here: NonDomLoop
+Include here: NonDomLoop
+  ![Brains](NonDomLoop.png)
 
 In this sample, assume we enter at block A with value live-in-at-A, exit
 from block D, and have a value definition in block E. Note that there are two
