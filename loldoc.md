@@ -372,7 +372,8 @@ all remaining live-through loop heads are truly live-through.
 
 Here are a few worked examples.
 
- # include here: NestedLoop.tikz
+include here: NestedLoop.tikz
+  ![Brains](Nested.png)
 
 Assume that we enter this function at node "A", exit at "D", have a single
 variable in the function which is clobbered in "D". The RPO exploration order
