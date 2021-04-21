@@ -314,23 +314,34 @@ performing a dataflow-like analysis using live-in and live-out values, with
 additional information stored at loop heads. That information is a single
 ValueIDNum.  The fact that we store non-lattice information about loop-head
 blocks and rely on RPO for correctness makes it not dataflow; but it's roughly
-the same. I couldn't find a graceful way to explain the logic, so here's some
-pseudocode for how exploration proceeds, which I'll describe afterwards:
+the same.
+
+Intuitively: the ordering of loop heads forms a sequence of Boolean choices,
+"Does this loop create a PHI or not?", which the algorithm explores. For any
+sequence prefix, once the true assignment of choices is found, it is not
+modified further and exploration only continues in the remainder of the
+sequence. This makes the true prefix of assignments found increase
+monotonically. Whenever we change a loop-head from being assumed to being
+live-through to creating a PHI, we reset all our assumptions about subsequent
+loop heads in the sequence: this is detected with the stored loop head value.
+Here's some pseudocode to illustrate:
 
     conflict = TRUE if non-backedge predecessors have different incoming values else FALSE
     backedge-conflict = NOT conflict AND backedge predecessors have a different value to non-backedge predecessors,
+    new-predecessor-value = TRUE if VALUE != common non-backedge predecessor value else FALSE
     IF conflict:
       - Produce a PHI value at this block
     ELIF backedges not explored yet:
-      - Emit no PHI here, set VALUE = the common incoming value
+      - Emit common predecessor value as live-through
     ELIF backedge-conflict
-      IF stored VALUE equals incoming non-backedge predecessor value
-        Produce a PHI value at this block
+      IF new-predecessor-value
+        Emit common predecessor value as live-through
       ELSE
-        Set VALUE = the (new) incoming non-backedge predecessor value
-        Emit no PHI here
+        Produce a PHI value at this block
     ELSE (i.e., all incoming edges agree on a value)
-      Emit no PHI here
+      Emit common predecessor value as live-through
+    set VALUE = the common predecessor value, or PHI from this block if there
+                was none.
 
 We start exploration by assuming that all PHIs are dead and propagating the
 non-backege predecessor values through the function. Subsequently, in RPO,
@@ -338,18 +349,11 @@ we identify true-PHIs by the fact their incoming values conflict. Crucially:
 when we add a true-PHI, all blocks later in the RPO sequence recognise this
 because they stored the value they previous propagated. Later loop heads
 will propagate this new value: they will only produce a PHI at a loop head when
-we have propagated values, no predecessor blocks have changed value, and there
-is still a conflicting backedge.
+there is still a conflicting backedge after we've propagated values around
+the loop at least once.
 
-To demonstrate this algorithm completes: intuitively, the ordering of loop
-heads forms a sequence of Boolean choices, "Does this loop create a PHI or
-not?", which the algorithm explores. For any sequence prefix, once the true
-assignment of choices is found, it is not modified further and exploration
-only continues in the remainder of the sequence. This makes the true prefix
-of assignments found increase monotonically
-
-More formally, a lemma-ish: Once a loop head A switches to producing a PHI
-value, no later block in RPO can make A switch back to being live-through
+More formally, we'll use a lemma-ish: Once a loop head A switches to producing
+a PHI value, no later block in RPO can make A switch back to being live-through
 on a backedge to A. To do so, the value common to A's other incoming edges
 would need to be propagated and returned on such a backedge to A. Before
 emitting a PHI at A, we have already explored all later blocks and assumed that
