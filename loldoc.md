@@ -187,32 +187,32 @@ C:
 
 Compile it with clang, and run -mem2reg -simplifycfg over it:
 
-  define dso_local void @foo(i32 %arg1, i32 %arg2) {
-  entry:
-    br label %while.cond
+    define dso_local void @foo(i32 %arg1, i32 %arg2) {
+    entry:
+      br label %while.cond
 
-  while.cond:
-    %rax.0 = phi i32 [ %arg1, %entry ], [ %shr4, %while.end ]
-    %rbx.0 = phi i32 [ %arg2, %entry ], [ %rbx.1, %while.end ]
-    %cmp = icmp slt i32 %rax.0, 1
-    br i1 %cmp, label %while.cond1, label %while.end5
+    while.cond:
+      %rax.0 = phi i32 [ %arg1, %entry ], [ %shr4, %while.end ]
+      %rbx.0 = phi i32 [ %arg2, %entry ], [ %rbx.1, %while.end ]
+      %cmp = icmp slt i32 %rax.0, 1
+      br i1 %cmp, label %while.cond1, label %while.end5
 
-  while.cond1:
-    %rbx.1 = phi i32 [ %shr, %while.body3 ], [ %rbx.0, %while.cond ]
-    %cmp2 = icmp slt i32 %rbx.1, 1
-    br i1 %cmp2, label %while.body3, label %while.end
+    while.cond1:
+      %rbx.1 = phi i32 [ %shr, %while.body3 ], [ %rbx.0, %while.cond ]
+      %cmp2 = icmp slt i32 %rbx.1, 1
+      br i1 %cmp2, label %while.body3, label %while.end
 
-  while.body3:
-    %shr = ashr i32 %rbx.1, 1
-    br label %while.cond1, !llvm.loop !2
+    while.body3:
+      %shr = ashr i32 %rbx.1, 1
+      br label %while.cond1, !llvm.loop !2
 
-  while.end:
-    %shr4 = ashr i32 %rax.0, 1
-    br label %while.cond, !llvm.loop !4
+    while.end:
+      %shr4 = ashr i32 %rax.0, 1
+      br label %while.cond, !llvm.loop !4
 
-  while.end5:
-    ret void
-  }
+    while.end5:
+      ret void
+    }
 
 Compare the LLVM-IR SSA form of this program with the MIR form: each computed
 value is distinct, and SSA can determine the correct value for any Use at any
@@ -232,18 +232,18 @@ If so, SSA can determine where a PHI instruction should occur to merge
 preceeding variable values... however such a PHI value may not be resident,
 or ever computed, by a function. For example:
 
-  bb.1:
-    $rax = MOV64ri 0, debug-instr-number 1
-    DBG_INSTR_REF 1, 0
-    JMP %3
+    bb.1:
+      $rax = MOV64ri 0, debug-instr-number 1
+      DBG_INSTR_REF 1, 0
+      JMP %3
 
-  bb.2:
-    $rbx = MOV64ri 1, debug-instr-number 2
-    DBG_INSTR_REF 2, 0
-    JMP %3
+    bb.2:
+      $rbx = MOV64ri 1, debug-instr-number 2
+      DBG_INSTR_REF 2, 0
+      JMP %3
 
-  bb.3:
-    NOOP
+    bb.3:
+      NOOP
 
 At the NOOP instruction, we can determine that the variables value should be
 a PHI between the first MOV64ri and the second MOV64ri. However, as they are
@@ -252,18 +252,18 @@ in different registers on entry to bb.3, this PHI is never computed.
 Finally, as well as having PHI values that are never computed, SSA is also able
 to create PHI values that are actually no-ops. Consider the following C:
 
-  int ext();
+    int ext();
 
-  int foo(int bar) {
-    int a = bar;
-    int b = 0;
-    if (ext()) {
-      b = bar;
-    } else {
-      b = a;
+    int foo(int bar) {
+      int a = bar;
+      int b = 0;
+      if (ext()) {
+        b = bar;
+      } else {
+        b = a;
+      }
+      return b;
     }
-    return b;
-  }
 
 The value of 'b' is always the value of 'bar' on the return statement, however
 mem2reg is not immediately able to determine this and places a PHI in the
@@ -317,20 +317,20 @@ blocks and rely on RPO for correctness makes it not dataflow; but it's roughly
 the same. I couldn't find a graceful way to explain the logic, so here's some
 pseudocode for how exploration proceeds, which I'll describe afterwards:
 
-  conflict = TRUE if non-backedge predecessors have different incoming values else FALSE
-  backedge-conflict = NOT conflict AND backedge predecessors have a different value to non-backedge predecessors,
-  IF conflict:
-    - Produce a PHI value at this block
-  ELIF backedges not explored yet:
-    - Emit no PHI here, set VALUE = the common incoming value
-  ELIF backedge-conflict
-    IF stored VALUE equals incoming non-backedge predecessor value
-      Produce a PHI value at this block
-    ELSE
-      Set VALUE = the (new) incoming non-backedge predecessor value
+    conflict = TRUE if non-backedge predecessors have different incoming values else FALSE
+    backedge-conflict = NOT conflict AND backedge predecessors have a different value to non-backedge predecessors,
+    IF conflict:
+      - Produce a PHI value at this block
+    ELIF backedges not explored yet:
+      - Emit no PHI here, set VALUE = the common incoming value
+    ELIF backedge-conflict
+      IF stored VALUE equals incoming non-backedge predecessor value
+        Produce a PHI value at this block
+      ELSE
+        Set VALUE = the (new) incoming non-backedge predecessor value
+        Emit no PHI here
+    ELSE (i.e., all incoming edges agree on a value)
       Emit no PHI here
-  ELSE (i.e., all incoming edges agree on a value)
-    Emit no PHI here
 
 We start exploration by assuming that all PHIs are dead and propagating the
 non-backege predecessor values through the function. Subsequently, in RPO,
@@ -585,35 +585,35 @@ is an extra problem. In the machine location problem there was always a single
 candidate location where a PHI could occur... however for vairable values this
 is not true: there could be multiple locations, as well as zero. Consider:
 
-  bb.0:
-    $rax = MOV64ri 0
-    $rbx = COPY $rax
-    $rcx = COPY $rax
-    DBG_VALUE $rax
-    JMP %bb.1
+    bb.0:
+      $rax = MOV64ri 0
+      $rbx = COPY $rax
+      $rcx = COPY $rax
+      DBG_VALUE $rax
+      JMP %bb.1
 
-  bb.1:
-    $rax = MOV64ri 1
-    TEST $rdx, $rdx
-    JCC %bb.1
+    bb.1:
+      $rax = MOV64ri 1
+      TEST $rdx, $rdx
+      JCC %bb.1
 
 Here, the live-outs of bb.0 contain three instances of the "MOV64ri 0"'s def,
 in $rax $rbx $rcx respectively. On the loop backedge of bb.1, the value is
 available in $rbx and $rcx still -- we must pick one of them. Consider
 additionally:
 
-  bb.0:
-    $rax = MOV64ri 0
-    DBG_VALUE $rax
-    JMP %bb.2
+    bb.0:
+      $rax = MOV64ri 0
+      DBG_VALUE $rax
+      JMP %bb.2
 
-  bb.1:
-    $rbx = MOV64ri 1
-    DBG_VALUE $rbx
-    JMP %bb.2
+    bb.1:
+      $rbx = MOV64ri 1
+      DBG_VALUE $rbx
+      JMP %bb.2
 
-  bb.2:
-    NOOP 
+    bb.2:
+      NOOP 
 
 We can easily determine that on entry to bb.2, the variable value should be a
 PHI between the MOV64ri 0 value, and the MOV64ri 1 value. However, no such
@@ -695,21 +695,21 @@ DBG_PHIs, because tail duplication can clone such instructions. This causes
 what is in effect, another SSA problem! If we duplicate the tail block bb.3
 here:
 
-  bb.1:
-    $rax = MOV64rm @something
-    JMP %bb.3
+    bb.1:
+      $rax = MOV64rm @something
+      JMP %bb.3
 
-  bb.2:
-    $rax = MOV64rm @something_else
-    JMP %bb.3
+    bb.2:
+      $rax = MOV64rm @something_else
+      JMP %bb.3
 
-  bb.3:
-    DBG_PHI $rax
-    JMP_%bb.4
+    bb.3:
+      DBG_PHI $rax
+      JMP_%bb.4
 
-  bb.4:
-    DBG_INSTR_REF
-    NOOP
+    bb.4:
+      DBG_INSTR_REF
+      NOOP
 
 Then where we had a PHI value produced on entry to bb.3, and then read by the
 following DBG_PHI, we instead have two DBG_PHIs of normal values in blocks 1
