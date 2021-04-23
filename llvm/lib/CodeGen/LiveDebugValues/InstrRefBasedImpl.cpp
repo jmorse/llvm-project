@@ -2810,6 +2810,7 @@ bool InstrRefBasedLDV::transferSpillOrRestoreInst(MachineInstr &MI) {
       for (unsigned SubReg = 0; SubReg < MTracker->NumSubRegs; ++SubReg) {
         Optional<LocIdx> MLoc = MTracker->getSpillMLoc(*Loc, SubReg);
         if (MLoc)
+#warning This now manages to recover itself from the same slot
           TTracker->clobberMloc(*MLoc);
       }
     }
