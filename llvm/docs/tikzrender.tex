@@ -1,0 +1,30 @@
+% To produce pngs from a .tikz file using this latex header:
+%    1. Change the second-to-last line in this file to read the relevant .tikz
+%    2. Use your latex environment to produce a pdf or otherwise, for example:
+%          pdflatex tikzrender.tex
+%    3. Convert the produced pdf to a png with ImageMagick's convert tool, or
+%       for example with inkscape:
+%           inkscape -z -e NonDomLoop.tikz.png -h 300 tikzrender.pdf
+%       Just specify a height and the tool should work out the correct width.
+\documentclass{article}
+\usepackage{tikz}
+\usetikzlibrary{decorations.markings}
+\usetikzlibrary{shapes.geometric}
+\pagestyle{empty}
+
+\pgfdeclarelayer{edgelayer}
+\pgfdeclarelayer{nodelayer}
+\pgfsetlayers{edgelayer,nodelayer,main}
+
+\tikzstyle{none}=[inner sep=0pt]
+
+\tikzstyle{rn}=[circle,fill=Red,draw=Black,line width=0.8pt]
+
+\tikzstyle{arrow}=[-,draw=black,postaction={decorate},decoration={markings,mark=at position .5 with {\arrow{>}}},line width=2.000]
+
+\usepackage[graphics,tightpage,active]{preview}
+\PreviewEnvironment{tikzpicture}
+
+\begin{document}
+\input{NonDomLoop.tikz}
+\end{document}

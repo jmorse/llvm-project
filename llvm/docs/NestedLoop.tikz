@@ -1,0 +1,17 @@
+% See tikzrender.tex for how to convert this to a png
+\begin{tikzpicture}
+	\begin{pgfonlayer}{nodelayer}
+		\node [circle, fill=red, minimum size=0.3cm, label={left:A}, style=none] (0) at (-0.75, 1.25) {};
+		\node [circle, fill=red, minimum size=0.3cm, label={left:B}, style=none] (1) at (-0.75, 0.25) {};
+		\node [circle, fill=red, minimum size=0.3cm, label={left:C}, style=none] (2) at (-0.75, -0.75) {};
+		\node [circle, fill=red, minimum size=0.3cm, label={left:D}, style=none] (3) at (-0.75, -1.75) {};
+		\node [style=none] (4) at (0.25, -1.75) {Clobber};
+	\end{pgfonlayer}
+	\begin{pgfonlayer}{edgelayer}
+		\draw [style=arrow, in=-45, out=45, looseness=1.25] (2.center) to (1.center);
+		\draw [style=arrow, in=-45, out=45, looseness=1.25] (3.center) to (0.center);
+		\draw [style=arrow] (0.center) to (1.center);
+		\draw [style=arrow] (1.center) to (2.center);
+		\draw [style=arrow] (2.center) to (3.center);
+	\end{pgfonlayer}
+\end{tikzpicture}

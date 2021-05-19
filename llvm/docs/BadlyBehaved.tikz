@@ -1,0 +1,21 @@
+% See tikzrender.tex for how to convert this to a png
+\begin{tikzpicture}
+	\begin{pgfonlayer}{nodelayer}
+		\node [circle, fill=red, minimum size=0.3cm, label={right:A}, style=none] (0) at (-0.75, 1.5) {};
+		\node [circle, fill=red, minimum size=0.3cm, label={right:B}, style=none] (1) at (-0.75, 0.25) {};
+		\node [circle, fill=red, minimum size=0.3cm, label={right:C}, style=none] (2) at (-0.75, -1) {};
+		\node [style=none] (3) at (-1.75, 1.75) {};
+		\node [style=none] (4) at (-0.75, -1.5) {};
+	\end{pgfonlayer}
+	\begin{pgfonlayer}{edgelayer}
+		\draw [style=arrow, in=-45, out=45, looseness=1.50] (2.center) to (1.center);
+		\draw [style=arrow, bend right=45, looseness=1.50] (1.center) to (0.center);
+		\draw [style=arrow, in=135, out=45, loop] (1.center) to (.center);
+		\draw [style=arrow, in=135, out=45, loop] (0.center) to (.center);
+		\draw [style=arrow, bend right=45, looseness=1.50] (0.center) to (1.center);
+		\draw [style=arrow, bend right=45, looseness=1.75] (1.center) to (2.center);
+		\draw [style=arrow] (3.center) to (0.center);
+		\draw [style=arrow, in=135, out=45, loop] (2.center) to (.center);
+		\draw [style=arrow] (2.center) to (4.center);
+	\end{pgfonlayer}
+\end{tikzpicture}

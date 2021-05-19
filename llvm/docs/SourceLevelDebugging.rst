@@ -757,6 +757,9 @@ the undefined location.
 LiveDebugValues expansion of variable locations
 -----------------------------------------------
 
+Information on a new "instruction referencing" LiveDebugValues can
+be found in :doc:`InstrRefLiveDebugValues`
+
 After all optimizations have run and shortly before emission, the
 LiveDebugValues pass runs to achieve two aims:
 
