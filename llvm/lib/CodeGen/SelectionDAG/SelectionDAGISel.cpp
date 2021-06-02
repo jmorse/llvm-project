@@ -575,6 +575,7 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
         LiveInMap.insert(LI);
 
   // Insert DBG_VALUE instructions for function arguments to the entry block.
+  bool InstrRef = TM.Options.ValueTrackingVariableLocations;
   for (unsigned i = 0, e = FuncInfo->ArgDbgValues.size(); i != e; ++i) {
     MachineInstr *MI = FuncInfo->ArgDbgValues[e - i - 1];
     assert(MI->getOpcode() != TargetOpcode::DBG_VALUE_LIST &&
@@ -594,6 +595,10 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
         LLVM_DEBUG(dbgs() << "Dropping debug info for dead vreg"
                           << Register::virtReg2Index(Reg) << "\n");
     }
+
+    // Don't try and extend through copies in instruction referencing mode.
+    if (InstrRef)
+      continue;
 
     // If Reg is live-in then update debug info to track its copy in a vreg.
     DenseMap<unsigned, unsigned>::iterator LDI = LiveInMap.find(Reg);
@@ -642,6 +647,61 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
                     CopyUseMI->getOperand(0).getReg(), Variable, Expr);
         MachineBasicBlock::iterator Pos = CopyUseMI;
         EntryMBB->insertAfter(Pos, NewMI);
+      }
+    }
+  }
+
+  auto MakeDbgValue = [&](MachineInstr &MI) {
+    const MCInstrDesc &RefII = TII->get(TargetOpcode::DBG_VALUE);
+    MI.setDesc(RefII);
+    MI.getOperand(1).ChangeToRegister(0, false);
+    MI.getOperand(0).setIsDebug();
+  };
+
+  // Instruction referencing: update any half-done DBG_INSTR_REF instructions
+  // that point at virtual registers, to instead identify an instruction and
+  // operand number.
+  if (InstrRef) {
+    for (auto &MBB : *MF) {
+      for (auto &MI : MBB) {
+        if (!MI.isDebugRef() || !MI.getOperand(0).isReg())
+          continue;
+
+        Register Reg = MI.getOperand(0).getReg();
+
+        // Some vregs can be deleted as redundant in the meantime. Mark those
+        // as DBG_VALUE $noreg.
+        if (Reg == 0) {
+          MakeDbgValue(MI);
+          continue;
+        }
+
+        assert(Reg.isVirtual());
+        MachineInstr &DefMI = *MRI.def_instr_begin(Reg);
+        assert(MRI.hasOneDef(Reg));
+
+        // If we've found a copy-like instruction, follow it back to the
+        // instruction that defines the source value, see salvageCopySSA docs
+        // for why this is important.
+        if (DefMI.isCopyLike() || TII->isCopyInstr(DefMI)) {
+          auto Result = MF->salvageCopySSA(DefMI);
+          MI.getOperand(0).ChangeToImmediate(Result->first);
+          MI.getOperand(1).setImm(Result->second);
+        } else {
+          // Otherwise, identify the operand number that the VReg refers to.
+          unsigned OperandIdx = 0;
+          for (const auto &MO : DefMI.operands()) {
+            if (MO.isReg() && MO.isDef() && MO.getReg() == Reg)
+              break;
+            ++OperandIdx;
+          }
+          assert(OperandIdx < DefMI.getNumOperands());
+
+          // Morph this instr ref to point at the given instruction and operand.
+          unsigned ID = DefMI.getDebugInstrNum();
+          MI.getOperand(0).ChangeToImmediate(ID);
+          MI.getOperand(1).setImm(OperandIdx);
+       }
       }
     }
   }

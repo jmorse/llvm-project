@@ -504,6 +504,19 @@ public:
   void substituteDebugValuesForInst(const MachineInstr &Old, MachineInstr &New,
                                     unsigned MaxOperand = UINT_MAX);
 
+  /// Find the underlying  defining instruction / operand for a COPY instruction
+  /// while in SSA form. Copies do not actually define values -- they move them
+  /// between registers. Labelling a COPY-like instruction with an instruction
+  /// number is to be avoided as it makes value numbers non-unique later in
+  /// compilation. This method follows the definition chain for any sequence of
+  /// COPY-like instructions to find whatever non-COPY-like instruction defines
+  /// the copied value; or for parameters, creates a DBG_PHI on entry.
+  /// May insert instructions into the entry block!
+  /// \p MI The copy-like instruction to salvage.
+  /// \returns Either an instruction/operand pair identifying the defining
+  ///          value, or None if nothing could be recovered.
+  Optional<DebugInstrOperandPair> salvageCopySSA(MachineInstr &MI);
+
   MachineFunction(Function &F, const LLVMTargetMachine &Target,
                   const TargetSubtargetInfo &STI, unsigned FunctionNum,
                   MachineModuleInfo &MMI);
