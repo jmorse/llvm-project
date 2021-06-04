@@ -303,6 +303,7 @@ private:
 
   DenseMap<const MachineInstr *, unsigned> InstrPos;
 
+  MachineFunction *MF = nullptr;
   MachineRegisterInfo *MRI = nullptr;
   const X86InstrInfo *TII = nullptr;
   const X86RegisterInfo *TRI = nullptr;
@@ -539,6 +540,7 @@ bool X86OptimizeLEAPass::removeRedundantAddrCalc(MemOpMap &LEAs) {
     // instructions for these operands), we can always do that, without
     // worries of using registers before their defs.
     if (Dist < 0) {
+      MF->substituteDebugValuesForInst(*DefMI, MI);
       DefMI->removeFromParent();
       MBB->insert(MachineBasicBlock::iterator(&MI), DefMI);
       InstrPos[DefMI] = InstrPos[&MI] - 1;
@@ -692,6 +694,8 @@ bool X86OptimizeLEAPass::removeRedundantLEAs(MemOpMap &LEAs) {
         LLVM_DEBUG(dbgs() << "OptimizeLEAs: Remove redundant LEA: ";
                    Last.dump(););
 
+        MF->substituteDebugValuesForInst(Last, First);
+
         // By this moment, all of the Last LEA's uses must be replaced. So we
         // can freely remove it.
         assert(MRI->use_empty(LastVReg) &&
@@ -716,6 +720,7 @@ bool X86OptimizeLEAPass::runOnMachineFunction(MachineFunction &MF) {
   if (DisableX86LEAOpt || skipFunction(MF.getFunction()))
     return false;
 
+  this->MF = &MF;
   MRI = &MF.getRegInfo();
   TII = MF.getSubtarget<X86Subtarget>().getInstrInfo();
   TRI = MF.getSubtarget<X86Subtarget>().getRegisterInfo();

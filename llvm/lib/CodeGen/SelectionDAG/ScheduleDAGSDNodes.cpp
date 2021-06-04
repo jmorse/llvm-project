@@ -27,6 +27,7 @@
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/Config/llvm-config.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/MC/MCInstrItineraries.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -732,8 +733,8 @@ void ScheduleDAGSDNodes::VerifyScheduledSequence(bool isBottomUp) {
 #endif // NDEBUG
 
 /// ProcessSDDbgValues - Process SDDbgValues associated with this node.
-static void
-ProcessSDDbgValues(SDNode *N, SelectionDAG *DAG, InstrEmitter &Emitter,
+void
+ScheduleDAGSDNodes::ProcessSDDbgValues(SDNode *N, SelectionDAG *DAG, InstrEmitter &Emitter,
                    SmallVectorImpl<std::pair<unsigned, MachineInstr*> > &Orders,
                    DenseMap<SDValue, Register> &VRBaseMap, unsigned Order) {
   if (!N->getHasDebugValue())
@@ -758,6 +759,11 @@ ProcessSDDbgValues(SDNode *N, SelectionDAG *DAG, InstrEmitter &Emitter,
     if (DV->isEmitted())
       continue;
     unsigned DVOrder = DV->getOrder();
+
+    // Don't re-order assignments.
+    if (DebugVarPosition[SDDbgToVar(*DV)] > DVOrder)
+      continue;
+
     if (Order != 0 && DVOrder != Order)
       continue;
     // If DV has any VReg location operands which haven't been mapped then
@@ -767,6 +773,7 @@ ProcessSDDbgValues(SDNode *N, SelectionDAG *DAG, InstrEmitter &Emitter,
     // dependent nodes have been visited.
     if (!DV->isInvalidated() && HasUnknownVReg(DV))
       continue;
+    DebugVarPosition[SDDbgToVar(*DV)] = DVOrder;
     MachineInstr *DbgMI = Emitter.EmitDbgValue(DV, VRBaseMap);
     if (!DbgMI)
       continue;
@@ -778,8 +785,8 @@ ProcessSDDbgValues(SDNode *N, SelectionDAG *DAG, InstrEmitter &Emitter,
 // ProcessSourceNode - Process nodes with source order numbers. These are added
 // to a vector which EmitSchedule uses to determine how to insert dbg_value
 // instructions in the right order.
-static void
-ProcessSourceNode(SDNode *N, SelectionDAG *DAG, InstrEmitter &Emitter,
+void
+ScheduleDAGSDNodes::ProcessSourceNode(SDNode *N, SelectionDAG *DAG, InstrEmitter &Emitter,
                   DenseMap<SDValue, Register> &VRBaseMap,
                   SmallVectorImpl<std::pair<unsigned, MachineInstr *>> &Orders,
                   SmallSet<Register, 8> &Seen, MachineInstr *NewInsn) {
@@ -902,6 +909,7 @@ EmitSchedule(MachineBasicBlock::iterator &InsertPos) {
     SDDbgInfo::DbgIterator PDI = DAG->ByvalParmDbgBegin();
     SDDbgInfo::DbgIterator PDE = DAG->ByvalParmDbgEnd();
     for (; PDI != PDE; ++PDI) {
+      DebugVarPosition[SDDbgToVar(**PDI)] = (*PDI)->getOrder();
       MachineInstr *DbgMI= Emitter.EmitDbgValue(*PDI, VRBaseMap);
       if (DbgMI) {
         BB->insert(InsertPos, DbgMI);
@@ -986,7 +994,11 @@ EmitSchedule(MachineBasicBlock::iterator &InsertPos) {
         if ((*DI)->isEmitted())
           continue;
 
+        if (DebugVarPosition[SDDbgToVar(**DI)] > (*DI)->getOrder())
+          continue;
+
         MachineInstr *DbgMI = Emitter.EmitDbgValue(*DI, VRBaseMap);
+        DebugVarPosition[SDDbgToVar(**DI)] = (*DI)->getOrder();
         if (DbgMI) {
           if (!LastOrder)
             // Insert to start of the BB (after PHIs).
@@ -1074,6 +1086,9 @@ EmitSchedule(MachineBasicBlock::iterator &InsertPos) {
       MI.moveBefore(&*FirstTerm);
     }
   }
+
+  DebugVarPosition.clear();
+
   return InsertBB;
 }
 

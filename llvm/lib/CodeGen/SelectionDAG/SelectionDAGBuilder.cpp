@@ -1165,6 +1165,31 @@ void SelectionDAGBuilder::addDanglingDebugInfo(const DbgValueInst *DI,
   }
 }
 
+static bool isBasedOnAlloca(const Instruction &Inst) {
+  // Look through any number of bitcasts and constant-GEPs to see whether
+  // this address can be salvaged straight back to an alloca.
+  if (!Inst.getType()->isPointerTy())
+    return false;
+
+  if (const BitCastInst *BI = dyn_cast<BitCastInst>(&Inst)) {
+    const Instruction *Operand = dyn_cast<Instruction>(BI->getOperand(0));
+    if (!Operand)
+      return false;
+    return isBasedOnAlloca(*Operand);
+  } else if (const GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(&Inst)) {
+    if (!GEP->hasAllConstantIndices())
+      return false;
+    const Instruction *Operand = dyn_cast<Instruction>(GEP->getPointerOperand());
+    if (!Operand)
+      return false;
+    return isBasedOnAlloca(*Operand);
+  } else if (isa<AllocaInst>(Inst)) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
 void SelectionDAGBuilder::dropDanglingDebugInfo(const DILocalVariable *Variable,
                                                 const DIExpression *Expr) {
   auto isMatchingDbgValue = [&](DanglingDebugInfo &DDI) {
@@ -1198,6 +1223,11 @@ void SelectionDAGBuilder::resolveDanglingDebugInfo(const Value *V,
   auto DanglingDbgInfoIt = DanglingDebugInfoMap.find(V);
   if (DanglingDbgInfoIt == DanglingDebugInfoMap.end())
     return;
+
+  if (const Instruction *Inst = dyn_cast<Instruction>(V))
+    if (isBasedOnAlloca(*Inst))
+      // Nope, leave things dangling.
+      return;
 
   DanglingDebugInfoVector &DDIV = DanglingDbgInfoIt->second;
   for (auto &DDI : DDIV) {
@@ -1332,12 +1362,22 @@ bool SelectionDAGBuilder::handleDebugValue(ArrayRef<const Value *> Values,
       }
     }
 
+    // Addresses based on allocas can either have their location based on a
+    // VReg, or they can be derived directly from the frame pointer address by
+    // emitting them as a FrameIndex. Prefer the latter: it doesn't depend on
+    // the liveness of pointers to the stack, and is effectively always
+    // available. Do this by avoiding vreg references, forcing salvageDebugInfo
+    // to be called.
+    bool IsBasedOnAlloca = false;
+    if (const Instruction *Inst = dyn_cast<Instruction>(V))
+      IsBasedOnAlloca = isBasedOnAlloca(*Inst);
+
     // Do not use getValue() in here; we don't want to generate code at
     // this point if it hasn't been done yet.
     SDValue N = NodeMap[V];
     if (!N.getNode() && isa<Argument>(V)) // Check unused arguments map.
       N = UnusedArgNodeMap[V];
-    if (N.getNode()) {
+    if (N.getNode() && !IsBasedOnAlloca) {
       // Only emit func arg dbg value for non-variadic dbg.values for now.
       if (!IsVariadic && EmitFuncArgumentDbgValue(V, Var, Expr, dl, false, N))
         return true;
@@ -1368,7 +1408,7 @@ bool SelectionDAGBuilder::handleDebugValue(ArrayRef<const Value *> Values,
     // need to let them dangle until they get an SDNode.
     bool IsParamOfFunc =
         isa<Argument>(V) && Var->isParameter() && !InstDL.getInlinedAt();
-    if (IsParamOfFunc)
+    if (IsParamOfFunc || IsBasedOnAlloca)
       return false;
 
     // The value is not used in this block yet (or it would have an SDNode).
@@ -1405,7 +1445,7 @@ bool SelectionDAGBuilder::handleDebugValue(ArrayRef<const Value *> Values,
           if (!FragmentExpr)
             continue;
           SDDbgValue *SDV = DAG.getVRegDbgValue(
-              Var, *FragmentExpr, RegAndSize.first, false, dl, SDNodeOrder);
+              Var, *FragmentExpr, RegAndSize.first, false, dl, Order);
           DAG.AddDbgValue(SDV, false);
           Offset += RegisterSize;
         }
@@ -1420,11 +1460,10 @@ bool SelectionDAGBuilder::handleDebugValue(ArrayRef<const Value *> Values,
   }
 
   // We have created a SDDbgOperand for each Value in Values.
-  // Should use Order instead of SDNodeOrder?
   assert(!LocationOps.empty());
   SDDbgValue *SDV =
       DAG.getDbgValueList(Var, Expr, LocationOps, Dependencies,
-                          /*IsIndirect=*/false, dl, SDNodeOrder, IsVariadic);
+                          /*IsIndirect=*/false, dl, Order, IsVariadic);
   DAG.AddDbgValue(SDV, /*isParameter=*/false);
   return true;
 }

@@ -48,7 +48,7 @@ static void extractArgumentsFromModule(std::vector<Chunk> ChunksToKeep,
   std::vector<Function *> Funcs;
   // Get inside-chunk arguments, as well as their parent function
   for (auto &F : *Program)
-    if (!F.arg_empty()) {
+    if (!F.arg_empty() && !F.isIntrinsic()) {
       Funcs.push_back(&F);
       for (auto &A : F.args())
         if (O.shouldKeep())
@@ -108,7 +108,7 @@ static int countArguments(Module *Program) {
   outs() << "Param Index Reference:\n";
   int ArgsCount = 0;
   for (auto &F : *Program)
-    if (!F.arg_empty()) {
+    if (!F.arg_empty() && !F.isIntrinsic()) {
       outs() << "  " << F.getName() << "\n";
       for (auto &A : F.args())
         outs() << "\t" << ++ArgsCount << ": " << A.getName() << "\n";

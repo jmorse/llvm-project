@@ -252,6 +252,10 @@ namespace {
     /// Attempt joining two virtual registers. Return true on success.
     bool joinVirtRegs(CoalescerPair &CP);
 
+
+// XXX this fix made missing0.ll and 86 "pass"?
+void juggleDbgPHIs(Register SrcReg, unsigned SrcIdx, Register DstReg, unsigned DstIdx, LiveInterval &SensitiveRange, bool killRemainingPHIs = true);
+
     /// If a live interval has many valnos and is coalesced with other
     /// live intervals many times, we regard such live interval as having
     /// high compile time cost.
@@ -354,6 +358,12 @@ namespace {
         /// components and if that is the case, fix that.
         SmallVector<LiveInterval*, 8> SplitLIs;
         LIS->splitSeparateComponents(*LI, SplitLIs);
+// XXX: first instance of juggle will drop all other phis in LI. Plus, some
+// might legitimately be left in LI.
+        // LOLDEBUG
+        for (auto *Inv : SplitLIs) {
+          juggleDbgPHIs(LI->reg(), 0, Inv->reg(), 0, *Inv, false);
+        }
       }
     }
 
@@ -928,7 +938,7 @@ RegisterCoalescer::removeCopyByCommutingDef(const CoalescerPair &CP,
     if (UseMO.isUndef())
       continue;
     MachineInstr *UseMI = UseMO.getParent();
-    if (UseMI->isDebugValue()) {
+    if (UseMI->isDebugInstr()) {
       // FIXME These don't have an instruction index.  Not clear we have enough
       // info to decide whether to do this replacement or not.  For now do it.
       UseMO.setReg(NewReg);
@@ -1559,7 +1569,7 @@ bool RegisterCoalescer::reMaterializeTrivialDef(const CoalescerPair &CP,
   if (MRI->use_nodbg_empty(SrcReg)) {
     for (MachineOperand &UseMO : MRI->use_operands(SrcReg)) {
       MachineInstr *UseMI = UseMO.getParent();
-      if (UseMI->isDebugValue()) {
+      if (UseMI->isDebugInstr()) {
         if (Register::isPhysicalRegister(DstReg))
           UseMO.substPhysReg(DstReg, *TRI);
         else
@@ -1740,7 +1750,7 @@ void RegisterCoalescer::updateRegDefsUses(Register SrcReg, Register DstReg,
       if (SubReg == 0 || MO.isUndef())
         continue;
       MachineInstr &MI = *MO.getParent();
-      if (MI.isDebugValue())
+      if (MI.isDebugInstr())
         continue;
       SlotIndex UseIdx = LIS->getInstructionIndex(MI).getRegSlot(true);
       addUndefFlag(*DstInt, UseIdx, MO, SubReg);
@@ -1767,7 +1777,7 @@ void RegisterCoalescer::updateRegDefsUses(Register SrcReg, Register DstReg,
 
     // If SrcReg wasn't read, it may still be the case that DstReg is live-in
     // because SrcReg is a sub-register.
-    if (DstInt && !Reads && SubIdx && !UseMI->isDebugValue())
+    if (DstInt && !Reads && SubIdx && !UseMI->isDebugInstr())
       Reads = DstInt->liveAt(LIS->getInstructionIndex(*UseMI));
 
     // Replace SrcReg with DstReg in all UseMI operands.
@@ -1797,7 +1807,7 @@ void RegisterCoalescer::updateRegDefsUses(Register SrcReg, Register DstReg,
             // unused lanes. This may happen with rematerialization.
             DstInt->createSubRange(Allocator, UnusedLanes);
           }
-          SlotIndex MIIdx = UseMI->isDebugValue()
+          SlotIndex MIIdx = UseMI->isDebugInstr()
             ? LIS->getSlotIndexes()->getIndexBefore(*UseMI)
             : LIS->getInstructionIndex(*UseMI);
           SlotIndex UseIdx = MIIdx.getRegSlot(true);
@@ -1813,7 +1823,7 @@ void RegisterCoalescer::updateRegDefsUses(Register SrcReg, Register DstReg,
 
     LLVM_DEBUG({
       dbgs() << "\t\tupdated: ";
-      if (!UseMI->isDebugValue())
+      if (!UseMI->isDebugInstr())
         dbgs() << LIS->getInstructionIndex(*UseMI) << "\t";
       dbgs() << *UseMI;
     });
@@ -3560,63 +3570,7 @@ bool RegisterCoalescer::joinVirtRegs(CoalescerPair &CP) {
   // Scan and mark undef any DBG_VALUEs that would refer to a different value.
   checkMergingChangesDbgValues(CP, LHS, LHSVals, RHS, RHSVals);
 
-  // If the RHS covers any PHI locations that were tracked for debug-info, we
-  // must update tracking information to reflect the join.
-  auto RegIt = RegToPHIIdx.find(CP.getSrcReg());
-  if (RegIt != RegToPHIIdx.end()) {
-    // Iterate over all the debug instruction numbers assigned this register.
-    for (unsigned InstID : RegIt->second) {
-      auto PHIIt = PHIValToPos.find(InstID);
-      assert(PHIIt != PHIValToPos.end());
-      const SlotIndex &SI = PHIIt->second.SI;
-
-      // Does the RHS cover the position of this PHI?
-      auto LII = RHS.find(SI);
-      if (LII == RHS.end() || LII->start > SI)
-        continue;
-
-      // Accept two kinds of subregister movement:
-      //  * When we merge from one register class into a larger register:
-      //        %1:gr16 = some-inst
-      //                ->
-      //        %2:gr32.sub_16bit = some-inst
-      //  * When the PHI is already in a subregister, and the larger class
-      //    is coalesced:
-      //        %2:gr32.sub_16bit = some-inst
-      //        %3:gr32 = COPY %2
-      //                ->
-      //        %3:gr32.sub_16bit = some-inst
-      // Test for subregister move:
-      if (CP.getSrcIdx() != 0 || CP.getDstIdx() != 0)
-        // If we're moving between different subregisters, ignore this join.
-        // The PHI will not get a location, dropping variable locations.
-        if (PHIIt->second.SubReg && PHIIt->second.SubReg != CP.getSrcIdx())
-          continue;
-
-      // Update our tracking of where the PHI is.
-      PHIIt->second.Reg = CP.getDstReg();
-
-      // If we merge into a sub-register of a larger class (test above),
-      // update SubReg.
-      if (CP.getSrcIdx() != 0)
-        PHIIt->second.SubReg = CP.getSrcIdx();
-    }
-
-    // Rebuild the register index in RegToPHIIdx to account for PHIs tracking
-    // different VRegs now. Copy old collection of debug instruction numbers and
-    // erase the old one:
-    auto InstrNums = RegIt->second;
-    RegToPHIIdx.erase(RegIt);
-
-    // There might already be PHIs being tracked in the destination VReg. Insert
-    // into an existing tracking collection, or insert a new one.
-    RegIt = RegToPHIIdx.find(CP.getDstReg());
-    if (RegIt != RegToPHIIdx.end())
-      RegIt->second.insert(RegIt->second.end(), InstrNums.begin(),
-                           InstrNums.end());
-    else
-      RegToPHIIdx.insert({CP.getDstReg(), InstrNums});
-  }
+  juggleDbgPHIs(CP.getSrcReg(), CP.getSrcIdx(), CP.getDstReg(), CP.getDstIdx(), RHS);
 
   // Join RHS into LHS.
   LHS.join(RHS, LHSVals.getAssignments(), RHSVals.getAssignments(), NewVNInfo);
@@ -3647,6 +3601,77 @@ bool RegisterCoalescer::joinVirtRegs(CoalescerPair &CP) {
 
 bool RegisterCoalescer::joinIntervals(CoalescerPair &CP) {
   return CP.isPhys() ? joinReservedPhysReg(CP) : joinVirtRegs(CP);
+}
+
+void
+RegisterCoalescer::juggleDbgPHIs(Register SrcReg, unsigned SrcIdx, Register DstReg, unsigned DstIdx, LiveInterval &SensitiveRange, bool killRemainingPHIs) {
+  // If the RHS covers any PHI locations that were tracked for debug-info, we
+  // must update tracking information to reflect the join.
+  SmallVector<unsigned, 2> MovedPHIs;
+  auto RegIt = RegToPHIIdx.find(SrcReg);
+  if (RegIt != RegToPHIIdx.end()) {
+    // Iterate over all the debug instruction numbers assigned this register.
+    for (unsigned InstID : RegIt->second) {
+      auto PHIIt = PHIValToPos.find(InstID);
+      assert(PHIIt != PHIValToPos.end());
+      const SlotIndex &SI = PHIIt->second.SI;
+
+      // Does the RHS cover the position of this PHI?
+      auto LII = SensitiveRange.find(SI);
+      if (LII == SensitiveRange.end() || LII->start > SI)
+        continue;
+
+      // Accept two kinds of subregister movement:
+      //  * When we merge from one register class into a larger register:
+      //        %1:gr16 = some-inst
+      //                ->
+      //        %2:gr32.sub_16bit = some-inst
+      //  * When the PHI is already in a subregister, and the larger class
+      //    is coalesced:
+      //        %2:gr32.sub_16bit = some-inst
+      //        %3:gr32 = COPY %2
+      //                ->
+      //        %3:gr32.sub_16bit = some-inst
+      // Test for subregister move:
+      if (SrcIdx != 0 || DstIdx != 0)
+        // If we're moving between different subregisters, ignore this join.
+        // The PHI will not get a location, dropping variable locations.
+        if (PHIIt->second.SubReg && PHIIt->second.SubReg != SrcIdx)
+          continue;
+
+      // Update our tracking of where the PHI is.
+      PHIIt->second.Reg = DstReg;
+      MovedPHIs.push_back(InstID);
+
+      // If we merge into a sub-register of a larger class (test above),
+      // update SubReg.
+      if (SrcIdx != 0)
+        PHIIt->second.SubReg = SrcIdx;
+    }
+
+    // Rebuild the register index in RegToPHIIdx to account for PHIs tracking
+    // different VRegs now. Copy old collection of debug instruction numbers and
+    // erase the old one: XXX XXX XXX
+// maybe.
+    if (killRemainingPHIs) {
+      RegToPHIIdx.erase(RegIt);
+    } else {
+      // Just remove the ones we deleted. This is very slow.
+     for (unsigned Moved : MovedPHIs) {
+// XXX remove erase idiom...
+       std::remove(RegIt->second.begin(), RegIt->second.end(), Moved);
+      }
+    }
+
+    // There might already be PHIs being tracked in the destination VReg. Insert
+    // into an existing tracking collection, or insert a new one.
+    RegIt = RegToPHIIdx.find(DstReg);
+    if (RegIt != RegToPHIIdx.end())
+      RegIt->second.insert(RegIt->second.end(), MovedPHIs.begin(),
+                           MovedPHIs.end());
+    else
+      RegToPHIIdx.insert({DstReg, MovedPHIs});
+  }
 }
 
 void RegisterCoalescer::buildVRegToDbgValueMap(MachineFunction &MF)

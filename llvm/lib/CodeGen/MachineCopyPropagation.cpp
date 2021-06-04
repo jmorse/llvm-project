@@ -481,6 +481,9 @@ void MachineCopyPropagation::forwardUses(MachineInstr &MI) {
   if (!Tracker.hasAnyCopies())
     return;
 
+  if (MI.isDebugInstr())
+    return;
+
   // Look for non-tied explicit vreg uses that have an active COPY
   // instruction that defines the physical register allocated to them.
   // Replace the vreg with the source of the active COPY.
@@ -870,7 +873,7 @@ void MachineCopyPropagation::BackwardCopyPropagateBlock(
       if (MO.isDef())
         Tracker.invalidateRegister(MO.getReg().asMCReg(), *TRI);
 
-      if (MO.readsReg())
+      if (MO.readsReg() && !MO.isDebug())
         Tracker.invalidateRegister(MO.getReg().asMCReg(), *TRI);
     }
   }

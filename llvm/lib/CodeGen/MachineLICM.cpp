@@ -1267,8 +1267,11 @@ MachineInstr *MachineLICMBase::ExtractHoistableLoad(MachineInstr *MI) {
   if (!IsLoopInvariantInst(*NewMIs[0]) || !IsProfitableToHoist(*NewMIs[0])) {
     NewMIs[0]->eraseFromParent();
     NewMIs[1]->eraseFromParent();
+    MF.undoDebugValueSubstitution(*MI);
     return nullptr;
   }
+
+// XXX jmorse, should put substitution into "unfold".
 
   // Update register pressure for the unfolded instruction.
   UpdateRegPressure(NewMIs[1]);
@@ -1359,6 +1362,9 @@ bool MachineLICMBase::EliminateCSE(
       if (!MRI->use_nodbg_empty(DupReg))
         Dup->getOperand(Idx).setIsDead(false);
     }
+
+    MachineFunction &MF = *MI->getMF();
+    MF.substituteDebugValuesForInst(*MI, const_cast<MachineInstr&>(*Dup));
 
     MI->eraseFromParent();
     ++NumCSEed;

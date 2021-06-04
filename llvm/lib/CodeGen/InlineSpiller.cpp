@@ -928,6 +928,27 @@ foldMemoryOperand(ArrayRef<std::pair<MachineInstr *, unsigned>> Ops,
   // Update the call site info.
   if (MI->isCandidateForCallSiteEntry())
     MI->getMF()->moveCallSiteInfo(MI, FoldMI);
+
+  // If we've folded a store in, try to make substitutions. XXX, risk of
+  // operands not lining up?
+  // Handle the common case: a def of a stack slot reference that is folded
+  // with a store. Also tied defs.
+  if (MI->peekDebugInstrNum() && (Ops.size() == 1 || Ops.size() == 2) &&
+      MI->getOperand(Ops[0].second).isDef()) {
+
+    if (Ops.size() == 2)
+      assert(MI->getOperand(Ops[0].second).getReg() == MI->getOperand(Ops[1].second).getReg() && MI->getOperand(Ops[0].second).isDef() && MI->getOperand(Ops[1].second).isTied());
+
+    unsigned OldOperandNum = Ops[0].second;
+    assert(MI->getOperand(OldOperandNum).isDef());
+    // We don't know what memory operations look like on the target, we instead
+    // rely on the memory operand stored with the instruction, and create a
+    // substitution referring to that.
+    unsigned NewNum = FoldMI->getDebugInstrNum();
+    unsigned OldNum = MI->getDebugInstrNum();
+    MF.makeDebugValueSubstitution({OldNum, OldOperandNum}, {NewNum, MachineFunction::DebugOperandMemNumber});
+  }
+
   MI->eraseFromParent();
 
   // Insert any new instructions other than FoldMI into the LIS maps.

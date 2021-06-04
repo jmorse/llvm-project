@@ -954,6 +954,9 @@ void MachineFunction::makeDebugValueSubstitution(DebugInstrOperandPair A,
                                                  unsigned Subreg) {
   // Catch any accidental self-loops.
   assert(A.first != B.first);
+  // Don't allow any substituitions _from_ the memory operand number.
+  assert(A.second != DebugOperandMemNumber);
+
   auto Result = DebugValueSubstitutions.insert({A, {B, Subreg}});
   (void)Result;
   assert(Result.second && "Substitution for an already substituted value?");
@@ -986,6 +989,34 @@ void MachineFunction::substituteDebugValuesForInst(const MachineInstr &Old,
     makeDebugValueSubstitution(std::make_pair(OldInstrNum, I),
                                std::make_pair(NewInstrNum, I));
   }
+}
+
+auto MachineFunction::testForArgumentToDebugSalvage(MachineInstr &MI) -> Optional<DebugInstrOperandPair>{
+  const TargetInstrInfo &TII = *getSubtarget().getInstrInfo();
+  int FI;
+  unsigned Bytes;
+  if (MI.getParent() == &*begin() && MI.hasOneMemOperand() &&
+      TII.isLoadFromStackSlot(MI, FI, Bytes)) {
+    auto MemOp = *MI.memoperands_begin();
+    auto *PSV = MemOp->getPseudoValue();
+    // Ooof: it's an argument. Let a later salvage thing handle this. This
+    // wouldn't be needed if trivial remats were handled well.
+    if (PSV && !PSV->isAliased(&getFrameInfo()) && PSV->kind() == PseudoSourceValue::FixedStack) {
+
+// XXX XXX XXX
+  auto Builder = BuildMI(*begin(), begin()->getFirstNonPHI(), DebugLoc(),
+                         TII.get(TargetOpcode::DBG_PHI));
+  Builder.addFrameIndex(FI);
+  unsigned NewNum = getNewDebugInstrNum();
+  Builder.addImm(NewNum);
+  MachineInstr *NewInst = Builder;
+  return DebugInstrOperandPair(NewNum, 0u);
+
+
+      }
+    }
+
+  return None;
 }
 
 auto MachineFunction::salvageCopySSA(MachineInstr &MI)
@@ -1084,6 +1115,32 @@ auto MachineFunction::salvageCopySSA(MachineInstr &MI)
   if (State.first.isVirtual()) {
     // Virtual register def -- we can just look up where this happens.
     MachineInstr *Inst = MRI.def_begin(State.first)->getParent();
+
+    // An exceptional case: if this looks like a load-from-stack-slot of an
+    // argument, then issue a DBG_PHI for the slot.
+    int FI;
+    unsigned Bytes;
+    if (Inst->getParent() == &*begin() && Inst->hasOneMemOperand() &&
+        TII.isLoadFromStackSlot(*Inst, FI, Bytes)) {
+      auto MemOp = *Inst->memoperands_begin();
+      auto *PSV = MemOp->getPseudoValue();
+      // Ooof: it's an argument. Let a later salvage thing handle this. This
+      // wouldn't be needed if trivial remats were handled well.
+      if (PSV && !PSV->isAliased(&getFrameInfo()) && PSV->kind() == PseudoSourceValue::FixedStack) {
+
+// XXX XXX XXX
+  auto Builder = BuildMI(*begin(), begin()->getFirstNonPHI(), DebugLoc(),
+                         TII.get(TargetOpcode::DBG_PHI));
+  Builder.addFrameIndex(FI);
+  unsigned NewNum = getNewDebugInstrNum();
+  Builder.addImm(NewNum);
+  MachineInstr *NewInst = Builder;
+  return ApplySubregisters({NewNum, 0u});
+
+
+      }
+    }
+
     for (auto &MO : Inst->operands()) {
       if (!MO.isReg() || !MO.isDef() || MO.getReg() != State.first)
         continue;
@@ -1140,6 +1197,23 @@ auto MachineFunction::salvageCopySSA(MachineInstr &MI)
   NewInst->getOperand(0).setIsDebug(true);
   return ApplySubregisters({NewNum, 0u});
 }
+
+void MachineFunction::undoDebugValueSubstitution(const MachineInstr &Old,
+                                                 unsigned MaxIdx) {
+  unsigned InstrNum = Old.peekDebugInstrNum();
+  if (!InstrNum)
+    return;
+
+  unsigned MaxOperand = std::min(MaxIdx, Old.getNumOperands());
+  for (unsigned int I = 0; I < MaxOperand; ++I) {
+    const MachineOperand &MO = Old.getOperand(I);
+    if (MO.isReg() && MO.isDef())
+      DebugValueSubstitutions.erase(std::make_pair(InstrNum, I));
+  }
+}
+
+// Use one million as a high / reserved number.
+unsigned MachineFunction::DebugOperandMemNumber = 1000000;
 
 /// \}
 

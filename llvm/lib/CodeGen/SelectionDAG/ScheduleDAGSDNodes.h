@@ -14,15 +14,20 @@
 #ifndef LLVM_LIB_CODEGEN_SELECTIONDAG_SCHEDULEDAGSDNODES_H
 #define LLVM_LIB_CODEGEN_SELECTIONDAG_SCHEDULEDAGSDNODES_H
 
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/CodeGen/ISDOpcodes.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/ScheduleDAG.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/MachineValueType.h"
 #include <cassert>
 #include <string>
 #include <vector>
+
+#include "InstrEmitter.h"
+#include "SDNodeDbgValue.h"
 
 namespace llvm {
 
@@ -51,6 +56,28 @@ class InstrItineraryData;
 
     /// The schedule. Null SUnit*'s represent noop instructions.
     std::vector<SUnit*> Sequence;
+
+    // Prevent re-ordering of assignments.
+    DenseMap<DebugVariable, unsigned> DebugVarPosition;
+
+    DebugVariable SDDbgToVar(SDDbgValue &SD) {
+      DILocalVariable *Var = cast<DILocalVariable>(SD.getVariable());
+      DIExpression *Expr = cast<DIExpression>(SD.getExpression());
+      DebugLoc DL = SD.getDebugLoc();
+
+      return DebugVariable(Var, Expr, DL.get());
+    }
+
+  void
+  ProcessSDDbgValues(SDNode *N, SelectionDAG *DAG, InstrEmitter &Emitter,
+                     SmallVectorImpl<std::pair<unsigned, MachineInstr*> > &Orders,
+                     DenseMap<SDValue, Register> &VRBaseMap, unsigned Order) ;
+
+void ProcessSourceNode(SDNode *N, SelectionDAG *DAG, InstrEmitter &Emitter,
+                    DenseMap<SDValue, Register> &VRBaseMap,
+                    SmallVectorImpl<std::pair<unsigned, MachineInstr *>> &Orders,
+                    SmallSet<Register, 8> &Seen, MachineInstr *NewInsn);
+
 
     explicit ScheduleDAGSDNodes(MachineFunction &mf);
 

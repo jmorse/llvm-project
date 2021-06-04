@@ -687,6 +687,9 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
           auto Result = MF->salvageCopySSA(DefMI);
           MI.getOperand(0).ChangeToImmediate(Result->first);
           MI.getOperand(1).setImm(Result->second);
+        } else if (auto pair = MF->testForArgumentToDebugSalvage(DefMI)) {
+          MI.getOperand(0).ChangeToImmediate(pair->first);
+          MI.getOperand(1).setImm(pair->second);
         } else {
           // Otherwise, identify the operand number that the VReg refers to.
           unsigned OperandIdx = 0;

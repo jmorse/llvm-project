@@ -544,6 +544,7 @@ bool MachineCSE::ProcessBlockCSE(MachineBasicBlock *MBB) {
         FoundCSE = VNT.count(NewMI);
         if (NewMI != MI) {
           // New instruction. It doesn't need to be kept.
+          MI->getMF()->undoDebugValueSubstitution(*MI);
           NewMI->eraseFromParent();
           Changed = true;
         } else if (!FoundCSE)
@@ -710,6 +711,8 @@ bool MachineCSE::ProcessBlockCSE(MachineBasicBlock *MBB) {
         }
         ++NumCrossBBCSEs;
       }
+
+      MI->getMF()->substituteDebugValuesForInst(*MI, *CSMI);
 
       MI->eraseFromParent();
       ++NumCSEs;

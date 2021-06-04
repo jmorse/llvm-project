@@ -468,7 +468,7 @@ public:
   /// to a DebugSubstitution identifying another. Used to record changes in
   /// where a value is defined, so that debug variable locations can find it
   /// later.
-  std::map<DebugInstrOperandPair, DebugSubstitution> DebugValueSubstitutions;
+  DenseMap<DebugInstrOperandPair, DebugSubstitution> DebugValueSubstitutions;
 
   /// Location of a PHI instruction that is also a debug-info variable value,
   /// for the duration of register allocation. Loaded by the PHI-elimination
@@ -516,6 +516,15 @@ public:
   /// \returns Either an instruction/operand pair identifying the defining
   ///          value, or None if nothing could be recovered.
   Optional<DebugInstrOperandPair> salvageCopySSA(MachineInstr &MI);
+
+Optional<DebugInstrOperandPair> testForArgumentToDebugSalvage(MachineInstr &MI);
+
+  void undoDebugValueSubstitution(const MachineInstr &Old,
+                                  unsigned MaxIdx = UINT_MAX);
+
+  /// A reserved operand number representing the instructions memory operand,
+  /// for instructions that can morph into storing to stack spills.
+  static unsigned int DebugOperandMemNumber;
 
   MachineFunction(Function &F, const LLVMTargetMachine &Target,
                   const TargetSubtargetInfo &STI, unsigned FunctionNum,

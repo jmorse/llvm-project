@@ -834,6 +834,20 @@ InstrEmitter::EmitDbgInstrRef(SDDbgValue *SD,
     DefMI = &*MRI->def_instr_begin(VReg);
   }
 
+  // Awkwardly: is this an Argument load from the stack, in the entry block?
+  int FI;
+  unsigned Bytes;
+  if (DefMI->getParent() == &*MF->begin() && DefMI->hasOneMemOperand() &&
+      TII->isLoadFromStackSlot(*DefMI, FI, Bytes)) {
+    auto MemOp = *DefMI->memoperands_begin();
+    auto *PSV = MemOp->getPseudoValue();
+    // Ooof: it's an argument. Let a later salvage thing handle this. This
+    // wouldn't be needed if trivial remats were handled well.
+    if (PSV && !PSV->isAliased(&MF->getFrameInfo()) && PSV->kind() == PseudoSourceValue::FixedStack)
+      return EmitHalfDoneInstrRef(VReg);
+  }
+
+
   // Avoid copy like instructions: they don't define values, only move them.
   // Leave a virtual-register reference until it can be fixed up later, to find
   // the underlying value definition.
