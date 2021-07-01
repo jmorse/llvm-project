@@ -59,10 +59,10 @@ entry:
 ; NORMAL-NEXT: DBG_VALUE %0,
 ; NORMAL-NEXT: %1:gr32 = COPY %0.sub_32bit,
 ; NORMAL-NEXT: DBG_VALUE %1
-; NORMAL:      %2:gr16 = COPY %0.sub_16bit,
-; NORMAL-NEXT: DBG_VALUE %2
-; NORMAL:      %3:gr8 = COPY %0.sub_8bit,
+; NORMAL:      %3:gr16 = COPY %0.sub_16bit,
 ; NORMAL-NEXT: DBG_VALUE %3
+; NORMAL:      %5:gr8 = COPY %0.sub_8bit,
+; NORMAL-NEXT: DBG_VALUE %5
 
 ; INSTRREF-LABEL: name: bar
 
@@ -111,7 +111,7 @@ entry:
 
 ; NORMAL-LABEL: name: baz
 
-; NORMAL:      CALL64pcrel32 @xyzzy
+; NORMAL:      CALL64pcrel32 target-flags(x86-plt) @xyzzy
 ; NORMAL:      %2:gr64 = COPY $rax,
 ; NORMAL:      %0:gr64 = COPY %2,
 ; NORMAL-LABEL: bb.1.slippers:
@@ -124,7 +124,7 @@ entry:
 ; INSTRREF:      debugValueSubstitutions:
 ; INSTRREF-NEXT:  - { srcinst: 2, srcop: 0, dstinst: 1, dstop: 6, subreg: 4 }
 
-; INSTRREF:      CALL64pcrel32 @xyzzy, {{.*}} debug-instr-number 1
+; INSTRREF:      CALL64pcrel32 target-flags(x86-plt) @xyzzy, {{.*}} debug-instr-number 1
 ; INSTRREF:      DBG_INSTR_REF 2, 0
 
 declare i64 @xyzzy()

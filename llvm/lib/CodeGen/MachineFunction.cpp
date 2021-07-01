@@ -973,7 +973,7 @@ void MachineFunction::substituteDebugValuesForInst(const MachineInstr &Old,
   // MIR output.
   // Examine all the operands, or the first N specified by the caller.
   MaxOperand = std::min(MaxOperand, Old.getNumOperands());
-  for (unsigned int I = 0; I < Old.getNumOperands(); ++I) {
+  for (unsigned int I = 0; I < MaxOperand; ++I) {
     const auto &OldMO = Old.getOperand(I);
     auto &NewMO = New.getOperand(I);
     (void)NewMO;
@@ -1030,16 +1030,6 @@ auto MachineFunction::salvageCopySSA(MachineInstr &MI)
       NewReg = Src.getReg();
       SubReg = Src.getSubReg();
     }
-
-    // Don't bother to record the subregister if the number of bits is the same
-    // or widens; only remember truncations or offsets.
-    unsigned NewRegBits = TRI.getRegSizeInBits(NewReg, MRI);
-    unsigned OldRegBits = TRI.getRegSizeInBits(OldReg, MRI);
-    unsigned Offset = 0;
-    if (SubReg)
-      Offset = TRI.getSubRegIdxOffset(SubReg);
-    if (OldRegBits >= NewRegBits || Offset)
-      SubReg = 0;
 
     return {NewReg, SubReg};
   };
