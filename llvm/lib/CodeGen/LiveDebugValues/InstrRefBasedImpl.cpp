@@ -1163,11 +1163,17 @@ public:
 
   /// Helper to move created DBG_VALUEs into Transfers collection.
   void flushDbgValues(MachineBasicBlock::iterator Pos, MachineBasicBlock *MBB) {
-    if (PendingDbgValues.size() > 0) {
-      auto BundleStart = getBundleStart(Pos->getIterator());
-      Transfers.push_back({BundleStart, MBB, PendingDbgValues});
-      PendingDbgValues.clear();
-    }
+    if (PendingDbgValues.size() == 0)
+      return;
+
+    MachineBasicBlock::instr_iterator BundleStart;
+    if (MBB && MBB->empty())
+      BundleStart = MBB->instr_begin();
+    else
+      BundleStart = getBundleStart(Pos->getIterator());
+
+    Transfers.push_back({BundleStart, MBB, PendingDbgValues});
+    PendingDbgValues.clear();
   }
 
   bool isEntryValueVariable(const DebugVariable &Var,
