@@ -851,6 +851,7 @@ void FPS::popStackAfter(MachineBasicBlock::iterator &I) {
     I->setDesc(TII->get(Opcode));
     if (Opcode == X86::FCOMPP || Opcode == X86::UCOM_FPPr)
       I->RemoveOperand(0);
+    MI.dropDebugNumber();
   } else {    // Insert an explicit pop
     I = BuildMI(*MBB, ++I, dl, TII->get(X86::ST_FPrr)).addReg(X86::ST0);
   }
@@ -1115,6 +1116,8 @@ void FPS::handleZeroArgFP(MachineBasicBlock::iterator &I) {
 
   // Result gets pushed on the stack.
   pushReg(DestReg);
+
+  MI.dropDebugNumber();
 }
 
 /// handleOneArgFP - fst <mem>, ST(0)
@@ -1168,6 +1171,8 @@ void FPS::handleOneArgFP(MachineBasicBlock::iterator &I) {
   } else if (KillsSrc) { // Last use of operand?
     popStackAfter(I);
   }
+
+  MI.dropDebugNumber();
 }
 
 
@@ -1208,6 +1213,7 @@ void FPS::handleOneArgFPRW(MachineBasicBlock::iterator &I) {
   MI.RemoveOperand(1); // Drop the source operand.
   MI.RemoveOperand(0); // Drop the destination operand.
   MI.setDesc(TII->get(getConcreteOpcode(MI.getOpcode())));
+  MI.dropDebugNumber();
 }
 
 
@@ -1407,6 +1413,7 @@ void FPS::handleCompareFP(MachineBasicBlock::iterator &I) {
   MI.getOperand(0).setReg(getSTReg(Op1));
   MI.RemoveOperand(1);
   MI.setDesc(TII->get(getConcreteOpcode(MI.getOpcode())));
+  MI.dropDebugNumber();
 
   // If any of the operands are killed by this instruction, free them.
   if (KillsOp0) freeStackSlotAfter(I, Op0);
@@ -1433,6 +1440,7 @@ void FPS::handleCondMovFP(MachineBasicBlock::iterator &I) {
   MI.RemoveOperand(1);
   MI.getOperand(0).setReg(getSTReg(Op1));
   MI.setDesc(TII->get(getConcreteOpcode(MI.getOpcode())));
+  MI.dropDebugNumber();
 
   // If we kill the second operand, make sure to pop it from the stack.
   if (Op0 != Op1 && KillsOp1) {
