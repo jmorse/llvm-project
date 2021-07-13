@@ -428,7 +428,7 @@ codegen::RegisterCodeGenFlags::RegisterCodeGenFlags() {
   static cl::opt<bool> ValueTrackingVariableLocations(
       "experimental-debug-variable-locations",
       cl::desc("Use experimental new value-tracking variable locations"),
-      cl::init(false));
+      cl::init(true));
   CGBINDOPT(ValueTrackingVariableLocations);
 
   static cl::opt<bool> EnableMachineFunctionSplitter(
