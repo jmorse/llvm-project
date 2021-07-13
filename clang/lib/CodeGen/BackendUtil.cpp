@@ -572,8 +572,7 @@ static bool initTargetOptions(DiagnosticsEngine &Diags,
   Options.EmitCallSiteInfo = CodeGenOpts.EmitCallSiteInfo;
   Options.EnableAIXExtendedAltivecABI = CodeGenOpts.EnableAIXExtendedAltivecABI;
   Options.PseudoProbeForProfiling = CodeGenOpts.PseudoProbeForProfiling;
-  Options.ValueTrackingVariableLocations =
-      CodeGenOpts.ValueTrackingVariableLocations;
+  Options.ValueTrackingVariableLocations = true;
   Options.XRayOmitFunctionIndex = CodeGenOpts.XRayOmitFunctionIndex;
 
   Options.MCOptions.SplitDwarfFile = CodeGenOpts.SplitDwarfFile;
