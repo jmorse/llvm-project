@@ -239,6 +239,10 @@ class LocIdx {
   // Use only for "not an entry" elements in IndexedMaps.
   LocIdx() : Location(UINT_MAX) { }
 
+  LocIdx(bool force, bool force2) : Location(UINT_MAX-1) { (void)force; (void)force2; }
+
+friend struct  DenseMapInfo<LocIdx>;
+
 public:
   #define NUM_LOC_BITS 24
   LocIdx(unsigned L) : Location(L) {
@@ -277,6 +281,24 @@ public:
     return Location < Other.Location;
   }
 };
+
+} // end anonomous namespace
+
+namespace llvm {
+template <> struct DenseMapInfo<LocIdx> {
+  static inline LocIdx getEmptyKey() { return LocIdx(); }
+  static inline LocIdx getTombstoneKey() { return LocIdx(true, true);}
+
+  static unsigned getHashValue(const LocIdx &Loc) {
+    return hash_value(Loc.asU64());
+  }
+
+  static bool isEqual(const LocIdx &A, const LocIdx &B) { return A == B; }
+};
+
+} // end llvm namespace
+
+namespace {
 
 class LocIdxToIndexFunctor {
 public:
@@ -353,9 +375,24 @@ public:
   }
 
   static ValueIDNum EmptyValue;
+  static ValueIDNum TombstoneValue;
 };
 
 } // end anonymous namespace
+
+namespace llvm {
+template <> struct DenseMapInfo<ValueIDNum>  {
+  static inline ValueIDNum getEmptyKey() { return ValueIDNum::EmptyValue; }
+  static inline ValueIDNum getTombstoneKey() { return ValueIDNum::TombstoneValue; }
+
+  static unsigned getHashValue(const ValueIDNum &Val) {
+    return hash_code(Val.asU64());
+  }
+
+  static bool isEqual(const ValueIDNum &A, const ValueIDNum &B) { return A == B; }
+};
+
+} // end namespace llvm
 
 namespace {
 
@@ -428,7 +465,7 @@ public:
   /// This, and the corresponding reverse map persist for the analysis of the
   /// whole function, and is necessarying for decoding various vectors of
   /// values.
-  std::vector<LocIdx> LocIDToLocIdx;
+  SmallVector<LocIdx, 32> LocIDToLocIdx;
 
   /// Inverse map of LocIDToLocIdx.
   IndexedMap<unsigned, LocIdxToIndexFunctor> LocIdxToLocID;
@@ -985,12 +1022,12 @@ public:
   /// between TransferTrackers view of variable locations and MLocTrackers. For
   /// example, MLocTracker observes all clobbers, but TransferTracker lazily
   /// does not.
-  std::vector<ValueIDNum> VarLocs;
+  SmallVector<ValueIDNum, 32> VarLocs;
 
   /// Map from LocIdxes to which DebugVariables are based that location.
   /// Mantained while stepping through the block. Not accurate if
   /// VarLocs[Idx] != MTracker->LocIdxToIDNum[Idx].
-  std::map<LocIdx, SmallSet<DebugVariable, 4>> ActiveMLocs;
+  DenseMap<LocIdx, SmallSet<DebugVariable, 4>> ActiveMLocs;
 
   /// Map from DebugVariable to it's current location and qualifying meta
   /// information. To be used in conjunction with ActiveMLocs to construct
@@ -1061,7 +1098,7 @@ public:
     };
 
     // Map of the preferred location for each value.
-    std::map<ValueIDNum, LocIdx> ValueToLoc;
+    DenseMap<ValueIDNum, LocIdx> ValueToLoc;
 
     // Produce a map of value numbers to the current machine locs they live
     // in. When emulating VarLocBasedImpl, there should only be one
@@ -1425,7 +1462,7 @@ private:
 
   /// Machine location/value transfer function, a mapping of which locations
   /// are assigned which new values.
-  using MLocTransferMap = std::map<LocIdx, ValueIDNum>;
+  using MLocTransferMap = DenseMap<LocIdx, ValueIDNum>;
 
   /// Live in/out structure for the variable values: a per-block map of
   /// variables to their values. XXX, better name?
@@ -1483,7 +1520,7 @@ private:
   /// Map from debug instruction number to the MachineInstr labelled with that
   /// number, and its location within the function. Used to transform
   /// instruction numbers in DBG_INSTR_REFs into machine value numbers.
-  std::map<uint64_t, InstAndNum> DebugInstrNumToInstr;
+  DenseMap<uint64_t, InstAndNum> DebugInstrNumToInstr;
 
   /// Record of where we observed a DBG_PHI instruction.
   class DebugPHIRecord {
@@ -1709,6 +1746,7 @@ public:
 //===----------------------------------------------------------------------===//
 
 ValueIDNum ValueIDNum::EmptyValue = {UINT_MAX, UINT_MAX, UINT_MAX};
+ValueIDNum ValueIDNum::TombstoneValue = {UINT_MAX, UINT_MAX, UINT_MAX-1};
 
 /// Default construct and initialize the pass.
 InstrRefBasedLDV::InstrRefBasedLDV() {}
