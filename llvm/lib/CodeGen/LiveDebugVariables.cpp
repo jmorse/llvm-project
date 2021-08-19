@@ -1861,6 +1861,7 @@ void LDVImpl::emitDebugValues(VirtRegMap *VRM) {
                              TII->get(TargetOpcode::DBG_PHI));
       Builder.addReg(PhysReg);
       Builder.addImm(InstNum);
+      Builder->getOperand(0).setIsDebug(true);
     } else if (VRM->getStackSlot(Reg) != VirtRegMap::NO_STACK_SLOT) {
       const MachineRegisterInfo &MRI = MF->getRegInfo();
       const TargetRegisterClass *TRC = MRI.getRegClass(Reg);

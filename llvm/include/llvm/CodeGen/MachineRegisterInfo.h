@@ -829,18 +829,28 @@ public:
     for (MCRegUnitIterator RUI(OldReg, getTargetRegisterInfo()); RUI.isValid();
          ++RUI)
       OldRegUnits.insert(*RUI);
-    for (MachineInstr *MI : Users) {
-      assert(MI->isDebugValue());
-      for (auto &Op : MI->debug_operands()) {
-        if (Op.isReg()) {
-          for (MCRegUnitIterator RUI(OldReg, getTargetRegisterInfo());
-               RUI.isValid(); ++RUI) {
-            if (OldRegUnits.contains(*RUI)) {
-              Op.setReg(NewReg);
-              break;
-            }
+
+    auto ProdOp = [&](MachineOperand &Op) {
+      if (Op.isReg()) {
+        for (MCRegUnitIterator RUI(OldReg, getTargetRegisterInfo());
+             RUI.isValid(); ++RUI) {
+          if (OldRegUnits.contains(*RUI)) {
+            Op.setReg(NewReg);
+            break;
           }
         }
+      }
+    };
+
+    for (MachineInstr *MI : Users) {
+      if (MI->isDebugPHI()) {
+        ProdOp(MI->getOperand(0));
+        continue;
+      }
+
+      assert(MI->isDebugValue());
+      for (auto &Op : MI->debug_operands()) {
+        ProdOp(Op);
       }
       assert(MI->hasDebugOperandForReg(NewReg) &&
              "Expected debug value to have some overlap with OldReg");

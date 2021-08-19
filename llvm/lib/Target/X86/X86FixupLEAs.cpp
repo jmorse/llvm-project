@@ -413,6 +413,13 @@ FixupLEAPass::searchALUInst(MachineBasicBlock::iterator &I,
   Register DestReg = I->getOperand(0).getReg();
 
   while (CurInst != MBB.end()) {
+    if (CurInst->isDebugInstr()) {
+      // Don't increase InstrDistance on debug instructions -- that would make
+      // the behaviour of this function change with/without debug info.
+      ++CurInst;
+      continue;
+    }
+
     if (CurInst->isCall() || CurInst->isInlineAsm())
       break;
     if (InstrDistance > InstrDistanceThreshold)
@@ -467,6 +474,11 @@ void FixupLEAPass::checkRegUsage(MachineBasicBlock::iterator &LeaI,
 
   MachineBasicBlock::iterator CurInst = std::next(LeaI);
   while (CurInst != AluI) {
+     if (CurInst->isDebugInstr()) {
+       ++CurInst;
+       continue;
+    }
+
     for (unsigned I = 0, E = CurInst->getNumOperands(); I != E; ++I) {
       MachineOperand &Opnd = CurInst->getOperand(I);
       if (!Opnd.isReg())
