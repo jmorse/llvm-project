@@ -1040,7 +1040,8 @@ void FPS::handleCall(MachineBasicBlock::iterator &I) {
 
   // Drop all variable values defined by this call -- we can't track them
   // once they've been stackified.
-  I->dropDebugNumber();
+  if (STReturns)
+    I->dropDebugNumber();
 }
 
 /// If RET has an FP register use operand, pass the first one in ST(0) and
