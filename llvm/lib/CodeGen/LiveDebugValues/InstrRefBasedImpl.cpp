@@ -3210,7 +3210,7 @@ void InstrRefBasedLDV::vlocDataflow(
   // Old LiveDebugValues tracks variable locations that come out of blocks
   // not in scope, where DBG_VALUEs occur. This is something we could
   // legitimately ignore, but lets allow it for now.
-  if (EmulateOldLDV)
+//  if (EmulateOldLDV)
     BlocksToExplore.insert(AssignBlocks.begin(), AssignBlocks.end());
 
   // We also need to propagate variable values through any artificial blocks
