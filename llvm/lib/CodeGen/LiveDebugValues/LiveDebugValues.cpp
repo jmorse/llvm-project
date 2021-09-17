@@ -75,6 +75,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
+    AU.addRequired<MachineDominatorTree>();
     MachineFunctionPass::getAnalysisUsage(AU);
   }
 
@@ -110,5 +111,8 @@ bool LiveDebugValues::runOnMachineFunction(MachineFunction &MF) {
       TheImpl = llvm::makeVarLocBasedLiveDebugValues();
   }
 
-  return TheImpl->ExtendRanges(MF, TPC, InputBBLimit, InputDbgValueLimit);
+  MachineDominatorTree *DomTree = &getAnalysis<MachineDominatorTree>();
+
+  return TheImpl->ExtendRanges(MF, DomTree, TPC, InputBBLimit,
+                               InputDbgValueLimit);
 }
