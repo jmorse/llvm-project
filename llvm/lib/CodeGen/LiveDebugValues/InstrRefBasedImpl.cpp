@@ -2747,6 +2747,7 @@ void InstrRefBasedLDV::buildMLocValueMap(
   // fixedpoint.
 }
 
+namespace llvm{
 template <> struct GraphTraits<MachineBasicBlock> {
   using NodeRef = MachineBasicBlock *;
   using ChildIteratorType = MachineBasicBlock::succ_iterator;
@@ -2770,6 +2771,7 @@ template <>
 typename IDFCalculatorDetail::ChildrenGetterTy<MachineDomTreeBase, false>::ChildrenTy
 IDFCalculatorDetail::ChildrenGetterTy<MachineDomTreeBase, false>::get(const NodeRef &N) {
   return {N->succ_begin(), N->succ_end()};
+}
 }
 
 void InstrRefBasedLDV::BlockPHIPlacement(
