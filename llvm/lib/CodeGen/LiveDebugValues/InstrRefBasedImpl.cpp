@@ -737,36 +737,36 @@ public:
     ValueIDNum ID;
     /// If Kind is Const, the MachineOperand defining this value.
     MachineOperand MO;
-    /// For a NoVal DbgValue, which block it was generated in.
+    /// For a NoVal or VPHI DbgValue, which block it was generated in.
     unsigned BlockNo;
   };
   /// Qualifiers for the ValueIDNum above.
   DbgValueProperties Properties;
 
   typedef enum {
-    Undef,     // Represents a DBG_VALUE $noreg in the transfer function only.
-    Def,       // This value is defined by an inst, or is a PHI value.
-    Const,     // A constant value contained in the MachineOperand field.
-    Proposed,  // This is a tentative PHI value, which may be confirmed or
-               // invalidated later.
-    NoVal      // Empty DbgValue, generated during dataflow. BlockNo stores
-               // which block this was generated in.
-   } KindT;
+    Undef, // Represents a DBG_VALUE $noreg in the transfer function only.
+    Def,   // This value is defined by an inst, or is a PHI value.
+    Const, // A constant value contained in the MachineOperand field.
+    VPHI,  // XXX docs
+           // which block this was generated in.
+    NoVal, // Empty DbgValue, generated during dataflow. BlockNo stores
+           // which block this was generated in.
+  } KindT;
   /// Discriminator for whether this is a constant or an in-program value.
   KindT Kind;
 
   DbgValue(const ValueIDNum &Val, const DbgValueProperties &Prop, KindT Kind)
-    : ID(Val), Properties(Prop), Kind(Kind) {
-    assert(Kind == Def || Kind == Proposed);
+      : ID(Val), Properties(Prop), Kind(Kind) {
+    assert(Kind == Def);
   }
 
   DbgValue(unsigned BlockNo, const DbgValueProperties &Prop, KindT Kind)
-    : BlockNo(BlockNo), Properties(Prop), Kind(Kind) {
-    assert(Kind == NoVal);
+      : BlockNo(BlockNo), Properties(Prop), Kind(Kind) {
+    assert(Kind == NoVal || Kind == VPHI);
   }
 
   DbgValue(const MachineOperand &MO, const DbgValueProperties &Prop, KindT Kind)
-    : MO(MO), Properties(Prop), Kind(Kind) {
+      : MO(MO), Properties(Prop), Kind(Kind) {
     assert(Kind == Const);
   }
 
@@ -781,8 +781,6 @@ public:
       MO.dump();
     } else if (Kind == NoVal) {
       dbgs() << "NoVal(" << BlockNo << ")";
-    } else if (Kind == Proposed) {
-      dbgs() << "VPHI(" << MTrack->IDAsString(ID) << ")";
     } else {
       assert(Kind == Def);
       dbgs() << MTrack->IDAsString(ID);
@@ -796,14 +794,14 @@ public:
   bool operator==(const DbgValue &Other) const {
     if (std::tie(Kind, Properties) != std::tie(Other.Kind, Other.Properties))
       return false;
-    else if (Kind == Proposed && ID != Other.ID)
-      return false;
     else if (Kind == Def && ID != Other.ID)
       return false;
     else if (Kind == NoVal && BlockNo != Other.BlockNo)
       return false;
     else if (Kind == Const)
       return MO.isIdenticalTo(Other.MO);
+    else if (Kind == VPHI && BlockNo != Other.BlockNo)
+      return false;
 
     return true;
   }
@@ -1383,6 +1381,9 @@ private:
   LexicalScopes LS;
   TargetPassConfig *TPC;
 
+  // An empty DIExpression, as they're fiddly to set up.
+  const DIExpression *EmptyExpr;
+
   /// Object to track machine locations as we step through a block. Could
   /// probably be a field rather than a pointer, as it's always used.
   MLocTracker *MTracker;
@@ -1576,27 +1577,15 @@ private:
   /// \returns two bools -- the first indicates whether a change
   /// was made, the second whether a lattice downgrade occurred. If the latter
   /// is true, revisiting this block is necessary.
-  std::tuple<bool, bool>
-  vlocJoin(MachineBasicBlock &MBB, LiveIdxT &VLOCOutLocs, LiveIdxT &VLOCInLocs,
-           SmallPtrSet<const MachineBasicBlock *, 16> *VLOCVisited,
-           unsigned BBNum, const SmallSet<DebugVariable, 4> &AllVars,
-           ValueIDNum **MOutLocs, ValueIDNum **MInLocs,
-           SmallPtrSet<const MachineBasicBlock *, 8> &InScopeBlocks,
-           SmallPtrSet<const MachineBasicBlock *, 8> &BlocksToExplore,
-           DenseMap<DebugVariable, DbgValue> &InLocsT);
-
-  /// Continue exploration of the variable-value lattice, as explained in the
-  /// file-level comment. \p OldLiveInLocation contains the current
-  /// exploration position, from which we need to descend further. \p Values
-  /// contains the set of live-in values, \p CurBlockRPONum the RPO number of
-  /// the current block, and \p CandidateLocations a set of locations that
-  /// should be considered as PHI locations, if we reach the bottom of the
-  /// lattice. \returns true if we should downgrade; the value is the agreeing
-  /// value number in a non-backedge predecessor.
-  bool vlocDowngradeLattice(const MachineBasicBlock &MBB,
-                            const DbgValue &OldLiveInLocation,
-                            const SmallVectorImpl<InValueT> &Values,
-                            unsigned CurBlockRPONum);
+  // XXX docs
+  bool vlocJoin(MachineBasicBlock &MBB, LiveIdxT &VLOCOutLocs,
+                LiveIdxT &VLOCInLocs,
+                SmallPtrSet<const MachineBasicBlock *, 16> *VLOCVisited,
+                unsigned BBNum, const SmallSet<DebugVariable, 4> &AllVars,
+                ValueIDNum **MOutLocs, ValueIDNum **MInLocs,
+                SmallPtrSet<const MachineBasicBlock *, 8> &InScopeBlocks,
+                SmallPtrSet<const MachineBasicBlock *, 8> &BlocksToExplore,
+                DenseMap<DebugVariable, DbgValue> &InLocsT);
 
   /// For the given block and live-outs feeding into it, try to find a
   /// machine location where they all join. If a solution for all predecessors
@@ -1606,7 +1595,7 @@ private:
   /// \returns Pair of value ID if found, and true when the correct value
   /// is available on all predecessor edges, or false if it's only available
   /// for non-backedge predecessors.
-  std::tuple<Optional<ValueIDNum>, bool>
+  Optional<ValueIDNum>
   pickVPHILoc(MachineBasicBlock &MBB, const DebugVariable &Var,
               const LiveIdxT &LiveOuts, ValueIDNum **MOutLocs,
               ValueIDNum **MInLocs,
@@ -2789,48 +2778,7 @@ void InstrRefBasedLDV::BlockPHIPlacement(
   IDF.calculate(PHIBlocks);
 }
 
-bool InstrRefBasedLDV::vlocDowngradeLattice(
-    const MachineBasicBlock &MBB, const DbgValue &OldLiveInLocation,
-    const SmallVectorImpl<InValueT> &Values, unsigned CurBlockRPONum) {
-  // Ranking value preference: see file level comment, the highest rank is
-  // a plain def, followed by PHI values in reverse post-order. Numerically,
-  // we assign all defs the rank '0', all PHIs their blocks RPO number plus
-  // one, and consider the lowest value the highest ranked.
-  int OldLiveInRank = BBNumToRPO[OldLiveInLocation.ID.getBlock()] + 1;
-  if (!OldLiveInLocation.ID.isPHI())
-    OldLiveInRank = 0;
-
-  // Allow any unresolvable conflict to be over-ridden.
-  if (OldLiveInLocation.Kind == DbgValue::NoVal) {
-    // Although if it was an unresolvable conflict from _this_ block, then
-    // all other seeking of downgrades and PHIs must have failed before hand.
-    if (OldLiveInLocation.BlockNo == (unsigned)MBB.getNumber())
-      return false;
-    OldLiveInRank = INT_MIN;
-  }
-
-  auto &InValue = *Values[0].second;
-
-  if (InValue.Kind == DbgValue::Const || InValue.Kind == DbgValue::NoVal)
-    return false;
-
-  unsigned ThisRPO = BBNumToRPO[InValue.ID.getBlock()];
-  int ThisRank = ThisRPO + 1;
-  if (!InValue.ID.isPHI())
-    ThisRank = 0;
-
-  // Too far down the lattice?
-  if (ThisRPO >= CurBlockRPONum)
-    return false;
-
-  // Higher in the lattice than what we've already explored?
-  if (ThisRank <= OldLiveInRank)
-    return false;
-
-  return true;
-}
-
-std::tuple<Optional<ValueIDNum>, bool> InstrRefBasedLDV::pickVPHILoc(
+Optional<ValueIDNum> InstrRefBasedLDV::pickVPHILoc(
     MachineBasicBlock &MBB, const DebugVariable &Var, const LiveIdxT &LiveOuts,
     ValueIDNum **MOutLocs, ValueIDNum **MInLocs,
     const SmallVectorImpl<MachineBasicBlock *> &BlockOrders) {
@@ -2853,21 +2801,22 @@ std::tuple<Optional<ValueIDNum>, bool> InstrRefBasedLDV::pickVPHILoc(
     if (LiveOutMap == LiveOuts.end())
       // This predecessor isn't in scope, it must have no live-in/live-out
       // locations.
-      continue;
+      return None;
 
     auto It = LiveOutMap->second->find(Var);
     if (It == LiveOutMap->second->end())
       // There's no value recorded for this variable in this predecessor,
       // leave an empty set of locations.
-      continue;
+      return None;
 
     const DbgValue &OutVal = It->second;
 
-    if (OutVal.Kind == DbgValue::Const || OutVal.Kind == DbgValue::NoVal)
+    if (OutVal.Kind == DbgValue::Const || OutVal.Kind == DbgValue::NoVal ||
+        OutVal.Kind == DbgValue::VPHI)
       // Consts and no-values cannot have locations we can join on.
-      continue;
+      return None;
 
-    assert(OutVal.Kind == DbgValue::Proposed || OutVal.Kind == DbgValue::Def);
+    assert(OutVal.Kind == DbgValue::Def);
     ValueIDNum ValToLookFor = OutVal.ID;
 
     // Search the live-outs of the predecessor for the specified value.
@@ -2877,9 +2826,12 @@ std::tuple<Optional<ValueIDNum>, bool> InstrRefBasedLDV::pickVPHILoc(
     }
   }
 
-  // If there were no locations at all, return an empty result.
+  // We should have found a location for everything.
+  assert(Locs.size() == BlockOrders.size());
+
+  // If there are no predecessors though, bail.
   if (Locs.empty())
-    return std::tuple<Optional<ValueIDNum>, bool>(None, false);
+    return None;
 
   // Lambda for seeking a common location within a range of location-sets.
   using LocsIt = SmallVector<SmallVector<LocIdx, 4>, 8>::iterator;
@@ -2914,15 +2866,15 @@ std::tuple<Optional<ValueIDNum>, bool> InstrRefBasedLDV::pickVPHILoc(
   }
 
   if (!TheLoc)
-    return std::tuple<Optional<ValueIDNum>, bool>(None, false);
+    return None;
 
   // Return a PHI-value-number for the found location.
   LocIdx L = *TheLoc;
   ValueIDNum PHIVal = {(unsigned)MBB.getNumber(), 0, L};
-  return std::tuple<Optional<ValueIDNum>, bool>(PHIVal, ValidForAllLocs);
+  return PHIVal;
 }
 
-std::tuple<bool, bool> InstrRefBasedLDV::vlocJoin(
+bool InstrRefBasedLDV::vlocJoin(
     MachineBasicBlock &MBB, LiveIdxT &VLOCOutLocs, LiveIdxT &VLOCInLocs,
     SmallPtrSet<const MachineBasicBlock *, 16> *VLOCVisited, unsigned BBNum,
     const SmallSet<DebugVariable, 4> &AllVars, ValueIDNum **MOutLocs,
@@ -2930,15 +2882,14 @@ std::tuple<bool, bool> InstrRefBasedLDV::vlocJoin(
     SmallPtrSet<const MachineBasicBlock *, 8> &InScopeBlocks,
     SmallPtrSet<const MachineBasicBlock *, 8> &BlocksToExplore,
     DenseMap<DebugVariable, DbgValue> &InLocsT) {
-  bool DowngradeOccurred = false;
 
   // To emulate VarLocBasedImpl, process this block if it's not in scope but
   // _does_ assign a variable value. No live-ins for this scope are transferred
   // in though, so we can return immediately.
   if (InScopeBlocks.count(&MBB) == 0 && !ArtificialBlocks.count(&MBB)) {
     if (VLOCVisited)
-      return std::tuple<bool, bool>(true, false);
-    return std::tuple<bool, bool>(false, false);
+      return true;
+    return false;
   }
 
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
@@ -2960,21 +2911,23 @@ std::tuple<bool, bool> InstrRefBasedLDV::vlocJoin(
 
   unsigned CurBlockRPONum = BBToOrder[&MBB];
 
-  // Force a re-visit to loop heads in the first dataflow iteration.
-  // FIXME: if we could "propose" Const values this wouldn't be needed,
-  // because they'd need to be confirmed before being emitted.
-  if (!BlockOrders.empty() &&
-      BBToOrder[BlockOrders[BlockOrders.size() - 1]] >= CurBlockRPONum &&
-      VLOCVisited)
-    DowngradeOccurred = true;
-
   auto ConfirmValue = [&InLocsT](const DebugVariable &DV, DbgValue VR) {
     auto Result = InLocsT.insert(std::make_pair(DV, VR));
     (void)Result;
     assert(Result.second);
   };
 
-  auto ConfirmNoVal = [&ConfirmValue, &MBB](const DebugVariable &Var, const DbgValueProperties &Properties) {
+  auto ConfirmVPHI = [&ConfirmValue,
+                      &MBB](const DebugVariable &Var,
+                            const DbgValueProperties &Properties) {
+    DbgValue NoLocPHIVal(MBB.getNumber(), Properties, DbgValue::VPHI);
+
+    ConfirmValue(Var, NoLocPHIVal);
+  };
+
+  auto ConfirmNoVal = [&ConfirmValue,
+                       &MBB](const DebugVariable &Var,
+                             const DbgValueProperties &Properties) {
     DbgValue NoLocPHIVal(MBB.getNumber(), Properties, DbgValue::NoVal);
 
     ConfirmValue(Var, NoLocPHIVal);
@@ -2993,11 +2946,6 @@ std::tuple<bool, bool> InstrRefBasedLDV::vlocJoin(
         Bail = true;
         break;
       }
-
-      // Don't attempt to handle unvisited predecessors: they're implicitly
-      // "unknown"s in the lattice.
-      if (VLOCVisited && !VLOCVisited->count(p))
-        continue;
 
       // If the predecessors OutLocs is absent, there's not much we can do.
       auto OL = VLOCOutLocs.find(p);
@@ -3023,163 +2971,78 @@ std::tuple<bool, bool> InstrRefBasedLDV::vlocJoin(
       Values.push_back(std::make_pair(p, &VIt->second));
     }
 
+    // What's the current live-in value?
+    auto LiveInIt = ILS.find(Var);
+    assert(LiveInIt != ILS.end() && "Uninitialized live-in vloc?");
+    Optional<ValueIDNum> LiveInVal = None;
+    const DbgValue &LiveInDbgValue = LiveInIt->second;
+
     // If there were no values, or one of the predecessors couldn't have a
     // value, then give up immediately. It's not safe to produce a live-in
-    // value.
-    if (Bail || Values.size() == 0)
+    // value. Leave as whatever it was before -- noval for "don't know",
+    // VPHI otherwise.
+    if (Bail || Values.size() == 0) {
+      DbgValueProperties EmptyProperties(EmptyExpr, false);
+      ConfirmValue(Var, LiveInDbgValue);
       continue;
-
-    // Enumeration identifying the current state of the predecessors values.
-    enum {
-      Unset = 0,
-      Agreed,       // All preds agree on the variable value.
-      PropDisagree, // All preds agree, but the value kind is Proposed in some.
-      BEDisagree,   // Only back-edges disagree on variable value.
-      PHINeeded,    // Non-back-edge predecessors have conflicing values.
-      NoSolution    // Conflicting Value metadata makes solution impossible.
-    } OurState = Unset;
+    }
 
     // All (non-entry) blocks have at least one non-backedge predecessor.
     // Pick the variable value from the first of these, to compare against
     // all others.
     const DbgValue &FirstVal = *Values[0].second;
-    const ValueIDNum &FirstID = FirstVal.ID;
+    const auto &Properties = FirstVal.Properties;
+
+    // Are we still a PHI? If we're not, no need to do more work, and we
+    // should propagate the new incoming value.
+    if (LiveInDbgValue.Kind == DbgValue::Def ||
+        LiveInDbgValue.Kind == DbgValue::Const ||
+        LiveInDbgValue.Kind == DbgValue::NoVal ||
+        (LiveInDbgValue.Kind == DbgValue::VPHI &&
+         LiveInDbgValue.BlockNo != MBB.getNumber())) {
+      ConfirmValue(Var, FirstVal);
+      continue;
+    }
 
     // Scan for variable values that can't be resolved: if they have different
     // DIExpressions, different indirectness, or are mixed constants /
     // non-constants.
+    bool AlwaysIncompatible = false;
     for (auto &V : Values) {
       if (V.second->Properties != FirstVal.Properties)
-        OurState = NoSolution;
+        AlwaysIncompatible = true;
+      if (V.second->Kind == DbgValue::NoVal)
+        AlwaysIncompatible = true;
       if (V.second->Kind == DbgValue::Const && FirstVal.Kind != DbgValue::Const)
-        OurState = NoSolution;
+        AlwaysIncompatible = true;
     }
 
-    // Flags diagnosing _how_ the values disagree.
-    bool NonBackEdgeDisagree = false;
-    bool DisagreeOnPHINess = false;
-    bool IDDisagree = false;
+    if (AlwaysIncompatible) {
+      ConfirmVPHI(Var, FirstVal.Properties);
+      continue;
+    }
+
+    // Do the incoming values all agree?
     bool Disagree = false;
-    if (OurState == Unset) {
-      for (auto &V : Values) {
-        if (*V.second == FirstVal)
-          continue; // No disagreement.
+    for (auto &V : Values) {
+      if (*V.second == FirstVal)
+        continue; // No disagreement.
 
-        Disagree = true;
+      // Try to identify backedges feeding VPHIs back to themselves.
+      if (V.second->Kind == DbgValue::VPHI &&
+          V.second->BlockNo == MBB.getNumber() &&
+          std::distance(Values.begin(), &V) >= BackEdgesStart)
+        continue;
 
-        // Flag whether the value number actually diagrees.
-        if (V.second->ID != FirstID)
-          IDDisagree = true;
-
-        // Distinguish whether disagreement happens in backedges or not.
-        // Relies on Values (and BlockOrders) being sorted by RPO.
-        unsigned ThisBBRPONum = BBToOrder[V.first];
-        if (ThisBBRPONum < CurBlockRPONum)
-          NonBackEdgeDisagree = true;
-
-        // Is there a difference in whether the value is definite or only
-        // proposed?
-        if (V.second->Kind != FirstVal.Kind &&
-            (V.second->Kind == DbgValue::Proposed ||
-             V.second->Kind == DbgValue::Def) &&
-            (FirstVal.Kind == DbgValue::Proposed ||
-             FirstVal.Kind == DbgValue::Def))
-          DisagreeOnPHINess = true;
-      }
-
-      // Collect those flags together and determine an overall state for
-      // what extend the predecessors agree on a live-in value.
-      if (!Disagree)
-        OurState = Agreed;
-      else if (!IDDisagree && DisagreeOnPHINess)
-        OurState = PropDisagree;
-      else if (!NonBackEdgeDisagree)
-        OurState = BEDisagree;
-      else
-        OurState = PHINeeded;
+      Disagree = true;
     }
 
-    // An extra indicator: if we only disagree on whether the value is a
-    // Def, or proposed, then also flag whether that disagreement happens
-    // in backedges only.
-    bool PropOnlyInBEs = Disagree && !IDDisagree && DisagreeOnPHINess &&
-                         !NonBackEdgeDisagree && FirstVal.Kind == DbgValue::Def;
-
-    const auto &Properties = FirstVal.Properties;
-
-    auto OldLiveInIt = ILS.find(Var);
-    const DbgValue *OldLiveInLocation =
-        (OldLiveInIt != ILS.end()) ? &OldLiveInIt->second : nullptr;
-
-    bool OverRide = false;
-    if (OurState == BEDisagree && OldLiveInLocation) {
-      // Only backedges disagree: we can consider downgrading. If there was a
-      // previous live-in value, use it to work out whether the current
-      // incoming value represents a lattice downgrade or not.
-      OverRide =
-          vlocDowngradeLattice(MBB, *OldLiveInLocation, Values, CurBlockRPONum);
-    }
-
-    // Use the current state of predecessor agreement and other flags to work
-    // out what to do next. Possibilities include:
-    //  * Accept a value all predecessors agree on, or accept one that
-    //    represents a step down the exploration lattice,
-    //  * Use a PHI value number, if one can be found,
-    //  * Propose a PHI value number, and see if it gets confirmed later,
-    //  * Emit a 'NoVal' value, indicating we couldn't resolve anything.
-    if (OurState == Agreed) {
-      // Easiest solution: all predecessors agree on the variable value.
+    // No disagreement -> live-through value.
+    if (!Disagree) {
       ConfirmValue(Var, FirstVal);
-    } else if (OurState == BEDisagree && OverRide) {
-      // Only backedges disagree, and the other predecessors have produced
-      // a new live-in value further down the exploration lattice.
-      DowngradeOccurred = true;
-      ConfirmValue(Var, FirstVal);
-    } else if (OurState == PropDisagree) {
-      // Predecessors agree on value, but some say it's only a proposed value.
-      // Propagate it as proposed: unless it was proposed in this block, in
-      // which case we're able to confirm the value.
-      if (FirstID.getBlock() == (uint64_t)MBB.getNumber() && FirstID.isPHI()) {
-        ConfirmValue(Var, DbgValue(FirstID, Properties, DbgValue::Def));
-      } else if (PropOnlyInBEs) {
-        // If only backedges disagree, a higher (in RPO) block confirmed this
-        // location, and we need to propagate it into this loop.
-        ConfirmValue(Var, DbgValue(FirstID, Properties, DbgValue::Def));
-      } else {
-        // Otherwise; a Def meeting a Proposed is still a Proposed.
-        ConfirmValue(Var, DbgValue(FirstID, Properties, DbgValue::Proposed));
-      }
-    } else if ((OurState == PHINeeded || OurState == BEDisagree)) {
-      // Predecessors disagree and can't be downgraded: this can only be
-      // solved with a PHI. Use pickVPHILoc to go look for one.
-      Optional<ValueIDNum> VPHI;
-      bool AllEdgesVPHI = false;
-      std::tie(VPHI, AllEdgesVPHI) =
-          pickVPHILoc(MBB, Var, VLOCOutLocs, MOutLocs, MInLocs, BlockOrders);
-
-      if (VPHI && AllEdgesVPHI) {
-        // There's a PHI value that's valid for all predecessors -- we can use
-        // it. If any of the non-backedge predecessors have proposed values
-        // though, this PHI is also only proposed, until the predecessors are
-        // confirmed.
-        DbgValue::KindT K = DbgValue::Def;
-        for (unsigned int I = 0; I < BackEdgesStart; ++I)
-          if (Values[I].second->Kind == DbgValue::Proposed)
-            K = DbgValue::Proposed;
-
-        ConfirmValue(Var, DbgValue(*VPHI, Properties, K));
-      } else if (VPHI) {
-        // There's a PHI value, but it's only legal for backedges. Leave this
-        // as a proposed PHI value: it might come back on the backedges,
-        // and allow us to confirm it in the future.
-        DbgValue NoBEValue = DbgValue(*VPHI, Properties, DbgValue::Proposed);
-        ConfirmValue(Var, NoBEValue);
-      } else {
-        ConfirmNoVal(Var, Properties);
-      }
     } else {
-      // Otherwise: we don't know. Emit a "phi but no real loc" phi.
-      ConfirmNoVal(Var, Properties);
+      // Otherwise use a VPHI.
+      ConfirmVPHI(Var, FirstVal.Properties);
     }
   }
 
@@ -3188,7 +3051,7 @@ std::tuple<bool, bool> InstrRefBasedLDV::vlocJoin(
   if (Changed)
     ILS = InLocsT;
 
-  return std::tuple<bool, bool>(Changed, DowngradeOccurred);
+  return Changed;
 }
 
 void InstrRefBasedLDV::vlocDataflow(
@@ -3197,7 +3060,7 @@ void InstrRefBasedLDV::vlocDataflow(
     SmallPtrSetImpl<MachineBasicBlock *> &AssignBlocks, LiveInsT &Output,
     ValueIDNum **MOutLocs, ValueIDNum **MInLocs,
     SmallVectorImpl<VLocTracker> &AllTheVLocs) {
-  // This method is much like mlocDataflow: but focuses on a single
+  // This method is much like buildMLocValueMap: but focuses on a single
   // LexicalScope at a time. Pick out a set of blocks and variables that are
   // to have their value assignments solved, then run our dataflow algorithm
   // until a fixedpoint is reached.
@@ -3306,6 +3169,18 @@ void InstrRefBasedLDV::vlocDataflow(
   LiveIns.resize(NumBlocks);
   LiveOuts.resize(NumBlocks);
 
+  // Initialize all values to start as NoVals. This signifies "it's live
+  // through, but we don't know what it is".
+  DbgValueProperties EmptyProperties(EmptyExpr, false);
+  unsigned int BlockIdx = 0;
+  for (auto &VarMap : LiveIns) {
+    for (const DebugVariable &Var : VarsWeCareAbout)
+      VarMap.insert(
+          {Var, DbgValue(BlockIdx, EmptyProperties, DbgValue::NoVal)});
+
+    ++BlockIdx;
+  }
+
   // Produce by-MBB indexes of live-in/live-outs, to ease lookup within
   // vlocJoin.
   LiveIdxT LiveOutIdx, LiveInIdx;
@@ -3314,6 +3189,33 @@ void InstrRefBasedLDV::vlocDataflow(
   for (unsigned I = 0; I < NumBlocks; ++I) {
     LiveOutIdx[BlockOrders[I]] = &LiveOuts[I];
     LiveInIdx[BlockOrders[I]] = &LiveIns[I];
+  }
+
+  // And now, do the PHI placement hustle.
+  // Convert a const set to a non-const set :|
+  SmallPtrSet<MachineBasicBlock *, 32> MutBlocksToExplore;
+  for (const auto *MBB : BlocksToExplore)
+    MutBlocksToExplore.insert(const_cast<MachineBasicBlock *>(MBB));
+
+  for (const DebugVariable &Var : VarsWeCareAbout) {
+    SmallPtrSet<MachineBasicBlock *, 32> DefBlocks;
+    for (const MachineBasicBlock *ExpMBB : BlocksToExplore) {
+      auto &TransferFunc = AllTheVLocs[ExpMBB->getNumber()].Vars;
+      if (TransferFunc.find(Var) != TransferFunc.end())
+        DefBlocks.insert(const_cast<MachineBasicBlock *>(ExpMBB));
+    }
+
+    SmallVector<MachineBasicBlock *, 32> PHIBlocks;
+
+    BlockPHIPlacement(MutBlocksToExplore, DefBlocks, PHIBlocks);
+
+    for (MachineBasicBlock *PHIMBB : PHIBlocks) {
+      unsigned BlockNo = PHIMBB->getNumber();
+      auto *BlockLiveIns = LiveInIdx[PHIMBB];
+      auto It = BlockLiveIns->find(Var);
+      assert(It != BlockLiveIns->end());
+      It->second = DbgValue(BlockNo, EmptyProperties, DbgValue::VPHI);
+    }
   }
 
   for (auto *MBB : BlockOrders) {
@@ -3334,22 +3236,17 @@ void InstrRefBasedLDV::vlocDataflow(
 
       // Join values from predecessors. Updates LiveInIdx, and writes output
       // into JoinedInLocs.
-      bool InLocsChanged, DowngradeOccurred;
-      std::tie(InLocsChanged, DowngradeOccurred) = vlocJoin(
-          *MBB, LiveOutIdx, LiveInIdx, (FirstTrip) ? &VLOCVisited : nullptr,
-          CurBB, VarsWeCareAbout, MOutLocs, MInLocs, InScopeBlocks,
-          BlocksToExplore, JoinedInLocs);
+      bool InLocsChanged;
+      InLocsChanged = vlocJoin(*MBB, LiveOutIdx, LiveInIdx,
+                               (FirstTrip) ? &VLOCVisited : nullptr, CurBB,
+                               VarsWeCareAbout, MOutLocs, MInLocs,
+                               InScopeBlocks, BlocksToExplore, JoinedInLocs);
 
       bool FirstVisit = VLOCVisited.insert(MBB).second;
 
       // Always explore transfer function if inlocs changed, or if we've not
       // visited this block before.
       InLocsChanged |= FirstVisit;
-
-      // If a downgrade occurred, book us in for re-examination on the next
-      // iteration.
-      if (DowngradeOccurred && OnPending.insert(MBB).second)
-        Pending.push(BBToOrder[MBB]);
 
       if (!InLocsChanged)
         continue;
@@ -3361,7 +3258,9 @@ void InstrRefBasedLDV::vlocDataflow(
         if (VarsWeCareAbout.count(Transfer.first)) {
           // Erase on empty transfer (DBG_VALUE $noreg).
           if (Transfer.second.Kind == DbgValue::Undef) {
-            JoinedInLocs.erase(Transfer.first);
+            auto InLocIt = JoinedInLocs.find(Transfer.first);
+            assert(InLocIt != JoinedInLocs.end());
+            InLocIt->second.Kind = DbgValue::NoVal;
           } else {
             // Insert new variable value; or overwrite.
             auto NewValuePair = std::make_pair(Transfer.first, Transfer.second);
@@ -3405,15 +3304,117 @@ void InstrRefBasedLDV::vlocDataflow(
     FirstTrip = false;
   }
 
-  // Dataflow done. Now what? Save live-ins. Ignore any that are still marked
+  // Dataflow done -- we've eliminated un-necessary PHIs. No do uh, another
+  // dataflow thing, trying to map the PHIs that are left to actual mloc value
+  // numbers.
+  assert(OnWorklist.empty());
+  assert(Worklist.empty());
+  assert(OnPending.empty());
+  assert(Pending.empty());
+  for (auto *MBB : BlockOrders) {
+    Worklist.push(BBToOrder[MBB]);
+    OnWorklist.insert(MBB);
+  }
+
+  DenseMap<std::pair<DebugVariable, unsigned>, ValueIDNum> FoundVarLocs;
+
+  while (!Worklist.empty() || !Pending.empty()) {
+    while (!Worklist.empty()) {
+      bool Changed = false;
+      auto *MBB = OrderToBB[Worklist.top()];
+      CurBB = MBB->getNumber();
+      Worklist.pop();
+
+      // Pick out the predecessors,
+      SmallVector<MachineBasicBlock *, 8> BlockOrders;
+      for (auto Pred : MBB->predecessors())
+        BlockOrders.push_back(Pred);
+
+      // Try to resolve all VPHIs in inlocs.
+      auto *LiveIns = LiveInIdx[MBB];
+      for (auto &LiveIn : *LiveIns) {
+        DbgValue &Val = LiveIn.second;
+
+        if (Val.Kind != DbgValue::VPHI)
+          continue;
+
+        auto It = FoundVarLocs.find({LiveIn.first, LiveIn.second.BlockNo});
+
+        if (Val.BlockNo != CurBB) {
+          // We have a mapping for this value, horray!
+          if (It != FoundVarLocs.end()) {
+            Val.Kind = DbgValue::Def;
+            Val.ID = It->second;
+            Changed = true;
+          }
+
+          continue;
+        }
+
+        // Otherwise: try and pick a location. If we already found one, bail.
+        if (It != FoundVarLocs.end())
+          continue;
+
+        Optional<ValueIDNum> ValueNum = pickVPHILoc(
+            *MBB, LiveIn.first, LiveOutIdx, MOutLocs, MInLocs, BlockOrders);
+
+        // No value -> leave as a VPHI. No variable location will be produced.
+        if (!ValueNum)
+          continue;
+
+        Val.Kind = DbgValue::Def;
+        Val.ID = *ValueNum;
+        FoundVarLocs.insert({{LiveIn.first, LiveIn.second.BlockNo}, *ValueNum});
+        Changed = true;
+      }
+
+      // We also have to remap the outputs: because they're used to calculate
+      // the inputs.
+      auto *LiveOuts = LiveOutIdx[MBB];
+      for (auto &LiveOut : *LiveOuts) {
+        if (LiveOut.second.Kind != DbgValue::VPHI)
+          continue;
+
+        auto It = FoundVarLocs.find({LiveOut.first, LiveOut.second.BlockNo});
+        if (It == FoundVarLocs.end())
+          continue;
+
+        LiveOut.second.Kind = DbgValue::Def;
+        LiveOut.second.ID = It->second;
+        Changed = true;
+      }
+
+      if (!Changed)
+        continue;
+
+      for (auto s : MBB->successors()) {
+        // Ignore out of scope / not-to-be-explored successors.
+        if (LiveInIdx.find(s) == LiveInIdx.end())
+          continue;
+
+        if (BBToOrder[s] > BBToOrder[MBB]) {
+          if (OnWorklist.insert(s).second)
+            Worklist.push(BBToOrder[s]);
+        } else if (OnPending.insert(s).second && Changed) {
+          Pending.push(BBToOrder[s]);
+        }
+      }
+    }
+
+    Worklist.swap(Pending);
+    std::swap(OnWorklist, OnPending);
+    OnPending.clear();
+    assert(Pending.empty());
+  }
+
+  // Now what? Save live-ins. Ignore any that are still marked
   // as being variable-PHIs, because those did not have their machine-PHI
   // value confirmed. Such variable values are places that could have been
   // PHIs, but are not.
   for (auto *MBB : BlockOrders) {
     auto &VarMap = *LiveInIdx[MBB];
     for (auto &P : VarMap) {
-      if (P.second.Kind == DbgValue::Proposed ||
-          P.second.Kind == DbgValue::NoVal)
+      if (P.second.Kind == DbgValue::NoVal || P.second.Kind == DbgValue::VPHI)
         continue;
       Output[MBB->getNumber()].push_back(P);
     }
@@ -3501,6 +3502,10 @@ void InstrRefBasedLDV::emitLocations(
 
 void InstrRefBasedLDV::initialSetup(MachineFunction &MF) {
   // Build some useful data structures.
+
+  LLVMContext &Context = MF.getFunction().getContext();
+  EmptyExpr = DIExpression::get(Context, {});
+
   auto hasNonArtificialLocation = [](const MachineInstr &MI) -> bool {
     if (const DebugLoc &DL = MI.getDebugLoc())
       return DL.getLine() != 0;
