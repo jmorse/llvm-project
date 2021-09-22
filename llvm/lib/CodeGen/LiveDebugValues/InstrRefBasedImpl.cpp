@@ -156,58 +156,6 @@ public:
   unsigned id() const { return SpillNo; }
 };
 
-/// Collection of DBG_VALUEs observed when traversing a block. Records each
-/// variable and the value the DBG_VALUE refers to. Requires the machine value
-/// location dataflow algorithm to have run already, so that values can be
-/// identified.
-class VLocTracker {
-public:
-  /// Map DebugVariable to the latest Value it's defined to have.
-  /// Needs to be a MapVector because we determine order-in-the-input-MIR from
-  /// the order in this container.
-  /// We only retain the last DbgValue in each block for each variable, to
-  /// determine the blocks live-out variable value. The Vars container forms the
-  /// transfer function for this block, as part of the dataflow analysis. The
-  /// movement of values between locations inside of a block is handled at a
-  /// much later stage, in the TransferTracker class.
-  MapVector<DebugVariable, DbgValue> Vars;
-  DenseMap<DebugVariable, const DILocation *> Scopes;
-  MachineBasicBlock *MBB;
-
-public:
-  VLocTracker() {}
-
-  void defVar(const MachineInstr &MI, const DbgValueProperties &Properties,
-              Optional<ValueIDNum> ID) {
-    assert(MI.isDebugValue() || MI.isDebugRef());
-    DebugVariable Var(MI.getDebugVariable(), MI.getDebugExpression(),
-                      MI.getDebugLoc()->getInlinedAt());
-    DbgValue Rec = (ID) ? DbgValue(*ID, Properties, DbgValue::Def)
-                        : DbgValue(Properties, DbgValue::Undef);
-
-    // Attempt insertion; overwrite if it's already mapped.
-    auto Result = Vars.insert(std::make_pair(Var, Rec));
-    if (!Result.second)
-      Result.first->second = Rec;
-    Scopes[Var] = MI.getDebugLoc().get();
-  }
-
-  void defVar(const MachineInstr &MI, const MachineOperand &MO) {
-    // Only DBG_VALUEs can define constant-valued variables.
-    assert(MI.isDebugValue());
-    DebugVariable Var(MI.getDebugVariable(), MI.getDebugExpression(),
-                      MI.getDebugLoc()->getInlinedAt());
-    DbgValueProperties Properties(MI);
-    DbgValue Rec = DbgValue(MO, Properties, DbgValue::Const);
-
-    // Attempt insertion; overwrite if it's already mapped.
-    auto Result = Vars.insert(std::make_pair(Var, Rec));
-    if (!Result.second)
-      Result.first->second = Rec;
-    Scopes[Var] = MI.getDebugLoc().get();
-  }
-};
-
 /// Tracker for converting machine value locations and variable values into
 /// variable locations (the output of LiveDebugValues), recorded as DBG_VALUEs
 /// specifying block live-in locations and transfers within blocks.
