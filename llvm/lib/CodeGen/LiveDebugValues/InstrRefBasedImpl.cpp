@@ -1995,7 +1995,7 @@ void InstrRefBasedLDV::BlockPHIPlacement(
 
 Optional<ValueIDNum> InstrRefBasedLDV::pickVPHILoc(
     const MachineBasicBlock &MBB, const DebugVariable &Var,
-    const LiveIdxT &LiveOuts, ValueIDNum **MOutLocs, ValueIDNum **MInLocs,
+    const LiveIdxT &LiveOuts, ValueIDNum **MOutLocs,
     const SmallVectorImpl<const MachineBasicBlock *> &BlockOrders) {
   // Collect a set of locations from predecessor where its live-out value can
   // be found.
@@ -2480,7 +2480,7 @@ void InstrRefBasedLDV::buildVLocValueMap(
         // live-through-value. As a result, the selected location of any VPHI
         // might change, so we need to re-compute it on each iteration.
         Optional<ValueIDNum> ValueNum = pickVPHILoc(
-                  *MBB, Var, LiveOutIdx, MOutLocs, MInLocs, Preds);
+                  *MBB, Var, LiveOutIdx, MOutLocs, Preds);
 
         if (ValueNum) {
           InLocsChanged |= Val.ID != *ValueNum;

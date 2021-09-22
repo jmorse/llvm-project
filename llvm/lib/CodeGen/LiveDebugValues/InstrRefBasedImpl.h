@@ -814,7 +814,6 @@ private:
   Optional<ValueIDNum>
   pickVPHILoc(const MachineBasicBlock &MBB, const DebugVariable &Var,
               const LiveIdxT &LiveOuts, ValueIDNum **MOutLocs,
-              ValueIDNum **MInLocs,
               const SmallVectorImpl<const MachineBasicBlock *> &BlockOrders);
 
   /// Given the solutions to the two dataflow problems, machine value locations
