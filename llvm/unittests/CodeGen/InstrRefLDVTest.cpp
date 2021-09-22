@@ -45,13 +45,17 @@ public:
   DILexicalBlock *OurBlock, *AnotherBlock;
   DISubprogram *ToInlineFunc;
   DILexicalBlock *ToInlineBlock;
+  DILocalVariable *FuncVariable;
+  DIBasicType *LongInt;
+  DIExpression *EmptyExpr;
 
   DebugLoc OutermostLoc, InBlockLoc, NotNestedBlockLoc, InlinedLoc;
 
   MachineBasicBlock *MBB0, *MBB1, *MBB2, *MBB3, *MBB4;
 
   std::unique_ptr<InstrRefBasedLDV> LDV;
-  MLocTracker *MTracker = nullptr;
+  std::unique_ptr<MLocTracker> MTracker;
+  std::unique_ptr<VLocTracker> VTracker;
 
   InstrRefLDVTest() : Ctx(), Mod("beehives", Ctx) {
   }
@@ -104,6 +108,10 @@ public:
     // Make a scope that isn't nested within the others.
     NotNestedBlockLoc = DILocation::get(Ctx, 4, 1, AnotherBlock);
 
+    LongInt = DIB.createBasicType("long", 64, llvm::dwarf::DW_ATE_unsigned);
+    FuncVariable = DIB.createAutoVariable(OurFunc, "lala", OurFile, 1, LongInt);
+    EmptyExpr = DIExpression::get(Ctx, {});
+
     DIB.finalize();
   }
 
@@ -138,6 +146,7 @@ public:
     // mappings.
     LDV->initialSetup(*MF);
     addMTracker();
+    addVTracker();
     return &*LDV;
   }
 
@@ -146,9 +155,14 @@ public:
     // Add a machine-location-tracking object to LDV. Don't initialize any
     // register locations within it though.
     const TargetSubtargetInfo &STI = MF->getSubtarget();
-    LDV->MTracker =
-        new MLocTracker(*MF, *LDV->TII, *LDV->TRI, *STI.getTargetLowering());
-    MTracker = LDV->MTracker;
+    MTracker = std::make_unique<MLocTracker>(*MF, *LDV->TII, *LDV->TRI, *STI.getTargetLowering());
+    LDV->MTracker = &*MTracker;
+  }
+
+  void addVTracker() {
+    ASSERT_TRUE(LDV);
+    VTracker = std::make_unique<VLocTracker>();
+    LDV->VTracker = &*VTracker;
   }
 
   // Some routines for bouncing into LDV,
@@ -156,6 +170,15 @@ public:
                          SmallVectorImpl<MLocTransferMap> &MLocTransfer) {
     LDV->buildMLocValueMap(*MF, MInLocs, MOutLocs, MLocTransfer);
   }
+
+  Optional<ValueIDNum>
+  pickVPHILoc(const MachineBasicBlock &MBB, const DebugVariable &Var,
+              const InstrRefBasedLDV::LiveIdxT &LiveOuts, ValueIDNum **MOutLocs,
+              const SmallVectorImpl<const MachineBasicBlock *> &BlockOrders) {
+    return LDV->pickVPHILoc(MBB, Var, LiveOuts, MOutLocs, BlockOrders);
+  }
+
+
 
   void initValueArray(ValueIDNum **Nums, unsigned Blks, unsigned Locs) {
     for (unsigned int I = 0; I < Blks; ++I)
@@ -1118,4 +1141,354 @@ TEST_F(InstrRefLDVTest, MLocBadlyNestedLoops) {
   EXPECT_EQ(OutLocs[2][1], LiveInRsp);
   EXPECT_EQ(OutLocs[3][1], LiveInRsp);
   EXPECT_EQ(OutLocs[4][1], LiveInRsp);
+}
+
+TEST_F(InstrRefLDVTest, pickVPHILocDiamond) {
+  //        entry
+  //        /  \
+  //      br1  br2
+  //        \  /
+  //         ret
+  setupDiamondBlocks();
+
+  ASSERT_TRUE(MTracker->getNumLocs() == 1);
+  LocIdx RspLoc(0);
+  Register RAX = getRegByName("RAX");
+  LocIdx RaxLoc = MTracker->lookupOrTrackRegister(RAX);
+
+  ValueIDNum OutLocs[4][2];
+  ValueIDNum *OutLocsPtr[4] = {OutLocs[0], OutLocs[1], OutLocs[2], OutLocs[3]};
+
+  initValueArray(OutLocsPtr, 4, 2);
+
+  ValueIDNum LiveInRsp(0, 0, RspLoc);
+  ValueIDNum LiveInRax(0, 0, RaxLoc);
+  ValueIDNum RspPHIInBlk2(2, 0, RspLoc);
+  ValueIDNum RspPHIInBlk3(3, 0, RspLoc);
+
+  DebugVariable Var(FuncVariable, None, nullptr);
+  DbgValueProperties EmptyProps(EmptyExpr, false);
+  SmallVector<DenseMap<DebugVariable, DbgValue>, 32> VLiveOuts;
+  VLiveOuts.resize(4);
+  InstrRefBasedLDV::LiveIdxT VLiveOutIdx;
+  VLiveOutIdx[MBB0] = &VLiveOuts[0];
+  VLiveOutIdx[MBB1] = &VLiveOuts[1];
+  VLiveOutIdx[MBB2] = &VLiveOuts[2];
+  VLiveOutIdx[MBB3] = &VLiveOuts[3];
+
+  SmallVector<const MachineBasicBlock *, 2> Preds;
+  for (const auto *Pred : MBB3->predecessors())
+    Preds.push_back(Pred);
+
+  // Specify the live-outs around the joining block.
+  OutLocs[1][0] = LiveInRsp;
+  OutLocs[2][0] = LiveInRax;
+
+  Optional<ValueIDNum> Result;
+
+  // Simple case: join two distinct values on entry to the block.
+  VLiveOuts[1].insert({Var,  DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
+  VLiveOuts[2].insert({Var,  DbgValue(LiveInRax, EmptyProps, DbgValue::Def)});
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  // Should have picked a PHI in $rsp in block 3.
+  EXPECT_TRUE(Result);
+  if (Result)
+    EXPECT_EQ(*Result, RspPHIInBlk3);
+
+  // If the incoming values are swapped between blocks, we should not
+  // successfully join. The CFG merge would select the right values, but in
+  // the wrong conditions.
+  std::swap(VLiveOuts[1], VLiveOuts[2]);
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  EXPECT_FALSE(Result);
+
+  // Swap back,
+  std::swap(VLiveOuts[1], VLiveOuts[2]);
+  // Setting one of these to being a constant should prohibit merging.
+  VLiveOuts[1].find(Var)->second.Kind = DbgValue::Const;
+  VLiveOuts[1].find(Var)->second.MO = MachineOperand::CreateImm(0);
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  EXPECT_FALSE(Result);
+
+  // Seeing both to being a constant -> still prohibit, it shouldn't become
+  // a value in the register file anywhere.
+  VLiveOuts[2].find(Var)->second = VLiveOuts[1].find(Var)->second;
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  EXPECT_FALSE(Result);
+
+  // NoVals shouldn't join with anything else.
+  VLiveOuts[1].clear();
+  VLiveOuts[2].clear();
+  VLiveOuts[1].insert({Var,  DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
+  VLiveOuts[2].insert({Var,  DbgValue(2, EmptyProps, DbgValue::NoVal)});
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  EXPECT_FALSE(Result);
+
+  // We might merge in another VPHI in such a join. Present pickVPHILoc with
+  // such a scenario: first, where one incoming edge has a VPHI with no known
+  // value. This represents an edge where there was a PHI value that can't be
+  // found in the register file -- we can't subsequently find a PHI here.
+  VLiveOuts[2].clear();
+  VLiveOuts[2].insert({Var,  DbgValue(2, EmptyProps, DbgValue::VPHI)});
+  EXPECT_EQ(VLiveOuts[2].find(Var)->second.ID, ValueIDNum::EmptyValue);
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  EXPECT_FALSE(Result);
+
+  // However, if we know the value of the incoming VPHI, we can search for its
+  // location. Use a PHI machine-value for doing this, as VPHIs should always
+  // have PHI values, or they should have been eliminated.
+  OutLocs[2][0] = RspPHIInBlk2;
+  VLiveOuts[2].find(Var)->second.ID = RspPHIInBlk2;
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  EXPECT_TRUE(Result);
+  if (Result)
+    EXPECT_EQ(*Result, RspPHIInBlk3);
+
+  // If that value isn't available from that block, don't join.
+  OutLocs[2][0] = LiveInRsp;
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  EXPECT_FALSE(Result);
+
+  // Check that we don't pick values when the properties disagree, for example
+  // different indirectness or DIExpression.
+  DIExpression *NewExpr = DIExpression::prepend(EmptyExpr, DIExpression::ApplyOffset, 4);
+  DbgValueProperties PropsWithExpr(NewExpr, false);
+  VLiveOuts[2].clear();
+  VLiveOuts[2].insert({Var,  DbgValue(LiveInRsp, PropsWithExpr, DbgValue::Def)});
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  EXPECT_FALSE(Result);
+
+  DbgValueProperties PropsWithIndirect(EmptyExpr, true);
+  VLiveOuts[2].clear();
+  VLiveOuts[2].insert({Var,  DbgValue(LiveInRsp, PropsWithIndirect, DbgValue::Def)});
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  EXPECT_FALSE(Result);
+}
+
+TEST_F(InstrRefLDVTest, pickVPHILocLoops) {
+  setupSimpleLoop();
+  //    entry
+  //     |
+  //     |/-----\
+  //    loopblk |
+  //     |\-----/
+  //     |
+  //     ret
+
+  ASSERT_TRUE(MTracker->getNumLocs() == 1);
+  LocIdx RspLoc(0);
+  Register RAX = getRegByName("RAX");
+  LocIdx RaxLoc = MTracker->lookupOrTrackRegister(RAX);
+
+  ValueIDNum OutLocs[3][2];
+  ValueIDNum *OutLocsPtr[4] = {OutLocs[0], OutLocs[1], OutLocs[2]};
+
+  initValueArray(OutLocsPtr, 3, 2);
+
+  ValueIDNum LiveInRsp(0, 0, RspLoc);
+  ValueIDNum LiveInRax(0, 0, RaxLoc);
+  ValueIDNum RspPHIInBlk1(1, 0, RspLoc);
+  ValueIDNum RaxPHIInBlk1(1, 0, RaxLoc);
+
+  DebugVariable Var(FuncVariable, None, nullptr);
+  DbgValueProperties EmptyProps(EmptyExpr, false);
+  SmallVector<DenseMap<DebugVariable, DbgValue>, 32> VLiveOuts;
+  VLiveOuts.resize(3);
+  InstrRefBasedLDV::LiveIdxT VLiveOutIdx;
+  VLiveOutIdx[MBB0] = &VLiveOuts[0];
+  VLiveOutIdx[MBB1] = &VLiveOuts[1];
+  VLiveOutIdx[MBB2] = &VLiveOuts[2];
+
+  SmallVector<const MachineBasicBlock *, 2> Preds;
+  for (const auto *Pred : MBB1->predecessors())
+    Preds.push_back(Pred);
+
+  // Specify the live-outs around the joining block.
+  OutLocs[0][0] = LiveInRsp;
+  OutLocs[1][0] = LiveInRax;
+
+  Optional<ValueIDNum> Result;
+
+  // See that we can merge as normal on a backedge.
+  VLiveOuts[0].insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
+  VLiveOuts[1].insert({Var, DbgValue(LiveInRax, EmptyProps, DbgValue::Def)});
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  // Should have picked a PHI in $rsp in block 1.
+  EXPECT_TRUE(Result);
+  if (Result)
+    EXPECT_EQ(*Result, RspPHIInBlk1);
+
+  // And that, if the desired values aren't available, we don't merge.
+  OutLocs[1][0] = LiveInRsp;
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  EXPECT_FALSE(Result);
+
+  // Test the backedge behaviour: PHIs that feed back into themselves can
+  // carry this variables value. Feed in LiveInRsp in both $rsp and $rax
+  // from the entry block, but only put an appropriate backedge PHI in $rax.
+  // Only the $rax location can form the correct PHI.
+  OutLocs[0][0] = LiveInRsp;
+  OutLocs[0][1] = LiveInRsp;
+  OutLocs[1][0] = RaxPHIInBlk1;
+  OutLocs[1][1] = RaxPHIInBlk1;
+  VLiveOuts[0].clear();
+  VLiveOuts[1].clear();
+  VLiveOuts[0].insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
+  // Crucially, a VPHI originating in this block:
+  VLiveOuts[1].insert({Var, DbgValue(1, EmptyProps, DbgValue::VPHI)});
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  EXPECT_TRUE(Result);
+  if (Result)
+    EXPECT_EQ(*Result, RaxPHIInBlk1);
+
+  // Merging should not be permitted if there's a usable PHI on the backedge,
+  // but it's in the wrong place. (Overwrite $rax).
+  OutLocs[1][1] = LiveInRax;
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  EXPECT_FALSE(Result);
+
+  // Additionally, if the VPHI coming back on the loop backedge isn't from
+  // this block (block 1), we can't merge it.
+  OutLocs[1][1] = RaxPHIInBlk1;
+  VLiveOuts[1].clear();
+  VLiveOuts[1].insert({Var, DbgValue(0, EmptyProps, DbgValue::VPHI)});
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  EXPECT_FALSE(Result);
+}
+
+TEST_F(InstrRefLDVTest, pickVPHILocBadlyNestedLoops) {
+  // Run some tests similar to pickVPHILocLoops, with more than one backedge,
+  // and check that we merge correctly over many candidate locations.
+  setupBadlyNestedLoops();
+  //           entry
+  //             |
+  //           loop1 -o
+  //             | ^
+  //             | ^
+  //           loop2 -o
+  //             | ^
+  //             | ^
+  //           loop3 -o
+  //             |
+  //            ret
+  ASSERT_TRUE(MTracker->getNumLocs() == 1);
+  LocIdx RspLoc(0);
+  Register RAX = getRegByName("RAX");
+  LocIdx RaxLoc = MTracker->lookupOrTrackRegister(RAX);
+  Register RBX = getRegByName("RBX");
+  LocIdx RbxLoc = MTracker->lookupOrTrackRegister(RBX);
+
+  ValueIDNum OutLocs[5][3];
+  ValueIDNum *OutLocsPtr[5] = {OutLocs[0], OutLocs[1], OutLocs[2], OutLocs[3], OutLocs[4]};
+
+  initValueArray(OutLocsPtr, 5, 3);
+
+  ValueIDNum LiveInRsp(0, 0, RspLoc);
+  ValueIDNum LiveInRax(0, 0, RaxLoc);
+  ValueIDNum LiveInRbx(0, 0, RbxLoc);
+  ValueIDNum RspPHIInBlk1(1, 0, RspLoc);
+  ValueIDNum RaxPHIInBlk1(1, 0, RaxLoc);
+  ValueIDNum RbxPHIInBlk1(1, 0, RbxLoc);
+
+  DebugVariable Var(FuncVariable, None, nullptr);
+  DbgValueProperties EmptyProps(EmptyExpr, false);
+  SmallVector<DenseMap<DebugVariable, DbgValue>, 32> VLiveOuts;
+  VLiveOuts.resize(5);
+  InstrRefBasedLDV::LiveIdxT VLiveOutIdx;
+  VLiveOutIdx[MBB0] = &VLiveOuts[0];
+  VLiveOutIdx[MBB1] = &VLiveOuts[1];
+  VLiveOutIdx[MBB2] = &VLiveOuts[2];
+  VLiveOutIdx[MBB3] = &VLiveOuts[3];
+  VLiveOutIdx[MBB4] = &VLiveOuts[4];
+
+  // We're going to focus on block 1.
+  SmallVector<const MachineBasicBlock *, 2> Preds;
+  for (const auto *Pred : MBB1->predecessors())
+    Preds.push_back(Pred);
+
+  // Specify the live-outs around the joining block. Incoming edges from the
+  // entry block, self, and loop2.
+  OutLocs[0][0] = LiveInRsp;
+  OutLocs[1][0] = LiveInRax;
+  OutLocs[2][0] = LiveInRbx;
+
+  Optional<ValueIDNum> Result;
+
+  // See that we can merge as normal on a backedge.
+  VLiveOuts[0].insert({Var, DbgValue(LiveInRsp, EmptyProps, DbgValue::Def)});
+  VLiveOuts[1].insert({Var, DbgValue(LiveInRax, EmptyProps, DbgValue::Def)});
+  VLiveOuts[2].insert({Var, DbgValue(LiveInRbx, EmptyProps, DbgValue::Def)});
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  // Should have picked a PHI in $rsp in block 1.
+  EXPECT_TRUE(Result);
+  if (Result)
+    EXPECT_EQ(*Result, RspPHIInBlk1);
+
+  // Check too that permuting the live-out locations prevents merging
+  OutLocs[0][0] = LiveInRax;
+  OutLocs[1][0] = LiveInRbx;
+  OutLocs[2][0] = LiveInRsp;
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  EXPECT_FALSE(Result);
+
+  OutLocs[0][0] = LiveInRsp;
+  OutLocs[1][0] = LiveInRax;
+  OutLocs[2][0] = LiveInRbx;
+
+  // Feeding a PHI back on one backedge shouldn't merge (block 1 self backedge
+  // wants LiveInRax).
+  OutLocs[1][0] = RspPHIInBlk1;
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  EXPECT_FALSE(Result);
+
+  // If the variables value on that edge is a VPHI feeding into itself, that's
+  // fine.
+  VLiveOuts[1].clear();
+  VLiveOuts[1].insert({Var, DbgValue(1, EmptyProps, DbgValue::VPHI)});
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  EXPECT_TRUE(Result);
+  if (Result)
+    EXPECT_EQ(*Result, RspPHIInBlk1);
+
+  // Likewise: the other backedge being a VPHI from block 1 should be accepted.
+  OutLocs[2][0] = RspPHIInBlk1;
+  VLiveOuts[2].clear();
+  VLiveOuts[2].insert({Var, DbgValue(1, EmptyProps, DbgValue::VPHI)});
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  EXPECT_TRUE(Result);
+  if (Result)
+    EXPECT_EQ(*Result, RspPHIInBlk1);
+
+  // Here's where it becomes tricky: we should not merge if there are two
+  // _distinct_ backedge PHIs. We can't have a PHI that happens in both rsp
+  // and rax for example. We can only pick one location as the live-in.
+  OutLocs[2][0] = RaxPHIInBlk1;
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  EXPECT_FALSE(Result);
+
+  // The above test sources correct machine-PHI-value from two places. Now
+  // try with one machine-PHI-value, but placed in two different locations
+  // on the backedge. Again, we can't merge a location here, there's no
+  // location that works on all paths.
+  OutLocs[0][0] = LiveInRsp;
+  OutLocs[1][0] = RspPHIInBlk1;
+  OutLocs[2][0] = LiveInRsp;
+  OutLocs[2][1] = RspPHIInBlk1;
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  EXPECT_FALSE(Result);
+
+  // Scatter various PHI values across the available locations. Only rbx (loc 2)
+  // has the right value in both backedges -- that's the loc that should be
+  // picked.
+  OutLocs[0][2] = LiveInRsp;
+  OutLocs[1][0] = RspPHIInBlk1;
+  OutLocs[1][1] = RaxPHIInBlk1;
+  OutLocs[1][2] = RbxPHIInBlk1;
+  OutLocs[2][0] = LiveInRsp;
+  OutLocs[2][1] = RspPHIInBlk1;
+  OutLocs[2][2] = RbxPHIInBlk1;
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  EXPECT_TRUE(Result);
+  if (Result)
+    EXPECT_EQ(*Result, RbxPHIInBlk1);
 }

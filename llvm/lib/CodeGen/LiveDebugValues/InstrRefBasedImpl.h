@@ -616,7 +616,7 @@ using OverlapMap =
 
 // XXX XXX docs
 class InstrRefBasedLDV : public LDVImpl {
-private:
+public:
   friend class ::InstrRefLDVTest;
 
   using FragmentInfo = DIExpression::FragmentInfo;
@@ -645,6 +645,7 @@ private:
   /// Used as the result type for the variable value dataflow problem.
   using LiveInsT = SmallVector<SmallVector<VarAndLoc, 8>, 8>;
 
+private:
   MachineDominatorTree *DomTree;
   const TargetRegisterInfo *TRI;
   const TargetInstrInfo *TII;

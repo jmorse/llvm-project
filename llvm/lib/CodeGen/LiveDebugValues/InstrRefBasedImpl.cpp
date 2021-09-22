@@ -1948,6 +1948,7 @@ Optional<ValueIDNum> InstrRefBasedLDV::pickVPHILoc(
   // Collect a set of locations from predecessor where its live-out value can
   // be found.
   SmallVector<SmallVector<LocIdx, 4>, 8> Locs;
+  SmallVector<const DbgValueProperties *, 4> Properties;
   unsigned NumLocs = MTracker->getNumLocs();
 
   // No predecessors means no PHIs.
@@ -1974,13 +1975,15 @@ Optional<ValueIDNum> InstrRefBasedLDV::pickVPHILoc(
       // Consts and no-values cannot have locations we can join on.
       return None;
 
+    Properties.push_back(&OutVal.Properties);
+
     // Create new empty vector of locations.
     Locs.resize(Locs.size() + 1);
 
     // If the live-in value in a def, find the locations where that def is
     // present. Do the same for VPHIs where we know the VPHI value.
     if (OutVal.Kind == DbgValue::Def ||
-        (OutVal.Kind == DbgValue::VPHI && OutVal.BlockNo != ThisBBNum &&
+        (OutVal.Kind == DbgValue::VPHI && OutVal.BlockNo != MBB.getNumber() &&
          OutVal.ID != ValueIDNum::EmptyValue)) {
       ValueIDNum ValToLookFor = OutVal.ID;
       // Search the live-outs of the predecessor for the specified value.
@@ -1992,7 +1995,7 @@ Optional<ValueIDNum> InstrRefBasedLDV::pickVPHILoc(
       assert(OutVal.Kind == DbgValue::VPHI);
       // For VPHIs where we don't know the location, we definitely can't find
       // a join loc.
-      if (OutVal.BlockNo != ThisBBNum)
+      if (OutVal.BlockNo != MBB.getNumber())
         return None;
 
       // Otherwise: this is a VPHI on a backedge feeding back into itself, i.e.
@@ -2002,7 +2005,7 @@ Optional<ValueIDNum> InstrRefBasedLDV::pickVPHILoc(
       // locations feed back into themselves. Therefore, add all self-looping
       // machine-value PHI locations.
       for (unsigned int I = 0; I < NumLocs; ++I) {
-        ValueIDNum MPHI(ThisBBNum, 0, LocIdx(I));
+        ValueIDNum MPHI(MBB.getNumber(), 0, LocIdx(I));
         if (MOutLocs[ThisBBNum][I] == MPHI)
           Locs.back().push_back(LocIdx(I));
       }
@@ -2011,6 +2014,13 @@ Optional<ValueIDNum> InstrRefBasedLDV::pickVPHILoc(
 
   // We should have found locations for all predecessors, or returned.
   assert(Locs.size() == BlockOrders.size());
+
+  // Check that all properties are the same. We can't pick a location if they're
+  // not.
+  const DbgValueProperties *Properties0 = Properties[0];
+  for (auto *Prop : Properties)
+    if (*Prop != *Properties0)
+      return None;
 
   // Starting with the first set of locations, take the intersection with
   // subsequent sets.
