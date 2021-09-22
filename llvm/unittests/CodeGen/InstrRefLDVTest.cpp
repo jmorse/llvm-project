@@ -48,7 +48,7 @@ public:
 
   DebugLoc OutermostLoc, InBlockLoc, NotNestedBlockLoc, InlinedLoc;
 
-  MachineBasicBlock *MBB1, *MBB2, *MBB3, *MBB4, *MBB5;
+  MachineBasicBlock *MBB0, *MBB1, *MBB2, *MBB3, *MBB4;
 
   std::unique_ptr<InstrRefBasedLDV> LDV;
   MLocTracker *MTracker = nullptr;
@@ -166,11 +166,11 @@ public:
   void setupSingleBlock() {
     // Add an entry block with nothing but 'ret void' in it.
     Function &F = const_cast<llvm::Function &>(MF->getFunction());
-    auto BB1 = BasicBlock::Create(Ctx, "entry", &F);
-    IRBuilder<> IRB(BB1);
+    auto BB0 = BasicBlock::Create(Ctx, "entry", &F);
+    IRBuilder<> IRB(BB0);
     IRB.CreateRetVoid();
-    MBB1 = MF->CreateMachineBasicBlock(BB1);
-    MF->insert(MF->end(), MBB1);
+    MBB0 = MF->CreateMachineBasicBlock(BB0);
+    MF->insert(MF->end(), MBB0);
     MF->RenumberBlocks();
 
     setupLDVObj();
@@ -183,27 +183,27 @@ public:
     //        \  /
     //         ret
     llvm::Function &F = const_cast<llvm::Function &>(MF->getFunction());
-    auto BB1 = BasicBlock::Create(Ctx, "a", &F);
-    auto BB2 = BasicBlock::Create(Ctx, "b", &F);
-    auto BB3 = BasicBlock::Create(Ctx, "c", &F);
-    auto BB4 = BasicBlock::Create(Ctx, "d", &F);
-    IRBuilder<> IRB1(BB1), IRB2(BB2), IRB3(BB3), IRB4(BB4);
+    auto BB0 = BasicBlock::Create(Ctx, "a", &F);
+    auto BB1 = BasicBlock::Create(Ctx, "b", &F);
+    auto BB2 = BasicBlock::Create(Ctx, "c", &F);
+    auto BB3 = BasicBlock::Create(Ctx, "d", &F);
+    IRBuilder<> IRB0(BB0), IRB1(BB1), IRB2(BB2), IRB3(BB3);
+    IRB0.CreateBr(BB1);
     IRB1.CreateBr(BB2);
     IRB2.CreateBr(BB3);
-    IRB3.CreateBr(BB4);
-    IRB4.CreateRetVoid();
+    IRB3.CreateRetVoid();
+    MBB0 = MF->CreateMachineBasicBlock(BB0);
+    MF->insert(MF->end(), MBB0);
     MBB1 = MF->CreateMachineBasicBlock(BB1);
     MF->insert(MF->end(), MBB1);
     MBB2 = MF->CreateMachineBasicBlock(BB2);
     MF->insert(MF->end(), MBB2);
     MBB3 = MF->CreateMachineBasicBlock(BB3);
     MF->insert(MF->end(), MBB3);
-    MBB4 = MF->CreateMachineBasicBlock(BB4);
-    MF->insert(MF->end(), MBB4);
-    MBB1->addSuccessor(MBB2);
+    MBB0->addSuccessor(MBB1);
+    MBB0->addSuccessor(MBB2);
     MBB1->addSuccessor(MBB3);
-    MBB2->addSuccessor(MBB4);
-    MBB3->addSuccessor(MBB4);
+    MBB2->addSuccessor(MBB3);
     MF->RenumberBlocks();
 
     setupLDVObj();
@@ -218,22 +218,22 @@ public:
     //     |
     //     ret
     llvm::Function &F = const_cast<llvm::Function &>(MF->getFunction());
-    auto BB1 = BasicBlock::Create(Ctx, "entry", &F);
-    auto BB2 = BasicBlock::Create(Ctx, "loop", &F);
-    auto BB3 = BasicBlock::Create(Ctx, "ret", &F);
-    IRBuilder<> IRB1(BB1), IRB2(BB2), IRB3(BB3);
+    auto BB0 = BasicBlock::Create(Ctx, "entry", &F);
+    auto BB1 = BasicBlock::Create(Ctx, "loop", &F);
+    auto BB2 = BasicBlock::Create(Ctx, "ret", &F);
+    IRBuilder<> IRB0(BB0), IRB1(BB1), IRB2(BB2);
+    IRB0.CreateBr(BB1);
     IRB1.CreateBr(BB2);
-    IRB2.CreateBr(BB3);
-    IRB3.CreateRetVoid();
+    IRB2.CreateRetVoid();
+    MBB0 = MF->CreateMachineBasicBlock(BB0);
+    MF->insert(MF->end(), MBB0);
     MBB1 = MF->CreateMachineBasicBlock(BB1);
     MF->insert(MF->end(), MBB1);
     MBB2 = MF->CreateMachineBasicBlock(BB2);
     MF->insert(MF->end(), MBB2);
-    MBB3 = MF->CreateMachineBasicBlock(BB3);
-    MF->insert(MF->end(), MBB3);
+    MBB0->addSuccessor(MBB1);
     MBB1->addSuccessor(MBB2);
-    MBB2->addSuccessor(MBB3);
-    MBB2->addSuccessor(MBB2);
+    MBB1->addSuccessor(MBB1);
     MF->RenumberBlocks();
 
     setupLDVObj();
@@ -252,17 +252,19 @@ public:
     //     |
     //     ret
     llvm::Function &F = const_cast<llvm::Function &>(MF->getFunction());
-    auto BB1 = BasicBlock::Create(Ctx, "entry", &F);
-    auto BB2 = BasicBlock::Create(Ctx, "loop1", &F);
-    auto BB3 = BasicBlock::Create(Ctx, "loop2", &F);
-    auto BB4 = BasicBlock::Create(Ctx, "join", &F);
-    auto BB5 = BasicBlock::Create(Ctx, "ret", &F);
-    IRBuilder<> IRB1(BB1), IRB2(BB2), IRB3(BB3), IRB4(BB4), IRB5(BB5);
+    auto BB0 = BasicBlock::Create(Ctx, "entry", &F);
+    auto BB1 = BasicBlock::Create(Ctx, "loop1", &F);
+    auto BB2 = BasicBlock::Create(Ctx, "loop2", &F);
+    auto BB3 = BasicBlock::Create(Ctx, "join", &F);
+    auto BB4 = BasicBlock::Create(Ctx, "ret", &F);
+    IRBuilder<> IRB0(BB0), IRB1(BB1), IRB2(BB2), IRB3(BB3), IRB4(BB4);
+    IRB0.CreateBr(BB1);
     IRB1.CreateBr(BB2);
     IRB2.CreateBr(BB3);
     IRB3.CreateBr(BB4);
-    IRB4.CreateBr(BB5);
-    IRB5.CreateRetVoid();
+    IRB4.CreateRetVoid();
+    MBB0 = MF->CreateMachineBasicBlock(BB0);
+    MF->insert(MF->end(), MBB0);
     MBB1 = MF->CreateMachineBasicBlock(BB1);
     MF->insert(MF->end(), MBB1);
     MBB2 = MF->CreateMachineBasicBlock(BB2);
@@ -271,14 +273,12 @@ public:
     MF->insert(MF->end(), MBB3);
     MBB4 = MF->CreateMachineBasicBlock(BB4);
     MF->insert(MF->end(), MBB4);
-    MBB5 = MF->CreateMachineBasicBlock(BB5);
-    MF->insert(MF->end(), MBB5);
+    MBB0->addSuccessor(MBB1);
     MBB1->addSuccessor(MBB2);
+    MBB2->addSuccessor(MBB2);
     MBB2->addSuccessor(MBB3);
-    MBB3->addSuccessor(MBB3);
+    MBB3->addSuccessor(MBB1);
     MBB3->addSuccessor(MBB4);
-    MBB4->addSuccessor(MBB2);
-    MBB4->addSuccessor(MBB5);
     MF->RenumberBlocks();
 
     setupLDVObj();
@@ -296,17 +296,19 @@ public:
     //             |
     //            ret
     llvm::Function &F = const_cast<llvm::Function &>(MF->getFunction());
-    auto BB1 = BasicBlock::Create(Ctx, "entry", &F);
-    auto BB2 = BasicBlock::Create(Ctx, "head1", &F);
-    auto BB3 = BasicBlock::Create(Ctx, "head2", &F);
-    auto BB4 = BasicBlock::Create(Ctx, "joinblk", &F);
-    auto BB5 = BasicBlock::Create(Ctx, "ret", &F);
-    IRBuilder<> IRB1(BB1), IRB2(BB2), IRB3(BB3), IRB4(BB4), IRB5(BB5);
+    auto BB0 = BasicBlock::Create(Ctx, "entry", &F);
+    auto BB1 = BasicBlock::Create(Ctx, "head1", &F);
+    auto BB2 = BasicBlock::Create(Ctx, "head2", &F);
+    auto BB3 = BasicBlock::Create(Ctx, "joinblk", &F);
+    auto BB4 = BasicBlock::Create(Ctx, "ret", &F);
+    IRBuilder<> IRB0(BB0), IRB1(BB1), IRB2(BB2), IRB3(BB3), IRB4(BB4);
+    IRB0.CreateBr(BB1);
     IRB1.CreateBr(BB2);
     IRB2.CreateBr(BB3);
     IRB3.CreateBr(BB4);
-    IRB4.CreateBr(BB5);
-    IRB5.CreateRetVoid();
+    IRB4.CreateRetVoid();
+    MBB0 = MF->CreateMachineBasicBlock(BB0);
+    MF->insert(MF->end(), MBB0);
     MBB1 = MF->CreateMachineBasicBlock(BB1);
     MF->insert(MF->end(), MBB1);
     MBB2 = MF->CreateMachineBasicBlock(BB2);
@@ -315,15 +317,13 @@ public:
     MF->insert(MF->end(), MBB3);
     MBB4 = MF->CreateMachineBasicBlock(BB4);
     MF->insert(MF->end(), MBB4);
-    MBB5 = MF->CreateMachineBasicBlock(BB5);
-    MF->insert(MF->end(), MBB5);
-    MBB1->addSuccessor(MBB2);
+    MBB0->addSuccessor(MBB1);
+    MBB0->addSuccessor(MBB2);
     MBB1->addSuccessor(MBB3);
-    MBB2->addSuccessor(MBB4);
+    MBB2->addSuccessor(MBB3);
+    MBB3->addSuccessor(MBB1);
+    MBB3->addSuccessor(MBB2);
     MBB3->addSuccessor(MBB4);
-    MBB4->addSuccessor(MBB2);
-    MBB4->addSuccessor(MBB3);
-    MBB4->addSuccessor(MBB5);
     MF->RenumberBlocks();
 
     setupLDVObj();
@@ -345,17 +345,19 @@ public:
     // NB: the loop blocks self-loop, which is a bit too fiddly to draw on
     // accurately.
     llvm::Function &F = const_cast<llvm::Function &>(MF->getFunction());
-    auto BB1 = BasicBlock::Create(Ctx, "entry", &F);
-    auto BB2 = BasicBlock::Create(Ctx, "loop1", &F);
-    auto BB3 = BasicBlock::Create(Ctx, "loop2", &F);
-    auto BB4 = BasicBlock::Create(Ctx, "loop3", &F);
-    auto BB5 = BasicBlock::Create(Ctx, "ret", &F);
-    IRBuilder<> IRB1(BB1), IRB2(BB2), IRB3(BB3), IRB4(BB4), IRB5(BB5);
+    auto BB0 = BasicBlock::Create(Ctx, "entry", &F);
+    auto BB1 = BasicBlock::Create(Ctx, "loop1", &F);
+    auto BB2 = BasicBlock::Create(Ctx, "loop2", &F);
+    auto BB3 = BasicBlock::Create(Ctx, "loop3", &F);
+    auto BB4 = BasicBlock::Create(Ctx, "ret", &F);
+    IRBuilder<> IRB0(BB0), IRB1(BB1), IRB2(BB2), IRB3(BB3), IRB4(BB4);
+    IRB0.CreateBr(BB1);
     IRB1.CreateBr(BB2);
     IRB2.CreateBr(BB3);
     IRB3.CreateBr(BB4);
-    IRB4.CreateBr(BB5);
-    IRB5.CreateRetVoid();
+    IRB4.CreateRetVoid();
+    MBB0 = MF->CreateMachineBasicBlock(BB0);
+    MF->insert(MF->end(), MBB0);
     MBB1 = MF->CreateMachineBasicBlock(BB1);
     MF->insert(MF->end(), MBB1);
     MBB2 = MF->CreateMachineBasicBlock(BB2);
@@ -364,23 +366,19 @@ public:
     MF->insert(MF->end(), MBB3);
     MBB4 = MF->CreateMachineBasicBlock(BB4);
     MF->insert(MF->end(), MBB4);
-    MBB5 = MF->CreateMachineBasicBlock(BB5);
-    MF->insert(MF->end(), MBB5);
+    MBB0->addSuccessor(MBB1);
+    MBB1->addSuccessor(MBB1);
     MBB1->addSuccessor(MBB2);
+    MBB2->addSuccessor(MBB1);
     MBB2->addSuccessor(MBB2);
     MBB2->addSuccessor(MBB3);
     MBB3->addSuccessor(MBB2);
     MBB3->addSuccessor(MBB3);
     MBB3->addSuccessor(MBB4);
-    MBB4->addSuccessor(MBB3);
-    MBB4->addSuccessor(MBB4);
-    MBB4->addSuccessor(MBB5);
     MF->RenumberBlocks();
 
     setupLDVObj();
   }
-
-
 };
 
 TEST_F(InstrRefLDVTest, MLocSingleBlock) {
