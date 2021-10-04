@@ -673,6 +673,12 @@ MLocTracker::MLocTracker(MachineFunction &MF, const TargetInstrInfo &TII,
   if (SP) {
     unsigned ID = getLocID(SP, false);
     (void)lookupOrTrackRegister(ID);
+
+      for (MCRegAliasIterator RAI(ID, &TRI, true); RAI.isValid(); ++RAI)
+        // FIXME: Can we break out of this loop early if no insertion occurs?
+        lookupOrTrackRegister(*RAI);
+
+
   }
 }
 
@@ -1776,32 +1782,102 @@ void InstrRefBasedLDV::buildMLocValueMap(
   // Start by placing PHIs, using the usual SSA constructor algorithm. Consider
   // any machine-location that isn't live-through a block to be def'd in that
   // block.
+
+  // Pick out definitions of register units, place PHIs for them, and then
+  // replicate those PHIs for any aliases.
+  SmallSet<Register, 32> RegUnitsToPHIUp; 
+  SmallSet<LocIdx, 32> SlotsToPHI; 
   for (auto Location : MTracker->locations()) {
-    // Collect the set of defs.
-    SmallPtrSet<MachineBasicBlock *, 32> DefBlocks;
-    for (unsigned int I = 0; I < OrderToBB.size(); ++I) {
-      MachineBasicBlock *MBB = OrderToBB[I];
-      const auto &TransferFunc = MLocTransfer[MBB->getNumber()];
-      if (TransferFunc.find(Location.Idx) != TransferFunc.end())
-        DefBlocks.insert(MBB);
+    LocIdx L = Location.Idx;
+    if (MTracker->isSpill(L)) {
+      SlotsToPHI.insert(L);
+      continue;
     }
 
-    // The entry block defs the location too: it's the live-in / argument value.
-    // Only insert if there are other defs though; everything is trivially live
-    // through otherwise.
-    if (!DefBlocks.empty())
-      DefBlocks.insert(&*MF.begin());
+    Register R = MTracker->LocIdxToLocID[L];
+// XXX can come out zero?
+    for (MCRegUnitIterator RUI(R.asMCReg(), TRI); RUI.isValid(); ++RUI) {
+#if 0
+      if (*RUI == 29)
+        __asm__("int $3");
+#endif
+      for (MCRegUnitRootIterator URoots(*RUI, TRI); URoots.isValid(); ++URoots) {
+const LocIdx &L = MTracker->LocIDToLocIdx[*URoots];
+if (L.isIllegal()) {
+  // Not all roots were loaded into the tracking map: this register isn't
+  // actually def'd anywhere, we only read from it. Generate PHIs for this
+  // reg, but don't iterate units.
+  RegUnitsToPHIUp.insert(R);
+  goto bail;
+}
+        RegUnitsToPHIUp.insert(*URoots);
+      }
+    }
+bail:
+;
+  }
 
-    // Ask the SSA construction algorithm where we should put PHIs.
-    SmallVector<MachineBasicBlock *, 32> PHIBlocks;
-    BlockPHIPlacement(AllBlocks, DefBlocks, PHIBlocks);
 
-    // Install those PHI values into the live-in value array.
+SmallVector<MachineBasicBlock *, 32> PHIBlocks;
+auto FaffForLoc = [&](LocIdx L) {
+  // Collect the set of defs.
+  SmallPtrSet<MachineBasicBlock *, 32> DefBlocks;
+  for (unsigned int I = 0; I < OrderToBB.size(); ++I) {
+    MachineBasicBlock *MBB = OrderToBB[I];
+    const auto &TransferFunc = MLocTransfer[MBB->getNumber()];
+    if (TransferFunc.find(L) != TransferFunc.end())
+      DefBlocks.insert(MBB);
+  }
+
+  // The entry block defs the location too: it's the live-in / argument value.
+  // Only insert if there are other defs though; everything is trivially live
+  // through otherwise.
+  if (!DefBlocks.empty())
+    DefBlocks.insert(&*MF.begin());
+
+  // Ask the SSA construction algorithm where we should put PHIs.
+  PHIBlocks.clear();
+  BlockPHIPlacement(AllBlocks, DefBlocks, PHIBlocks);
+};
+
+// For spill slots, just PHI and install.
+for (LocIdx L : SlotsToPHI) {
+  FaffForLoc(L);
+  // Install those PHI values into the live-in value array.
+  for (const MachineBasicBlock *MBB : PHIBlocks) {
+    MInLocs[MBB->getNumber()][L.asU64()] =
+        ValueIDNum(MBB->getNumber(), 0, L);
+  }
+}
+
+
+// For reg units, do more
+for (Register R : RegUnitsToPHIUp) {
+  LocIdx L = MTracker->lookupOrTrackRegister(R);
+  FaffForLoc(L);
+
+  // Install those PHI values into the live-in value array.
+  for (const MachineBasicBlock *MBB : PHIBlocks) {
+    MInLocs[MBB->getNumber()][L.asU64()] =
+        ValueIDNum(MBB->getNumber(), 0, L);
+  }
+
+  // Now find aliases and install PHIs for those.
+  for (MCRegAliasIterator RAI(R, TRI, true); RAI.isValid(); ++RAI) {
+    const LocIdx &AliasLoc = MTracker->LocIDToLocIdx[*RAI];
+    if (AliasLoc.isIllegal())
+      continue;
+    // XXX assert that this was tracked?
+// Don't do that now that we ignore it for regs that are only def'd.
+
     for (const MachineBasicBlock *MBB : PHIBlocks) {
-      MInLocs[MBB->getNumber()][Location.Idx.asU64()] =
-          ValueIDNum(MBB->getNumber(), 0, Location.Idx);
+      MInLocs[MBB->getNumber()][AliasLoc.asU64()] =
+          ValueIDNum(MBB->getNumber(), 0, AliasLoc);
     }
   }
+}
+
+
 
   // Propagate values to eliminate redundant PHIs. At the same time, this
   // produces the table of Block x Location => Value for the entry to each
