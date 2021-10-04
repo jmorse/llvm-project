@@ -636,6 +636,7 @@ public:
 //===----------------------------------------------------------------------===//
 
 ValueIDNum ValueIDNum::EmptyValue = {UINT_MAX, UINT_MAX, UINT_MAX};
+ValueIDNum ValueIDNum::TombstoneValue = {UINT_MAX, UINT_MAX, 0};
 
 #ifndef NDEBUG
 void DbgValue::dump(const MLocTracker *MTrack) const {
@@ -2024,7 +2025,8 @@ void InstrRefBasedLDV::BlockPHIPlacement(
 Optional<ValueIDNum> InstrRefBasedLDV::pickVPHILoc(
     const MachineBasicBlock &MBB, const DebugVariable &Var,
     const LiveIdxT &LiveOuts, ValueIDNum **MOutLocs,
-    const SmallVectorImpl<const MachineBasicBlock *> &BlockOrders) {
+    const SmallVectorImpl<const MachineBasicBlock *> &BlockOrders,
+    const MLocLiveOutMap &MLocLiveOutIdx) {
   // Collect a set of locations from predecessor where its live-out value can
   // be found.
   SmallVector<SmallVector<LocIdx, 4>, 8> Locs;
@@ -2067,9 +2069,10 @@ Optional<ValueIDNum> InstrRefBasedLDV::pickVPHILoc(
          OutVal.ID != ValueIDNum::EmptyValue)) {
       ValueIDNum ValToLookFor = OutVal.ID;
       // Search the live-outs of the predecessor for the specified value.
-      for (unsigned int I = 0; I < NumLocs; ++I) {
-        if (MOutLocs[ThisBBNum][I] == ValToLookFor)
-          Locs.back().push_back(LocIdx(I));
+      auto LiveOutIdxIt = MLocLiveOutIdx[ThisBBNum].find(ValToLookFor);
+      if (LiveOutIdxIt != MLocLiveOutIdx[ThisBBNum].end()) {
+        for (const LocIdx &L : LiveOutIdxIt->second)
+          Locs.back().push_back(L);
       }
     } else {
       assert(OutVal.Kind == DbgValue::VPHI);
@@ -2084,6 +2087,7 @@ Optional<ValueIDNum> InstrRefBasedLDV::pickVPHILoc(
       // any location where the other predecessors agree, _and_ the machine
       // locations feed back into themselves. Therefore, add all self-looping
       // machine-value PHI locations.
+      // XXX how to optimise this...
       for (unsigned int I = 0; I < NumLocs; ++I) {
         ValueIDNum MPHI(MBB.getNumber(), 0, LocIdx(I));
         if (MOutLocs[ThisBBNum][I] == MPHI)
@@ -2297,6 +2301,7 @@ void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
     const SmallSet<DebugVariable, 4> &VarsWeCareAbout,
     SmallPtrSetImpl<MachineBasicBlock *> &AssignBlocks, LiveInsT &Output,
     ValueIDNum **MOutLocs, ValueIDNum **MInLocs,
+    const MLocLiveOutMap &MLocLiveOutIdx,
     SmallVectorImpl<VLocTracker> &AllTheVLocs) {
   // This method is much like buildMLocValueMap: but focuses on a single
   // LexicalScope at a time. Pick out a set of blocks and variables that are
@@ -2518,7 +2523,7 @@ void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
         // live-through-value. As a result, the selected location of any VPHI
         // might change, so we need to re-compute it on each iteration.
         Optional<ValueIDNum> ValueNum = pickVPHILoc(
-                  *MBB, Var, LiveOutIdx, MOutLocs, Preds);
+                  *MBB, Var, LiveOutIdx, MOutLocs, Preds, MLocLiveOutIdx);
 
         if (ValueNum) {
           InLocsChanged |= Val.ID != *ValueNum;
@@ -2873,6 +2878,17 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
 
   bool Changed = false;
 
+  // There is literally no such thing as too many indexes.
+  SmallVector<ValToLocIdx, 8> MLocLiveOutIdx;
+  MLocLiveOutIdx.resize(MaxNumBlocks);
+  for (int I = 0; I < MaxNumBlocks; ++I) {
+    auto &Map = MLocLiveOutIdx[I];
+    for (int J = 0; J < NumLocs; ++J) {
+      const ValueIDNum &Value = MOutLocs[I][J];
+      Map[Value].push_back(LocIdx(J));
+    }
+  }
+
   // If we have an extremely large number of variable assignments and blocks,
   // bail out at this point. We've burnt some time doing analysis already,
   // however we should cut our losses.
@@ -2890,7 +2906,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
     for (auto &P : ScopeToVars) {
       buildVLocValueMap(ScopeToDILocation[P.first], P.second,
                    ScopeToBlocks[P.first], SavedLiveIns, MOutLocs, MInLocs,
-                   vlocs);
+                   MLocLiveOutIdx, vlocs);
     }
 
     // Using the computed value locations and variable values for each block,
