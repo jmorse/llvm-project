@@ -169,7 +169,6 @@ public:
   }
 
   static ValueIDNum EmptyValue;
-  static ValueIDNum TombstoneValue;
 };
 
 /// Meta qualifiers for a value. Pair of whatever expression is used to qualify
@@ -828,9 +827,6 @@ private:
                 SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
                 ValueIDNum **OutLocs, ValueIDNum *InLocs);
 
-  typedef DenseMap<ValueIDNum, SmallVector<LocIdx, 2>> ValToLocIdx; 
-  typedef SmallVectorImpl<ValToLocIdx> MLocLiveOutMap;
-
   /// Solve the variable value dataflow problem, for a single lexical scope.
   /// Uses the algorithm from the file comment to resolve control flow joins
   /// using PHI placement and value propagation. Reads the locations of machine
@@ -848,7 +844,6 @@ private:
                     SmallPtrSetImpl<MachineBasicBlock *> &AssignBlocks,
                     LiveInsT &Output, ValueIDNum **MOutLocs,
                     ValueIDNum **MInLocs,
-                    const MLocLiveOutMap &MLocLiveOutIdx,
                     SmallVectorImpl<VLocTracker> &AllTheVLocs);
 
   /// Attempt to eliminate un-necessary PHIs on entry to a block. Examines the
@@ -873,8 +868,7 @@ private:
   Optional<ValueIDNum>
   pickVPHILoc(const MachineBasicBlock &MBB, const DebugVariable &Var,
               const LiveIdxT &LiveOuts, ValueIDNum **MOutLocs,
-              const SmallVectorImpl<const MachineBasicBlock *> &BlockOrders,
-              const MLocLiveOutMap &MLocLiveOutIdx);
+              const SmallVectorImpl<const MachineBasicBlock *> &BlockOrders);
 
   /// Given the solutions to the two dataflow problems, machine value locations
   /// in \p MInLocs and live-in variable values in \p SavedLiveIns, runs the
@@ -907,18 +901,6 @@ public:
 };
 
 } // namespace LiveDebugValues
-
-namespace llvm {
-using namespace LiveDebugValues;
-template <> struct DenseMapInfo<ValueIDNum> {
-  static inline ValueIDNum getEmptyKey() { return ValueIDNum::EmptyValue; }
-  static inline ValueIDNum getTombstoneKey() { return ValueIDNum::TombstoneValue; }
-  static unsigned getHashValue(const ValueIDNum &Val) {
-    return hash_combine(Val.getBlock(), hash_combine(Val.getInst(), Val.getLoc()));
-  }
-  static bool isEqual(const ValueIDNum &A, const ValueIDNum &B) { return A == B;}
-};
-}
 
 
 #endif /* LLVM_LIB_CODEGEN_LIVEDEBUGVALUES_INSTRREFBASEDLDV_H */
