@@ -96,6 +96,7 @@ body:  |
     ; CHECK: DBG_VALUE $noreg, $noreg
     JMP_1 %bb.4
 
+    ; CHECK-LABEL: bb.4:
   bb.4:
     ; The next three blocks form a debug use-before-def modelling a scenario
     ; where an instruction is sunk (debug inst in bb5, value in bb6). However,
@@ -113,6 +114,7 @@ body:  |
 
   ; A use-before-def shouldn't pass another definition of the variable location
   ; or value.
+    ; CHECK-LABEL: bb.7:
   bb.7:
     DBG_INSTR_REF 8, 0, !16, !DIExpression(), debug-location !17
     ; CHECK: DBG_VALUE $noreg, $noreg
@@ -122,6 +124,7 @@ body:  |
 
   ; Loops: use-before-defs should be live-through loops, assuming that nothing
   ; in that loop modifies the variable location.
+    ; CHECK-LABEL: bb.8:
   bb.8:
     DBG_INSTR_REF 9, 0, !16, !DIExpression(), debug-location !17
     ; CHECK: DBG_VALUE $noreg, $noreg
@@ -132,6 +135,7 @@ body:  |
 
   ; Likewise, use-before-defs where anything changes the variable location
   ; or value in the loop, should be discarded.
+    ; CHECK-LABEL: bb.10:
   bb.10:
     ; live-in,
     ; CHECK: DBG_VALUE $rax, $noreg,

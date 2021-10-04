@@ -2126,11 +2126,11 @@ Optional<ValueIDNum> InstrRefBasedLDV::pickVPHILoc(
 }
 
 bool InstrRefBasedLDV::vlocJoin(
-    MachineBasicBlock &MBB, LiveIdxT &VLOCOutLocs, LiveIdxT &VLOCInLocs,
+    MachineBasicBlock &MBB, LiveIdxT &VLOCOutLocs,
     const SmallSet<DebugVariable, 4> &AllVars,
     SmallPtrSet<const MachineBasicBlock *, 8> &InScopeBlocks,
     SmallPtrSet<const MachineBasicBlock *, 8> &BlocksToExplore,
-    DenseMap<DebugVariable, DbgValue> &InLocsT) {
+    DenseMap<DebugVariable, DbgValue> &ILS) {
   // To emulate VarLocBasedImpl, process this block if it's not in scope but
   // _does_ assign a variable value. No live-ins for this scope are transferred
   // in though, so we can return immediately.
@@ -2139,11 +2139,6 @@ bool InstrRefBasedLDV::vlocJoin(
 
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
-
-  // Pick out the live-ins from prior iterations.
-  auto ILSIt = VLOCInLocs.find(&MBB);
-  assert(ILSIt != VLOCInLocs.end());
-  auto &ILS = *ILSIt->second;
 
   // Order predecessors by RPOT order, for exploring them in that order.
   SmallVector<MachineBasicBlock *, 8> BlockOrders(MBB.predecessors());
@@ -2159,10 +2154,14 @@ bool InstrRefBasedLDV::vlocJoin(
   // We re-construct the live-in map each time we join. For each variable, call
   // one of these "confirm" utilities, according to which flavour of variable
   // value it is.
-  auto ConfirmValue = [&InLocsT](const DebugVariable &DV, DbgValue VR) {
-    auto Result = InLocsT.insert(std::make_pair(DV, VR));
-    (void)Result;
-    assert(Result.second);
+  auto ConfirmValue = [&ILS,&Changed](const DebugVariable &DV, const DbgValue &VR) {
+    // XXX, repeated lookup of old live in?
+    auto OldLiveIn = ILS.find(DV);
+    assert(OldLiveIn != ILS.end());
+    if (OldLiveIn->second != VR) {
+      Changed = true;
+      OldLiveIn->second = VR;
+    }
   };
 
   auto ConfirmVPHI = [&ConfirmValue,
@@ -2228,7 +2227,6 @@ bool InstrRefBasedLDV::vlocJoin(
     // value, then give up immediately. It's not safe to produce a live-in
     // value. Leave as whatever it was before.
     if (Bail || Values.size() == 0) {
-      DbgValueProperties EmptyProperties(EmptyExpr, false);
       ConfirmValue(Var, OldLiveInDbgValue);
       continue;
     }
@@ -2291,11 +2289,6 @@ bool InstrRefBasedLDV::vlocJoin(
       ConfirmVPHI(Var, FirstVal.Properties);
     }
   }
-
-  // Store newly calculated in-locs into VLOCInLocs, if they've changed.
-  Changed = ILS != InLocsT;
-  if (Changed)
-    ILS = InLocsT;
 
   return Changed;
 }
@@ -2436,6 +2429,16 @@ void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
     LiveInIdx[BlockOrders[I]] = &LiveIns[I];
   }
 
+  // Initialize all live-outs to "nothing", to avoid later conditionals.
+  for (auto &LiveOut : LiveOutIdx) {
+    const MachineBasicBlock *OutBB = LiveOut.first;
+    auto *LiveOutMap = LiveOut.second;
+    DbgValue EmptyDbgValue(OutBB->getNumber(), EmptyProperties, DbgValue::NoVal);
+    for (const DebugVariable &Var : VarsWeCareAbout)
+
+      LiveOutMap->insert(std::make_pair(Var, EmptyDbgValue));
+  }
+
   // Convert a const set to a non-const set. LexicalScopes
   // getMachineBasicBlocks returns const MBB pointers, IDF wants mutable ones.
   // (Neither of them mutate anything).
@@ -2487,14 +2490,15 @@ void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
       CurBB = MBB->getNumber();
       Worklist.pop();
 
-      DenseMap<DebugVariable, DbgValue> JoinedInLocs;
+      auto ILSIt = LiveInIdx.find(MBB);
+      assert(ILSIt != LiveInIdx.end());
+      auto &ILS = *ILSIt->second;
 
       // Join values from predecessors. Updates LiveInIdx, and writes output
       // into JoinedInLocs.
-      bool InLocsChanged;
-      InLocsChanged = vlocJoin(*MBB, LiveOutIdx, LiveInIdx,
+      bool InLocsChanged = vlocJoin(*MBB, LiveOutIdx,
                                VarsWeCareAbout, InScopeBlocks, BlocksToExplore,
-                               JoinedInLocs);
+                               ILS);
 
       SmallVector<const MachineBasicBlock *, 8> Preds;
       for (const auto *Pred : MBB->predecessors())
@@ -2505,7 +2509,7 @@ void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
       // all blocks by the time value propagation finishes. We can't do this any
       // earlier as it needs to read the block live-outs.
       for (auto &Var : VarsWeCareAbout) {
-        DbgValue &Val = JoinedInLocs.find(Var)->second;
+        DbgValue &Val = ILS.find(Var)->second;
         if (Val.Kind != DbgValue::VPHI || Val.BlockNo != CurBB)
           continue;
 
@@ -2519,45 +2523,60 @@ void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
         if (ValueNum) {
           InLocsChanged |= Val.ID != *ValueNum;
           Val.ID = *ValueNum;
-          // FIXME: it's stupid to have two different live-in maps at this
-          // stage, one for evaluating the transfer func in, one for storage.
-          // Fix this in the future.
-          LiveInIdx[MBB]->find(Var)->second.ID = *ValueNum;
         }
       }
 
       if (!InLocsChanged && !FirstTrip)
         continue;
 
+      auto &LiveOuts = *LiveOutIdx[MBB];
+      bool OLChanged = false;
+
       // Do transfer function.
       auto &VTracker = AllTheVLocs[MBB->getNumber()];
+      SmallSet<DebugVariable, 8> VarsTransferred;
       for (auto &Transfer : VTracker.Vars) {
         // Is this var we're mangling in this scope?
         if (VarsWeCareAbout.count(Transfer.first)) {
+          VarsTransferred.insert(Transfer.first);
+          auto OutIt = LiveOuts.find(Transfer.first);
+          assert(OutIt != LiveOuts.end());
+
           // Erase on empty transfer (DBG_VALUE $noreg).
           if (Transfer.second.Kind == DbgValue::Undef) {
-            auto InLocIt = JoinedInLocs.find(Transfer.first);
-            assert(InLocIt != JoinedInLocs.end());
-            InLocIt->second.Kind = DbgValue::NoVal;
+            DbgValue NewVal(MBB->getNumber(), EmptyProperties, DbgValue::NoVal);
+            if (OutIt->second != NewVal) {
+              OutIt->second = NewVal;
+              OLChanged = true;
+            }
           } else {
             // Insert new variable value; or overwrite.
-            auto NewValuePair = std::make_pair(Transfer.first, Transfer.second);
-            auto Result = JoinedInLocs.insert(NewValuePair);
-            if (!Result.second)
-              Result.first->second = Transfer.second;
+            if (OutIt->second != Transfer.second) {
+              OutIt->second = Transfer.second;
+              OLChanged = true;
+            }
           }
         }
       }
 
-      // Did the live-out locations change?
-      bool OLChanged = JoinedInLocs != *LiveOutIdx[MBB];
+      // Just copy live-ins to live-outs, for anything not transferred.
+      for (const DebugVariable &Var : VarsWeCareAbout) {
+        if (VarsTransferred.count(Var))
+          continue;
+
+        auto OutIt = LiveOuts.find(Var);
+        assert(OutIt != LiveOuts.end());
+        auto InIt = ILS.find(Var);
+        assert(InIt != ILS.end());
+        if (InIt->second != OutIt->second) {
+          OutIt->second = InIt->second;
+          OLChanged = true;
+        }
+      }
 
       // If they haven't changed, there's no need to explore further.
       if (!OLChanged)
         continue;
-
-      // Commit to the live-out record.
-      *LiveOutIdx[MBB] = JoinedInLocs;
 
       // We should visit all successors. Ensure we'll visit any non-backedge
       // successors during this dataflow iteration; book backedge successors
