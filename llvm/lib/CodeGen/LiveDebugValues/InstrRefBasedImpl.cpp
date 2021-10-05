@@ -2127,7 +2127,7 @@ Optional<ValueIDNum> InstrRefBasedLDV::pickVPHILoc(
 
 bool InstrRefBasedLDV::vlocJoin(
     MachineBasicBlock &MBB, LiveIdxT &VLOCOutLocs,
-    const SmallSet<DebugVariable, 16> &AllVars,
+    const SmallSet<DebugVariable, 4> &AllVars,
     SmallPtrSet<const MachineBasicBlock *, 8> &InScopeBlocks,
     SmallPtrSet<const MachineBasicBlock *, 8> &BlocksToExplore,
     DenseMap<DebugVariable, DbgValue> &ILS) {
@@ -2439,16 +2439,6 @@ void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
       LiveOutMap->insert(std::make_pair(Var, EmptyDbgValue));
   }
 
-  // Eeehhh. Keep a set, for each block, of which variables have actually
-  // changed in a block. Avoids extra un-necessary work.
-  SmallVector<SmallSet<DebugVariable, 8>, 8> PerBlockChangedVarsA, PerBlockChangedVarsB;
-  PerBlockChangedVarsA.resize(BBToOrder.size());
-  PerBlockChangedVarsB.resize(BBToOrder.size());
-  for (auto &TheSet : PerBlockChangedVarsA)
-    TheSet.insert(VarsWeCareAbout.begin(), VarsWeCareAbout.end());
-  auto *PerBlockChangedVarsToRead = &PerBlockChangedVarsA;
-  auto *PerBlockChangedVarsToWrite = &PerBlockChangedVarsB;
-
   // Convert a const set to a non-const set. LexicalScopes
   // getMachineBasicBlocks returns const MBB pointers, IDF wants mutable ones.
   // (Neither of them mutate anything).
@@ -2494,19 +2484,11 @@ void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
   // Always evaluate the transfer function on the first iteration, and when the
   // live-ins change thereafter.
   bool FirstTrip = true;
-  SmallSet<DebugVariable, 16> VarsToLookAt;
   while (!Worklist.empty() || !Pending.empty()) {
     while (!Worklist.empty()) {
       auto *MBB = OrderToBB[Worklist.top()];
       CurBB = MBB->getNumber();
       Worklist.pop();
-
-      SmallVector<const MachineBasicBlock *, 8> Preds;
-      for (const auto *Pred : MBB->predecessors()) {
-        Preds.push_back(Pred);
-        auto &ToLookAt = (*PerBlockChangedVarsToRead)[BBToOrder[Pred]];
-        VarsToLookAt.insert(ToLookAt.begin(), ToLookAt.end());
-      }
 
       auto ILSIt = LiveInIdx.find(MBB);
       assert(ILSIt != LiveInIdx.end());
@@ -2515,14 +2497,18 @@ void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
       // Join values from predecessors. Updates LiveInIdx, and writes output
       // into JoinedInLocs.
       bool InLocsChanged = vlocJoin(*MBB, LiveOutIdx,
-                               VarsToLookAt, InScopeBlocks, BlocksToExplore,
+                               VarsWeCareAbout, InScopeBlocks, BlocksToExplore,
                                ILS);
+
+      SmallVector<const MachineBasicBlock *, 8> Preds;
+      for (const auto *Pred : MBB->predecessors())
+        Preds.push_back(Pred);
 
       // Opportunistically pick a machine-value for any VPHIs starting in this
       // block. This makes their machine-value available and propagated through
       // all blocks by the time value propagation finishes. We can't do this any
       // earlier as it needs to read the block live-outs.
-      for (auto &Var : VarsToLookAt) {
+      for (auto &Var : VarsWeCareAbout) {
         DbgValue &Val = ILS.find(Var)->second;
         if (Val.Kind != DbgValue::VPHI || Val.BlockNo != CurBB)
           continue;
@@ -2561,14 +2547,12 @@ void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
             DbgValue NewVal(MBB->getNumber(), EmptyProperties, DbgValue::NoVal);
             if (OutIt->second != NewVal) {
               OutIt->second = NewVal;
-              (*PerBlockChangedVarsToWrite)[BBToOrder[MBB]].insert(Transfer.first);
               OLChanged = true;
             }
           } else {
             // Insert new variable value; or overwrite.
             if (OutIt->second != Transfer.second) {
               OutIt->second = Transfer.second;
-              (*PerBlockChangedVarsToWrite)[BBToOrder[MBB]].insert(Transfer.first);
               OLChanged = true;
             }
           }
@@ -2576,7 +2560,7 @@ void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
       }
 
       // Just copy live-ins to live-outs, for anything not transferred.
-      for (const DebugVariable &Var : VarsToLookAt) {
+      for (const DebugVariable &Var : VarsWeCareAbout) {
         if (VarsTransferred.count(Var))
           continue;
 
@@ -2586,7 +2570,6 @@ void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
         assert(InIt != ILS.end());
         if (InIt->second != OutIt->second) {
           OutIt->second = InIt->second;
-          (*PerBlockChangedVarsToWrite)[BBToOrder[MBB]].insert(Var);
           OLChanged = true;
         }
       }
@@ -2616,10 +2599,6 @@ void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
     OnPending.clear();
     assert(Pending.empty());
     FirstTrip = false;
-
-    PerBlockChangedVarsToWrite->clear();
-    PerBlockChangedVarsToWrite->resize(BBToOrder.size());
-    std::swap(PerBlockChangedVarsToRead, PerBlockChangedVarsToWrite);
   }
 
   // Save live-ins to output vector. Ignore any that are still marked as being
