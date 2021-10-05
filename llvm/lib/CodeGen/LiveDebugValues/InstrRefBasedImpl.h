@@ -637,8 +637,7 @@ public:
 
   /// Live in/out structure for the variable values: a per-block map of
   /// variables to their values. XXX, better name?
-  using LiveIdxT =
-      DenseMap<const MachineBasicBlock *, DenseMap<DebugVariable, DbgValue> *>;
+  using LiveIdxT = DenseMap<const MachineBasicBlock *, DbgValue*>;
 
   using VarAndLoc = std::pair<DebugVariable, DbgValue>;
 
@@ -860,7 +859,7 @@ private:
                 const SmallSet<DebugVariable, 4> &AllVars,
                 SmallPtrSet<const MachineBasicBlock *, 8> &InScopeBlocks,
                 SmallPtrSet<const MachineBasicBlock *, 8> &BlocksToExplore,
-                DenseMap<DebugVariable, DbgValue> &InLocsT);
+                DbgValue &LiveIn);
 
   /// For the given block and live-outs feeding into it, try to find a
   /// machine location where all the variable values join together.
