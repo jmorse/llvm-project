@@ -2356,6 +2356,8 @@ for (auto &Var : VarsWeCareAbout) {
   // through, but we don't know what it is".
   DbgValueProperties EmptyProperties(EmptyExpr, false);
   unsigned int BlockIdx = 0;
+  LiveIns.clear();
+  LiveOuts.clear();
   for (unsigned int I = 0; I < NumBlocks; ++I) {
     // XXX, NoVal value now meaningless?
     DbgValue EmptyDbgValue(I, EmptyProperties, DbgValue::NoVal);
