@@ -721,7 +721,7 @@ public:
 
   /// Machine location/value transfer function, a mapping of which locations
   /// are assigned which new values.
-  using MLocTransferMap = std::map<LocIdx, ValueIDNum>;
+  using MLocTransferMap = SmallDenseMap<LocIdx, ValueIDNum>;
 
   /// Live in/out structure for the variable values: a per-block map of
   /// variables to their values.
@@ -996,5 +996,32 @@ public:
 };
 
 } // namespace LiveDebugValues
+
+namespace llvm {
+using namespace LiveDebugValues;
+
+template <> struct DenseMapInfo<LocIdx> {
+  static inline LocIdx getEmptyKey() { return LocIdx::MakeIllegalLoc(); }
+  static inline LocIdx getTombstoneKey() { return LocIdx::MakeTombstoneLoc();}
+
+  static unsigned getHashValue(const LocIdx &Loc) {
+    return hash_value(Loc.asU64());
+  }
+
+  static bool isEqual(const LocIdx &A, const LocIdx &B) { return A == B; }
+};
+
+template <> struct DenseMapInfo<ValueIDNum>  {
+  static inline ValueIDNum getEmptyKey() { return ValueIDNum::EmptyValue; }
+  static inline ValueIDNum getTombstoneKey() { return ValueIDNum::TombstoneValue; }
+
+  static unsigned getHashValue(const ValueIDNum &Val) {
+    return hash_code(Val.asU64());
+  }
+
+  static bool isEqual(const ValueIDNum &A, const ValueIDNum &B) { return A == B; }
+};
+
+} // end namespace llvm
 
 #endif /* LLVM_LIB_CODEGEN_LIVEDEBUGVALUES_INSTRREFBASEDLDV_H */
