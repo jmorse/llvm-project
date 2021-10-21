@@ -55,6 +55,11 @@ public:
   }
 
   static LocIdx MakeIllegalLoc() { return LocIdx(); }
+  static LocIdx MakeTombstoneLoc() {
+    LocIdx L = LocIdx();
+    --L.Location;
+    return L;
+  }
 
   bool isIllegal() const { return Location == UINT_MAX; }
 
@@ -155,6 +160,7 @@ public:
   }
 
   static ValueIDNum EmptyValue;
+  static ValueIDNum TombstoneValue;
 };
 
 /// Thin wrapper around an integer -- designed to give more type safety to
