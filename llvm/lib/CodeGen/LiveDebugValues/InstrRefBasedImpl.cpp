@@ -234,6 +234,7 @@ public:
 
   const TargetRegisterInfo &TRI;
   const BitVector &CalleeSavedRegs;
+  BitVector CalleeSavedLocs;
 
   TransferTracker(const TargetInstrInfo *TII, MLocTracker *MTracker,
                   MachineFunction &MF, const TargetRegisterInfo &TRI,
@@ -243,6 +244,22 @@ public:
     TLI = MF.getSubtarget().getTargetLowering();
     auto &TM = TPC.getTM<TargetMachine>();
     ShouldEmitDebugEntryValues = TM.Options.ShouldEmitDebugEntryValues();
+
+    // Transform callee-saved-regs into a table of whether a LocIdx is callee
+    // saved or not.
+    CalleeSavedLocs.resize(MTracker->getNumLocs());
+    for (auto Location : MTracker->locations()) {
+      LocIdx Idx = Location.Idx;
+      CalleeSavedLocs.reset(Idx.asU64());
+
+      if (MTracker->isSpill(Idx))
+        continue;
+
+      Register Reg = MTracker->LocIdxToLocID[Idx.asU64()];
+      for (MCRegAliasIterator RAI(Reg, &TRI, true); RAI.isValid(); ++RAI)
+        if (CalleeSavedRegs.test(*RAI))
+          CalleeSavedLocs.set(Idx.asU64());
+    }
   }
 
   /// Load object with live-in variable values. \p mlocs contains the live-in
@@ -260,16 +277,6 @@ public:
     VarLocs.reserve(NumLocs);
     UseBeforeDefs.clear();
     UseBeforeDefVariables.clear();
-
-    auto isCalleeSaved = [&](LocIdx L) {
-      unsigned Reg = MTracker->LocIdxToLocID[L];
-      if (Reg >= MTracker->NumRegs)
-        return false;
-      for (MCRegAliasIterator RAI(Reg, &TRI, true); RAI.isValid(); ++RAI)
-        if (CalleeSavedRegs.test(*RAI))
-          return true;
-      return false;
-    };
 
     // Map of the preferred location for each value.
     std::map<ValueIDNum, LocIdx> ValueToLoc;
@@ -289,7 +296,7 @@ public:
       //  * Other registers,
       //  * Spill slots.
       if (it == ValueToLoc.end() || MTracker->isSpill(it->second) ||
-          (!isCalleeSaved(it->second) && isCalleeSaved(Idx.asU64()))) {
+          (!CalleeSavedLocs.test(it->second.asU64()) && CalleeSavedLocs.test(Idx.asU64()))) {
         // Insert, or overwrite if insertion failed.
         auto PrefLocRes = ValueToLoc.insert(std::make_pair(VNum, Idx));
         if (!PrefLocRes.second)
