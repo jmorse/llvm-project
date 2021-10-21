@@ -808,7 +808,7 @@ MachineInstrBuilder MLocTracker::emitLoc(Optional<LocIdx> MLoc,
     MIB.addReg(0);
   } else if (LocIdxToLocID[*MLoc] >= NumRegs) {
     unsigned LocID = LocIdxToLocID[*MLoc];
-    unsigned SpillID = locIDToSpill(LocID);
+    SpillLocationNo SpillID = locIDToSpill(LocID);
     StackSlotPos StackIdx = locIDToSpillIdx(LocID);
     unsigned short Offset = StackIdx.second;
 
@@ -820,7 +820,7 @@ MachineInstrBuilder MLocTracker::emitLoc(Optional<LocIdx> MLoc,
     // The consumer should already have type information to work out how large
     // the variable is.
     if (Offset == 0) {
-      const SpillLoc &Spill = SpillLocs[SpillID];
+      const SpillLoc &Spill = SpillLocs[SpillID.id()];
       Expr = TRI.prependOffsetExpression(Expr, DIExpression::ApplyOffset,
                                          Spill.SpillOffset);
       unsigned Base = Spill.SpillBase;
@@ -1819,22 +1819,52 @@ bool InstrRefBasedLDV::mlocJoin(
   return Changed;
 }
 
+void InstrRefBasedLDV::findStackIndexInterference(SmallVectorImpl<unsigned> &Slots) {
+  // We could spend a bit of time finding the exact, minimal, set of stack
+  // indexes that interfere with each other, much like reg units. Or, we can
+  // rely on the fact that:
+  //  * The smallest / lowest index will interfere with everything at zero
+  //    offset, which will be the largest set of registers,
+  //  * Most indexes with non-zero offset will end up being interference units
+  //    anyway.
+  // So just pick those out and return them.
+
+  // We can rely on a single-byte stack index existing already, because we
+  // initialize them in MLocTracker.
+  auto It = MTracker->StackSlotIdxes.find({8, 0});
+  assert(It != MTracker->StackSlotIdxes.end());
+  Slots.push_back(It->second);
+
+  // Find anything that has a non-zero offset and add that too.
+  for (auto &Pair : MTracker->StackSlotIdxes) {
+    // Is offset zero? If so, ignore.
+    if (!Pair.first.second)
+      continue;
+    Slots.push_back(Pair.second);
+  }
+}
+
 void InstrRefBasedLDV::placeMLocPHIs(MachineFunction &MF,
                               SmallPtrSetImpl<MachineBasicBlock *> &AllBlocks,
                               ValueIDNum **MInLocs,
                               SmallVectorImpl<MLocTransferMap> &MLocTransfer) {
+  SmallVector<unsigned, 4> StackUnits;
+  findStackIndexInterference(StackUnits);
+
   // To avoid repeatedly running the PHI placement algorithm, leverage the
   // fact that a def of register MUST also def its register units. Find the
   // units for registers, place PHIs for them, and then replicate them for 
   // aliasing registers. Some inputs that are never def'd (DBG_PHIs of
   // arguments) don't lead to register units being tracked, just place PHIs for
-  // those registers directly. Do the same for stack slots.
+  // those registers directly. Stack slots have their own form of "unit",
+  // store them to one side.
   SmallSet<Register, 32> RegUnitsToPHIUp;
-  SmallSet<LocIdx, 32> LocsToPHI;
+  SmallSet<LocIdx, 32> NormalLocsToPHI;
+  SmallSet<SpillLocationNo, 32> StackSlots;
   for (auto Location : MTracker->locations()) {
     LocIdx L = Location.Idx;
     if (MTracker->isSpill(L)) {
-      LocsToPHI.insert(L);
+      StackSlots.insert(MTracker->locIDToSpill(MTracker->LocIdxToLocID[L]));
       continue;
     }
 
@@ -1855,7 +1885,7 @@ void InstrRefBasedLDV::placeMLocPHIs(MachineFunction &MF,
     }
 
     if (AnyIllegal) {
-      LocsToPHI.insert(L);
+      NormalLocsToPHI.insert(L);
       continue;
     }
 
@@ -1887,12 +1917,39 @@ void InstrRefBasedLDV::placeMLocPHIs(MachineFunction &MF,
     BlockPHIPlacement(AllBlocks, DefBlocks, PHIBlocks);
   };
 
-  // For spill slots, and locations with no reg units, just place PHIs.
-  for (LocIdx L : LocsToPHI) {
-    CollectPHIsForLoc(L);
-    // Install those PHI values into the live-in value array.
+  auto InstallPHIsAtLoc = [&PHIBlocks, &MInLocs](LocIdx L) {
     for (const MachineBasicBlock *MBB : PHIBlocks)
       MInLocs[MBB->getNumber()][L.asU64()] = ValueIDNum(MBB->getNumber(), 0, L);
+  };
+
+  // For locations with no reg units, just place PHIs.
+  for (LocIdx L : NormalLocsToPHI) {
+    CollectPHIsForLoc(L);
+    // Install those PHI values into the live-in value array.
+     InstallPHIsAtLoc(L);
+  }
+
+  // For stack slots, calculate PHIs for the equivalent of the units, then
+  // install for each index.
+  for (SpillLocationNo Slot : StackSlots) {
+    for (unsigned Idx : StackUnits) {
+      LocIdx L = MTracker->getSpillIDWithIdx(Slot, Idx);
+      CollectPHIsForLoc(L);
+      InstallPHIsAtLoc(L);
+
+      // Find anything that aliases this stack index, install PHIs for it too.
+      unsigned Size, Offset;
+      std::tie(Size, Offset) = MTracker->StackIdxesToPos[Idx];
+      for (auto &Pair : MTracker->StackSlotIdxes) {
+        unsigned ThisSize, ThisOffset;
+        std::tie(ThisSize, ThisOffset) = Pair.first;
+        if (Size + Offset <= ThisOffset || Offset >= ThisSize + ThisOffset)
+          continue;
+
+        LocIdx ThisL = MTracker->getSpillIDWithIdx(Slot, Pair.second);
+        InstallPHIsAtLoc(ThisL);
+      }
+    }
   }
 
   // For reg units, place PHIs, and then place them for any aliasing registers.
@@ -1901,8 +1958,7 @@ void InstrRefBasedLDV::placeMLocPHIs(MachineFunction &MF,
     CollectPHIsForLoc(L);
 
     // Install those PHI values into the live-in value array.
-    for (const MachineBasicBlock *MBB : PHIBlocks)
-      MInLocs[MBB->getNumber()][L.asU64()] = ValueIDNum(MBB->getNumber(), 0, L);
+    InstallPHIsAtLoc(L);
 
     // Now find aliases and install PHIs for those.
     for (MCRegAliasIterator RAI(R, TRI, true); RAI.isValid(); ++RAI) {
@@ -1912,9 +1968,7 @@ void InstrRefBasedLDV::placeMLocPHIs(MachineFunction &MF,
         continue;
 
       LocIdx AliasLoc = MTracker->lookupOrTrackRegister(*RAI);
-      for (const MachineBasicBlock *MBB : PHIBlocks)
-        MInLocs[MBB->getNumber()][AliasLoc.asU64()] =
-            ValueIDNum(MBB->getNumber(), 0, AliasLoc);
+      InstallPHIsAtLoc(AliasLoc);
     }
   }
 }
