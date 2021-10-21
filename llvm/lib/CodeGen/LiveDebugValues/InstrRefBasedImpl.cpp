@@ -794,7 +794,11 @@ std::string MLocTracker::IDAsString(const ValueIDNum &Num) const {
 #ifndef NDEBUG
 LLVM_DUMP_METHOD void MLocTracker::dump() {
   for (auto Location : locations()) {
-    std::string MLocName = LocIdxToName(Location.Value.getLoc());
+    std::string MLocName;
+    if (Location.Value == ValueIDNum::EmptyValue)
+      MLocName = "?????????";
+    else
+      MLocName = LocIdxToName(Location.Value.getLoc());
     std::string DefName = Location.Value.asString(MLocName);
     dbgs() << LocIdxToName(Location.Idx) << " --> " << DefName << "\n";
   }
@@ -2031,9 +2035,6 @@ void InstrRefBasedLDV::buildMLocValueMap(
   // remove them.
   SmallPtrSet<const MachineBasicBlock *, 16> Visited;
   while (!Worklist.empty() || !Pending.empty()) {
-    // Vector for storing the evaluated block transfer function.
-    SmallVector<std::pair<LocIdx, ValueIDNum>, 32> ToRemap;
-
     while (!Worklist.empty()) {
       MachineBasicBlock *MBB = OrderToBB[Worklist.top()];
       CurBB = MBB->getNumber();
@@ -2049,36 +2050,32 @@ void InstrRefBasedLDV::buildMLocValueMap(
       if (!InLocsChanged)
         continue;
 
-      // Load the current set of live-ins into MLocTracker.
-      MTracker->loadFromArray(MInLocs[CurBB], CurBB);
+      bool OLChanged = false;
+      auto SetLiveOut = [&](LocIdx L, const ValueIDNum &Value) {
+        assert(Value != ValueIDNum::EmptyValue);
+        OLChanged |= MOutLocs[CurBB][L.asU64()] != Value;
+        MOutLocs[CurBB][L.asU64()] = Value;
+      };
 
-      // Each element of the transfer function can be a new def, or a read of
-      // a live-in value. Evaluate each element, and store to "ToRemap".
-      ToRemap.clear();
-      for (auto &P : MLocTransfer[CurBB]) {
-        if (P.second.getBlock() == CurBB && P.second.isPHI()) {
-          // This is a movement of whatever was live in. Read it.
-          ValueIDNum NewID = MTracker->readMLoc(P.second.getLoc());
-          ToRemap.push_back(std::make_pair(P.first, NewID));
+      // Enumerate all locations: if it's in the transfer function, transfer
+      // it, otherwise copy it from live-ins
+      const auto &TransferMap = MLocTransfer[CurBB];
+      for (auto Location : MTracker->locations()) {
+        auto TransferIt = TransferMap.find(Location.Idx);
+        if (TransferIt == TransferMap.end()) {
+          // No transfer -> it's live-in.
+          SetLiveOut(Location.Idx, MInLocs[CurBB][Location.Idx.asU64()]);
+        }  else if (TransferIt->second.getBlock() == CurBB &&
+                    TransferIt->second.isPHI()) {
+          // This is a movement of whatever was live in. Read it, assign to
+          // live-outs.
+          LocIdx SrcLoc = TransferIt->second.getLoc();
+          SetLiveOut(Location.Idx, MInLocs[CurBB][SrcLoc.asU64()]);
         } else {
           // It's a def. Just set it.
-          assert(P.second.getBlock() == CurBB);
-          ToRemap.push_back(std::make_pair(P.first, P.second));
+          assert(TransferIt->second.getBlock() == CurBB);
+          SetLiveOut(Location.Idx, TransferIt->second);
         }
-      }
-
-      // Commit the transfer function changes into mloc tracker, which
-      // transforms the contents of the MLocTracker into the live-outs.
-      for (auto &P : ToRemap)
-        MTracker->setMLoc(P.first, P.second);
-
-      // Now copy out-locs from mloc tracker into out-loc vector, checking
-      // whether changes have occurred. These changes can have come from both
-      // the transfer function, and mlocJoin.
-      bool OLChanged = false;
-      for (auto Location : MTracker->locations()) {
-        OLChanged |= MOutLocs[CurBB][Location.Idx.asU64()] != Location.Value;
-        MOutLocs[CurBB][Location.Idx.asU64()] = Location.Value;
       }
 
       MTracker->reset();
