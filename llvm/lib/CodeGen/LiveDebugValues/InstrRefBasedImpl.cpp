@@ -1948,7 +1948,8 @@ void InstrRefBasedLDV::placeMLocPHIs(MachineFunction &MF,
         if (Size + Offset <= ThisOffset || Offset >= ThisSize + ThisOffset)
           continue;
 
-        LocIdx ThisL = MTracker->getSpillIDWithIdx(Slot, Pair.second);
+        unsigned ThisID = MTracker->getSpillIDWithIdx(Slot, Pair.second);
+        LocIdx ThisL = MTracker->getSpillMLoc(ThisID);
         InstallPHIsAtLoc(ThisL);
       }
     }
