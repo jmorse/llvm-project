@@ -3098,12 +3098,12 @@ public:
 class LDVSSAUpdater {
 public:
   /// Map of value numbers to PHI records.
-  DenseMap<BlockValueNum, LDVSSAPhi *> PHIs;
+  SmallDenseMap<BlockValueNum, LDVSSAPhi *> PHIs;
   /// Map of which blocks generate Undef values -- blocks that are not
   /// dominated by any Def.
-  DenseMap<MachineBasicBlock *, BlockValueNum> UndefMap;
+  SmallDenseMap<MachineBasicBlock *, BlockValueNum> UndefMap;
   /// Map of machine blocks to our own records of them.
-  DenseMap<MachineBasicBlock *, LDVSSABlock *> BlockMap;
+  SmallDenseMap<MachineBasicBlock *, LDVSSABlock *> BlockMap;
   /// Machine location where any PHI must occur.
   LocIdx Loc;
   /// Table of live-in machine value numbers for blocks / locations.
