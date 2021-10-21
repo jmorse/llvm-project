@@ -676,6 +676,8 @@ MLocTracker::MLocTracker(MachineFunction &MF, const TargetInstrInfo &TII,
   StackSlotIdxes.insert({{32, 0}, 2});
   StackSlotIdxes.insert({{64, 0}, 3});
   StackSlotIdxes.insert({{128, 0}, 4});
+  StackSlotIdxes.insert({{256, 0}, 5});
+  StackSlotIdxes.insert({{512, 0}, 6});
 
   // Traverse all the subregister idxes, and ensure there's an index for them.
   // Duplicates are no problem: we're interested in their position in the
