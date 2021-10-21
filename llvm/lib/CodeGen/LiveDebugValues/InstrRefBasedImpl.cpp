@@ -226,12 +226,12 @@ public:
   /// Map from LocIdxes to which DebugVariables are based that location.
   /// Mantained while stepping through the block. Not accurate if
   /// VarLocs[Idx] != MTracker->LocIdxToIDNum[Idx].
-  DenseMap<LocIdx, SmallSet<DebugVariable, 4>> ActiveMLocs;
+  SmallDenseMap<LocIdx, SmallSet<DebugVariable, 4>, 8> ActiveMLocs;
 
   /// Map from DebugVariable to it's current location and qualifying meta
   /// information. To be used in conjunction with ActiveMLocs to construct
   /// enough information for the DBG_VALUEs for a particular LocIdx.
-  DenseMap<DebugVariable, LocAndProperties> ActiveVLocs;
+  SmallDenseMap<DebugVariable, LocAndProperties, 8> ActiveVLocs;
 
   /// Temporary cache of DBG_VALUEs to be entered into the Transfers collection.
   SmallVector<MachineInstr *, 4> PendingDbgValues;
@@ -297,7 +297,7 @@ public:
     };
 
     // Map of the preferred location for each value.
-    DenseMap<ValueIDNum, LocIdx> ValueToLoc;
+    SmallDenseMap<ValueIDNum, LocIdx, 16> ValueToLoc;
 
     // Produce a map of value numbers to the current machine locs they live
     // in. When emulating VarLocBasedImpl, there should only be one
