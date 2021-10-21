@@ -304,7 +304,10 @@ public:
     UseBeforeDefVariables.clear();
 
     // Map of the preferred location for each value.
-    SmallDenseMap<ValueIDNum, LocIdx, 16> ValueToLoc;
+    SmallDenseMap<ValueIDNum, LocIdx> ValueToLoc;
+    ValueToLoc.reserve(MTracker->getNumLocs());
+    ActiveMLocs.reserve(VLocs.size());
+    ActiveVLocs.reserve(VLocs.size());
 
     // Produce a map of value numbers to the current machine locs they live
     // in. When emulating VarLocBasedImpl, there should only be one
