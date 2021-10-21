@@ -164,6 +164,17 @@ public:
   explicit SpillLocationNo(unsigned SpillNo) : SpillNo(SpillNo) {}
   unsigned SpillNo;
   unsigned id() const { return SpillNo; }
+
+  bool operator<(const SpillLocationNo &Other) const {
+    return SpillNo < Other.SpillNo;
+  }
+
+  bool operator==(const SpillLocationNo &Other) const {
+    return SpillNo == Other.SpillNo;
+  }
+  bool operator!=(const SpillLocationNo &Other) const {
+    return !(*this == Other);
+  }
 };
 
 /// Meta qualifiers for a value. Pair of whatever expression is used to qualify
@@ -453,11 +464,11 @@ public:
   }
 
   /// Return the spill number that a location ID corresponds to.
-  unsigned locIDToSpill(unsigned ID) const {
+  SpillLocationNo locIDToSpill(unsigned ID) const {
     assert(ID >= NumRegs);
     ID -= NumRegs;
     ID /= NumSlotIdxes;
-    return ID + 1; // The UniqueVector is one-based.
+    return SpillLocationNo(ID + 1); // The UniqueVector is one-based.
   }
 
   /// Returns the spill-slot size/offs that a location ID corresponds to.
@@ -877,6 +888,10 @@ private:
   void buildMLocValueMap(MachineFunction &MF, ValueIDNum **MInLocs,
                          ValueIDNum **MOutLocs,
                          SmallVectorImpl<MLocTransferMap> &MLocTransfer);
+
+  /// Examine the stack indexes (i.e. offsets within the stack) to find the
+  /// basic units of interference -- like reg units, but for the stack.
+  void findStackIndexInterference(SmallVectorImpl<unsigned> &Slots);
 
   /// Install PHI values into the live-in array for each block, according to
   /// the IDF of each register.
