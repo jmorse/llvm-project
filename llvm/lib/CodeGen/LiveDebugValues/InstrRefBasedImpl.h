@@ -932,7 +932,7 @@ private:
   /// was made, the second whether a lattice downgrade occurred. If the latter
   /// is true, revisiting this block is necessary.
   bool mlocJoin(MachineBasicBlock &MBB,
-                SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
+                SmallDenseSet<const MachineBasicBlock *, 16> &Visited,
                 ValueIDNum **OutLocs, ValueIDNum *InLocs);
 
   /// Solve the variable value dataflow problem, for a single lexical scope.
@@ -962,8 +962,8 @@ private:
   /// \returns true if any live-ins change value, either from value propagation
   ///          or PHI elimination.
   bool vlocJoin(MachineBasicBlock &MBB, LiveIdxT &VLOCOutLocs,
-                SmallPtrSet<const MachineBasicBlock *, 8> &InScopeBlocks,
-                SmallPtrSet<const MachineBasicBlock *, 8> &BlocksToExplore,
+                SmallDenseSet<const MachineBasicBlock *, 16> &InScopeBlocks,
+                SmallPtrSetImpl<const MachineBasicBlock *> &BlocksToExplore,
                 DbgValue &LiveIn);
 
   /// For the given block and live-outs feeding into it, try to find a

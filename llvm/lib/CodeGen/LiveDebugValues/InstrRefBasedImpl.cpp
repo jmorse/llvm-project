@@ -1759,7 +1759,7 @@ void InstrRefBasedLDV::produceMLocTransferFunction(
 }
 
 bool InstrRefBasedLDV::mlocJoin(
-    MachineBasicBlock &MBB, SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
+    MachineBasicBlock &MBB, SmallDenseSet<const MachineBasicBlock *, 16> &Visited,
     ValueIDNum **OutLocs, ValueIDNum *InLocs) {
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
@@ -1911,7 +1911,7 @@ void InstrRefBasedLDV::placeMLocPHIs(MachineFunction &MF,
   SmallVector<MachineBasicBlock *, 32> PHIBlocks;
   auto CollectPHIsForLoc = [&](LocIdx L) {
     // Collect the set of defs.
-    SmallPtrSet<MachineBasicBlock *, 32> DefBlocks;
+    SmallPtrSet<MachineBasicBlock *, 16> DefBlocks;
     for (unsigned int I = 0; I < OrderToBB.size(); ++I) {
       MachineBasicBlock *MBB = OrderToBB[I];
       const auto &TransferFunc = MLocTransfer[MBB->getNumber()];
@@ -1998,11 +1998,11 @@ void InstrRefBasedLDV::buildMLocValueMap(
   // We track what is on the current and pending worklist to avoid inserting
   // the same thing twice. We could avoid this with a custom priority queue,
   // but this is probably not worth it.
-  SmallPtrSet<MachineBasicBlock *, 16> OnPending, OnWorklist;
+  SmallDenseSet<MachineBasicBlock *, 16> OnPending, OnWorklist;
 
   // Initialize worklist with every block to be visited. Also produce list of
   // all blocks.
-  SmallPtrSet<MachineBasicBlock *, 32> AllBlocks;
+  SmallPtrSet<MachineBasicBlock *, 16> AllBlocks;
   for (unsigned int I = 0; I < BBToOrder.size(); ++I) {
     Worklist.push(I);
     OnWorklist.insert(OrderToBB[I]);
@@ -2028,7 +2028,7 @@ void InstrRefBasedLDV::buildMLocValueMap(
   // the same value once control flow joins, unbeknowns to the PHI placement
   // code. Propagating values allows us to identify such un-necessary PHIs and
   // remove them.
-  SmallPtrSet<const MachineBasicBlock *, 16> Visited;
+  SmallDenseSet<const MachineBasicBlock *, 16> Visited;
   while (!Worklist.empty() || !Pending.empty()) {
     // Vector for storing the evaluated block transfer function.
     SmallVector<std::pair<LocIdx, ValueIDNum>, 32> ToRemap;
@@ -2262,8 +2262,8 @@ Optional<ValueIDNum> InstrRefBasedLDV::pickVPHILoc(
 
 bool InstrRefBasedLDV::vlocJoin(
     MachineBasicBlock &MBB, LiveIdxT &VLOCOutLocs,
-    SmallPtrSet<const MachineBasicBlock *, 8> &InScopeBlocks,
-    SmallPtrSet<const MachineBasicBlock *, 8> &BlocksToExplore,
+    SmallDenseSet<const MachineBasicBlock *, 16> &InScopeBlocks,
+    SmallPtrSetImpl<const MachineBasicBlock *> &BlocksToExplore,
     DbgValue &LiveIn) {
   // To emulate VarLocBasedImpl, process this block if it's not in scope but
   // _does_ assign a variable value. No live-ins for this scope are transferred
@@ -2387,7 +2387,7 @@ void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
   std::priority_queue<unsigned int, std::vector<unsigned int>,
                       std::greater<unsigned int>>
       Worklist, Pending;
-  SmallPtrSet<MachineBasicBlock *, 16> OnWorklist, OnPending;
+  SmallDenseSet<MachineBasicBlock *, 16> OnWorklist, OnPending;
 
   // The set of blocks we'll be examining.
   SmallPtrSet<const MachineBasicBlock *, 8> BlocksToExplore;
@@ -2404,7 +2404,8 @@ void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
 
   // A separate container to distinguish "blocks we're exploring" versus
   // "blocks that are potentially in scope. See comment at start of vlocJoin.
-  SmallPtrSet<const MachineBasicBlock *, 8> InScopeBlocks = BlocksToExplore;
+  SmallDenseSet<const MachineBasicBlock *, 16> InScopeBlocks;
+  InScopeBlocks.insert(BlocksToExplore.begin(), BlocksToExplore.end());
 
   // Old LiveDebugValues tracks variable locations that come out of blocks
   // not in scope, where DBG_VALUEs occur. This is something we could
