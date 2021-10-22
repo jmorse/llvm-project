@@ -279,8 +279,7 @@ public:
     UseBeforeDefVariables.clear();
 
     // Map of the preferred location for each value.
-    SmallDenseMap<ValueIDNum, LocIdx> ValueToLoc;
-    ValueToLoc.reserve(MTracker->getNumLocs());
+    std::map<ValueIDNum, LocIdx> ValueToLoc;
     ActiveMLocs.reserve(VLocs.size());
     ActiveVLocs.reserve(VLocs.size());
 
