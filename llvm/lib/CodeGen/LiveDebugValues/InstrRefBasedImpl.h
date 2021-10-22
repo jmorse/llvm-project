@@ -1014,7 +1014,7 @@ template <> struct DenseMapInfo<LocIdx> {
   static inline LocIdx getTombstoneKey() { return LocIdx::MakeTombstoneLoc();}
 
   static unsigned getHashValue(const LocIdx &Loc) {
-    return hash_value(Loc.asU64());
+    return Loc.asU64();
   }
 
   static bool isEqual(const LocIdx &A, const LocIdx &B) { return A == B; }
@@ -1025,7 +1025,7 @@ template <> struct DenseMapInfo<ValueIDNum>  {
   static inline ValueIDNum getTombstoneKey() { return ValueIDNum::TombstoneValue; }
 
   static unsigned getHashValue(const ValueIDNum &Val) {
-    return hash_code(Val.asU64());
+    return Val.asU64();
   }
 
   static bool isEqual(const ValueIDNum &A, const ValueIDNum &B) { return A == B; }
