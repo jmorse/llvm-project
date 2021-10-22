@@ -3276,7 +3276,7 @@ Optional<ValueIDNum> InstrRefBasedLDV::resolveDbgPHIs(MachineFunction &MF,
   // Adapted LLVM SSA Updater:
   LDVSSAUpdater Updater(Loc, MLiveIns);
   // Map of which Def or PHI is the current value in each block.
-  DenseMap<LDVSSABlock *, BlockValueNum> AvailableValues;
+  SmallDenseMap<LDVSSABlock *, BlockValueNum> AvailableValues;
   // Set of PHIs that we have created along the way.
   SmallVector<LDVSSAPhi *, 8> CreatedPHIs;
 
@@ -3313,7 +3313,7 @@ Optional<ValueIDNum> InstrRefBasedLDV::resolveDbgPHIs(MachineFunction &MF,
   //    predecessor values the same, leading to a non-PHI machine value number?
   //    (SSAUpdater doesn't know that either). Remap validated PHIs into the
   //    the ValidatedValues collection below to sort this out.
-  DenseMap<LDVSSABlock *, ValueIDNum> ValidatedValues;
+  SmallDenseMap<LDVSSABlock *, ValueIDNum> ValidatedValues;
 
   // Define all the input DBG_PHI values in ValidatedValues.
   for (const auto &DBG_PHI : DBGPHIRange) {
