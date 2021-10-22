@@ -148,31 +148,6 @@ static cl::opt<bool> EmulateOldLDV("emulate-old-livedebugvalues", cl::Hidden,
                                    cl::desc("Act like old LiveDebugValues did"),
                                    cl::init(false));
 
-namespace llvm {
-template <> struct DenseMapInfo<LocIdx> {
-  static inline LocIdx getEmptyKey() { return LocIdx::MakeIllegalLoc(); }
-  static inline LocIdx getTombstoneKey() { return LocIdx::MakeTombstoneLoc();}
-
-  static unsigned getHashValue(const LocIdx &Loc) {
-    return hash_value(Loc.asU64());
-  }
-
-  static bool isEqual(const LocIdx &A, const LocIdx &B) { return A == B; }
-};
-
-template <> struct DenseMapInfo<ValueIDNum>  {
-  static inline ValueIDNum getEmptyKey() { return ValueIDNum::EmptyValue; }
-  static inline ValueIDNum getTombstoneKey() { return ValueIDNum::TombstoneValue; }
-
-  static unsigned getHashValue(const ValueIDNum &Val) {
-    return hash_code(Val.asU64());
-  }
-
-  static bool isEqual(const ValueIDNum &A, const ValueIDNum &B) { return A == B; }
-};
-
-} // end namespace llvm
-
 /// Tracker for converting machine value locations and variable values into
 /// variable locations (the output of LiveDebugValues), recorded as DBG_VALUEs
 /// specifying block live-in locations and transfers within blocks.
