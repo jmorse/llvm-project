@@ -1,4 +1,4 @@
-; RUN: llc < %s -filetype=obj -o - | llvm-dwarfdump - | FileCheck %s
+; RUN: llc < %s -filetype=obj -o - -experimental-debug-variable-locations=false | llvm-dwarfdump - | FileCheck %s
 
 ; Verify if dwarfdump contains DBG_VALUE associated with locals.
 ; See also dgb-value-ti.ll test.

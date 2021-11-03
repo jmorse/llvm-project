@@ -1,4 +1,4 @@
-; RUN: llc < %s -mtriple=armv7-linux-gnueabihf -stop-before=finalize-isel | FileCheck %s
+; RUN: llc < %s -mtriple=armv7-linux-gnueabihf -stop-before=finalize-isel -experimental-debug-variable-locations=false | FileCheck %s
 
 ; When splitting-up integers during CodeGen, if the debug info contains
 ; an expression with carry operators (i.e. arithmetic and shift ops), the

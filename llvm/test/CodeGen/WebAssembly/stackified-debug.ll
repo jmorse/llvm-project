@@ -1,5 +1,5 @@
-; RUN: llc -verify-machineinstrs < %s | FileCheck %s
-; RUN: llc -filetype=obj %s -o - | llvm-dwarfdump - | FileCheck %s --check-prefix DWARF
+; RUN: llc -verify-machineinstrs < %s -experimental-debug-variable-locations=false | FileCheck %s
+; RUN: llc -filetype=obj %s -o - -experimental-debug-variable-locations=false | llvm-dwarfdump - | FileCheck %s --check-prefix DWARF
 
 ; Input C code:
 

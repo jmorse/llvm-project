@@ -1,4 +1,4 @@
-; RUN: llc -mtriple=nvptx64-nvidia-cuda < %s | FileCheck %s
+; RUN: llc -mtriple=nvptx64-nvidia-cuda < %s -experimental-debug-variable-locations=false | FileCheck %s
 ; Generated with -O1 from:
 ; int f1();
 ; void f2(int*);

@@ -1,7 +1,7 @@
 ; REQUIRES: asserts
-; RUN: llc -global-isel -mtriple=aarch64 %s -stop-after=irtranslator -o - | FileCheck %s
-; RUN: llc -mtriple=aarch64 -global-isel --global-isel-abort=0 %s -o /dev/null
-; RUN: llc -mtriple=aarch64 -global-isel --global-isel-abort=0 %s -o /dev/null -debug
+; RUN: llc -global-isel -mtriple=aarch64 %s -stop-after=irtranslator -o - -experimental-debug-variable-locations=false | FileCheck %s
+; RUN: llc -mtriple=aarch64 -global-isel --global-isel-abort=0 %s -o /dev/null -experimental-debug-variable-locations=false
+; RUN: llc -mtriple=aarch64 -global-isel --global-isel-abort=0 %s -o /dev/null -debug -experimental-debug-variable-locations=false
 
 ; CHECK-LABEL: name: debug_declare
 ; CHECK: stack:

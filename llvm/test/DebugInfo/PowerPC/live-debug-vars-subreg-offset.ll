@@ -1,4 +1,4 @@
-; RUN: llc -O3 -stop-after virtregrewriter %s -o - | FileCheck %s
+; RUN: llc -O3 -stop-after virtregrewriter %s -o - -experimental-debug-variable-locations=false | FileCheck %s
 
 target datalayout = "E-m:e-i64:64-n32:64"
 target triple = "ppc64"

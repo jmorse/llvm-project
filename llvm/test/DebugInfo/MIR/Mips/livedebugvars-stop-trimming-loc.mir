@@ -1,4 +1,4 @@
-# RUN: llc -run-pass=greedy -run-pass=virtregrewriter %s -o - | FileCheck %s
+# RUN: llc -run-pass=greedy -run-pass=virtregrewriter %s -o - -experimental-debug-variable-locations=false | FileCheck %s
 
 ## This tests that LiveDebugVariables does not trim non-inlined variable
 ## location.

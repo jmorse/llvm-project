@@ -1,4 +1,4 @@
-; RUN: llc -filetype=obj %s -o - | llvm-dwarfdump -  | FileCheck %s
+; RUN: llc -filetype=obj %s -o - -experimental-debug-variable-locations=false | llvm-dwarfdump -  | FileCheck %s
 
 ; Test that byval args get correct DWARF debug locations.
 ; These end up in the callee as Wasm locals, which is atypical.

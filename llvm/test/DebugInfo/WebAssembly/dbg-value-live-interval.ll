@@ -1,5 +1,5 @@
 ; FIXME: use -stop-after when MIR serialization output includes needed debug info.
-; RUN: llc < %s -print-after=wasm-optimize-live-intervals 2>&1 | FileCheck %s
+; RUN: llc < %s -print-after=wasm-optimize-live-intervals 2>&1 -experimental-debug-variable-locations=false | FileCheck %s
 
 ; CHECK: {{.*}}After WebAssembly Optimize Live Intervals
 ; CHECK: bb.3.for.body.for.body_crit_edge:

@@ -1,4 +1,4 @@
-; RUN: llc < %s -mtriple=nvptx64-nvidia-cuda | FileCheck %s
+; RUN: llc < %s -mtriple=nvptx64-nvidia-cuda -experimental-debug-variable-locations=false | FileCheck %s
 
 ; CHECK: .target sm_{{[0-9]+}}, debug
 

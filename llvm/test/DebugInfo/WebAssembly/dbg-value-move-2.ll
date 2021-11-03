@@ -1,5 +1,5 @@
 ; FIXME: use -stop-after when MIR serialization output includes needed debug info.
-; RUN: llc < %s -print-after=wasm-reg-stackify 2>&1 | FileCheck %s
+; RUN: llc < %s -print-after=wasm-reg-stackify 2>&1 -experimental-debug-variable-locations=false | FileCheck %s
 
 ; CHECK: {{.*}}After WebAssembly Register Stackify
 ; CHECK: bb.2.for.body:

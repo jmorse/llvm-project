@@ -1,4 +1,4 @@
-; RUN: llc -global-isel=1 -filetype=obj -mtriple=aarch64-linux-gnu -o - %s | llvm-dwarfdump -v - | FileCheck %s
+; RUN: llc -global-isel=1 -filetype=obj -mtriple=aarch64-linux-gnu -o - %s -experimental-debug-variable-locations=false | llvm-dwarfdump -v - | FileCheck %s
 ;
 ; CHECK: .debug_info contents:
 ; CHECK: DW_TAG_formal_parameter

@@ -1,4 +1,4 @@
-; RUN: llc -mtriple=arm-apple-darwin -O0 -o - %s | FileCheck %s
+; RUN: llc -mtriple=arm-apple-darwin -O0 -o - %s -experimental-debug-variable-locations=false | FileCheck %s
 ; Use DW_OP_breg in variable's location expression if the variable is in a stack slot.
 
 ; CHECK: @ DW_OP_breg

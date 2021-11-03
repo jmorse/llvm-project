@@ -1,4 +1,4 @@
-; RUN: llc < %s -mtriple=nvptx64-nvidia-cuda | FileCheck %s
+; RUN: llc < %s -mtriple=nvptx64-nvidia-cuda -experimental-debug-variable-locations=false | FileCheck %s
 
 ; // Bitcode int this test case is reduced version of compiled code below:
 ;__device__ inline void res(float x, float y, float *res) { *res = x + y; }

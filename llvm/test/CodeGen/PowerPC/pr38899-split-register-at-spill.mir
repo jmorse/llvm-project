@@ -1,4 +1,4 @@
-# RUN: llc -mtriple=powerpc64le-unknown-unknown -start-before=greedy -stop-after=virtregrewriter -o - %s | FileCheck %s
+# RUN: llc -mtriple=powerpc64le-unknown-unknown -start-before=greedy -stop-after=virtregrewriter -o - %s -experimental-debug-variable-locations=false | FileCheck %s
 
 --- |
   ; Function Attrs: nounwind

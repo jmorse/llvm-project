@@ -1,4 +1,4 @@
-; RUN: llc < %s -O0 -verify-machineinstrs | FileCheck %s
+; RUN: llc < %s -O0 -verify-machineinstrs -experimental-debug-variable-locations=false | FileCheck %s
 
 ; CHECK: %bb.0
 ; CHECK: #DEBUG_VALUE: usage:self <- !target-index(0,0)

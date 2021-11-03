@@ -1,4 +1,4 @@
-; RUN: llc < %s -stop-after=wasm-explicit-locals | FileCheck %s
+; RUN: llc < %s -stop-after=wasm-explicit-locals -experimental-debug-variable-locations=false | FileCheck %s
 
 ; Checks if DBG_VALUEs that correspond to new `local.{tee,set}` are
 ; using `target-index(wasm-local)` operands.

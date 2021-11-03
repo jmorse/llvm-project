@@ -1,4 +1,4 @@
-; RUN: llc %s -stop-after wasm-cfg-stackify -o - | FileCheck %s
+; RUN: llc %s -stop-after wasm-cfg-stackify -o - -experimental-debug-variable-locations=false | FileCheck %s
 
 ; The test ensures "block" instruction is not inserted in the middle of a group
 ; of instructions that form a stackified expression when DBG_VALUE is present

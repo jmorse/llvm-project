@@ -1,4 +1,4 @@
-; RUN: llc < %s -mtriple=armv7-linux-gnueabihf -O1 -stop-after=finalize-isel | FileCheck %s
+; RUN: llc < %s -mtriple=armv7-linux-gnueabihf -O1 -stop-after=finalize-isel -experimental-debug-variable-locations=false | FileCheck %s
 
 define dso_local i32 @h(i64 %j) local_unnamed_addr !dbg !8 {
 entry:

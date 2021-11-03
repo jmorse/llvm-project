@@ -1,4 +1,4 @@
-# RUN: llc -o - %s -O0 -regalloc=fast -run-pass=livedebugvalues | \
+# RUN: llc -o - %s -O0 -regalloc=fast -run-pass=livedebugvalues -experimental-debug-variable-locations=false | \
 # RUN:   FileCheck %s -implicit-check-not=DBG_VALUE
 --- |
   target triple = "arm64-apple-ios12.1.0"
