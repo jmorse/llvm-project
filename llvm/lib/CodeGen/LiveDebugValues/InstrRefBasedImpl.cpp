@@ -1070,10 +1070,12 @@ bool InstrRefBasedLDV::transferDebugInstrRef1(MachineInstr &MI, unsigned InstNo,
 
   // Try to lookup the instruction number, and find the machine value number
   // that it defines. It could be an instruction, or a PHI.
-  auto InstrIt = DebugInstrNumToInstr.find(InstNo);
+  InstrRefEntry E = {InstNo, {0, 0}};
+  auto InstrIt = std::lower_bound(DebugInstrNumToInstr.begin(), DebugInstrNumToInstr.end(), E);
+
   auto PHIIt = std::lower_bound(DebugPHINumToValue.begin(),
                                 DebugPHINumToValue.end(), InstNo);
-  if (InstrIt != DebugInstrNumToInstr.end()) {
+  if (InstrIt != DebugInstrNumToInstr.end() && InstrIt->first == InstNo) {
     const MachineInstr &TargetInstr = *InstrIt->second.first;
     uint64_t BlockNo = TargetInstr.getParent()->getNumber();
 
@@ -1774,16 +1776,9 @@ void InstrRefBasedLDV::produceMLocTransferFunction(
         accumulateFragmentMap(MI);
 
       // Create a map from the instruction number (if present) to the
-      // MachineInstr and its position.
-      if (uint64_t InstrNo = MI.peekDebugInstrNum()) {
-        auto InstrAndPos = std::make_pair(&MI, CurInst);
-        auto InsertResult =
-            DebugInstrNumToInstr.insert(std::make_pair(InstrNo, InstrAndPos));
-
-        // There should never be duplicate instruction numbers.
-        assert(InsertResult.second);
-        (void)InsertResult;
-      }
+      // MachineInstr and its position. To be sorted later.
+      if (uint64_t InstrNo = MI.peekDebugInstrNum())
+        DebugInstrNumToInstr.push_back({InstrNo, {&MI, CurInst}});
 
       ++CurInst;
     }
@@ -2939,6 +2934,11 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   initialSetup(MF);
 
   produceMLocTransferFunction(MF, MLocTransfer, MaxNumBlocks);
+
+  llvm::sort(DebugInstrNumToInstr.begin(), DebugInstrNumToInstr.end(),
+    [&](const InstrRefEntry &A, const InstrRefEntry &B) {
+      return A.first < B.first;
+    });
 
   // Allocate and initialize two array-of-arrays for the live-in and live-out
   // machine values. The outer dimension is the block number; while the inner

@@ -789,10 +789,13 @@ private:
 
   /// Pair of MachineInstr, and its 1-based offset into the containing block.
   using InstAndNum = std::pair<const MachineInstr *, unsigned>;
+  
+  using InstrRefEntry = std::pair<uint64_t,  InstAndNum>;
+
   /// Map from debug instruction number to the MachineInstr labelled with that
   /// number, and its location within the function. Used to transform
   /// instruction numbers in DBG_INSTR_REFs into machine value numbers.
-  std::map<uint64_t, InstAndNum> DebugInstrNumToInstr;
+  SmallVector<InstrRefEntry, 32> DebugInstrNumToInstr;
 
   /// Record of where we observed a DBG_PHI instruction.
   class DebugPHIRecord {
