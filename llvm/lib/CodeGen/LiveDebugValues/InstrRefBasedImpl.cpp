@@ -272,9 +272,11 @@ public:
     };
 
     // Map of the preferred location for each value.
-    std::map<ValueIDNum, LocIdx> ValueToLoc;
     ActiveMLocs.reserve(VLocs.size());
     ActiveVLocs.reserve(VLocs.size());
+
+    using ValIdxPair = std::pair<ValueIDNum, LocIdx>;
+    SmallVector<ValIdxPair, 32> ValueToLoc;
 
     // Produce a map of value numbers to the current machine locs they live
     // in. When emulating VarLocBasedImpl, there should only be one
@@ -283,19 +285,35 @@ public:
       LocIdx Idx = Location.Idx;
       ValueIDNum &VNum = MLocs[Idx.asU64()];
       VarLocs.push_back(VNum);
-      auto it = ValueToLoc.find(VNum);
+      ValueToLoc.push_back(std::make_pair(VNum, Idx));
+    }
+
+    llvm::sort(ValueToLoc, [&](const ValIdxPair &A, const ValIdxPair &B) {
+      return A.first < B.first;
+    });
+
+    auto PickALoc = [&](const ValueIDNum Val) -> Optional<LocIdx> {
       // In order of preference, pick:
       //  * Callee saved registers,
       //  * Other registers,
       //  * Spill slots.
-      if (it == ValueToLoc.end() || MTracker->isSpill(it->second) ||
-          (!isCalleeSaved(it->second) && isCalleeSaved(Idx.asU64()))) {
-        // Insert, or overwrite if insertion failed.
-        auto PrefLocRes = ValueToLoc.insert(std::make_pair(VNum, Idx));
-        if (!PrefLocRes.second)
-          PrefLocRes.first->second = Idx;
+      auto it = std::lower_bound(ValueToLoc.begin(), ValueToLoc.end(), std::make_pair(Val, LocIdx(0)));
+      if (it == ValueToLoc.end() || it->first != Val)
+        return None;
+
+      LocIdx L = it->second;
+      auto N = std::next(it);
+      while (N != ValueToLoc.end() && N->first == Val) {
+        if (MTracker->isSpill(L) ||
+            (!isCalleeSaved(L) && isCalleeSaved(N->second))) {
+          // Insert, or overwrite if insertion failed.
+          L = N->second;
+        }
+        N = std::next(N);
       }
-    }
+
+      return L;
+    };
 
     // Now map variables to their picked LocIdxes.
     for (auto Var : VLocs) {
@@ -307,8 +325,8 @@ public:
 
       // If the value has no location, we can't make a variable location.
       const ValueIDNum &Num = Var.second.ID;
-      auto ValuesPreferredLoc = ValueToLoc.find(Num);
-      if (ValuesPreferredLoc == ValueToLoc.end()) {
+      auto OptValuesPreferredLoc = PickALoc(Num);
+      if (!OptValuesPreferredLoc) {
         // If it's a def that occurs in this block, register it as a
         // use-before-def to be resolved as we step through the block.
         if (Num.getBlock() == (unsigned)MBB.getNumber() && !Num.isPHI())
@@ -318,7 +336,7 @@ public:
         continue;
       }
 
-      LocIdx M = ValuesPreferredLoc->second;
+      LocIdx M = *OptValuesPreferredLoc;
       auto NewValue = LocAndProperties{M, Var.second.Properties};
       auto Result = ActiveVLocs.insert(std::make_pair(Var.first, NewValue));
       if (!Result.second)
