@@ -1231,7 +1231,7 @@ struct Ponies {
   const MDNode *Expression;
   DebugLoc Loc;
 };
-std::vector<std::vector<Ponies>> DebugInstrs;
+SmallVector<SmallVector<Ponies, 4>, 32> DebugInstrs;
 };
 
 //===--------------------------------------------------------------------===//

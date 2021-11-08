@@ -1180,7 +1180,7 @@ void MachineFunction::finalizeDebugInstrRefs() {
   if (!useDebugInstrRef())
     return;
 
-  std::vector<Ponies> InstrData;
+  SmallVector<Ponies, 4> InstrData;
   std::vector<MachineBasicBlock::iterator> InstrIts;
   const MCInstrDesc &RefII = TII->get(TargetOpcode::DBG_INSTR_REF);
 

@@ -989,7 +989,7 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
   if (MI.getNumOperands() == 1) {
     unsigned lolidx = MI.getOperand(0).getImm();
     MachineFunction &MF = *MI.getMF();
-    const std::vector<MachineFunction::Ponies> &Data = MF.DebugInstrs[lolidx];
+    const SmallVectorImpl<MachineFunction::Ponies> &Data = MF.DebugInstrs[lolidx];
     for (const auto &P : Data) {
       const DILocation *DebugLoc = &*P.Loc;
       const DILocation *InlinedAt = P.Loc.getInlinedAt();
