@@ -676,11 +676,9 @@ public:
 public:
   VLocTracker() {}
 
-  void defVar(const MachineInstr &MI, const DbgValueProperties &Properties,
+  void defVar(const MachineInstr &MI, const DebugVariable &Var, const DILocation *Loc, const DbgValueProperties &Properties,
               Optional<ValueIDNum> ID) {
     assert(MI.isDebugValue() || MI.isDebugRef());
-    DebugVariable Var(MI.getDebugVariable(), MI.getDebugExpression(),
-                      MI.getDebugLoc()->getInlinedAt());
     DbgValue Rec = (ID) ? DbgValue(*ID, Properties, DbgValue::Def)
                         : DbgValue(Properties, DbgValue::Undef);
 
@@ -688,7 +686,7 @@ public:
     auto Result = Vars.insert(std::make_pair(Var, Rec));
     if (!Result.second)
       Result.first->second = Rec;
-    Scopes[Var] = MI.getDebugLoc().get();
+    Scopes[Var] = Loc;
   }
 
   void defVar(const MachineInstr &MI, const MachineOperand &MO) {
@@ -849,6 +847,8 @@ private:
   /// Examines whether \p MI is a DBG_INSTR_REF and notifies trackers.
   /// \returns true if MI was recognized and processed.
   bool transferDebugInstrRef(MachineInstr &MI, ValueIDNum **MLiveOuts,
+                             ValueIDNum **MLiveIns);
+  bool transferDebugInstrRef1(MachineInstr &MI, unsigned InstNo, unsigned OpNo, const DILocalVariable *Var, const DIExpression *Expr, const DILocation *DebugLoc, const DILocation *InlinedAt, ValueIDNum **MLiveOuts,
                              ValueIDNum **MLiveIns);
 
   /// Stores value-information about where this PHI occurred, and what

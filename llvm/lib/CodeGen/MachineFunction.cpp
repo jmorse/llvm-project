@@ -1180,10 +1180,38 @@ void MachineFunction::finalizeDebugInstrRefs() {
   if (!useDebugInstrRef())
     return;
 
+  std::vector<Ponies> InstrData;
+  std::vector<MachineBasicBlock::iterator> InstrIts;
+  const MCInstrDesc &RefII = TII->get(TargetOpcode::DBG_INSTR_REF);
+
+  auto EjectInstrData = [&](MachineBasicBlock *MBB, MachineBasicBlock::iterator InsertPos) {
+    if (InstrData.size() <= 1) {
+      InstrData.clear();
+      InstrIts.clear();
+      return;
+    }
+
+    // Otherwise: Combine.
+    for (auto &It : InstrIts)
+      MBB->erase(It);
+
+    unsigned int Idx = DebugInstrs.size();
+    DebugInstrs.push_back(std::move(InstrData));
+    InstrData.clear();
+    InstrIts.clear();
+
+    auto MIB = BuildMI(*this, DebugLoc(), RefII);
+    MIB.addImm(Idx);
+    MBB->insert(InsertPos, MIB);
+  };
+
   for (auto &MBB : *this) {
     for (auto &MI : MBB) {
-      if (!MI.isDebugRef() || !MI.getOperand(0).isReg())
+
+      if (!MI.isDebugRef() || !MI.getOperand(0).isReg()) {
+        EjectInstrData(&MBB, MI.getIterator());
         continue;
+      }
 
       Register Reg = MI.getOperand(0).getReg();
 
@@ -1220,7 +1248,15 @@ void MachineFunction::finalizeDebugInstrRefs() {
         MI.getOperand(0).ChangeToImmediate(ID);
         MI.getOperand(1).setImm(OperandIdx);
       }
+
+      Ponies p = {(unsigned)MI.getOperand(0).getImm(), (unsigned)MI.getOperand(1).getImm(),
+                           MI.getOperand(2).getMetadata(),
+                           MI.getOperand(3).getMetadata(), MI.getDebugLoc()};
+      InstrData.push_back(p);
+      InstrIts.push_back(MI.getIterator());
     }
+
+    EjectInstrData(&MBB, MBB.end());
   }
 }
 

@@ -1223,6 +1223,15 @@ public:
   unsigned getNewDebugInstrNum() {
     return ++DebugInstrNumberingCount;
   }
+
+struct Ponies {
+  unsigned InstrNum;
+  unsigned OperandNum;
+  const MDNode *Variable;
+  const MDNode *Expression;
+  DebugLoc Loc;
+};
+std::vector<std::vector<Ponies>> DebugInstrs;
 };
 
 //===--------------------------------------------------------------------===//

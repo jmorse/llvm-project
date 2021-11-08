@@ -460,16 +460,14 @@ public:
 
     Register Reg = MO.getReg();
     LocIdx NewLoc = MTracker->getRegMLoc(Reg);
-    redefVar(MI, Properties, NewLoc);
+    redefVar(Var, Properties, NewLoc);
   }
 
   /// Handle a change in variable location within a block. Terminate the
   /// variables current location, and record the value it now refers to, so
   /// that we can detect location transfers later on.
-  void redefVar(const MachineInstr &MI, const DbgValueProperties &Properties,
+  void redefVar(const DebugVariable &Var, const DbgValueProperties &Properties,
                 Optional<LocIdx> OptNewLoc) {
-    DebugVariable Var(MI.getDebugVariable(), MI.getDebugExpression(),
-                      MI.getDebugLoc()->getInlinedAt());
     // Any use-before-defs no longer apply.
     UseBeforeDefVariables.erase(Var);
 
@@ -940,9 +938,9 @@ bool InstrRefBasedLDV::transferDebugValue(const MachineInstr &MI) {
   // Interpret it like a DBG_VALUE $noreg.
   if (MI.isDebugValueList()) {
     if (VTracker)
-      VTracker->defVar(MI, Properties, None);
+      VTracker->defVar(MI, V, DebugLoc, Properties, None);
     if (TTracker)
-      TTracker->redefVar(MI, Properties, None);
+      TTracker->redefVar(V, Properties, None);
     return true;
   }
 
@@ -961,9 +959,9 @@ bool InstrRefBasedLDV::transferDebugValue(const MachineInstr &MI) {
       // Feed defVar the new variable location, or if this is a
       // DBG_VALUE $noreg, feed defVar None.
       if (MO.getReg())
-        VTracker->defVar(MI, Properties, MTracker->readReg(MO.getReg()));
+        VTracker->defVar(MI, V, DebugLoc, Properties, MTracker->readReg(MO.getReg()));
       else
-        VTracker->defVar(MI, Properties, None);
+        VTracker->defVar(MI, V, DebugLoc, Properties, None);
     } else if (MI.getOperand(0).isImm() || MI.getOperand(0).isFPImm() ||
                MI.getOperand(0).isCImm()) {
       VTracker->defVar(MI, MI.getOperand(0));
@@ -980,7 +978,7 @@ bool InstrRefBasedLDV::transferDebugValue(const MachineInstr &MI) {
 bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
                                              ValueIDNum **MLiveOuts,
                                              ValueIDNum **MLiveIns) {
-  if (!MI.isDebugRef())
+   if (!MI.isDebugRef())
     return false;
 
   // Only handle this instruction when we are building the variable value
@@ -988,19 +986,41 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
   if (!VTracker)
     return false;
 
-  unsigned InstNo = MI.getOperand(0).getImm();
-  unsigned OpNo = MI.getOperand(1).getImm();
+  if (MI.getNumOperands() == 1) {
+    unsigned lolidx = MI.getOperand(0).getImm();
+    MachineFunction &MF = *MI.getMF();
+    const std::vector<MachineFunction::Ponies> &Data = MF.DebugInstrs[lolidx];
+    for (const auto &P : Data) {
+      const DILocation *DebugLoc = &*P.Loc;
+      const DILocation *InlinedAt = P.Loc.getInlinedAt();
+      const DIExpression *Expr = (const DIExpression*)P.Expression;
+      const DILocalVariable *Var = (const DILocalVariable *)P.Variable;
+      transferDebugInstrRef1(MI, P.InstrNum, P.OperandNum, Var, Expr, DebugLoc, InlinedAt, MLiveOuts, MLiveIns);
+    }
+  } else {
+    unsigned InstNo = MI.getOperand(0).getImm();
+    unsigned OpNo = MI.getOperand(1).getImm();
 
-  const DILocalVariable *Var = MI.getDebugVariable();
-  const DIExpression *Expr = MI.getDebugExpression();
-  const DILocation *DebugLoc = MI.getDebugLoc();
-  const DILocation *InlinedAt = DebugLoc->getInlinedAt();
-  assert(Var->isValidLocationForIntrinsic(DebugLoc) &&
-         "Expected inlined-at fields to agree");
+    const DILocalVariable *Var = MI.getDebugVariable();
+    const DIExpression *Expr = MI.getDebugExpression();
+    const DILocation *DebugLoc = MI.getDebugLoc();
+    const DILocation *InlinedAt = DebugLoc->getInlinedAt();
+    assert(Var->isValidLocationForIntrinsic(DebugLoc) &&
+           "Expected inlined-at fields to agree");
 
+    transferDebugInstrRef1(MI, InstNo, OpNo, Var, Expr, DebugLoc, InlinedAt, MLiveOuts, MLiveIns); 
+  }
+
+  return true;
+}
+
+
+bool InstrRefBasedLDV::transferDebugInstrRef1(MachineInstr &MI, unsigned InstNo, unsigned OpNo, const DILocalVariable *Var, const DIExpression *Expr, const DILocation *DebugLoc, const DILocation *InlinedAt,
+                                             ValueIDNum **MLiveOuts,
+                                             ValueIDNum **MLiveIns) {
   DebugVariable V(Var, Expr, InlinedAt);
 
-  auto *Scope = LS.findLexicalScope(MI.getDebugLoc().get());
+  auto *Scope = LS.findLexicalScope(DebugLoc);
   if (Scope == nullptr)
     return true; // Handled by doing nothing. This variable is never in scope.
 
@@ -1141,7 +1161,7 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
   // for DBG_INSTR_REFs as DBG_VALUEs (just, the former can refer to values that
   // aren't immediately available).
   DbgValueProperties Properties(Expr, false);
-  VTracker->defVar(MI, Properties, NewID);
+  VTracker->defVar(MI, V, DebugLoc, Properties, NewID);
 
   // If we're on the final pass through the function, decompose this INSTR_REF
   // into a plain DBG_VALUE.
@@ -1173,13 +1193,13 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
   }
 
   // Tell transfer tracker that the variable value has changed.
-  TTracker->redefVar(MI, Properties, FoundLoc);
+  TTracker->redefVar(V, Properties, FoundLoc);
 
   // If there was a value with no location; but the value is defined in a
   // later instruction in this block, this is a block-local use-before-def.
   if (!FoundLoc && NewID && NewID->getBlock() == CurBB &&
       NewID->getInst() > CurInst)
-    TTracker->addUseBeforeDef(V, {MI.getDebugExpression(), false}, *NewID);
+    TTracker->addUseBeforeDef(V, {Expr, false}, *NewID);
 
   // Produce a DBG_VALUE representing what this DBG_INSTR_REF meant.
   // This DBG_VALUE is potentially a $noreg / undefined location, if
