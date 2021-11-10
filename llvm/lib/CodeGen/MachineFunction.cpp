@@ -1175,6 +1175,7 @@ bool useEntryCache = false;
 if (useEntryCache) {
   ArgDbgPHIs[State.first] = Pair.first;
 }
+return Pair;
 }
 
 void MachineFunction::finalizeDebugInstrRefs() {
