@@ -1009,7 +1009,7 @@ void MachineFunction::substituteDebugValuesForInst(const MachineInstr &Old,
   }
 }
 
-auto MachineFunction::salvageCopySSA(MachineInstr &MI)
+auto MachineFunction::salvageCopySSA(MachineInstr &MI, DenseMap<Register, unsigned> &ArgDbgPHIs)
     -> DebugInstrOperandPair {
   MachineRegisterInfo &MRI = getRegInfo();
   const TargetRegisterInfo &TRI = *MRI.getTargetRegisterInfo();
@@ -1137,6 +1137,8 @@ auto MachineFunction::salvageCopySSA(MachineInstr &MI)
 
   MachineBasicBlock &InsertBB = *CurInst->getParent();
 
+bool useEntryCache = false;
+
   // We reached the start of the block before finding a defining instruction.
   // It could be from a constant register, otherwise it must be an argument.
   if (TRI.isConstantPhysReg(State.first)) {
@@ -1157,7 +1159,11 @@ auto MachineFunction::salvageCopySSA(MachineInstr &MI)
     // across blocks.
     assert(!State.first.isVirtual());
     assert(&*InsertBB.getParent()->begin() == &InsertBB || InsertBB.isEHPad());
+    useEntryCache = &*InsertBB.getParent()->begin() == &InsertBB;
   }
+
+  if (useEntryCache && ArgDbgPHIs.count(State.first))
+    return {ArgDbgPHIs[State.first], 0};
 
   // Create DBG_PHI for specified physreg.
   auto Builder = BuildMI(InsertBB, InsertBB.getFirstNonPHI(), DebugLoc(),
@@ -1165,7 +1171,10 @@ auto MachineFunction::salvageCopySSA(MachineInstr &MI)
   Builder.addReg(State.first);
   unsigned NewNum = getNewDebugInstrNum();
   Builder.addImm(NewNum);
-  return ApplySubregisters({NewNum, 0u});
+  auto Pair = ApplySubregisters({NewNum, 0u});
+if (useEntryCache) {
+  ArgDbgPHIs[State.first] = Pair.first;
+}
 }
 
 void MachineFunction::finalizeDebugInstrRefs() {
@@ -1205,6 +1214,7 @@ void MachineFunction::finalizeDebugInstrRefs() {
     MBB->insert(InsertPos, MIB);
   };
 
+  DenseMap<Register, unsigned> ArgDbgPHIs;
   for (auto &MBB : *this) {
     for (auto &MI : MBB) {
 
@@ -1230,7 +1240,7 @@ void MachineFunction::finalizeDebugInstrRefs() {
       // instruction that defines the source value, see salvageCopySSA docs
       // for why this is important.
       if (DefMI.isCopyLike() || TII->isCopyInstr(DefMI)) {
-        auto Result = salvageCopySSA(DefMI);
+        auto Result = salvageCopySSA(DefMI, ArgDbgPHIs);
         MI.getOperand(0).ChangeToImmediate(Result.first);
         MI.getOperand(1).setImm(Result.second);
       } else {

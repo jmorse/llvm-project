@@ -531,7 +531,8 @@ public:
   /// May insert instructions into the entry block!
   /// \p MI The copy-like instruction to salvage.
   /// \returns An instruction/operand pair identifying the defining value.
-  DebugInstrOperandPair salvageCopySSA(MachineInstr &MI);
+  DebugInstrOperandPair salvageCopySSA(MachineInstr &MI,
+                                    DenseMap<Register, unsigned> &ArgDbgPHIs);
 
   /// Finalise any partially emitted debug instructions. These are DBG_INSTR_REF
   /// instructions where we only knew the vreg of the value they use, not the
