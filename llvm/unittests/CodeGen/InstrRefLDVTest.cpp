@@ -189,8 +189,9 @@ public:
   Optional<ValueIDNum>
   pickVPHILoc(const MachineBasicBlock &MBB, const DebugVariable &Var,
               const InstrRefBasedLDV::LiveIdxT &LiveOuts, ValueIDNum **MOutLocs,
-              const SmallVectorImpl<const MachineBasicBlock *> &BlockOrders) {
-    return LDV->pickVPHILoc(MBB, Var, LiveOuts, MOutLocs, BlockOrders);
+              const SmallVectorImpl<const MachineBasicBlock *> &BlockOrders,
+              const DbgValue *OldLiveIn) {
+    return LDV->pickVPHILoc(MBB, Var, LiveOuts, MOutLocs, BlockOrders, OldLiveIn);
   }
 
   bool vlocJoin(MachineBasicBlock &MBB, InstrRefBasedLDV::LiveIdxT &VLOCOutLocs,
@@ -1818,7 +1819,7 @@ TEST_F(InstrRefLDVTest, pickVPHILocDiamond) {
   // Simple case: join two distinct values on entry to the block.
   VLiveOuts[1] = DbgValue(LiveInRsp, EmptyProps, DbgValue::Def);
   VLiveOuts[2] = DbgValue(LiveInRax, EmptyProps, DbgValue::Def);
-  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds, nullptr);
   // Should have picked a PHI in $rsp in block 3.
   EXPECT_TRUE(Result);
   if (Result) {
@@ -1829,7 +1830,7 @@ TEST_F(InstrRefLDVTest, pickVPHILocDiamond) {
   // successfully join. The CFG merge would select the right values, but in
   // the wrong conditions.
   std::swap(VLiveOuts[1], VLiveOuts[2]);
-  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds, nullptr);
   EXPECT_FALSE(Result);
 
   // Swap back,
@@ -1837,19 +1838,19 @@ TEST_F(InstrRefLDVTest, pickVPHILocDiamond) {
   // Setting one of these to being a constant should prohibit merging.
   VLiveOuts[1].Kind = DbgValue::Const;
   VLiveOuts[1].MO = MachineOperand::CreateImm(0);
-  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds, nullptr);
   EXPECT_FALSE(Result);
 
   // Seeing both to being a constant -> still prohibit, it shouldn't become
   // a value in the register file anywhere.
   VLiveOuts[2] = VLiveOuts[1];
-  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds, nullptr);
   EXPECT_FALSE(Result);
 
   // NoVals shouldn't join with anything else.
   VLiveOuts[1] = DbgValue(LiveInRsp, EmptyProps, DbgValue::Def);
   VLiveOuts[2] = DbgValue(2, EmptyProps, DbgValue::NoVal);
-  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds, nullptr);
   EXPECT_FALSE(Result);
 
   // We might merge in another VPHI in such a join. Present pickVPHILoc with
@@ -1859,7 +1860,7 @@ TEST_F(InstrRefLDVTest, pickVPHILocDiamond) {
   VLiveOuts[1] = DbgValue(LiveInRsp, EmptyProps, DbgValue::Def);
   VLiveOuts[2] = DbgValue(2, EmptyProps, DbgValue::VPHI);
   EXPECT_EQ(VLiveOuts[2].ID, ValueIDNum::EmptyValue);
-  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds, nullptr);
   EXPECT_FALSE(Result);
 
   // However, if we know the value of the incoming VPHI, we can search for its
@@ -1869,7 +1870,7 @@ TEST_F(InstrRefLDVTest, pickVPHILocDiamond) {
   VLiveOuts[1] = DbgValue(LiveInRsp, EmptyProps, DbgValue::Def);
   VLiveOuts[2] = DbgValue(2, EmptyProps, DbgValue::VPHI);
   VLiveOuts[2].ID = RspPHIInBlk2; // Set location where PHI happens.
-  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds, nullptr);
   EXPECT_TRUE(Result);
   if (Result) {
     EXPECT_EQ(*Result, RspPHIInBlk3);
@@ -1877,7 +1878,7 @@ TEST_F(InstrRefLDVTest, pickVPHILocDiamond) {
 
   // If that value isn't available from that block, don't join.
   OutLocs[2][0] = LiveInRsp;
-  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds, nullptr);
   EXPECT_FALSE(Result);
 
   // Check that we don't pick values when the properties disagree, for example
@@ -1887,13 +1888,13 @@ TEST_F(InstrRefLDVTest, pickVPHILocDiamond) {
   DbgValueProperties PropsWithExpr(NewExpr, false);
   VLiveOuts[1] = DbgValue(LiveInRsp, EmptyProps, DbgValue::Def);
   VLiveOuts[2] = DbgValue(LiveInRsp, PropsWithExpr, DbgValue::Def);
-  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds, nullptr);
   EXPECT_FALSE(Result);
 
   DbgValueProperties PropsWithIndirect(EmptyExpr, true);
   VLiveOuts[1] = DbgValue(LiveInRsp, EmptyProps, DbgValue::Def);
   VLiveOuts[2] = DbgValue(LiveInRsp, PropsWithIndirect, DbgValue::Def);
-  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB3, Var, VLiveOutIdx, OutLocsPtr, Preds, nullptr);
   EXPECT_FALSE(Result);
 }
 
@@ -1946,7 +1947,7 @@ TEST_F(InstrRefLDVTest, pickVPHILocLoops) {
   // See that we can merge as normal on a backedge.
   VLiveOuts[0] = DbgValue(LiveInRsp, EmptyProps, DbgValue::Def);
   VLiveOuts[1] = DbgValue(LiveInRax, EmptyProps, DbgValue::Def);
-  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds, nullptr);
   // Should have picked a PHI in $rsp in block 1.
   EXPECT_TRUE(Result);
   if (Result) {
@@ -1955,7 +1956,7 @@ TEST_F(InstrRefLDVTest, pickVPHILocLoops) {
 
   // And that, if the desired values aren't available, we don't merge.
   OutLocs[1][0] = LiveInRsp;
-  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds, nullptr);
   EXPECT_FALSE(Result);
 
   // Test the backedge behaviour: PHIs that feed back into themselves can
@@ -1969,7 +1970,7 @@ TEST_F(InstrRefLDVTest, pickVPHILocLoops) {
   VLiveOuts[0] = DbgValue(LiveInRsp, EmptyProps, DbgValue::Def);
   // Crucially, a VPHI originating in this block:
   VLiveOuts[1] = DbgValue(1, EmptyProps, DbgValue::VPHI);
-  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds, nullptr);
   EXPECT_TRUE(Result);
   if (Result) {
     EXPECT_EQ(*Result, RaxPHIInBlk1);
@@ -1978,7 +1979,7 @@ TEST_F(InstrRefLDVTest, pickVPHILocLoops) {
   // Merging should not be permitted if there's a usable PHI on the backedge,
   // but it's in the wrong place. (Overwrite $rax).
   OutLocs[1][1] = LiveInRax;
-  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds, nullptr);
   EXPECT_FALSE(Result);
 
   // Additionally, if the VPHI coming back on the loop backedge isn't from
@@ -1986,7 +1987,7 @@ TEST_F(InstrRefLDVTest, pickVPHILocLoops) {
   OutLocs[1][1] = RaxPHIInBlk1;
   VLiveOuts[0] = DbgValue(LiveInRsp, EmptyProps, DbgValue::Def);
   VLiveOuts[1] = DbgValue(0, EmptyProps, DbgValue::VPHI);
-  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds, nullptr);
   EXPECT_FALSE(Result);
 }
 
@@ -2054,7 +2055,7 @@ TEST_F(InstrRefLDVTest, pickVPHILocBadlyNestedLoops) {
   VLiveOuts[0] = DbgValue(LiveInRsp, EmptyProps, DbgValue::Def);
   VLiveOuts[1] = DbgValue(LiveInRax, EmptyProps, DbgValue::Def);
   VLiveOuts[2] = DbgValue(LiveInRbx, EmptyProps, DbgValue::Def);
-  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds, nullptr);
   // Should have picked a PHI in $rsp in block 1.
   EXPECT_TRUE(Result);
   if (Result) {
@@ -2065,7 +2066,7 @@ TEST_F(InstrRefLDVTest, pickVPHILocBadlyNestedLoops) {
   OutLocs[0][0] = LiveInRax;
   OutLocs[1][0] = LiveInRbx;
   OutLocs[2][0] = LiveInRsp;
-  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds, nullptr);
   EXPECT_FALSE(Result);
 
   OutLocs[0][0] = LiveInRsp;
@@ -2075,7 +2076,7 @@ TEST_F(InstrRefLDVTest, pickVPHILocBadlyNestedLoops) {
   // Feeding a PHI back on one backedge shouldn't merge (block 1 self backedge
   // wants LiveInRax).
   OutLocs[1][0] = RspPHIInBlk1;
-  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds, nullptr);
   EXPECT_FALSE(Result);
 
   // If the variables value on that edge is a VPHI feeding into itself, that's
@@ -2083,7 +2084,7 @@ TEST_F(InstrRefLDVTest, pickVPHILocBadlyNestedLoops) {
   VLiveOuts[0] = DbgValue(LiveInRsp, EmptyProps, DbgValue::Def);
   VLiveOuts[1] = DbgValue(1, EmptyProps, DbgValue::VPHI);
   VLiveOuts[2] = DbgValue(LiveInRbx, EmptyProps, DbgValue::Def);
-  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds, nullptr);
   EXPECT_TRUE(Result);
   if (Result) {
     EXPECT_EQ(*Result, RspPHIInBlk1);
@@ -2094,7 +2095,7 @@ TEST_F(InstrRefLDVTest, pickVPHILocBadlyNestedLoops) {
   VLiveOuts[0] = DbgValue(LiveInRsp, EmptyProps, DbgValue::Def);
   VLiveOuts[1] = DbgValue(1, EmptyProps, DbgValue::VPHI);
   VLiveOuts[2] = DbgValue(1, EmptyProps, DbgValue::VPHI);
-  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds, nullptr);
   EXPECT_TRUE(Result);
   if (Result) {
     EXPECT_EQ(*Result, RspPHIInBlk1);
@@ -2104,7 +2105,7 @@ TEST_F(InstrRefLDVTest, pickVPHILocBadlyNestedLoops) {
   // _distinct_ backedge PHIs. We can't have a PHI that happens in both rsp
   // and rax for example. We can only pick one location as the live-in.
   OutLocs[2][0] = RaxPHIInBlk1;
-  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds, nullptr);
   EXPECT_FALSE(Result);
 
   // The above test sources correct machine-PHI-value from two places. Now
@@ -2115,7 +2116,7 @@ TEST_F(InstrRefLDVTest, pickVPHILocBadlyNestedLoops) {
   OutLocs[1][0] = RspPHIInBlk1;
   OutLocs[2][0] = LiveInRsp;
   OutLocs[2][1] = RspPHIInBlk1;
-  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds, nullptr);
   EXPECT_FALSE(Result);
 
   // Scatter various PHI values across the available locations. Only rbx (loc 2)
@@ -2128,7 +2129,7 @@ TEST_F(InstrRefLDVTest, pickVPHILocBadlyNestedLoops) {
   OutLocs[2][0] = LiveInRsp;
   OutLocs[2][1] = RspPHIInBlk1;
   OutLocs[2][2] = RbxPHIInBlk1;
-  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds);
+  Result = pickVPHILoc(*MBB1, Var, VLiveOutIdx, OutLocsPtr, Preds, nullptr);
   EXPECT_TRUE(Result);
   if (Result) {
     EXPECT_EQ(*Result, RbxPHIInBlk1);

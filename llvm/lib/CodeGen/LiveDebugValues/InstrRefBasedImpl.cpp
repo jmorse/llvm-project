@@ -2262,7 +2262,8 @@ void InstrRefBasedLDV::BlockPHIPlacement(
 Optional<ValueIDNum> InstrRefBasedLDV::pickVPHILoc(
     const MachineBasicBlock &MBB, const DebugVariable &Var,
     const LiveIdxT &LiveOuts, ValueIDNum **MOutLocs,
-    const SmallVectorImpl<const MachineBasicBlock *> &BlockOrders) {
+    const SmallVectorImpl<const MachineBasicBlock *> &BlockOrders,
+    const DbgValue *OldLiveIn) {
   // Collect a set of locations from predecessor where its live-out value can
   // be found.
   SmallVector<SmallVector<LocIdx, 4>, 8> Locs;
@@ -2272,6 +2273,50 @@ Optional<ValueIDNum> InstrRefBasedLDV::pickVPHILoc(
   // No predecessors means no PHIs.
   if (BlockOrders.empty())
     return None;
+
+  // Take a quick look at the _old_ vphi position, if there is one, and see if
+  // we can quickly validate it.
+  if (OldLiveIn->Kind == DbgValue::VPHI && OldLiveIn->ID != ValueIDNum::EmptyValue &&
+      (int)OldLiveIn->ID.getBlock() == MBB.getNumber() && OldLiveIn->ID.isPHI()) {
+    LocIdx OldPHILoc = OldLiveIn->ID.getLoc();
+    bool Valid = true;
+    for (auto p : BlockOrders) {
+      unsigned ThisBBNum = p->getNumber();
+      auto OutValIt = LiveOuts.find(p);
+      if (OutValIt == LiveOuts.end())
+        // If we have a predecessor not in scope, we'll never find a PHI position.
+        return None;
+      const DbgValue &OutVal = *OutValIt->second;
+
+      if (OutVal.Kind == DbgValue::Const || OutVal.Kind == DbgValue::NoVal)
+        // Consts and no-values cannot have locations we can join on.
+        return None;
+
+      Properties.push_back(&OutVal.Properties);
+
+      // Does the value still reside in the previous lcoation?
+      assert(OutVal.Kind == DbgValue::VPHI || OutVal.DbgValue::Def);
+      const ValueIDNum &RealLiveOut = MOutLocs[ThisBBNum][OldPHILoc.asU64()];
+      if (RealLiveOut != OutVal.ID) {
+        Valid = false;
+        break;
+      }
+    }
+
+    if (Valid) {
+      const DbgValueProperties *Properties0 = Properties[0];
+      for (auto *Prop : Properties)
+        if (*Prop != *Properties0)
+          Valid = false;
+    }
+
+    if (Valid) {
+      return OldLiveIn->ID;
+    }
+
+    Properties.clear();
+  }
+  
 
   for (auto p : BlockOrders) {
     unsigned ThisBBNum = p->getNumber();
@@ -2686,7 +2731,7 @@ void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
           // live-through-value. As a result, the selected location of any VPHI
           // might change, so we need to re-compute it on each iteration.
           Optional<ValueIDNum> ValueNum =
-              pickVPHILoc(*MBB, Var, LiveOutIdx, MOutLocs, Preds);
+              pickVPHILoc(*MBB, Var, LiveOutIdx, MOutLocs, Preds, LiveIn);
 
           if (ValueNum) {
             InLocsChanged |= LiveIn->ID != *ValueNum;

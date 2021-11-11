@@ -975,7 +975,8 @@ private:
   Optional<ValueIDNum>
   pickVPHILoc(const MachineBasicBlock &MBB, const DebugVariable &Var,
               const LiveIdxT &LiveOuts, ValueIDNum **MOutLocs,
-              const SmallVectorImpl<const MachineBasicBlock *> &BlockOrders);
+              const SmallVectorImpl<const MachineBasicBlock *> &BlockOrders,
+              const DbgValue *OldLiveIn);
 
   /// Given the solutions to the two dataflow problems, machine value locations
   /// in \p MInLocs and live-in variable values in \p SavedLiveIns, runs the
