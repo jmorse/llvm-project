@@ -40,6 +40,7 @@ public:
   std::unique_ptr<MachineFunction> MF;
   std::unique_ptr<MachineDominatorTree> DomTree;
   std::unique_ptr<MachineModuleInfo> MMI;
+  const TargetInstrInfo *TII;
   DICompileUnit *OurCU;
   DIFile *OurFile;
   DISubprogram *OurFunc;
@@ -139,6 +140,7 @@ public:
     LDV = std::make_unique<InstrRefBasedLDV>();
     const TargetSubtargetInfo &STI = MF->getSubtarget();
     LDV->TII = STI.getInstrInfo();
+    TII = LDV->TII;
     LDV->TRI = STI.getRegisterInfo();
     LDV->TFI = STI.getFrameLowering();
     LDV->MFI = &MF->getFrameInfo();
@@ -210,6 +212,14 @@ public:
                     SmallVectorImpl<VLocTracker> &AllTheVLocs) {
     LDV->buildVLocValueMap(DILoc, VarsWeCareAbout, AssignBlocks, Output,
                            MOutLocs, MInLocs, AllTheVLocs);
+  }
+
+  void emitLocations(MachineFunction &MF, InstrRefBasedLDV::LiveInsT SavedLiveIns,
+                     ValueIDNum **MOutLocs, ValueIDNum **MInLocs,
+                     DenseMap<DebugVariable, unsigned> &AllVarsNumbering,
+                     bool ProduceEntryValues) {
+    LDV->emitLocations(MF, SavedLiveIns, MOutLocs, MInLocs, AllVarsNumbering,
+       ProduceEntryValues);
   }
 
   void initValueArray(ValueIDNum **Nums, unsigned Blks, unsigned Locs) {
@@ -483,6 +493,68 @@ body:  |
                               unsigned MaxNumBlocks) {
     LDV->produceMLocTransferFunction(MF, MLocTransfer, MaxNumBlocks);
   }
+
+  struct TTrackerDbgInstrRef {
+    unsigned BeforeInstNum;
+    unsigned InstrRefNum;
+    unsigned OperandNum;
+    // Variable will be FunctionVariable,
+    const DIExpression *Expr; // nullptr -> use empty expression.
+  };
+    
+  MachineFunction *initTTrackerTest(const char *MIR, struct TTrackerDbgInstrRef *Refs,
+                        unsigned NumRefs) {
+    MachineFunction *MF = readMIRBlock(MIR);
+
+    DebugLoc Loc(OutermostLoc);
+    // Set scopes of all the instructions -- otherwise this block will have no
+    // scopes, and no DBG_VALUEs will be created.
+    // TODO: test this behaviour.
+    for (auto &MBB : *MF)
+      for (auto &MI : MBB)
+        MI.setDebugLoc(Loc);
+
+    setupLDVObj(MF);
+
+    // Assume one MBB...
+    assert(MF->size() == 1u);
+    MachineBasicBlock &MBB = *MF->begin();
+
+    // Create DBG_INSTR_REF instructions -- start off by collecting pointers
+    // to where to insert them, as the instruction-indexes will change when
+    // we insert DBG_INSTR_REFs.
+    DenseMap<unsigned, MachineBasicBlock::iterator> IdxToInst;
+
+    auto GetInstNo = [&](unsigned int I) -> MachineBasicBlock::iterator {
+      auto It = MBB.begin();
+      std::advance(It, I);
+      return It;
+    };
+
+    for (unsigned int I = 0; I < NumRefs; ++I)
+      IdxToInst[Refs[I].BeforeInstNum] = GetInstNo(Refs[I].BeforeInstNum);
+
+    const MCInstrDesc &RefII = TII->get(TargetOpcode::DBG_INSTR_REF);
+    for (unsigned int I = 0; I < NumRefs; ++I) {
+      auto MIB = BuildMI(*MF, Loc, RefII);
+      MIB.addImm(Refs[I].InstrRefNum);
+      MIB.addImm(Refs[I].OperandNum);
+      MIB.addMetadata(FuncVariable);
+      MIB.addMetadata(Refs[I].Expr ? Refs[I].Expr : EmptyExpr);
+      auto MIPos = IdxToInst[Refs[I].BeforeInstNum];
+      MBB.insert(MIPos, MIB);
+    }
+
+    // Produce transfer map -- in the process, we should record all instruction
+    // numbers seen in the process.
+    SmallVector<MLocTransferMap, 1> TransferMap;
+    TransferMap.clear();
+    TransferMap.resize(1);
+    produceMLocTransferFunction(*MF, TransferMap, 1);
+
+    addVTracker();
+    return MF;
+  }
 };
 
 TEST_F(InstrRefLDVTest, MTransferDefs) {
@@ -734,6 +806,47 @@ TEST_F(InstrRefLDVTest, MTransferCopies) {
   ValueIDNum RcxVal = MTracker->readMLoc(RcxLoc);
   ValueIDNum RcxDefVal(0, 2, RcxLoc); // instr 2 -> the copy
   EXPECT_EQ(RcxVal, RcxDefVal);
+}
+
+TEST_F(InstrRefLDVTest, TrackerSimpleTransfer) {
+  struct TTrackerDbgInstrRef Refs[] = {
+    {/*Pos*/1, /*Inst-Op*/ 1, 0, /*Expr*/ nullptr}
+  };
+  MachineFunction *MF = initTTrackerTest(
+    "    $rax = MOV64ri 0, debug-instr-number 1\n",
+    Refs, 1);
+
+  // Single live-in and live-out value blocks,
+  std::vector<ValueIDNum> LiveIns, LiveOuts;
+  LiveIns.resize(MTracker->getNumLocs());
+  LiveOuts.resize(MTracker->getNumLocs());
+  // Initialize live-in values,
+  for (unsigned int I = 0; I < MTracker->getNumLocs(); ++I)
+    LiveIns[I] = ValueIDNum(0, 0, LocIdx(I)); // argument / PHI value.
+  ValueIDNum *LiveInsPtr = LiveIns.data();
+  ValueIDNum *LiveOutsPtr = LiveOuts.data();
+
+  // Live-in variable values: none
+  InstrRefBasedLDV::LiveInsT LiveInVariables;
+  LiveInVariables.resize(1);
+  DenseMap<DebugVariable, unsigned> VarsNumbering;
+  DebugVariable Var(FuncVariable, None, nullptr);
+  VarsNumbering[Var] = 0;
+
+  emitLocations(*MF, LiveInVariables, &LiveOutsPtr, &LiveInsPtr,
+                VarsNumbering, false);
+
+  MachineBasicBlock &MBB = *MF->begin();
+  auto GetInstNo = [&](unsigned int I) -> MachineInstr *{
+    auto It = MBB.begin();
+    std::advance(It, I);
+    return &*It;
+  };
+
+  const MCInstrDesc &DbgValueII = TII->get(TargetOpcode::DBG_VALUE);
+  ASSERT_TRUE(MBB.size() >= 3);
+  MachineInstr *DbgValue = GetInstNo(2);
+  EXPECT_EQ(&DbgValue->getDesc(), &DbgValueII);
 }
 
 TEST_F(InstrRefLDVTest, MTransferSubregSpills) {

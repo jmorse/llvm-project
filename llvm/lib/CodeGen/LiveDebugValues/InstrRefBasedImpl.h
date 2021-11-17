@@ -988,7 +988,7 @@ private:
   void emitLocations(MachineFunction &MF, LiveInsT SavedLiveIns,
                      ValueIDNum **MOutLocs, ValueIDNum **MInLocs,
                      DenseMap<DebugVariable, unsigned> &AllVarsNumbering,
-                     const TargetPassConfig &TPC);
+                     bool ProduceEntryValues);
 
   /// Boilerplate computation of some initial sets, artifical blocks and
   /// RPOT block ordering.

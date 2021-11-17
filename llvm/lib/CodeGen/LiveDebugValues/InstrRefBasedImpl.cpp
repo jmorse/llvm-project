@@ -237,12 +237,11 @@ public:
 
   TransferTracker(const TargetInstrInfo *TII, MLocTracker *MTracker,
                   MachineFunction &MF, const TargetRegisterInfo &TRI,
-                  const BitVector &CalleeSavedRegs, const TargetPassConfig &TPC)
+                  const BitVector &CalleeSavedRegs, bool ProduceEntryValues)
       : TII(TII), MTracker(MTracker), MF(MF), TRI(TRI),
         CalleeSavedRegs(CalleeSavedRegs) {
     TLI = MF.getSubtarget().getTargetLowering();
-    auto &TM = TPC.getTM<TargetMachine>();
-    ShouldEmitDebugEntryValues = TM.Options.ShouldEmitDebugEntryValues();
+    ShouldEmitDebugEntryValues = ProduceEntryValues;
   }
 
   /// Load object with live-in variable values. \p mlocs contains the live-in
@@ -2276,7 +2275,7 @@ Optional<ValueIDNum> InstrRefBasedLDV::pickVPHILoc(
 
   // Take a quick look at the _old_ vphi position, if there is one, and see if
   // we can quickly validate it.
-  if (OldLiveIn->Kind == DbgValue::VPHI && OldLiveIn->ID != ValueIDNum::EmptyValue &&
+  if (OldLiveIn && OldLiveIn->Kind == DbgValue::VPHI && OldLiveIn->ID != ValueIDNum::EmptyValue &&
       (int)OldLiveIn->ID.getBlock() == MBB.getNumber() && OldLiveIn->ID.isPHI()) {
     LocIdx OldPHILoc = OldLiveIn->ID.getLoc();
     bool Valid = true;
@@ -2831,8 +2830,8 @@ void InstrRefBasedLDV::dump_mloc_transfer(
 void InstrRefBasedLDV::emitLocations(
     MachineFunction &MF, LiveInsT SavedLiveIns, ValueIDNum **MOutLocs,
     ValueIDNum **MInLocs, DenseMap<DebugVariable, unsigned> &AllVarsNumbering,
-    const TargetPassConfig &TPC) {
-  TTracker = new TransferTracker(TII, MTracker, MF, *TRI, CalleeSavedRegs, TPC);
+    bool ProduceEntryValues) {
+  TTracker = new TransferTracker(TII, MTracker, MF, *TRI, CalleeSavedRegs, ProduceEntryValues);
   unsigned NumLocs = MTracker->getNumLocs();
 
   // For each block, load in the machine value locations and variable value
@@ -2957,6 +2956,9 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   TFI->getCalleeSaves(MF, CalleeSavedRegs);
   MFI = &MF.getFrameInfo();
   LS.initialize(MF);
+
+  auto &TM = TPC->getTM<TargetMachine>();
+  bool ProduceEntryValues = TM.Options.ShouldEmitDebugEntryValues();
 
   MTracker =
       new MLocTracker(MF, *TII, *TRI, *MF.getSubtarget().getTargetLowering());
@@ -3098,7 +3100,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
     // Using the computed value locations and variable values for each block,
     // create the DBG_VALUE instructions representing the extended variable
     // locations.
-    emitLocations(MF, SavedLiveIns, MOutLocs, MInLocs, AllVarsNumbering, *TPC);
+    emitLocations(MF, SavedLiveIns, MOutLocs, MInLocs, AllVarsNumbering, ProduceEntryValues);
 
     // Did we actually make any changes? If we created any DBG_VALUEs, then yes.
     Changed = TTracker->Transfers.size() != 0;
