@@ -778,6 +778,22 @@ private:
   /// location.
   TransferTracker *TTracker = nullptr;
 
+  /// Enumeration indicating which phase of processing InstrRefBasedLDV is
+  /// currently in. Needed when stepping through the MachineFunction, for
+  /// instruction handlers to know what data needs collecting.
+  enum {
+    /// Machine values: building per block transfer functions of register
+    /// values.
+    MachineValuePhase = 0,
+    /// Variable values: using register value information to interpret debug
+    /// instructions and build a transfer function for variable values.
+    VariableValuePhase = 1,
+    /// Transfer phase: given the solved problems of which register and variable
+    /// values are live on entry to a block, emit DBG_VALUE instructions
+    /// specifying variable locations for each block.
+    TransferPhase = 2
+  } LDVPhase;
+
   /// Blocks which are artificial, i.e. blocks which exclusively contain
   /// instructions without DebugLocs, or with line 0 locations.
   SmallPtrSet<const MachineBasicBlock *, 16> ArtificialBlocks;
@@ -1021,6 +1037,10 @@ public:
   }
 
   Optional<LocIdx> findLocationForMemOperand(const MachineInstr &MI);
+
+  bool inMachineValuePhase() const { return LDVPhase == MachineValuePhase; }
+  bool inVariableValuePhase() const { return LDVPhase == VariableValuePhase; }
+  bool inTransferPhase() const { return LDVPhase == TransferPhase; }
 };
 
 } // namespace LiveDebugValues

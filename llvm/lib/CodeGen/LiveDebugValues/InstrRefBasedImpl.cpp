@@ -954,9 +954,9 @@ bool InstrRefBasedLDV::transferDebugValue(const MachineInstr &MI) {
   // contribute to locations in this block, but don't propagate further.
   // Interpret it like a DBG_VALUE $noreg.
   if (MI.isDebugValueList()) {
-    if (VTracker)
+    if (inVariableValuePhase())
       VTracker->defVar(MI, V, DebugLoc, Properties, None);
-    if (TTracker)
+    if (inTransferPhase())
       TTracker->redefVar(V, Properties, None);
     return true;
   }
@@ -971,7 +971,7 @@ bool InstrRefBasedLDV::transferDebugValue(const MachineInstr &MI) {
   // If we're preparing for the second analysis (variables), the machine value
   // locations are already solved, and we report this DBG_VALUE and the value
   // it refers to to VLocTracker.
-  if (VTracker) {
+  if (inVariableValuePhase()) {
     if (MO.isReg()) {
       // Feed defVar the new variable location, or if this is a
       // DBG_VALUE $noreg, feed defVar None.
@@ -987,7 +987,7 @@ bool InstrRefBasedLDV::transferDebugValue(const MachineInstr &MI) {
 
   // If performing final tracking of transfers, report this variable definition
   // to the TransferTracker too.
-  if (TTracker)
+  if (inTransferPhase())
     TTracker->redefVar(MI);
   return true;
 }
@@ -999,8 +999,8 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
     return false;
 
   // Only handle this instruction when we are building the variable value
-  // transfer function.
-  if (!VTracker)
+  // transfer function, or emitting variable locations.
+  if (inMachineValuePhase())
     return false;
 
   if (MI.getNumOperands() == 1) {
@@ -1184,7 +1184,7 @@ bool InstrRefBasedLDV::transferDebugInstrRef1(MachineInstr &MI, unsigned InstNo,
 
   // If we're on the final pass through the function, decompose this INSTR_REF
   // into a plain DBG_VALUE.
-  if (!TTracker)
+  if (!inTransferPhase())
     return true;
 
   // Pick a location for the machine value number, if such a location exists.
@@ -1235,7 +1235,7 @@ bool InstrRefBasedLDV::transferDebugPHI(MachineInstr &MI) {
     return false;
 
   // Analyse these only when solving the machine value location problem.
-  if (VTracker || TTracker)
+  if (!inMachineValuePhase())
     return true;
 
   // First operand is the value location, either a stack slot or register.
@@ -1365,7 +1365,7 @@ void InstrRefBasedLDV::transferRegisterDef(MachineInstr &MI) {
     }
   }
 
-  if (!TTracker)
+  if (!inTransferPhase())
     return;
 
   // When committing variable values to locations: tell transfer tracker that
@@ -1525,7 +1525,7 @@ bool InstrRefBasedLDV::transferSpillOrRestoreInst(MachineInstr &MI) {
       // location and re-installing it in the same place.
       ValueIDNum Def(CurBB, CurInst, *MLoc);
       MTracker->setMLoc(*MLoc, Def);
-      if (TTracker)
+      if (inTransferPhase())
         TTracker->clobberMloc(*MLoc, MI.getIterator());
     }
   }
@@ -1539,7 +1539,7 @@ bool InstrRefBasedLDV::transferSpillOrRestoreInst(MachineInstr &MI) {
       LocIdx DstLoc = MTracker->getSpillMLoc(SpillID);
       MTracker->setMLoc(DstLoc, ReadValue);
 
-      if (TTracker) {
+      if (inTransferPhase()) {
         LocIdx SrcLoc = MTracker->getRegMLoc(SrcReg);
         TTracker->transferMlocs(SrcLoc, DstLoc, MI.getIterator());
       }
@@ -1581,7 +1581,7 @@ bool InstrRefBasedLDV::transferSpillOrRestoreInst(MachineInstr &MI) {
       auto ReadValue = MTracker->readMLoc(SrcIdx);
       MTracker->setReg(DestReg, ReadValue);
 
-      if (TTracker) {
+      if (inTransferPhase()) {
         LocIdx DstLoc = MTracker->getRegMLoc(DestReg);
         TTracker->transferMlocs(SrcIdx, DstLoc, MI.getIterator());
       }
@@ -1645,7 +1645,7 @@ bool InstrRefBasedLDV::transferRegisterCopy(MachineInstr &MI) {
   // Only produce a transfer of DBG_VALUE within a block where old LDV
   // would have. We might make use of the additional value tracking in some
   // other way, later.
-  if (TTracker && isCalleeSavedReg(DestReg) && SrcRegOp->isKill())
+  if (inTransferPhase() && isCalleeSavedReg(DestReg) && SrcRegOp->isKill())
     TTracker->transferMlocs(MTracker->getRegMLoc(SrcReg),
                             MTracker->getRegMLoc(DestReg), MI.getIterator());
 
@@ -1655,7 +1655,7 @@ bool InstrRefBasedLDV::transferRegisterCopy(MachineInstr &MI) {
 
   // Finally, the copy might have clobbered variables based on the destination
   // register. Tell TTracker about it, in case a backup location exists.
-  if (TTracker) {
+  if (inTransferPhase()) {
     for (MCRegAliasIterator RAI(DestReg, TRI, true); RAI.isValid(); ++RAI) {
       LocIdx ClobberedLoc = MTracker->getRegMLoc(*RAI);
       TTracker->clobberMloc(ClobberedLoc, MI.getIterator(), false);
@@ -2981,6 +2981,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
 
   initialSetup(MF);
 
+  LDVPhase = MachineValuePhase;
   produceMLocTransferFunction(MF, MLocTransfer, MaxNumBlocks);
 
   llvm::sort(DebugInstrNumToInstr.begin(), DebugInstrNumToInstr.end(),
@@ -3023,6 +3024,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
 
   // Walk back through each block / instruction, collecting DBG_VALUE
   // instructions and recording what machine value their operands refer to.
+  LDVPhase = VariableValuePhase;
   for (auto &OrderPair : OrderToBB) {
     MachineBasicBlock &MBB = *OrderPair.second;
     CurBB = MBB.getNumber();
@@ -3100,6 +3102,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
     // Using the computed value locations and variable values for each block,
     // create the DBG_VALUE instructions representing the extended variable
     // locations.
+    LDVPhase = TransferPhase;
     emitLocations(MF, SavedLiveIns, MOutLocs, MInLocs, AllVarsNumbering, ProduceEntryValues);
 
     // Did we actually make any changes? If we created any DBG_VALUEs, then yes.
