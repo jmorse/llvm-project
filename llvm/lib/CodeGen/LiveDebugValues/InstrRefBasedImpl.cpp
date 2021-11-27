@@ -235,11 +235,15 @@ public:
   const TargetRegisterInfo &TRI;
   const BitVector &CalleeSavedRegs;
 
+  DenseMap<DebugVariable, const DILocation *> &VarScopes;
+
   TransferTracker(const TargetInstrInfo *TII, MLocTracker *MTracker,
                   MachineFunction &MF, const TargetRegisterInfo &TRI,
-                  const BitVector &CalleeSavedRegs, bool ProduceEntryValues)
+                  const BitVector &CalleeSavedRegs,
+                  DenseMap<DebugVariable, const DILocation *> &VarScopes,
+                  bool ProduceEntryValues)
       : TII(TII), MTracker(MTracker), MF(MF), TRI(TRI),
-        CalleeSavedRegs(CalleeSavedRegs) {
+        CalleeSavedRegs(CalleeSavedRegs), VarScopes(VarScopes) {
     TLI = MF.getSubtarget().getTargetLowering();
     ShouldEmitDebugEntryValues = ProduceEntryValues;
   }
@@ -341,8 +345,10 @@ public:
       if (!Result.second)
         Result.first->second = NewValue;
       ActiveMLocs[M].insert(Var.first);
+const DILocation *DLoc = VarScopes[Var.first];
+assert(DLoc);
       PendingDbgValues.push_back(
-          MTracker->emitLoc(M, Var.first, Var.second.Properties));
+          MTracker->emitLoc(M, Var.first, Var.second.Properties, DLoc));
     }
     flushDbgValues(MBB.begin(), &MBB);
   }
@@ -380,7 +386,9 @@ public:
       if (!UseBeforeDefVariables.count(Use.Var))
         continue;
 
-      PendingDbgValues.push_back(MTracker->emitLoc(L, Use.Var, Use.Properties));
+const DILocation *DLoc = VarScopes[Use.Var];
+assert(DLoc);
+      PendingDbgValues.push_back(MTracker->emitLoc(L, Use.Var, Use.Properties, DLoc));
     }
     flushDbgValues(pos, nullptr);
   }
@@ -561,7 +569,10 @@ public:
       // identifying the alternative location will be emitted.
       const DIExpression *Expr = ActiveVLocIt->second.Properties.DIExpr;
       DbgValueProperties Properties(Expr, false);
-      PendingDbgValues.push_back(MTracker->emitLoc(NewLoc, Var, Properties));
+
+const DILocation *DLoc = VarScopes[Var];
+assert(DLoc);
+      PendingDbgValues.push_back(MTracker->emitLoc(NewLoc, Var, Properties, DLoc));
 
       // Update machine locations <=> variable locations maps. Defer updating
       // ActiveMLocs to avoid invalidaing the ActiveMLocIt iterator.
@@ -613,8 +624,10 @@ public:
       assert(ActiveVLocIt != ActiveVLocs.end());
       ActiveVLocIt->second.Loc = Dst;
 
+const DILocation *DLoc = VarScopes[Var];
+assert(DLoc);
       MachineInstr *MI =
-          MTracker->emitLoc(Dst, Var, ActiveVLocIt->second.Properties);
+          MTracker->emitLoc(Dst, Var, ActiveVLocIt->second.Properties, DLoc);
       PendingDbgValues.push_back(MI);
     }
     ActiveMLocs[Src].clear();
@@ -629,9 +642,9 @@ public:
   MachineInstrBuilder emitMOLoc(const MachineOperand &MO,
                                 const DebugVariable &Var,
                                 const DbgValueProperties &Properties) {
-    DebugLoc DL = DILocation::get(Var.getVariable()->getContext(), 0, 0,
-                                  Var.getVariable()->getScope(),
-                                  const_cast<DILocation *>(Var.getInlinedAt()));
+    const DILocation *DLoc = VarScopes[Var];
+    assert(DLoc);
+    DebugLoc DL = DLoc;
     auto MIB = BuildMI(MF, DL, TII->get(TargetOpcode::DBG_VALUE));
     MIB.add(MO);
     if (Properties.Indirect)
@@ -820,10 +833,9 @@ LLVM_DUMP_METHOD void MLocTracker::dump_mloc_map() {
 
 MachineInstrBuilder MLocTracker::emitLoc(Optional<LocIdx> MLoc,
                                          const DebugVariable &Var,
-                                         const DbgValueProperties &Properties) {
-  DebugLoc DL = DILocation::get(Var.getVariable()->getContext(), 0, 0,
-                                Var.getVariable()->getScope(),
-                                const_cast<DILocation *>(Var.getInlinedAt()));
+                                         const DbgValueProperties &Properties,
+const DILocation *DLoc) {
+  DebugLoc DL = DLoc;
   auto MIB = BuildMI(MF, DL, TII.get(TargetOpcode::DBG_VALUE));
 
   const DIExpression *Expr = Properties.DIExpr;
@@ -1224,7 +1236,9 @@ bool InstrRefBasedLDV::transferDebugInstrRef1(MachineInstr &MI, unsigned InstNo,
   // This DBG_VALUE is potentially a $noreg / undefined location, if
   // FoundLoc is None.
   // (XXX -- could morph the DBG_INSTR_REF in the future).
-  MachineInstr *DbgMI = MTracker->emitLoc(FoundLoc, V, Properties);
+const DILocation *DLoc = TTracker->VarScopes[V];
+assert(DLoc);
+  MachineInstr *DbgMI = MTracker->emitLoc(FoundLoc, V, Properties, DLoc);
   TTracker->PendingDbgValues.push_back(DbgMI);
   TTracker->flushDbgValues(MI.getIterator(), nullptr);
   return true;
@@ -2830,8 +2844,9 @@ void InstrRefBasedLDV::dump_mloc_transfer(
 void InstrRefBasedLDV::emitLocations(
     MachineFunction &MF, LiveInsT SavedLiveIns, ValueIDNum **MOutLocs,
     ValueIDNum **MInLocs, DenseMap<DebugVariable, unsigned> &AllVarsNumbering,
+    DenseMap<DebugVariable, const DILocation *> &VarScopes,
     bool ProduceEntryValues) {
-  TTracker = new TransferTracker(TII, MTracker, MF, *TRI, CalleeSavedRegs, ProduceEntryValues);
+  TTracker = new TransferTracker(TII, MTracker, MF, *TRI, CalleeSavedRegs, VarScopes, ProduceEntryValues);
   unsigned NumLocs = MTracker->getNumLocs();
 
   // For each block, load in the machine value locations and variable value
@@ -3042,6 +3057,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   // Number all variables in the order that they appear, to be used as a stable
   // insertion order later.
   DenseMap<DebugVariable, unsigned> AllVarsNumbering;
+  DenseMap<DebugVariable, const DILocation *> VarScopes;
 
   // Map from one LexicalScope to all the variables in that scope.
   DenseMap<const LexicalScope *, SmallSet<DebugVariable, 4>> ScopeToVars;
@@ -3070,6 +3086,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
       assert(Scope != nullptr);
 
       AllVarsNumbering.insert(std::make_pair(Var, AllVarsNumbering.size()));
+      VarScopes.insert(std::make_pair(Var, ScopeLoc));
       ScopeToVars[Scope].insert(Var);
       ScopeToBlocks[Scope].insert(VTracker->MBB);
       ScopeToDILocation[Scope] = ScopeLoc;
@@ -3103,7 +3120,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
     // create the DBG_VALUE instructions representing the extended variable
     // locations.
     LDVPhase = TransferPhase;
-    emitLocations(MF, SavedLiveIns, MOutLocs, MInLocs, AllVarsNumbering, ProduceEntryValues);
+    emitLocations(MF, SavedLiveIns, MOutLocs, MInLocs, AllVarsNumbering, VarScopes, ProduceEntryValues);
 
     // Did we actually make any changes? If we created any DBG_VALUEs, then yes.
     Changed = TTracker->Transfers.size() != 0;

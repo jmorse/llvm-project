@@ -652,7 +652,8 @@ public:
   /// information in \pProperties, for variable Var. Don't insert it anywhere,
   /// just return the builder for it.
   MachineInstrBuilder emitLoc(Optional<LocIdx> MLoc, const DebugVariable &Var,
-                              const DbgValueProperties &Properties);
+                              const DbgValueProperties &Properties,
+                              const DILocation *DL);
 };
 
 /// Collection of DBG_VALUEs observed when traversing a block. Records each
@@ -1004,6 +1005,7 @@ private:
   void emitLocations(MachineFunction &MF, LiveInsT SavedLiveIns,
                      ValueIDNum **MOutLocs, ValueIDNum **MInLocs,
                      DenseMap<DebugVariable, unsigned> &AllVarsNumbering,
+                     DenseMap<DebugVariable, const DILocation *> &VarScopes,
                      bool ProduceEntryValues);
 
   /// Boilerplate computation of some initial sets, artifical blocks and
