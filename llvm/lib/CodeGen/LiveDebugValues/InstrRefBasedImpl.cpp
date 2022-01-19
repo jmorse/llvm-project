@@ -2633,8 +2633,10 @@ void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
     // Request the set of PHIs we should insert for this variable.
     // There are no PHIs to place if there are either no values for this
     // variable, or only one value.
-    if (DefBlocks.size() > 1)
-      BlockPHIPlacement(MutBlocksToExplore, DefBlocks, PHIBlocks);
+    // XXX lets cut out the fixedpoint too
+    if (DefBlocks.size() == 1)
+      continue;
+    BlockPHIPlacement(MutBlocksToExplore, DefBlocks, PHIBlocks);
 
     // Insert PHIs into the per-block live-in tables for this variable.
     for (MachineBasicBlock *PHIMBB : PHIBlocks) {
