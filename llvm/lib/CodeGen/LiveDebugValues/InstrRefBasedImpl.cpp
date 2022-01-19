@@ -2626,6 +2626,10 @@ void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
 
     SmallVector<MachineBasicBlock *, 32> PHIBlocks;
 
+    // Nothing to do for this variable.
+    if (DefBlocks.size() == 0)
+      continue;
+
     // Request the set of PHIs we should insert for this variable.
     BlockPHIPlacement(MutBlocksToExplore, DefBlocks, PHIBlocks);
 
