@@ -3388,6 +3388,7 @@ Optional<ValueIDNum> InstrRefBasedLDV::resolveDbgPHIs(MachineFunction &MF,
                                                       ValueIDNum **MLiveIns,
                                                       MachineInstr &Here,
                                                       uint64_t InstrNum) {
+return None;
   // Pick out records of DBG_PHI instructions that have been observed. If there
   // are none, then we cannot compute a value number.
   auto RangePair = std::equal_range(DebugPHINumToValue.begin(),
