@@ -2809,6 +2809,9 @@ bool InstrRefBasedLDV::placePHIsForSingleVarDefinition(
     if (DominatedMBB == AssignMBB)
       continue;
 
+    if (InScopeBlocks.find(DominatedMBB) == InScopeBlocks.end())
+      continue;
+
     Output[DominatedMBB->getNumber()].push_back({Var, Value});
   }
 
