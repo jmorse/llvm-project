@@ -958,6 +958,12 @@ private:
                      ValueIDNum **MInLocs,
                      SmallVectorImpl<MLocTransferMap> &MLocTransfer);
 
+// XXX docs
+  bool placePHIsForSingleVarDefinition(
+          const SmallPtrSetImpl<MachineBasicBlock *> &InScopeBlocks,
+          MachineBasicBlock *MBB, SmallVectorImpl<VLocTracker> &AllTheVLocs,
+          const DebugVariable &Var, LiveInsT &Output);
+
   /// Calculate the iterated-dominance-frontier for a set of defs, using the
   /// existing LLVM facilities for this. Works for a single "value" or
   /// machine/variable location.
