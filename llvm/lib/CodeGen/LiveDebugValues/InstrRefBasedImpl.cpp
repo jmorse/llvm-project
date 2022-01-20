@@ -2802,16 +2802,6 @@ bool InstrRefBasedLDV::placePHIsForSingleVarDefinition(
   SmallVector<MachineBasicBlock *, 16> Dominated;
   DomTree->getDescendants(AssignMBB, Dominated);
 
-  // To avoid prematurely fixing BZ ????, don't propagate into blocks where
-  // there's an out-of-scope block inbetween.
-  SmallVector<MachineBasicBlock *, 16> OutOfScopeFilter;
-  for (auto *DominatedMBB : Dominated) {
-    if (DominatedMBB != AssignMBB && 
-        InScopeBlocks.find(DominatedMBB) == InScopeBlocks.end()) {
-      return false;
-    }
-  }
-
   // Assign the variable value to entry to each dominated block. Skip the
   // definition block -- it's assigned the variable value in the middle of the
   // block somewhere.
