@@ -2798,21 +2798,14 @@ bool InstrRefBasedLDV::placePHIsForSingleVarDefinition(
   auto ValueIt = VLocs.Vars.find(Var);
   const DbgValue &Value = ValueIt->second;
 
-  // Now get the dominance frontier of the block being assigned.
-  SmallVector<MachineBasicBlock *, 16> Dominated;
-  DomTree->getDescendants(AssignMBB, Dominated);
-
   // Assign the variable value to entry to each dominated block. Skip the
   // definition block -- it's assigned the variable value in the middle of the
   // block somewhere.
-  for (auto *DominatedMBB : Dominated) {
-    if (DominatedMBB == AssignMBB)
+  for (auto *ScopeBlock : InScopeBlocks) {
+    if (!DomTree->properlyDominates(AssignMBB, ScopeBlock))
       continue;
 
-    if (InScopeBlocks.find(DominatedMBB) == InScopeBlocks.end())
-      continue;
-
-    Output[DominatedMBB->getNumber()].push_back({Var, Value});
+    Output[ScopeBlock->getNumber()].push_back({Var, Value});
   }
 
   // All blocks that aren't dominated have no live-in value, thus no variable
