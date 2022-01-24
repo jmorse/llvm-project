@@ -678,7 +678,7 @@ public:
   /// movement of values between locations inside of a block is handled at a
   /// much later stage, in the TransferTracker class.
   MapVector<DebugVariable, DbgValue> Vars;
-  DenseMap<DebugVariable, const DILocation *> Scopes;
+  SmallDenseMap<DebugVariable, const DILocation *, 8> Scopes;
   MachineBasicBlock *MBB = nullptr;
   const OverlapMap &OverlappingFragments;
   DbgValueProperties EmptyProperties;
@@ -850,6 +850,9 @@ private:
   // Map of overlapping variable fragments.
   OverlapMap OverlapFragments;
   VarToFragments SeenFragments;
+
+// XXX: docs
+DenseMap<MachineInstr *, Optional<ValueIDNum>> SeenDbgPHIs;
 
   /// True if we need to examine call instructions for stack clobbers. We
   /// normally assume that they don't clobber SP, but stack probes on Windows
