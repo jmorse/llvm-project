@@ -2833,8 +2833,9 @@ void InstrRefBasedLDV::initialSetup(MachineFunction &MF) {
   EmptyExpr = DIExpression::get(Context, {});
 
   auto hasNonArtificialLocation = [](const MachineInstr &MI) -> bool {
-    if (const DebugLoc &DL = MI.getDebugLoc())
-      return DL.getLine() != 0;
+    if (!MI.isMetaInstruction())
+      if (const DebugLoc &DL = MI.getDebugLoc())
+        return DL.getLine() != 0;
     return false;
   };
   // Collect a set of all the artificial blocks.
@@ -3104,6 +3105,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   DebugPHINumToValue.clear();
   OverlapFragments.clear();
   SeenFragments.clear();
+  SeenDbgPHIs.clear();
 
   return Changed;
 }
@@ -3369,6 +3371,12 @@ Optional<ValueIDNum> InstrRefBasedLDV::resolveDbgPHIs(MachineFunction &MF,
                                                       ValueIDNum **MLiveIns,
                                                       MachineInstr &Here,
                                                       uint64_t InstrNum) {
+  // This function will be called twice per DBG_INSTR_REF, and might end up
+  // computing lots of SSA information: memoize it.
+  auto SeenDbgPHIIt = SeenDbgPHIs.find(&Here);
+  if (SeenDbgPHIIt != SeenDbgPHIs.end())
+    return SeenDbgPHIIt->second;
+
   // Pick out records of DBG_PHI instructions that have been observed. If there
   // are none, then we cannot compute a value number.
   auto RangePair = std::equal_range(DebugPHINumToValue.begin(),
@@ -3418,6 +3426,7 @@ Optional<ValueIDNum> InstrRefBasedLDV::resolveDbgPHIs(MachineFunction &MF,
   if (AvailIt != AvailableValues.end()) {
     // Actually, we already know what the value is -- the Use is in the same
     // block as the Def.
+    SeenDbgPHIs.insert({&Here, ValueIDNum::fromU64(AvailIt->second)});
     return ValueIDNum::fromU64(AvailIt->second);
   }
 
@@ -3464,8 +3473,10 @@ Optional<ValueIDNum> InstrRefBasedLDV::resolveDbgPHIs(MachineFunction &MF,
     // Are all these things actually defined?
     for (auto &PHIIt : PHI->IncomingValues) {
       // Any undef input means DBG_PHIs didn't dominate the use point.
-      if (Updater.UndefMap.find(&PHIIt.first->BB) != Updater.UndefMap.end())
+      if (Updater.UndefMap.find(&PHIIt.first->BB) != Updater.UndefMap.end()) {
+        SeenDbgPHIs.insert({&Here, None});
         return None;
+      }
 
       ValueIDNum ValueToCheck;
       ValueIDNum *BlockLiveOuts = MLiveOuts[PHIIt.first->BB.getNumber()];
@@ -3483,8 +3494,10 @@ Optional<ValueIDNum> InstrRefBasedLDV::resolveDbgPHIs(MachineFunction &MF,
         ValueToCheck = VVal->second;
       }
 
-      if (BlockLiveOuts[Loc.asU64()] != ValueToCheck)
+      if (BlockLiveOuts[Loc.asU64()] != ValueToCheck) {
+        SeenDbgPHIs.insert({&Here, None});
         return None;
+      }
     }
 
     // Record this value as validated.
@@ -3493,5 +3506,6 @@ Optional<ValueIDNum> InstrRefBasedLDV::resolveDbgPHIs(MachineFunction &MF,
 
   // All the PHIs are valid: we can return what the SSAUpdater said our value
   // number was.
+  SeenDbgPHIs.insert({&Here, Result});
   return Result;
 }
