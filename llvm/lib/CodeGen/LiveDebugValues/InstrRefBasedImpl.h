@@ -867,6 +867,9 @@ private:
   OverlapMap OverlapFragments;
   VarToFragments SeenFragments;
 
+// XXX: docs
+DenseMap<MachineInstr *, Optional<ValueIDNum>> SeenDbgPHIs;
+
   /// True if we need to examine call instructions for stack clobbers. We
   /// normally assume that they don't clobber SP, but stack probes on Windows
   /// do.
