@@ -1010,7 +1010,7 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
 
   // Only handle this instruction when we are building the variable value
   // transfer function.
-  if (!VTracker)
+  if (!VTracker && !TTracker)
     return false;
 
   unsigned InstNo = MI.getOperand(0).getImm();
@@ -1166,7 +1166,8 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
   // for DBG_INSTR_REFs as DBG_VALUEs (just, the former can refer to values that
   // aren't immediately available).
   DbgValueProperties Properties(Expr, false);
-  VTracker->defVar(MI, Properties, NewID);
+  if (VTracker)
+    VTracker->defVar(MI, Properties, NewID);
 
   // If we're on the final pass through the function, decompose this INSTR_REF
   // into a plain DBG_VALUE.
@@ -2805,6 +2806,7 @@ void InstrRefBasedLDV::emitLocations(
     const TargetPassConfig &TPC) {
   TTracker = new TransferTracker(TII, MTracker, MF, *TRI, CalleeSavedRegs, TPC);
   unsigned NumLocs = MTracker->getNumLocs();
+  VTracker = nullptr;
 
   // For each block, load in the machine value locations and variable value
   // live-ins, then step through each instruction in the block. New DBG_VALUEs
@@ -2823,6 +2825,13 @@ void InstrRefBasedLDV::emitLocations(
       TTracker->checkInstForNewValues(CurInst, MI.getIterator());
       ++CurInst;
     }
+
+    // Our block information has now been converted into DBG_VALUEs, to be
+    // inserted below. Free the memory we allocated to track variable / register
+    // values. If we don't, we needlessy record the same info in memory twice.
+    delete[] MInLocs[bbnum];
+    delete[] MOutLocs[bbnum];
+    SavedLiveIns[bbnum].clear();
   }
 
   // Go through all the transfers recorded in the TransferTracker -- this is
@@ -2867,8 +2876,9 @@ void InstrRefBasedLDV::initialSetup(MachineFunction &MF) {
   EmptyExpr = DIExpression::get(Context, {});
 
   auto hasNonArtificialLocation = [](const MachineInstr &MI) -> bool {
-    if (const DebugLoc &DL = MI.getDebugLoc())
-      return DL.getLine() != 0;
+    if (!MI.isMetaInstruction())
+      if (const DebugLoc &DL = MI.getDebugLoc())
+        return DL.getLine() != 0;
     return false;
   };
   // Collect a set of all the artificial blocks.
@@ -3055,6 +3065,12 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
                       << " has " << MaxNumBlocks << " basic blocks and "
                       << VarAssignCount
                       << " variable assignments, exceeding limits.\n");
+
+    // Perform memory cleanup that emitLocations would do otherwise.
+    for (int Idx = 0; Idx < MaxNumBlocks; ++Idx) {
+      delete[] MOutLocs[Idx];
+      delete[] MInLocs[Idx];
+    }
   } else {
     // Compute the extended ranges, iterating over scopes. There might be
     // something to be said for ordering them by size/locality, but that's for
@@ -3066,6 +3082,9 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
                    vlocs);
     }
 
+    // Now that we've analysed variable assignments, free any tracking data.
+    vlocs.clear();
+
     // Using the computed value locations and variable values for each block,
     // create the DBG_VALUE instructions representing the extended variable
     // locations.
@@ -3075,11 +3094,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
     Changed = TTracker->Transfers.size() != 0;
   }
 
-  // Common clean-up of memory.
-  for (unsigned Idx = 0; Idx < MaxNumBlocks; ++Idx) {
-    delete[] MOutLocs[Idx];
-    delete[] MInLocs[Idx];
-  }
+  // Elements of these arrays will be deleted by emitLocations.
   delete[] MOutLocs;
   delete[] MInLocs;
 
@@ -3096,6 +3111,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   DebugPHINumToValue.clear();
   OverlapFragments.clear();
   SeenFragments.clear();
+  SeenDbgPHIs.clear();
 
   return Changed;
 }
@@ -3361,6 +3377,12 @@ Optional<ValueIDNum> InstrRefBasedLDV::resolveDbgPHIs(MachineFunction &MF,
                                                       ValueIDNum **MLiveIns,
                                                       MachineInstr &Here,
                                                       uint64_t InstrNum) {
+  // This function will be called twice per DBG_INSTR_REF, and might end up
+  // computing lots of SSA information: memoize it.
+  auto SeenDbgPHIIt = SeenDbgPHIs.find(&Here);
+  if (SeenDbgPHIIt != SeenDbgPHIs.end())
+    return SeenDbgPHIIt->second;
+
   // Pick out records of DBG_PHI instructions that have been observed. If there
   // are none, then we cannot compute a value number.
   auto RangePair = std::equal_range(DebugPHINumToValue.begin(),
@@ -3410,6 +3432,7 @@ Optional<ValueIDNum> InstrRefBasedLDV::resolveDbgPHIs(MachineFunction &MF,
   if (AvailIt != AvailableValues.end()) {
     // Actually, we already know what the value is -- the Use is in the same
     // block as the Def.
+    SeenDbgPHIs.insert({&Here, ValueIDNum::fromU64(AvailIt->second)});
     return ValueIDNum::fromU64(AvailIt->second);
   }
 
@@ -3456,8 +3479,10 @@ Optional<ValueIDNum> InstrRefBasedLDV::resolveDbgPHIs(MachineFunction &MF,
     // Are all these things actually defined?
     for (auto &PHIIt : PHI->IncomingValues) {
       // Any undef input means DBG_PHIs didn't dominate the use point.
-      if (Updater.UndefMap.find(&PHIIt.first->BB) != Updater.UndefMap.end())
+      if (Updater.UndefMap.find(&PHIIt.first->BB) != Updater.UndefMap.end()) {
+        SeenDbgPHIs.insert({&Here, None});
         return None;
+      }
 
       ValueIDNum ValueToCheck;
       ValueIDNum *BlockLiveOuts = MLiveOuts[PHIIt.first->BB.getNumber()];
@@ -3475,8 +3500,10 @@ Optional<ValueIDNum> InstrRefBasedLDV::resolveDbgPHIs(MachineFunction &MF,
         ValueToCheck = VVal->second;
       }
 
-      if (BlockLiveOuts[Loc.asU64()] != ValueToCheck)
+      if (BlockLiveOuts[Loc.asU64()] != ValueToCheck) {
+        SeenDbgPHIs.insert({&Here, None});
         return None;
+      }
     }
 
     // Record this value as validated.
@@ -3485,5 +3512,6 @@ Optional<ValueIDNum> InstrRefBasedLDV::resolveDbgPHIs(MachineFunction &MF,
 
   // All the PHIs are valid: we can return what the SSAUpdater said our value
   // number was.
+  SeenDbgPHIs.insert({&Here, Result});
   return Result;
 }
