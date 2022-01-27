@@ -2497,10 +2497,6 @@ void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
 
   LS.getMachineBasicBlocks(DILoc, BlocksToExplore);
 
-  // A separate container to distinguish "blocks we're exploring" versus
-  // "blocks that are potentially in scope. See comment at start of vlocJoin.
-  SmallPtrSet<const MachineBasicBlock *, 8> InScopeBlocks = BlocksToExplore;
-
   // VarLoc LiveDebugValues tracks variable locations that are defined in
   // blocks not in scope. This is something we could legitimately ignore, but
   // lets allow it for now for the sake of coverage.
@@ -2513,8 +2509,7 @@ void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
   // Helper lambda: For a given block in scope, perform a depth first search
   // of all the artificial successors, adding them to the ToAdd collection.
   auto AccumulateArtificialBlocks =
-      [this, &ToAdd, &BlocksToExplore,
-       &InScopeBlocks](const MachineBasicBlock *MBB) {
+      [this, &ToAdd, &BlocksToExplore](const MachineBasicBlock *MBB) {
         // Depth-first-search state: each node is a block and which successor
         // we're currently exploring.
         SmallVector<std::pair<const MachineBasicBlock *,
@@ -2524,7 +2519,7 @@ void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
 
         // Find any artificial successors not already tracked.
         for (auto *succ : MBB->successors()) {
-          if (BlocksToExplore.count(succ) || InScopeBlocks.count(succ))
+          if (BlocksToExplore.count(succ))
             continue;
           if (!ArtificialBlocks.count(succ))
             continue;
@@ -2558,11 +2553,8 @@ void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
   // for artificial successors.
   for (auto *MBB : BlocksToExplore)
     AccumulateArtificialBlocks(MBB);
-  for (auto *MBB : InScopeBlocks)
-    AccumulateArtificialBlocks(MBB);
 
   BlocksToExplore.insert(ToAdd.begin(), ToAdd.end());
-  InScopeBlocks.insert(ToAdd.begin(), ToAdd.end());
 
   // Single block scope: not interesting! No propagation at all. Note that
   // this could probably go above ArtificialBlocks without damage, but
