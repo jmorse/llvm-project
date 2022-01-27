@@ -747,6 +747,11 @@ public:
       Scopes[Overlapped] = Loc;
     }
   }
+
+  void clear() {
+    Vars = {};
+    Scopes.clear();
+  }
 };
 
 // XXX XXX docs
@@ -816,7 +821,7 @@ private:
 
   /// Blocks which are artificial, i.e. blocks which exclusively contain
   /// instructions without DebugLocs, or with line 0 locations.
-  SmallPtrSet<const MachineBasicBlock *, 16> ArtificialBlocks;
+  SmallPtrSet<MachineBasicBlock *, 16> ArtificialBlocks;
 
   // Mapping of blocks to and from their RPOT order.
   DenseMap<unsigned int, MachineBasicBlock *> OrderToBB;
@@ -1035,6 +1040,16 @@ DenseMap<MachineInstr *, Optional<ValueIDNum>> SeenDbgPHIs;
   /// Boilerplate computation of some initial sets, artifical blocks and
   /// RPOT block ordering.
   void initialSetup(MachineFunction &MF);
+
+  bool breadthFirstVLocAndEmit(unsigned MaxNumBlocks,
+const DenseMap<const LexicalScope *, const DILocation *> &ScopeToDILocation,
+ const DenseMap<const LexicalScope *, SmallSet<DebugVariable, 4>> &ScopeToVars,
+  DenseMap<const LexicalScope *, SmallPtrSet<MachineBasicBlock *, 4>> &ScopeToBlocks,
+  LiveInsT &Output, ValueIDNum **MOutLocs, ValueIDNum **MInLocs,
+  SmallVectorImpl<VLocTracker> &AllTheVLocs,
+  MachineFunction &MF,
+  DenseMap<DebugVariable, unsigned> &AllVarsNumbering,
+  const TargetPassConfig &TPC);
 
   bool ExtendRanges(MachineFunction &MF, MachineDominatorTree *DomTree,
                     TargetPassConfig *TPC, unsigned InputBBLimit,
