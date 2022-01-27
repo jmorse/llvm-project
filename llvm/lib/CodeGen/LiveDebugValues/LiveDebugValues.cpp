@@ -124,9 +124,11 @@ bool LiveDebugValues::runOnMachineFunction(MachineFunction &MF) {
 
 bool llvm::debuginfoShouldUseDebugInstrRef(const Triple &T) {
   // Enable by default on x86_64, disable if explicitly turned off on cmdline.
+#if 0
   if (T.getArch() == llvm::Triple::x86_64 &&
       ValueTrackingVariableLocations != cl::boolOrDefault::BOU_FALSE)
     return true;
+#endif
 
   // Otherwise: enable if explicitly requestedo n command line.
   return ValueTrackingVariableLocations == cl::boolOrDefault::BOU_TRUE;
