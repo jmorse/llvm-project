@@ -747,6 +747,11 @@ public:
       Scopes[Overlapped] = Loc;
     }
   }
+
+  void clear() {
+    Vars = {};
+    Scopes.clear();
+  }
 };
 
 // XXX XXX docs
@@ -816,7 +821,7 @@ private:
 
   /// Blocks which are artificial, i.e. blocks which exclusively contain
   /// instructions without DebugLocs, or with line 0 locations.
-  SmallPtrSet<const MachineBasicBlock *, 16> ArtificialBlocks;
+  SmallPtrSet<MachineBasicBlock *, 16> ArtificialBlocks;
 
   // Mapping of blocks to and from their RPOT order.
   DenseMap<unsigned int, MachineBasicBlock *> OrderToBB;
@@ -1036,6 +1041,16 @@ DenseMap<MachineInstr *, Optional<ValueIDNum>> SeenDbgPHIs;
   /// RPOT block ordering.
   void initialSetup(MachineFunction &MF);
 
+  bool breadthFirstVLocAndEmit(unsigned MaxNumBlocks,
+const DenseMap<const LexicalScope *, const DILocation *> &ScopeToDILocation,
+ const DenseMap<const LexicalScope *, SmallSet<DebugVariable, 4>> &ScopeToVars,
+  DenseMap<const LexicalScope *, SmallPtrSet<MachineBasicBlock *, 4>> &ScopeToBlocks,
+  LiveInsT &Output, ValueIDNum **MOutLocs, ValueIDNum **MInLocs,
+  SmallVectorImpl<VLocTracker> &AllTheVLocs,
+  MachineFunction &MF,
+  DenseMap<DebugVariable, unsigned> &AllVarsNumbering,
+  const TargetPassConfig &TPC);
+
   bool ExtendRanges(MachineFunction &MF, MachineDominatorTree *DomTree,
                     TargetPassConfig *TPC, unsigned InputBBLimit,
                     unsigned InputDbgValLimit) override;
@@ -1063,6 +1078,8 @@ public:
   }
 
   Optional<LocIdx> findLocationForMemOperand(const MachineInstr &MI);
+
+  void getBlocksForScope(const DILocation *DILoc, SmallPtrSetImpl<const MachineBasicBlock *> &Output, const SmallPtrSetImpl<MachineBasicBlock *> &AssignBlocks);
 };
 
 } // namespace LiveDebugValues
