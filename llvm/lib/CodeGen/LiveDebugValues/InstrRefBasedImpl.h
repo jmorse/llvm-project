@@ -677,7 +677,7 @@ public:
   /// transfer function for this block, as part of the dataflow analysis. The
   /// movement of values between locations inside of a block is handled at a
   /// much later stage, in the TransferTracker class.
-  MapVector<DebugVariable, DbgValue> Vars;
+  MapVector<DebugVariable, DbgValue, SmallDenseMap<DebugVariable, unsigned, 8>, SmallVector<std::pair<DebugVariable, DbgValue>, 8>> Vars;
   SmallDenseMap<DebugVariable, const DILocation *, 8> Scopes;
   MachineBasicBlock *MBB = nullptr;
   const OverlapMap &OverlappingFragments;
