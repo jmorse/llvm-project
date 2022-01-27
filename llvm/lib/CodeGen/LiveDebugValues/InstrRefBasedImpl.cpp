@@ -2947,7 +2947,6 @@ const DenseMap<const LexicalScope *, const DILocation *> &ScopeToDILocation,
         auto StartIt = Start->getParent()->getIterator();
         auto EndIt = End->getParent()->getIterator();
         unsigned BBNum = StartIt->getNumber();
-        EjectionMap[BBNum] = std::max(EjectionMap[BBNum], WS->getDFSOut());
 
         // Change from inclusive range to exclusive range.
         ++EndIt;
@@ -2957,6 +2956,12 @@ const DenseMap<const LexicalScope *, const DILocation *> &ScopeToDILocation,
           if (EjectionMap[BBNum] == 0)
             EjectionMap[BBNum] = WS->getDFSOut();
         }
+      }
+
+      for (auto *MBB : ScopeToBlocks[WS]) {
+        unsigned BBNum = MBB->getNumber();
+        if (EjectionMap[BBNum] == 0)
+          EjectionMap[BBNum] = WS->getDFSOut();
       }
     }
   }
@@ -3016,6 +3021,15 @@ dbgs() << "Ejection of blk " << i << " at " << EjectionMap[i] << "\n";
           if (MInLocs[BBNum])
             EjectBlock(const_cast<MachineBasicBlock &>(*StartIt));
       }
+
+      for (auto *MBB : ScopeToBlocks[S]) {
+        unsigned BBNum = MBB->getNumber();
+        if (S->getDFSOut() == EjectionMap[BBNum])
+          if (MInLocs[BBNum])
+            EjectBlock(*MBB);
+      }
+
+
     }
   };
 
