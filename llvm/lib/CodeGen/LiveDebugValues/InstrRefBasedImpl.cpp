@@ -3235,7 +3235,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
       delete[] MOutLocs[Idx];
       delete[] MInLocs[Idx];
     }
-  } else if (BreadthFirstSearch) {
+  } else if (BreadthFirstSearch && MaxNumBlocks > 1000) {
     // Optionally, solve the variable value problem and emit to blocks by using
     // a lexical-scope-breadth search. It should be functionally identical to
     // the "else" block of this condition.
