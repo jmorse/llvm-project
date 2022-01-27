@@ -63,6 +63,7 @@ public:
   const DILocalScope *getScopeNode() const { return Desc; }
   bool isAbstractScope() const { return AbstractScope; }
   SmallVectorImpl<LexicalScope *> &getChildren() { return Children; }
+  const SmallVectorImpl<InsnRange> &getRanges() const { return Ranges; }
   SmallVectorImpl<InsnRange> &getRanges() { return Ranges; }
 
   /// addChild - Add a child scope.

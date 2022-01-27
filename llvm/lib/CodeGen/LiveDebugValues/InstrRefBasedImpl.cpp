@@ -148,6 +148,10 @@ static cl::opt<bool> EmulateOldLDV("emulate-old-livedebugvalues", cl::Hidden,
                                    cl::desc("Act like old LiveDebugValues did"),
                                    cl::init(false));
 
+static cl::opt<bool> BreadthFirstSearch("livedebugvalues-breadth-explore",
+        cl::Hidden, cl::desc("Breadth first search when solving variable locs"),
+        cl::init(true));
+
 /// Tracker for converting machine value locations and variable values into
 /// variable locations (the output of LiveDebugValues), recorded as DBG_VALUEs
 /// specifying block live-in locations and transfers within blocks.
@@ -2893,6 +2897,208 @@ void InstrRefBasedLDV::initialSetup(MachineFunction &MF) {
 #endif
 }
 
+bool InstrRefBasedLDV::breadthFirstVLocAndEmit(unsigned MaxNumBlocks,
+const DenseMap<const LexicalScope *, const DILocation *> &ScopeToDILocation,
+ const DenseMap<const LexicalScope *, SmallSet<DebugVariable, 4>> &ScopeToVars,
+  DenseMap<const LexicalScope *, SmallPtrSet<MachineBasicBlock *, 4>> &ScopeToBlocks,
+  LiveInsT &Output, ValueIDNum **MOutLocs, ValueIDNum **MInLocs,
+  SmallVectorImpl<VLocTracker> &AllTheVLocs,
+  MachineFunction &MF,
+  DenseMap<DebugVariable, unsigned> &AllVarsNumbering,
+  const TargetPassConfig &TPC) {
+  TTracker = new TransferTracker(TII, MTracker, MF, *TRI, CalleeSavedRegs, TPC);
+  unsigned NumLocs = MTracker->getNumLocs();
+  VTracker = nullptr;
+
+  // No scopes? No variable locations.
+  if (!LS.getCurrentFunctionScope())
+    return false;
+
+  // Produce an "ejection map" for blocks, i.e., what's the highest-numbered
+  // lexical scope it's used in. When exploring in DFS order and we pass that
+  // scope, the block can be processed and any tracking information freed.
+  SmallVector<unsigned, 16> EjectionMap;
+  EjectionMap.resize(MaxNumBlocks, 0);
+
+  SmallVector<std::pair<LexicalScope *, ssize_t>, 4> WorkStack;
+  auto *TopScope = LS.getCurrentFunctionScope();
+  WorkStack.push_back({TopScope, TopScope->getChildren().size()-1});
+  // Terminate when we examine a null scope, either parent of the function
+  // scope, or if there's no function scope at all.
+  unsigned HighestDFSIn = 0;
+  while (!WorkStack.empty()) {
+    auto &ScopePosition = WorkStack.back();
+    LexicalScope *WS = ScopePosition.first;
+    assert(WS);
+    ssize_t ChildNum = ScopePosition.second--;
+
+    const SmallVectorImpl<LexicalScope *> &Children = WS->getChildren();
+    if (ChildNum >= 0) {
+      auto &ChildScope = Children[ChildNum];
+      WorkStack.push_back(std::make_pair(ChildScope, ChildScope->getChildren().size()-1));
+    } else {
+      WorkStack.pop_back();
+
+      // Any blocks in scope that don't have a higher DFS number given, assign
+      // our DFS number to.
+      for (auto &Range : WS->getRanges()) {
+        const MachineInstr *Start, *End;
+        std::tie(Start, End) = Range;
+        auto StartIt = Start->getParent()->getIterator();
+        auto EndIt = End->getParent()->getIterator();
+        unsigned BBNum = StartIt->getNumber();
+        EjectionMap[BBNum] = std::max(EjectionMap[BBNum], WS->getDFSOut());
+
+        // Change from inclusive range to exclusive range.
+        ++EndIt;
+        
+        for (; StartIt != EndIt; ++StartIt) {
+          unsigned BBNum = StartIt->getNumber();
+          if (EjectionMap[BBNum] == 0)
+            EjectionMap[BBNum] = WS->getDFSOut();
+        }
+      }
+    }
+  }
+
+#if 0
+  for (unsigned int i = 0; i < MaxNumBlocks; ++i) {
+dbgs() << "Ejection of blk " << i << " at " << EjectionMap[i] << "\n";
+  }
+#endif
+
+  auto EjectBlock = [&](MachineBasicBlock &MBB) -> void {
+    unsigned BBNum = MBB.getNumber();
+    AllTheVLocs[BBNum].clear();
+
+//dbgs() << "Ejected block " << BBNum << "\n";
+
+    MTracker->reset();
+    MTracker->loadFromArray(MInLocs[BBNum], BBNum);
+    TTracker->loadInlocs(MBB, MInLocs[BBNum], Output[BBNum], NumLocs);
+
+    CurBB = BBNum;
+    CurInst = 1;
+    for (auto &MI : MBB) {
+      process(MI, MOutLocs, MInLocs);
+      TTracker->checkInstForNewValues(CurInst, MI.getIterator());
+      ++CurInst;
+    }
+
+    // Our block information has now been converted into DBG_VALUEs, to be
+    // inserted below. Free the memory we allocated to track variable / register
+    // values. If we don't, we needlessy record the same info in memory twice.
+    delete[] MInLocs[BBNum];
+    delete[] MOutLocs[BBNum];
+    MInLocs[BBNum] = nullptr;
+    MOutLocs[BBNum] = nullptr;
+    Output[BBNum].clear();
+    Output[BBNum] = {};
+  };
+
+  auto OptionalEject = [&](const LexicalScope *S) {
+    for (auto &Range : S->getRanges()) {
+      const MachineInstr *Start, *End;
+      std::tie(Start, End) = Range;
+      auto StartIt = Start->getParent()->getIterator();
+      auto EndIt = End->getParent()->getIterator();
+
+      // This range is inclusive; but stepping over iterators is exclusive of
+      // the end iterator. Terminate one block futher on (some other block,
+      // or end()).
+      ++EndIt;
+      
+      for (; StartIt != EndIt; ++StartIt) {
+        unsigned BBNum = StartIt->getNumber();
+        if (S->getDFSOut() == EjectionMap[BBNum])
+          // Don't double eject; this can happen when blocks are in the instr
+          // ranges twice, which can happen.
+          if (MInLocs[BBNum])
+            EjectBlock(const_cast<MachineBasicBlock &>(*StartIt));
+      }
+    }
+  };
+
+  // Proceed to explore in DFS, copy LexicalScopes::constructScopeNext.
+  WorkStack.push_back({LS.getCurrentFunctionScope(), 0});
+  HighestDFSIn = 0;
+  while (!WorkStack.empty()) {
+    auto &ScopePosition = WorkStack.back();
+    LexicalScope *WS = ScopePosition.first;
+    ssize_t ChildNum = ScopePosition.second++;
+
+    // We can visit scopes twice, once when exploring deeper into a scope
+    // nest, second when coming back out. Increase a count of DFSIn
+    // monotonically to avoid this. Plus, there can be scopes with no associated
+    // variables -- ignore those.
+    auto DILocIt = ScopeToDILocation.find(WS);
+    if (HighestDFSIn <= WS->getDFSIn() && DILocIt != ScopeToDILocation.end()) {
+
+//dbgs() << "Scope " << WS << " dfsout " << WS->getDFSOut() << "\n";
+      const DILocation *DILoc = DILocIt->second;
+      auto &VarsWeCareAbout = ScopeToVars.find(WS)->second;
+      auto &BlocksInScope = ScopeToBlocks.find(WS)->second;
+
+      buildVLocValueMap(DILoc, VarsWeCareAbout,
+                   BlocksInScope, Output, MOutLocs, MInLocs,
+                   AllTheVLocs);
+    }
+
+    HighestDFSIn = std::max(HighestDFSIn, WS->getDFSIn());
+
+    const SmallVectorImpl<LexicalScope *> &Children = WS->getChildren();
+    if (ChildNum < (ssize_t)Children.size()) {
+      auto &ChildScope = Children[ChildNum];
+      WorkStack.push_back(std::make_pair(ChildScope, 0));
+    } else {
+      OptionalEject(WS);
+      WorkStack.pop_back();
+    }
+
+  }
+
+  // XXX Check that everything is ejected?
+  for (auto *MBB : ArtificialBlocks)
+    if (MOutLocs[MBB->getNumber()])
+      EjectBlock(*MBB);
+
+  // Go through all the transfers recorded in the TransferTracker -- this is
+  // both the live-ins to a block, and any movements of values that happen
+  // in the middle.
+  for (const auto &P : TTracker->Transfers) {
+    // We have to insert DBG_VALUEs in a consistent order, otherwise they
+    // appear in DWARF in different orders. Use the order that they appear
+    // when walking through each block / each instruction, stored in
+    // AllVarsNumbering.
+    SmallVector<std::pair<unsigned, MachineInstr *>> Insts;
+    for (MachineInstr *MI : P.Insts) {
+      DebugVariable Var(MI->getDebugVariable(), MI->getDebugExpression(),
+                        MI->getDebugLoc()->getInlinedAt());
+      Insts.emplace_back(AllVarsNumbering.find(Var)->second, MI);
+    }
+    llvm::sort(Insts,
+               [](const auto &A, const auto &B) { return A.first < B.first; });
+
+    // Insert either before or after the designated point...
+    if (P.MBB) {
+      MachineBasicBlock &MBB = *P.MBB;
+      for (const auto &Pair : Insts)
+        MBB.insert(P.Pos, Pair.second);
+    } else {
+      // Terminators, like tail calls, can clobber things. Don't try and place
+      // transfers after them.
+      if (P.Pos->isTerminator())
+        continue;
+
+      MachineBasicBlock &MBB = *P.Pos->getParent();
+      for (const auto &Pair : Insts)
+        MBB.insertAfterBundle(P.Pos, Pair.second);
+    }
+  }
+
+  return TTracker->Transfers.size() != 0;
+}
+
 /// Calculate the liveness information for the given machine function and
 /// extend ranges across basic blocks.
 bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
@@ -3049,6 +3255,13 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
       delete[] MOutLocs[Idx];
       delete[] MInLocs[Idx];
     }
+  } else if (BreadthFirstSearch) {
+    // Optionally, solve the variable value problem and emit to blocks by using
+    // a lexical-scope-breadth search. It should be functionally identical to
+    // the "else" block of this condition.
+    Changed = breadthFirstVLocAndEmit(MaxNumBlocks, ScopeToDILocation, ScopeToVars, ScopeToBlocks, SavedLiveIns,
+                            MOutLocs, MInLocs, vlocs, MF, AllVarsNumbering,
+                            *TPC);
   } else {
     // Compute the extended ranges, iterating over scopes. There might be
     // something to be said for ordering them by size/locality, but that's for
