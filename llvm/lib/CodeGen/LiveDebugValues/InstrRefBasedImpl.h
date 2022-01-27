@@ -678,7 +678,7 @@ public:
   /// movement of values between locations inside of a block is handled at a
   /// much later stage, in the TransferTracker class.
   MapVector<DebugVariable, DbgValue> Vars;
-  DenseMap<DebugVariable, const DILocation *> Scopes;
+  SmallDenseMap<DebugVariable, const DILocation *, 8> Scopes;
   MachineBasicBlock *MBB = nullptr;
   const OverlapMap &OverlappingFragments;
   DbgValueProperties EmptyProperties;
