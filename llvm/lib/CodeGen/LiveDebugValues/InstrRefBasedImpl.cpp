@@ -2857,8 +2857,9 @@ void InstrRefBasedLDV::initialSetup(MachineFunction &MF) {
   EmptyExpr = DIExpression::get(Context, {});
 
   auto hasNonArtificialLocation = [](const MachineInstr &MI) -> bool {
-    if (const DebugLoc &DL = MI.getDebugLoc())
-      return DL.getLine() != 0;
+    if (!MI.isMetaInstruction())
+      if (const DebugLoc &DL = MI.getDebugLoc())
+        return DL.getLine() != 0;
     return false;
   };
   // Collect a set of all the artificial blocks.
