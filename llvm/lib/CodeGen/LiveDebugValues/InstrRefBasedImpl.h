@@ -1078,6 +1078,8 @@ public:
   }
 
   Optional<LocIdx> findLocationForMemOperand(const MachineInstr &MI);
+
+  void getBlocksForScope(const DILocation *DILoc, SmallPtrSetImpl<const MachineBasicBlock *> &Output, const SmallPtrSetImpl<MachineBasicBlock *> &AssignBlocks);
 };
 
 } // namespace LiveDebugValues

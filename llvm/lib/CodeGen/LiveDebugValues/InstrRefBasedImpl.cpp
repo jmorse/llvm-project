@@ -2470,6 +2470,61 @@ bool InstrRefBasedLDV::vlocJoin(
   }
 }
 
+void InstrRefBasedLDV::getBlocksForScope(const DILocation *DILoc, SmallPtrSetImpl<const MachineBasicBlock *> &BlocksToExplore, const SmallPtrSetImpl<MachineBasicBlock *> &AssignBlocks) {
+  LS.getMachineBasicBlocks(DILoc, BlocksToExplore);
+
+  // VarLoc LiveDebugValues tracks variable locations that are defined in
+  // blocks not in scope. This is something we could legitimately ignore, but
+  // lets allow it for now for the sake of coverage.
+  BlocksToExplore.insert(AssignBlocks.begin(), AssignBlocks.end()); 
+
+  DenseSet<const MachineBasicBlock *> ToAdd;
+
+  // For a given block in scope, perform a depth first search
+  // of all the artificial successors.
+  for (auto *MBB : BlocksToExplore) {
+    // Depth-first-search state: each node is a block and which successor
+    // we're currently exploring.
+    SmallVector<std::pair<const MachineBasicBlock *,
+                          MachineBasicBlock::const_succ_iterator>,
+                8>
+        DFS;
+
+    // Find any artificial successors not already tracked.
+    for (auto *succ : MBB->successors()) {
+      if (BlocksToExplore.count(succ))
+        continue;
+      if (!ArtificialBlocks.count(succ))
+        continue;
+      ToAdd.insert(succ);
+      DFS.push_back({succ, succ->succ_begin()});
+    }
+
+    // Search all those blocks, depth first.
+    while (!DFS.empty()) {
+      const MachineBasicBlock *CurBB = DFS.back().first;
+      MachineBasicBlock::const_succ_iterator &CurSucc = DFS.back().second;
+      // Walk back if we've explored this blocks successors to the end.
+      if (CurSucc == CurBB->succ_end()) {
+        DFS.pop_back();
+        continue;
+      }
+
+      // If the current successor is artificial and unexplored, descend into
+      // it.
+      if (!ToAdd.count(*CurSucc) && ArtificialBlocks.count(*CurSucc)) {
+        ToAdd.insert(*CurSucc);
+        DFS.push_back({*CurSucc, (*CurSucc)->succ_begin()});
+        continue;
+      }
+
+      ++CurSucc;
+    }
+  };
+
+  BlocksToExplore.insert(ToAdd.begin(), ToAdd.end());
+}
+
 void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
     const SmallSet<DebugVariable, 4> &VarsWeCareAbout,
     SmallPtrSetImpl<MachineBasicBlock *> &AssignBlocks, LiveInsT &Output,
@@ -2495,66 +2550,7 @@ void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
     return BBToOrder[A] < BBToOrder[B];
   };
 
-  LS.getMachineBasicBlocks(DILoc, BlocksToExplore);
-
-  // VarLoc LiveDebugValues tracks variable locations that are defined in
-  // blocks not in scope. This is something we could legitimately ignore, but
-  // lets allow it for now for the sake of coverage.
-  BlocksToExplore.insert(AssignBlocks.begin(), AssignBlocks.end());
-
-  // We also need to propagate variable values through any artificial blocks
-  // that immediately follow blocks in scope.
-  DenseSet<const MachineBasicBlock *> ToAdd;
-
-  // Helper lambda: For a given block in scope, perform a depth first search
-  // of all the artificial successors, adding them to the ToAdd collection.
-  auto AccumulateArtificialBlocks =
-      [this, &ToAdd, &BlocksToExplore](const MachineBasicBlock *MBB) {
-        // Depth-first-search state: each node is a block and which successor
-        // we're currently exploring.
-        SmallVector<std::pair<const MachineBasicBlock *,
-                              MachineBasicBlock::const_succ_iterator>,
-                    8>
-            DFS;
-
-        // Find any artificial successors not already tracked.
-        for (auto *succ : MBB->successors()) {
-          if (BlocksToExplore.count(succ))
-            continue;
-          if (!ArtificialBlocks.count(succ))
-            continue;
-          ToAdd.insert(succ);
-          DFS.push_back(std::make_pair(succ, succ->succ_begin()));
-        }
-
-        // Search all those blocks, depth first.
-        while (!DFS.empty()) {
-          const MachineBasicBlock *CurBB = DFS.back().first;
-          MachineBasicBlock::const_succ_iterator &CurSucc = DFS.back().second;
-          // Walk back if we've explored this blocks successors to the end.
-          if (CurSucc == CurBB->succ_end()) {
-            DFS.pop_back();
-            continue;
-          }
-
-          // If the current successor is artificial and unexplored, descend into
-          // it.
-          if (!ToAdd.count(*CurSucc) && ArtificialBlocks.count(*CurSucc)) {
-            ToAdd.insert(*CurSucc);
-            DFS.push_back(std::make_pair(*CurSucc, (*CurSucc)->succ_begin()));
-            continue;
-          }
-
-          ++CurSucc;
-        }
-      };
-
-  // Search in-scope blocks and those containing a DBG_VALUE from this scope
-  // for artificial successors.
-  for (auto *MBB : BlocksToExplore)
-    AccumulateArtificialBlocks(MBB);
-
-  BlocksToExplore.insert(ToAdd.begin(), ToAdd.end());
+  getBlocksForScope(DILoc, BlocksToExplore, AssignBlocks);
 
   // Single block scope: not interesting! No propagation at all. Note that
   // this could probably go above ArtificialBlocks without damage, but
@@ -2912,6 +2908,7 @@ const DenseMap<const LexicalScope *, const DILocation *> &ScopeToDILocation,
   SmallVector<unsigned, 16> EjectionMap;
   EjectionMap.resize(MaxNumBlocks, 0);
 
+  SmallPtrSet<const MachineBasicBlock *, 8> BlocksToExplore;
   SmallVector<std::pair<LexicalScope *, ssize_t>, 4> WorkStack;
   auto *TopScope = LS.getCurrentFunctionScope();
   WorkStack.push_back({TopScope, TopScope->getChildren().size()-1});
@@ -2931,29 +2928,17 @@ const DenseMap<const LexicalScope *, const DILocation *> &ScopeToDILocation,
     } else {
       WorkStack.pop_back();
 
-      // Any blocks in scope that don't have a higher DFS number given, assign
-      // our DFS number to.
-      for (auto &Range : WS->getRanges()) {
-        const MachineInstr *Start, *End;
-        std::tie(Start, End) = Range;
-        auto StartIt = Start->getParent()->getIterator();
-        auto EndIt = End->getParent()->getIterator();
-        unsigned BBNum = StartIt->getNumber();
-
-        // Change from inclusive range to exclusive range.
-        ++EndIt;
-        
-        for (; StartIt != EndIt; ++StartIt) {
-          unsigned BBNum = StartIt->getNumber();
+      auto DILocationIt = ScopeToDILocation.find(WS);
+      if (DILocationIt != ScopeToDILocation.end()) {
+        getBlocksForScope(DILocationIt->second, BlocksToExplore,
+                          ScopeToBlocks.find(WS)->second);
+        for (auto *MBB : BlocksToExplore) {
+          unsigned BBNum = MBB->getNumber();
           if (EjectionMap[BBNum] == 0)
             EjectionMap[BBNum] = WS->getDFSOut();
         }
-      }
 
-      for (auto *MBB : ScopeToBlocks[WS]) {
-        unsigned BBNum = MBB->getNumber();
-        if (EjectionMap[BBNum] == 0)
-          EjectionMap[BBNum] = WS->getDFSOut();
+        BlocksToExplore.clear();
       }
     }
   }
@@ -2968,7 +2953,9 @@ dbgs() << "Ejection of blk " << i << " at " << EjectionMap[i] << "\n";
     unsigned BBNum = MBB.getNumber();
     AllTheVLocs[BBNum].clear();
 
-//dbgs() << "Ejected block " << BBNum << "\n";
+#if 0
+dbgs() << "Ejected block " << BBNum << "\n";
+#endif
 
     MTracker->reset();
     MTracker->loadFromArray(MInLocs[BBNum], BBNum);
@@ -2994,35 +2981,20 @@ dbgs() << "Ejection of blk " << i << " at " << EjectionMap[i] << "\n";
   };
 
   auto OptionalEject = [&](const LexicalScope *S) {
-    for (auto &Range : S->getRanges()) {
-      const MachineInstr *Start, *End;
-      std::tie(Start, End) = Range;
-      auto StartIt = Start->getParent()->getIterator();
-      auto EndIt = End->getParent()->getIterator();
+    auto DILocationIt = ScopeToDILocation.find(S);
+    if (DILocationIt == ScopeToDILocation.end())
+      return;
 
-      // This range is inclusive; but stepping over iterators is exclusive of
-      // the end iterator. Terminate one block futher on (some other block,
-      // or end()).
-      ++EndIt;
-      
-      for (; StartIt != EndIt; ++StartIt) {
-        unsigned BBNum = StartIt->getNumber();
-        if (S->getDFSOut() == EjectionMap[BBNum])
-          // Don't double eject; this can happen when blocks are in the instr
-          // ranges twice, which can happen.
-          if (MInLocs[BBNum])
-            EjectBlock(const_cast<MachineBasicBlock &>(*StartIt));
-      }
-
-      for (auto *MBB : ScopeToBlocks[S]) {
-        unsigned BBNum = MBB->getNumber();
-        if (S->getDFSOut() == EjectionMap[BBNum])
-          if (MInLocs[BBNum])
-            EjectBlock(*MBB);
-      }
-
-
+    getBlocksForScope(DILocationIt->second, BlocksToExplore, ScopeToBlocks.find(S)->second);
+    for (auto *MBB : BlocksToExplore) {
+      unsigned BBNum = MBB->getNumber();
+      if (S->getDFSOut() == EjectionMap[BBNum])
+        // Don't double eject; this can happen when blocks are in the instr
+        // ranges twice, which can happen.
+        if (MInLocs[BBNum])
+          EjectBlock(const_cast<MachineBasicBlock&>(*MBB));
     }
+    BlocksToExplore.clear();
   };
 
   // Proceed to explore in DFS, copy LexicalScopes::constructScopeNext.
@@ -3040,7 +3012,9 @@ dbgs() << "Ejection of blk " << i << " at " << EjectionMap[i] << "\n";
     auto DILocIt = ScopeToDILocation.find(WS);
     if (HighestDFSIn <= WS->getDFSIn() && DILocIt != ScopeToDILocation.end()) {
 
-//dbgs() << "Scope " << WS << " dfsout " << WS->getDFSOut() << "\n";
+#if 0
+dbgs() << "Scope " << WS << " dfsout " << WS->getDFSOut() << "\n";
+#endif
       const DILocation *DILoc = DILocIt->second;
       auto &VarsWeCareAbout = ScopeToVars.find(WS)->second;
       auto &BlocksInScope = ScopeToBlocks.find(WS)->second;
