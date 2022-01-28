@@ -2754,7 +2754,7 @@ void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
         BlockLiveIn->Kind = DbgValue::Def;
       assert(BlockLiveIn->Properties.DIExpr->getFragmentInfo() ==
              Var.getFragment() && "Fragment info missing during value prop");
-      Output[MBB->getNumber()].push_back(std::make_pair(Var, *BlockLiveIn));
+      Output[MBB->getNumber()].emplace_back(Var, *BlockLiveIn);
     }
   } // Per-variable loop.
 
@@ -3235,7 +3235,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
       delete[] MOutLocs[Idx];
       delete[] MInLocs[Idx];
     }
-  } else if (BreadthFirstSearch && MaxNumBlocks > 1000) {
+  } else if (BreadthFirstSearch) {
     // Optionally, solve the variable value problem and emit to blocks by using
     // a lexical-scope-breadth search. It should be functionally identical to
     // the "else" block of this condition.
