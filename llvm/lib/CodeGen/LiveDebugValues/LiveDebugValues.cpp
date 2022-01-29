@@ -123,6 +123,8 @@ bool LiveDebugValues::runOnMachineFunction(MachineFunction &MF) {
 }
 
 bool llvm::debuginfoShouldUseDebugInstrRef(const Triple &T) {
+// Test!
+return true;
   // Enable if explicitly requested on command line.
   return ValueTrackingVariableLocations == cl::boolOrDefault::BOU_TRUE;
 }
