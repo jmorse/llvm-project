@@ -819,9 +819,8 @@ private:
   SmallPtrSet<const MachineBasicBlock *, 16> ArtificialBlocks;
 
   // Mapping of blocks to and from their RPOT order.
-  DenseMap<unsigned int, MachineBasicBlock *> OrderToBB;
+  SmallVector<MachineBasicBlock *, 32> OrderToBB;
   DenseMap<const MachineBasicBlock *, unsigned int> BBToOrder;
-  DenseMap<unsigned, unsigned> BBNumToRPO;
 
   /// Pair of MachineInstr, and its 1-based offset into the containing block.
   using InstAndNum = std::pair<const MachineInstr *, unsigned>;

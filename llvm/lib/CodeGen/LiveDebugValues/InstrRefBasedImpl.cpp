@@ -2012,6 +2012,9 @@ void InstrRefBasedLDV::placeMLocPHIs(
     SmallPtrSet<MachineBasicBlock *, 32> DefBlocks;
     for (unsigned int I = 0; I < OrderToBB.size(); ++I) {
       MachineBasicBlock *MBB = OrderToBB[I];
+      if (!MBB)
+        continue;
+
       const auto &TransferFunc = MLocTransfer[MBB->getNumber()];
       if (TransferFunc.find(L) != TransferFunc.end())
         DefBlocks.insert(MBB);
@@ -2103,9 +2106,13 @@ void InstrRefBasedLDV::buildMLocValueMap(
   // all blocks.
   SmallPtrSet<MachineBasicBlock *, 32> AllBlocks;
   for (unsigned int I = 0; I < BBToOrder.size(); ++I) {
+    auto *MBB = OrderToBB[I];
+    if (!MBB)
+      continue;
+
     Worklist.push(I);
-    OnWorklist.insert(OrderToBB[I]);
-    AllBlocks.insert(OrderToBB[I]);
+    OnWorklist.insert(MBB);
+    AllBlocks.insert(MBB);
   }
 
   // Initialize entry block to PHIs. These represent arguments.
@@ -2865,7 +2872,6 @@ void InstrRefBasedLDV::initialSetup(MachineFunction &MF) {
   for (MachineBasicBlock *MBB : RPOT) {
     OrderToBB[RPONumber] = MBB;
     BBToOrder[MBB] = RPONumber;
-    BBNumToRPO[MBB->getNumber()] = RPONumber;
     ++RPONumber;
   }
 
@@ -2923,12 +2929,10 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   SmallVector<VLocTracker, 8> vlocs;
   LiveInsT SavedLiveIns;
 
-  int MaxNumBlocks = -1;
-  for (auto &MBB : MF)
-    MaxNumBlocks = std::max(MBB.getNumber(), MaxNumBlocks);
-  assert(MaxNumBlocks >= 0);
-  ++MaxNumBlocks;
+  unsigned MaxNumBlocks = MF.getNumBlockIDs();
+  // XXX ++MaxNumBlocks;
 
+  OrderToBB.resize(MaxNumBlocks);
   MLocTransfer.resize(MaxNumBlocks);
   vlocs.resize(MaxNumBlocks, VLocTracker(OverlapFragments, EmptyExpr));
   SavedLiveIns.resize(MaxNumBlocks);
@@ -2943,7 +2947,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   ValueIDNum **MOutLocs = new ValueIDNum *[MaxNumBlocks];
   ValueIDNum **MInLocs = new ValueIDNum *[MaxNumBlocks];
   unsigned NumLocs = MTracker->getNumLocs();
-  for (int i = 0; i < MaxNumBlocks; ++i) {
+  for (unsigned i = 0; i < MaxNumBlocks; ++i) {
     // These all auto-initialize to ValueIDNum::EmptyValue
     MOutLocs[i] = new ValueIDNum[NumLocs];
     MInLocs[i] = new ValueIDNum[NumLocs];
@@ -2972,14 +2976,17 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
 
   // Walk back through each block / instruction, collecting DBG_VALUE
   // instructions and recording what machine value their operands refer to.
-  for (auto &OrderPair : OrderToBB) {
-    MachineBasicBlock &MBB = *OrderPair.second;
-    CurBB = MBB.getNumber();
+  for (auto *MBB : OrderToBB) {
+    // Skip absent blocks.
+    if (!MBB)
+      continue;
+
+    CurBB = MBB->getNumber();
     VTracker = &vlocs[CurBB];
-    VTracker->MBB = &MBB;
+    VTracker->MBB = MBB;
     MTracker->loadFromArray(MInLocs[CurBB], CurBB);
     CurInst = 1;
-    for (auto &MI : MBB) {
+    for (auto &MI : *MBB) {
       process(MI, MOutLocs, MInLocs);
       ++CurInst;
     }
@@ -3005,6 +3012,9 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   unsigned VarAssignCount = 0;
   for (unsigned int I = 0; I < OrderToBB.size(); ++I) {
     auto *MBB = OrderToBB[I];
+    if (!MBB)
+      continue;
+
     auto *VTracker = &vlocs[MBB->getNumber()];
     // Collect each variable with a DBG_VALUE in this block.
     for (auto &idx : VTracker->Vars) {
@@ -3056,7 +3066,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   }
 
   // Common clean-up of memory.
-  for (int Idx = 0; Idx < MaxNumBlocks; ++Idx) {
+  for (unsigned Idx = 0; Idx < MaxNumBlocks; ++Idx) {
     delete[] MOutLocs[Idx];
     delete[] MInLocs[Idx];
   }
@@ -3072,7 +3082,6 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   ArtificialBlocks.clear();
   OrderToBB.clear();
   BBToOrder.clear();
-  BBNumToRPO.clear();
   DebugInstrNumToInstr.clear();
   DebugPHINumToValue.clear();
   OverlapFragments.clear();
