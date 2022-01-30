@@ -1868,8 +1868,7 @@ void InstrRefBasedLDV::produceMLocTransferFunction(
 }
 
 bool InstrRefBasedLDV::mlocJoin(
-    MachineBasicBlock &MBB, SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
-    ValueIDNum **OutLocs, ValueIDNum *InLocs) {
+    MachineBasicBlock &MBB, ValueIDNum **OutLocs, ValueIDNum *InLocs) {
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
 
@@ -2147,7 +2146,7 @@ void InstrRefBasedLDV::buildMLocValueMap(
   // the same value once control flow joins, unbeknowns to the PHI placement
   // code. Propagating values allows us to identify such un-necessary PHIs and
   // remove them.
-  SmallPtrSet<const MachineBasicBlock *, 16> Visited;
+  bool FirstTrip = true;
   while (!Worklist.empty() || !Pending.empty()) {
     // Vector for storing the evaluated block transfer function.
     SmallVector<std::pair<LocIdx, ValueIDNum>, 32> ToRemap;
@@ -2159,8 +2158,8 @@ void InstrRefBasedLDV::buildMLocValueMap(
 
       // Join the values in all predecessor blocks.
       bool InLocsChanged;
-      InLocsChanged = mlocJoin(*MBB, Visited, MOutLocs, MInLocs[CurBB]);
-      InLocsChanged |= Visited.insert(MBB).second;
+      InLocsChanged = mlocJoin(*MBB, MOutLocs, MInLocs[CurBB]);
+      InLocsChanged |= FirstTrip;
 
       // Don't examine transfer function if we've visited this loc at least
       // once, and inlocs haven't changed.
@@ -2221,6 +2220,8 @@ void InstrRefBasedLDV::buildMLocValueMap(
         }
       }
     }
+
+    FirstTrip = false;
 
     Worklist.swap(Pending);
     std::swap(OnPending, OnWorklist);

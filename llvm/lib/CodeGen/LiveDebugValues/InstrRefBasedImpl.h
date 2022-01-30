@@ -978,7 +978,6 @@ DenseMap<MachineInstr *, Optional<ValueIDNum>> SeenDbgPHIs;
   /// was made, the second whether a lattice downgrade occurred. If the latter
   /// is true, revisiting this block is necessary.
   bool mlocJoin(MachineBasicBlock &MBB,
-                SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
                 ValueIDNum **OutLocs, ValueIDNum *InLocs);
 
   /// Solve the variable value dataflow problem, for a single lexical scope.
