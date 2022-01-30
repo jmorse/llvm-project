@@ -1857,7 +1857,7 @@ void InstrRefBasedLDV::produceMLocTransferFunction(
 }
 
 bool InstrRefBasedLDV::mlocJoin(
-    MachineBasicBlock &MBB, SmallPtrSetImpl<const MachineBasicBlock *> &Visited,
+    MachineBasicBlock &MBB, SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
     ValueIDNum **OutLocs, ValueIDNum *InLocs) {
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
@@ -2105,9 +2105,6 @@ void InstrRefBasedLDV::buildMLocValueMap(
   // Initialize worklist with every block to be visited. Also produce list of
   // all blocks.
   SmallPtrSet<MachineBasicBlock *, 32> AllBlocks;
-  AllBlocks.reserve(BBToOrder.size());
-  OnPending.reserve(BBToOrder.size());
-  OnWorklist.reserve(BBToOrder.size());
   for (unsigned int I = 0; I < BBToOrder.size(); ++I) {
     auto *MBB = OrderToBB[I];
     if (!MBB)
@@ -2138,7 +2135,6 @@ void InstrRefBasedLDV::buildMLocValueMap(
   // code. Propagating values allows us to identify such un-necessary PHIs and
   // remove them.
   SmallPtrSet<const MachineBasicBlock *, 16> Visited;
-  Visited.reserve(BBToOrder.size());
   while (!Worklist.empty() || !Pending.empty()) {
     // Vector for storing the evaluated block transfer function.
     SmallVector<std::pair<LocIdx, ValueIDNum>, 32> ToRemap;
@@ -2372,7 +2368,7 @@ Optional<ValueIDNum> InstrRefBasedLDV::pickVPHILoc(
 
 bool InstrRefBasedLDV::vlocJoin(
     MachineBasicBlock &MBB, LiveIdxT &VLOCOutLocs,
-    SmallPtrSetImpl<const MachineBasicBlock *> &BlocksToExplore,
+    SmallPtrSet<const MachineBasicBlock *, 8> &BlocksToExplore,
     DbgValue &LiveIn) {
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
@@ -2516,7 +2512,7 @@ void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
 
   // We also need to propagate variable values through any artificial blocks
   // that immediately follow blocks in scope.
-  SmallPtrSet<const MachineBasicBlock *, 8> ToAdd;
+  DenseSet<const MachineBasicBlock *> ToAdd;
 
   // Helper lambda: For a given block in scope, perform a depth first search
   // of all the artificial successors, adding them to the ToAdd collection.
@@ -2583,12 +2579,10 @@ void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
   // getMachineBasicBlocks returns const MBB pointers, IDF wants mutable ones.
   // (Neither of them mutate anything).
   SmallPtrSet<MachineBasicBlock *, 8> MutBlocksToExplore;
-  MutBlocksToExplore.reserve(BlocksToExplore.size());
   for (const auto *MBB : BlocksToExplore)
     MutBlocksToExplore.insert(const_cast<MachineBasicBlock *>(MBB));
 
   // Picks out relevants blocks RPO order and sort them.
-  BlockOrders.reserve(BlocksToExplore.size());
   for (auto *MBB : BlocksToExplore)
     BlockOrders.push_back(const_cast<MachineBasicBlock *>(MBB));
 
@@ -2599,8 +2593,6 @@ void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
   SmallVector<DbgValue, 32> LiveIns, LiveOuts;
   LiveIns.reserve(NumBlocks);
   LiveOuts.reserve(NumBlocks);
-  OnWorklist.reserve(NumBlocks);
-  OnPending.reserve(NumBlocks);
 
   // Initialize all values to start as NoVals. This signifies "it's live
   // through, but we don't know what it is".
