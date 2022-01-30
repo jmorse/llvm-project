@@ -2030,12 +2030,6 @@ void InstrRefBasedLDV::placeMLocPHIs(
         DefBlocks.insert(MBB);
     }
 
-    // The entry block defs the location too: it's the live-in / argument value.
-    // Only insert if there are other defs though; everything is trivially live
-    // through otherwise.
-    if (!DefBlocks.empty())
-      DefBlocks.insert(&*MF.begin());
-
     // Ask the SSA construction algorithm where we should put PHIs. Clear
     // anything that might have been hanging around from earlier.
     PHIBlocks.clear();
