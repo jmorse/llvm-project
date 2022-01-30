@@ -2111,7 +2111,9 @@ void InstrRefBasedLDV::buildMLocValueMap(
   // We track what is on the current and pending worklist to avoid inserting
   // the same thing twice. We could avoid this with a custom priority queue,
   // but this is probably not worth it.
-  SmallPtrSet<MachineBasicBlock *, 16> OnPending, OnWorklist;
+  SmallDenseSet<MachineBasicBlock *, 16> OnPending, OnWorklist;
+  OnWorklist.reserve(BBToOrder.size());
+  OnPending.reserve(BBToOrder.size());
 
   // Initialize worklist with every block to be visited. Also produce list of
   // all blocks.
@@ -2497,7 +2499,7 @@ void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
   std::priority_queue<unsigned int, std::vector<unsigned int>,
                       std::greater<unsigned int>>
       Worklist, Pending;
-  SmallPtrSet<MachineBasicBlock *, 16> OnWorklist, OnPending;
+  SmallDenseSet<MachineBasicBlock *, 16> OnWorklist, OnPending;
 
   // The set of blocks we'll be examining.
   SmallPtrSet<const MachineBasicBlock *, 8> BlocksToExplore;
@@ -2604,6 +2606,8 @@ void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
   SmallVector<DbgValue, 32> LiveIns, LiveOuts;
   LiveIns.reserve(NumBlocks);
   LiveOuts.reserve(NumBlocks);
+  OnWorklist.reserve(NumBlocks);
+  OnPending.reserve(NumBlocks);
 
   // Initialize all values to start as NoVals. This signifies "it's live
   // through, but we don't know what it is".
