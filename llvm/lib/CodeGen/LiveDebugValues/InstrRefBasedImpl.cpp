@@ -273,7 +273,11 @@ public:
     };
 
     // Map of the preferred location for each value.
-    DenseMap<ValueIDNum, LocIdx> ValueToLoc;
+    SmallDenseMap<ValueIDNum, LocIdx, 8> ValueToLoc;
+    // Pessimistically assume that each variable will have a distinct value
+    // to be accounted for. Avoids reallocations at the expense of a little
+    // memory.
+    ValueToLoc.grow(VLocs.size());
 
     for (auto &VLoc : VLocs) {
       if (VLoc.second.Kind == DbgValue::Def) {
