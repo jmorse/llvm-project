@@ -764,7 +764,7 @@ public:
 
   /// Machine location/value transfer function, a mapping of which locations
   /// are assigned which new values.
-  using MLocTransferMap = SmallDenseMap<LocIdx, ValueIDNum>;
+  using MLocTransferMap = DenseMap<LocIdx, ValueIDNum>;
 
   /// Live in/out structure for the variable values: a per-block map of
   /// variables to their values.

@@ -1980,9 +1980,10 @@ void InstrRefBasedLDV::placeMLocPHIs(
   // arguments) don't lead to register units being tracked, just place PHIs for
   // those registers directly. Stack slots have their own form of "unit",
   // store them to one side.
-  SmallSet<Register, 32> RegUnitsToPHIUp;
-  SmallSet<LocIdx, 32> NormalLocsToPHI;
+  DenseSet<Register> RegUnitsToPHIUp;
+  DenseSet<LocIdx> NormalLocsToPHI;
   SmallSet<SpillLocationNo, 32> StackSlots;
+
   for (auto Location : MTracker->locations()) {
     LocIdx L = Location.Idx;
     if (MTracker->isSpill(L)) {
@@ -2021,13 +2022,11 @@ void InstrRefBasedLDV::placeMLocPHIs(
     // Collect the set of defs.
     SmallPtrSet<MachineBasicBlock *, 32> DefBlocks;
     for (unsigned int I = 0; I < OrderToBB.size(); ++I) {
-      MachineBasicBlock *MBB = OrderToBB[I];
-      if (!MBB)
-        continue;
-
-      const auto &TransferFunc = MLocTransfer[MBB->getNumber()];
-      if (TransferFunc.find(L) != TransferFunc.end())
+      const auto &TransferFunc = MLocTransfer[I];
+      if (TransferFunc.find(L) != TransferFunc.end()) {
+        MachineBasicBlock *MBB = MF.getBlockNumbered(I);
         DefBlocks.insert(MBB);
+      }
     }
 
     // Ask the SSA construction algorithm where we should put PHIs. Clear
