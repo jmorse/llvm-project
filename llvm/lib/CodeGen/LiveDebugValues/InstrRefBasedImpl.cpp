@@ -1026,8 +1026,8 @@ bool InstrRefBasedLDV::transferDebugValue(const MachineInstr &MI) {
 }
 
 bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
-                                             ValueIDNum **MLiveOuts,
-                                             ValueIDNum **MLiveIns) {
+                                             FuncValueTable *MLiveOuts,
+                                             FuncValueTable *MLiveIns) {
   if (!MI.isDebugRef())
     return false;
 
@@ -1109,7 +1109,7 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
   } else if (PHIIt != DebugPHINumToValue.end() && PHIIt->InstrNum == InstNo) {
     // It's actually a PHI value. Which value it is might not be obvious, use
     // the resolver helper to find out.
-    NewID = resolveDbgPHIs(*MI.getParent()->getParent(), MLiveOuts, MLiveIns,
+    NewID = resolveDbgPHIs(*MI.getParent()->getParent(), *MLiveOuts, *MLiveIns,
                            MI, InstNo);
   }
 
@@ -1759,8 +1759,8 @@ void InstrRefBasedLDV::accumulateFragmentMap(MachineInstr &MI) {
   AllSeenFragments.insert(ThisFragment);
 }
 
-void InstrRefBasedLDV::process(MachineInstr &MI, ValueIDNum **MLiveOuts,
-                               ValueIDNum **MLiveIns) {
+void InstrRefBasedLDV::process(MachineInstr &MI, FuncValueTable *MLiveOuts,
+                               FuncValueTable *MLiveIns) {
   // Try to interpret an MI as a debug or transfer instruction. Only if it's
   // none of these should we interpret it's register defs as new value
   // definitions.
@@ -1898,7 +1898,7 @@ void InstrRefBasedLDV::produceMLocTransferFunction(
 }
 
 bool InstrRefBasedLDV::mlocJoin(
-    MachineBasicBlock &MBB, ValueIDNum **OutLocs, ValueIDNum *InLocs) {
+    MachineBasicBlock &MBB, FuncValueTable &OutLocs, ValueTable &InLocs) {
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
 
@@ -1999,7 +1999,7 @@ void InstrRefBasedLDV::findStackIndexInterference(
 
 void InstrRefBasedLDV::placeMLocPHIs(
     MachineFunction &MF, SmallPtrSetImpl<MachineBasicBlock *> &AllBlocks,
-    ValueIDNum **MInLocs, SmallVectorImpl<MLocTransferMap> &MLocTransfer) {
+    FuncValueTable &MInLocs, SmallVectorImpl<MLocTransferMap> &MLocTransfer) {
   SmallVector<unsigned, 4> StackUnits;
   findStackIndexInterference(StackUnits);
 
@@ -2124,7 +2124,7 @@ void InstrRefBasedLDV::placeMLocPHIs(
 }
 
 void InstrRefBasedLDV::buildMLocValueMap(
-    MachineFunction &MF, ValueIDNum **MInLocs, ValueIDNum **MOutLocs,
+    MachineFunction &MF, FuncValueTable &MInLocs, FuncValueTable &MOutLocs,
     SmallVectorImpl<MLocTransferMap> &MLocTransfer) {
   std::priority_queue<unsigned int, std::vector<unsigned int>,
                       std::greater<unsigned int>>
@@ -2190,7 +2190,7 @@ void InstrRefBasedLDV::buildMLocValueMap(
         continue;
 
       // Load the current set of live-ins into MLocTracker.
-      MTracker->loadFromArray(MInLocs[CurBB], CurBB);
+      MTracker->loadFromArray(MInLocs[CurBB].get(), CurBB);
 
       // Each element of the transfer function can be a new def, or a read of
       // a live-in value. Evaluate each element, and store to "ToRemap".
@@ -2309,7 +2309,7 @@ void InstrRefBasedLDV::BlockPHIPlacement(
 
 Optional<ValueIDNum> InstrRefBasedLDV::pickVPHILoc(
     const MachineBasicBlock &MBB, const DebugVariable &Var,
-    const LiveIdxT &LiveOuts, ValueIDNum **MOutLocs,
+    const LiveIdxT &LiveOuts, FuncValueTable &MOutLocs,
     const SmallVectorImpl<const MachineBasicBlock *> &BlockOrders) {
   // Collect a set of locations from predecessor where its live-out value can
   // be found.
@@ -2514,7 +2514,7 @@ bool InstrRefBasedLDV::vlocJoin(
 void InstrRefBasedLDV::buildVLocValueMap(const DILocation *DILoc,
     const SmallSet<DebugVariable, 4> &VarsWeCareAbout,
     SmallPtrSetImpl<MachineBasicBlock *> &AssignBlocks, LiveInsT &Output,
-    ValueIDNum **MOutLocs, ValueIDNum **MInLocs,
+    FuncValueTable &MOutLocs, FuncValueTable &MInLocs,
     SmallVectorImpl<VLocTracker> &AllTheVLocs) {
   // This method is much like buildMLocValueMap: but focuses on a single
   // LexicalScope at a time. Pick out a set of blocks and variables that are
@@ -2875,8 +2875,9 @@ void InstrRefBasedLDV::dump_mloc_transfer(
 #endif
 
 void InstrRefBasedLDV::emitLocations(
-    MachineFunction &MF, LiveInsT SavedLiveIns, ValueIDNum **MOutLocs,
-    ValueIDNum **MInLocs, DenseMap<DebugVariable, unsigned> &AllVarsNumbering,
+    MachineFunction &MF, LiveInsT SavedLiveIns, FuncValueTable &MOutLocs,
+    FuncValueTable &MInLocs,
+    DenseMap<DebugVariable, unsigned> &AllVarsNumbering,
     const TargetPassConfig &TPC) {
   TTracker = new TransferTracker(TII, MTracker, MF, *TRI, CalleeSavedRegs, TPC);
   unsigned NumLocs = MTracker->getNumLocs();
@@ -2888,14 +2889,14 @@ void InstrRefBasedLDV::emitLocations(
   for (MachineBasicBlock &MBB : MF) {
     unsigned bbnum = MBB.getNumber();
     MTracker->reset();
-    MTracker->loadFromArray(MInLocs[bbnum], bbnum);
-    TTracker->loadInlocs(MBB, MInLocs[bbnum], SavedLiveIns[MBB.getNumber()],
+    MTracker->loadFromArray(MInLocs[bbnum].get(), bbnum);
+    TTracker->loadInlocs(MBB, MInLocs[bbnum].get(), SavedLiveIns[MBB.getNumber()],
                          NumLocs);
 
     CurBB = bbnum;
     CurInst = 1;
     for (auto &MI : MBB) {
-      process(MI, MOutLocs, MInLocs);
+      process(MI, &MOutLocs, &MInLocs);
       TTracker->checkInstForNewValues(CurInst, MI.getIterator());
       ++CurInst;
     }
@@ -2903,8 +2904,8 @@ void InstrRefBasedLDV::emitLocations(
     // Our block information has now been converted into DBG_VALUEs, to be
     // inserted below. Free the memory we allocated to track variable / register
     // values. If we don't, we needlessy record the same info in memory twice.
-    delete[] MInLocs[bbnum];
-    delete[] MOutLocs[bbnum];
+    MInLocs[bbnum].reset();
+    MOutLocs[bbnum].reset();
     SavedLiveIns[bbnum].clear();
   }
 
@@ -3038,13 +3039,13 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   // Allocate and initialize two array-of-arrays for the live-in and live-out
   // machine values. The outer dimension is the block number; while the inner
   // dimension is a LocIdx from MLocTracker.
-  ValueIDNum **MOutLocs = new ValueIDNum *[MaxNumBlocks];
-  ValueIDNum **MInLocs = new ValueIDNum *[MaxNumBlocks];
+  FuncValueTable MOutLocs = FuncValueTable(new ValueTable[MaxNumBlocks]);
+  FuncValueTable MInLocs = FuncValueTable(new ValueTable[MaxNumBlocks]);
   unsigned NumLocs = MTracker->getNumLocs();
   for (unsigned i = 0; i < MaxNumBlocks; ++i) {
     // These all auto-initialize to ValueIDNum::EmptyValue
-    MOutLocs[i] = new ValueIDNum[NumLocs];
-    MInLocs[i] = new ValueIDNum[NumLocs];
+    MOutLocs[i] = ValueTable(new ValueIDNum[NumLocs]);
+    MInLocs[i] = ValueTable(new ValueIDNum[NumLocs]);
   }
 
   // Solve the machine value dataflow problem using the MLocTransfer function,
@@ -3078,10 +3079,9 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
     CurBB = MBB->getNumber();
     VTracker = &vlocs[CurBB];
     VTracker->MBB = MBB;
-    MTracker->loadFromArray(MInLocs[CurBB], CurBB);
-    CurInst = 1;
+    MTracker->loadFromArray(MInLocs[CurBB].get(), CurBB);
     for (auto &MI : *MBB) {
-      process(MI, MOutLocs, MInLocs);
+      process(MI, &MOutLocs, &MInLocs);
       ++CurInst;
     }
     MTracker->reset();
@@ -3142,8 +3142,8 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
 
     // Perform memory cleanup that emitLocations would do otherwise.
     for (int Idx = 0; Idx < MaxNumBlocks; ++Idx) {
-      delete[] MOutLocs[Idx];
-      delete[] MInLocs[Idx];
+      MOutLocs[Idx].reset();
+      MInLocs[Idx].reset();
     }
   } else {
     // Compute the extended ranges, iterating over scopes. There might be
@@ -3169,8 +3169,8 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   }
 
   // Elements of these arrays will be deleted by emitLocations.
-  delete[] MOutLocs;
-  delete[] MInLocs;
+  MOutLocs.reset();
+  MInLocs.reset();
 
   delete MTracker;
   delete TTracker;
@@ -3197,6 +3197,7 @@ LDVImpl *llvm::makeInstrRefBasedLiveDebugValues() {
 namespace {
 class LDVSSABlock;
 class LDVSSAUpdater;
+using FuncValueTable = LiveDebugValues::InstrRefBasedLDV::FuncValueTable;
 
 // Pick a type to identify incoming block values as we construct SSA. We
 // can't use anything more robust than an integer unfortunately, as SSAUpdater
@@ -3287,9 +3288,9 @@ public:
   /// Machine location where any PHI must occur.
   LocIdx Loc;
   /// Table of live-in machine value numbers for blocks / locations.
-  ValueIDNum **MLiveIns;
+  FuncValueTable &MLiveIns;
 
-  LDVSSAUpdater(LocIdx L, ValueIDNum **MLiveIns) : Loc(L), MLiveIns(MLiveIns) {}
+  LDVSSAUpdater(LocIdx L, FuncValueTable &MLiveIns) : Loc(L), MLiveIns(MLiveIns) {}
 
   void reset() {
     for (auto &Block : BlockMap)
@@ -3447,8 +3448,8 @@ public:
 } // end namespace llvm
 
 Optional<ValueIDNum> InstrRefBasedLDV::resolveDbgPHIs(MachineFunction &MF,
-                                                      ValueIDNum **MLiveOuts,
-                                                      ValueIDNum **MLiveIns,
+                                                      FuncValueTable &MLiveOuts,
+                                                      FuncValueTable &MLiveIns,
                                                       MachineInstr &Here,
                                                       uint64_t InstrNum) {
   // This function will be called twice per DBG_INSTR_REF, and might end up
@@ -3559,7 +3560,7 @@ Optional<ValueIDNum> InstrRefBasedLDV::resolveDbgPHIs(MachineFunction &MF,
       }
 
       ValueIDNum ValueToCheck;
-      ValueIDNum *BlockLiveOuts = MLiveOuts[PHIIt.first->BB.getNumber()];
+      ValueTable &BlockLiveOuts = MLiveOuts[PHIIt.first->BB.getNumber()];
 
       auto VVal = ValidatedValues.find(PHIIt.first);
       if (VVal == ValidatedValues.end()) {
