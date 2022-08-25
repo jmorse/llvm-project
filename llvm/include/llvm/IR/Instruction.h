@@ -43,6 +43,7 @@ class Instruction : public User,
                     public ilist_node_with_parent<Instruction, BasicBlock> {
   BasicBlock *Parent;
   DebugLoc DbgLoc;                         // 'dbg' Metadata cache.
+  unsigned HahaDebugVarTrackingNumber;
 
   /// Relative order of this instruction in its parent basic block. Used for
   /// O(1) local dominance checks between instructions.
