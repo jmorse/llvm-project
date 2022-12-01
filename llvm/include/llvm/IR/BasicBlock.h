@@ -192,8 +192,10 @@ public:
   /// In particular, it skips all PHIs and LandingPad instructions.
   const_iterator getFirstInsertionPt() const;
   iterator getFirstInsertionPt() {
-    return static_cast<const BasicBlock *>(this)
+    auto It = static_cast<const BasicBlock *>(this)
                                           ->getFirstInsertionPt().getNonConst();
+    It.setStoredBit(true);
+    return It;
   }
 
   /// Returns an iterator to the first instruction in this block that is

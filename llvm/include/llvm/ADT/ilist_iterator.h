@@ -10,6 +10,7 @@
 #define LLVM_ADT_ILIST_ITERATOR_H
 
 #include "llvm/ADT/ilist_node.h"
+#include "llvm/ADT/PointerIntPair.h"
 #include <cassert>
 #include <cstddef>
 #include <iterator>
@@ -75,7 +76,7 @@ private:
   using node_pointer = typename Traits::node_pointer;
   using node_reference = typename Traits::node_reference;
 
-  node_pointer NodePtr = nullptr;
+  PointerIntPair<node_pointer, 1, bool> NodePtr;
 
 public:
   /// Create from an ilist_node.
@@ -90,14 +91,14 @@ public:
   template <bool RHSIsConst>
   ilist_iterator(const ilist_iterator<OptionsT, IsReverse, RHSIsConst> &RHS,
                  std::enable_if_t<IsConst || !RHSIsConst, void *> = nullptr)
-      : NodePtr(RHS.NodePtr) {}
+      : NodePtr(RHS.NodePtr.getPointer(), RHS.NodePtr.getInt()) {}
 
   // This is templated so that we can allow assigning to a const iterator from
   // a nonconst iterator...
   template <bool RHSIsConst>
   std::enable_if_t<IsConst || !RHSIsConst, ilist_iterator &>
   operator=(const ilist_iterator<OptionsT, IsReverse, RHSIsConst> &RHS) {
-    NodePtr = RHS.NodePtr;
+    NodePtr.setFromOpaqueValue(RHS.NodePtr.getOpaqueValue());
     return *this;
   }
 
@@ -119,42 +120,42 @@ public:
   /// same node.  Converting the endpoint iterators in a range will give a
   /// different range; for range operations, use the explicit conversions.
   ilist_iterator<OptionsT, !IsReverse, IsConst> getReverse() const {
-    if (NodePtr)
-      return ilist_iterator<OptionsT, !IsReverse, IsConst>(*NodePtr);
+    if (NodePtr.getPointer())
+      return ilist_iterator<OptionsT, !IsReverse, IsConst>(*NodePtr.getPointer());
     return ilist_iterator<OptionsT, !IsReverse, IsConst>();
   }
 
   /// Const-cast.
   ilist_iterator<OptionsT, IsReverse, false> getNonConst() const {
-    if (NodePtr)
+    if (NodePtr.getPointer())
       return ilist_iterator<OptionsT, IsReverse, false>(
           const_cast<typename ilist_iterator<OptionsT, IsReverse,
-                                             false>::node_reference>(*NodePtr));
+                                             false>::node_reference>(*NodePtr.getPointer()));
     return ilist_iterator<OptionsT, IsReverse, false>();
   }
 
   // Accessors...
   reference operator*() const {
-    assert(!NodePtr->isKnownSentinel());
-    return *Access::getValuePtr(NodePtr);
+    assert(!NodePtr.getPointer()->isKnownSentinel());
+    return *Access::getValuePtr(NodePtr.getPointer());
   }
   pointer operator->() const { return &operator*(); }
 
   // Comparison operators
   friend bool operator==(const ilist_iterator &LHS, const ilist_iterator &RHS) {
-    return LHS.NodePtr == RHS.NodePtr;
+    return LHS.NodePtr.getPointer() == RHS.NodePtr.getPointer();
   }
   friend bool operator!=(const ilist_iterator &LHS, const ilist_iterator &RHS) {
-    return LHS.NodePtr != RHS.NodePtr;
+    return LHS.NodePtr.getPointer() != RHS.NodePtr.getPointer();
   }
 
   // Increment and decrement operators...
   ilist_iterator &operator--() {
-    NodePtr = IsReverse ? NodePtr->getNext() : NodePtr->getPrev();
+    NodePtr.setPointerAndInt(IsReverse ? NodePtr.getPointer()->getNext() : NodePtr.getPointer()->getPrev(), false);
     return *this;
   }
   ilist_iterator &operator++() {
-    NodePtr = IsReverse ? NodePtr->getPrev() : NodePtr->getNext();
+    NodePtr.setPointerAndInt(IsReverse ? NodePtr.getPointer()->getPrev() : NodePtr.getPointer()->getNext(), false);
     return *this;
   }
   ilist_iterator operator--(int) {
@@ -169,10 +170,13 @@ public:
   }
 
   /// Get the underlying ilist_node.
-  node_pointer getNodePtr() const { return static_cast<node_pointer>(NodePtr); }
+  node_pointer getNodePtr() const { return static_cast<node_pointer>(NodePtr.getPointer()); }
+
+  bool getStoredBit() const { return NodePtr.getInt(); }
+  void setStoredBit(bool SetBit) { NodePtr.setInt(SetBit); }
 
   /// Check for end.  Only valid if ilist_sentinel_tracking<true>.
-  bool isEnd() const { return NodePtr ? NodePtr->isSentinel() : false; }
+  bool isEnd() const { return NodePtr.getPointer() ? NodePtr.getPointer()->isSentinel() : false; }
 };
 
 template <typename From> struct simplify_type;
