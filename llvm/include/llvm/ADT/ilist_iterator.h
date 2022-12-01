@@ -76,6 +76,7 @@ private:
   using node_reference = typename Traits::node_reference;
 
   node_pointer NodePtr = nullptr;
+  bool the_bit = false;
 
 public:
   /// Create from an ilist_node.
@@ -173,6 +174,10 @@ public:
 
   /// Check for end.  Only valid if ilist_sentinel_tracking<true>.
   bool isEnd() const { return NodePtr ? NodePtr->isSentinel() : false; }
+
+  bool getStoredBit() const { return the_bit; }
+  void setStoredBit(bool SetBit) { the_bit = SetBit; }
+
 };
 
 template <typename From> struct simplify_type;

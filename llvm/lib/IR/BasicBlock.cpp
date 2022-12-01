@@ -250,6 +250,7 @@ BasicBlock::const_iterator BasicBlock::getFirstInsertionPt() const {
 
   const_iterator InsertPt = FirstNonPHI->getIterator();
   if (InsertPt->isEHPad()) ++InsertPt;
+  InsertPt.setStoredBit(true);
   return InsertPt;
 }
 
