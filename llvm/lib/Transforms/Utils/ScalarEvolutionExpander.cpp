@@ -130,8 +130,7 @@ SCEVExpander::GetOptimalInsertionPointForCastOf(Value *V) const {
     BasicBlock::iterator IP = A->getParent()->getEntryBlock().begin();
     while ((isa<BitCastInst>(IP) &&
             isa<Argument>(cast<BitCastInst>(IP)->getOperand(0)) &&
-            cast<BitCastInst>(IP)->getOperand(0) != A) ||
-           isa<DbgInfoIntrinsic>(IP))
+            cast<BitCastInst>(IP)->getOperand(0) != A))
       ++IP;
     return IP;
   }
@@ -234,9 +233,6 @@ Value *SCEVExpander::InsertBinop(Instruction::BinaryOps Opcode,
     for (; ScanLimit; --IP, --ScanLimit) {
       // Don't count dbg.value against the ScanLimit, to avoid perturbing the
       // generated code.
-      if (isa<DbgInfoIntrinsic>(IP))
-        ScanLimit++;
-
       auto canGenerateIncompatiblePoison = [&Flags](Instruction *I) {
         // Ensure that no-wrap flags match.
         if (isa<OverflowingBinaryOperator>(I)) {
@@ -589,8 +585,6 @@ Value *SCEVExpander::expandAddToGEP(const SCEV *const *op_begin,
       for (; ScanLimit; --IP, --ScanLimit) {
         // Don't count dbg.value against the ScanLimit, to avoid perturbing the
         // generated code.
-        if (isa<DbgInfoIntrinsic>(IP))
-          ScanLimit++;
         if (IP->getOpcode() == Instruction::GetElementPtr &&
             IP->getOperand(0) == V && IP->getOperand(1) == Idx &&
             cast<GEPOperator>(&*IP)->getSourceElementType() ==
@@ -1828,8 +1822,7 @@ Value *SCEVExpander::expand(const SCEV *S) {
           InsertPt = &*L->getHeader()->getFirstInsertionPt();
 
         while (InsertPt->getIterator() != Builder.GetInsertPoint() &&
-               (isInsertedInstruction(InsertPt) ||
-                isa<DbgInfoIntrinsic>(InsertPt))) {
+               (isInsertedInstruction(InsertPt))) {
           InsertPt = &*std::next(InsertPt->getIterator());
         }
         break;

@@ -68,8 +68,6 @@ BasicBlock::iterator skipPastPhiNodesAndDbg(BasicBlock::iterator Itr) {
   BasicBlock *BB = Itr->getParent();
   if (isa<PHINode>(Itr))
     Itr = BB->getFirstInsertionPt();
-  if (Itr != BB->end())
-    Itr = skipDebugIntrinsics(Itr);
   return Itr;
 }
 
