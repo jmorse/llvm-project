@@ -120,14 +120,14 @@ public:
   /// same node.  Converting the endpoint iterators in a range will give a
   /// different range; for range operations, use the explicit conversions.
   ilist_iterator<OptionsT, !IsReverse, IsConst> getReverse() const {
-    if (NodePtr.getPointer())
+    if (NodePtr.getOpaqueValue())
       return ilist_iterator<OptionsT, !IsReverse, IsConst>(*NodePtr.getPointer());
     return ilist_iterator<OptionsT, !IsReverse, IsConst>();
   }
 
   /// Const-cast.
   ilist_iterator<OptionsT, IsReverse, false> getNonConst() const {
-    if (NodePtr.getPointer())
+    if (NodePtr.getOpaqueValue())
       return ilist_iterator<OptionsT, IsReverse, false>(
           const_cast<typename ilist_iterator<OptionsT, IsReverse,
                                              false>::node_reference>(*NodePtr.getPointer()));
@@ -176,7 +176,7 @@ public:
   void setStoredBit(bool SetBit) { NodePtr.setInt(SetBit); }
 
   /// Check for end.  Only valid if ilist_sentinel_tracking<true>.
-  bool isEnd() const { return NodePtr.getPointer() ? NodePtr.getPointer()->isSentinel() : false; }
+  bool isEnd() const { return NodePtr.getOpaqueValue() ? NodePtr.getPointer()->isSentinel() : false; }
 };
 
 template <typename From> struct simplify_type;
