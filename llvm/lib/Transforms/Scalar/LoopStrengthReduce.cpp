@@ -5308,9 +5308,6 @@ BasicBlock::iterator LSRInstance::AdjustInsertPositionForExpand(
   // Ignore landingpad instructions.
   while (IP->isEHPad()) ++IP;
 
-  // Ignore debug intrinsics.
-  while (isa<DbgInfoIntrinsic>(IP)) ++IP;
-
   // Set IP below instructions recently inserted by SCEVExpander. This keeps the
   // IP consistent across expansions and allows the previously inserted
   // instructions to be reused by subsequent expansion.
