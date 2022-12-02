@@ -1101,7 +1101,7 @@ static void CloneInstructionsIntoPredecessorBlockAndUpdateSSAUses(
   // Note that there may be multiple predecessor blocks, so we cannot move
   // bonus instructions to a predecessor block.
   for (Instruction &BonusInst : *BB) {
-    if (isa<DbgInfoIntrinsic>(BonusInst) || BonusInst.isTerminator())
+    if (BonusInst.isTerminator())
       continue;
 
     Instruction *NewBonusInst = BonusInst.clone();
@@ -1513,14 +1513,6 @@ bool SimplifyCFGOpt::HoistThenElseCodeToIf(BranchInst *BI,
 
   Instruction *I1 = &*BB1_Itr++, *I2 = &*BB2_Itr++;
   // Skip debug info if it is not identical.
-  DbgInfoIntrinsic *DBI1 = dyn_cast<DbgInfoIntrinsic>(I1);
-  DbgInfoIntrinsic *DBI2 = dyn_cast<DbgInfoIntrinsic>(I2);
-  if (!DBI1 || !DBI2 || !DBI1->isIdenticalToWhenDefined(DBI2)) {
-    while (isa<DbgInfoIntrinsic>(I1))
-      I1 = &*BB1_Itr++;
-    while (isa<DbgInfoIntrinsic>(I2))
-      I2 = &*BB2_Itr++;
-  }
   if (isa<PHINode>(I1))
     return false;
 
@@ -1537,8 +1529,8 @@ bool SimplifyCFGOpt::HoistThenElseCodeToIf(BranchInst *BI,
   // instructions to the hoist location.
   if (EqTermsOnly) {
     // Skip any debug intrinsics, as they are free to hoist.
-    auto *I1NonDbg = &*skipDebugIntrinsics(I1->getIterator());
-    auto *I2NonDbg = &*skipDebugIntrinsics(I2->getIterator());
+    auto *I1NonDbg = &*I1->getIterator();
+    auto *I2NonDbg = &*I2->getIterator();
     if (!I1NonDbg->isIdenticalToWhenDefined(I2NonDbg))
       return false;
     if (!I1NonDbg->isTerminator())
@@ -1598,16 +1590,7 @@ bool SimplifyCFGOpt::HoistThenElseCodeToIf(BranchInst *BI,
         if (CB2->cannotMerge())
           return Changed;
 
-      if (isa<DbgInfoIntrinsic>(I1) || isa<DbgInfoIntrinsic>(I2)) {
-        assert(isa<DbgInfoIntrinsic>(I1) && isa<DbgInfoIntrinsic>(I2));
-        // The debug location is an integral part of a debug info intrinsic
-        // and can't be separated from it or replaced.  Instead of attempting
-        // to merge locations, simply hoist both copies of the intrinsic.
-        BIParent->getInstList().splice(BI->getIterator(), BB1->getInstList(),
-                                       I1);
-        BIParent->getInstList().splice(BI->getIterator(), BB2->getInstList(),
-                                       I2);
-      } else {
+      {
         // For a normal instruction, we just move one to right before the
         // branch, then replace all uses of the other with the first.  Finally,
         // we remove the now redundant second instruction.
@@ -1651,15 +1634,6 @@ bool SimplifyCFGOpt::HoistThenElseCodeToIf(BranchInst *BI,
 
     I1 = &*BB1_Itr++;
     I2 = &*BB2_Itr++;
-    // Skip debug info if it is not identical.
-    DbgInfoIntrinsic *DBI1 = dyn_cast<DbgInfoIntrinsic>(I1);
-    DbgInfoIntrinsic *DBI2 = dyn_cast<DbgInfoIntrinsic>(I2);
-    if (!DBI1 || !DBI2 || !DBI1->isIdenticalToWhenDefined(DBI2)) {
-      while (isa<DbgInfoIntrinsic>(I1))
-        I1 = &*BB1_Itr++;
-      while (isa<DbgInfoIntrinsic>(I2))
-        I2 = &*BB2_Itr++;
-    }
   }
 
   return Changed;
@@ -1921,11 +1895,8 @@ static bool sinkLastInstruction(ArrayRef<BasicBlock*> Blocks) {
   SmallVector<Instruction*,4> Insts;
   for (auto *BB : Blocks) {
     Instruction *I = BB->getTerminator();
-    do {
-      I = I->getPrevNode();
-    } while (isa<DbgInfoIntrinsic>(I) && I != &BB->front());
-    if (!isa<DbgInfoIntrinsic>(I))
-      Insts.push_back(I);
+    I = I->getPrevNode();
+    Insts.push_back(I);
   }
 
   // The only checking we need to do now is that all users of all instructions
@@ -2039,8 +2010,7 @@ namespace {
       Insts.clear();
       for (auto *BB : Blocks) {
         Instruction *Inst = BB->getTerminator();
-        for (Inst = Inst->getPrevNode(); Inst && isa<DbgInfoIntrinsic>(Inst);)
-          Inst = Inst->getPrevNode();
+        Inst = Inst->getPrevNode();
         if (!Inst) {
           // Block wasn't big enough.
           Fail = true;
@@ -2058,8 +2028,7 @@ namespace {
       if (Fail)
         return;
       for (auto *&Inst : Insts) {
-        for (Inst = Inst->getPrevNode(); Inst && isa<DbgInfoIntrinsic>(Inst);)
-          Inst = Inst->getPrevNode();
+        Inst = Inst->getPrevNode();
         // Already at beginning of block.
         if (!Inst) {
           Fail = true;
@@ -2072,8 +2041,7 @@ namespace {
       if (Fail)
         return;
       for (auto *&Inst : Insts) {
-        for (Inst = Inst->getNextNode(); Inst && isa<DbgInfoIntrinsic>(Inst);)
-          Inst = Inst->getNextNode();
+        Inst = Inst->getNextNode();
         // Already at end of block.
         if (!Inst) {
           Fail = true;
@@ -2897,11 +2865,6 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
   StoreInst *SpeculatedStore = nullptr;
   EphemeralValueTracker EphTracker;
   for (Instruction &I : reverse(drop_end(*ThenBB))) {
-    // Skip debug info.
-    if (isa<DbgInfoIntrinsic>(I)) {
-      SpeculatedDbgIntrinsics.push_back(&I);
-      continue;
-    }
 
     // Skip pseudo probes. The consequence is we lose track of the branch
     // probability for ThenBB, which is fine since the optimization here takes
@@ -3671,14 +3634,6 @@ static bool performBranchToCommonDestFolding(BranchInst *BI, BranchInst *PBI,
       createLogicalOp(Builder, Opc, PBI->getCondition(), BICond, "or.cond"));
 
   // Copy any debug value intrinsics into the end of PredBlock.
-  for (Instruction &I : *BB) {
-    if (isa<DbgInfoIntrinsic>(I)) {
-      Instruction *NewI = I.clone();
-      RemapInstruction(NewI, VMap,
-                       RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
-      NewI->insertBefore(PBI);
-    }
-  }
 
   ++NumFoldBranchToCommonDest;
   return true;
@@ -3776,7 +3731,7 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, DomTreeUpdater *DTU,
     if (&I == Cond)
       continue;
     // Ignore dbg intrinsics, and the terminator.
-    if (isa<DbgInfoIntrinsic>(I) || isa<BranchInst>(I))
+    if (isa<BranchInst>(I))
       continue;
     // I must be safe to execute unconditionally.
     if (!isSafeToSpeculativelyExecute(&I))
@@ -6865,8 +6820,7 @@ static bool TryToMergeLandingPad(LandingPadInst *LPad, BranchInst *BI,
     LandingPadInst *LPad2 = dyn_cast<LandingPadInst>(I);
     if (!LPad2 || !LPad2->isIdenticalTo(LPad))
       continue;
-    for (++I; isa<DbgInfoIntrinsic>(I); ++I)
-      ;
+    ++I;
     BranchInst *BI2 = dyn_cast<BranchInst>(I);
     if (!BI2 || !BI2->isIdenticalTo(BI))
       continue;
@@ -6940,8 +6894,6 @@ bool SimplifyCFGOpt::simplifyUncondBranch(BranchInst *BI,
   // constant, try to simplify the block.
   if (ICmpInst *ICI = dyn_cast<ICmpInst>(I))
     if (ICI->isEquality() && isa<ConstantInt>(ICI->getOperand(1))) {
-      for (++I; isa<DbgInfoIntrinsic>(I); ++I)
-        ;
       if (I->isTerminator() &&
           tryToSimplifyUncondBranchWithICmpInIt(ICI, Builder))
         return true;
@@ -6950,8 +6902,7 @@ bool SimplifyCFGOpt::simplifyUncondBranch(BranchInst *BI,
   // See if we can merge an empty landing pad block with another which is
   // equivalent.
   if (LandingPadInst *LPad = dyn_cast<LandingPadInst>(I)) {
-    for (++I; isa<DbgInfoIntrinsic>(I); ++I)
-      ;
+    ++I;
     if (I->isTerminator() && TryToMergeLandingPad(LPad, BI, BB, DTU))
       return true;
   }

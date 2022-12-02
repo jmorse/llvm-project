@@ -494,6 +494,7 @@ static bool ShouldEnableAutolink(const ArgList &Args, const ToolChain &TC,
 // Convert an arg of the form "-gN" or "-ggdbN" or one of their aliases
 // to the corresponding DebugInfoKind.
 static codegenoptions::DebugInfoKind DebugLevelToInfoKind(const Arg &A) {
+  return codegenoptions::NoDebugInfo;
   assert(A.getOption().matches(options::OPT_gN_Group) &&
          "Not a -g option that specifies a debug-info level");
   if (A.getOption().matches(options::OPT_g0) ||
@@ -4196,6 +4197,7 @@ static void renderDebugOptions(const ToolChain &TC, const Driver &D,
         DwarfFission = DwarfFissionKind::None;
     }
   }
+  DebugInfoKind = codegenoptions::NoDebugInfo; /// XXX turn stuff off
 
   // If a debugger tuning argument appeared, remember it.
   bool HasDebuggerTuning = false;

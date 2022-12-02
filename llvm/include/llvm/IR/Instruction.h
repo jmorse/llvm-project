@@ -687,28 +687,30 @@ public:
   bool isLaunderOrStripInvariantGroup() const LLVM_READONLY;
 
   /// Return true if the instruction is a DbgInfoIntrinsic or PseudoProbeInst.
-  bool isDebugOrPseudoInst() const LLVM_READONLY;
+  bool isDebugOrPseudoInst() const LLVM_READONLY {
+    return false;
+  }
 
   /// Return a pointer to the next non-debug instruction in the same basic
   /// block as 'this', or nullptr if no such instruction exists. Skip any pseudo
   /// operations if \c SkipPseudoOp is true.
   const Instruction *
-  getNextNonDebugInstruction(bool SkipPseudoOp = false) const;
+  getNextNonDebugInstruction(bool SkipPseudoOp = false) const {
+    return getNextNode();
+  }
   Instruction *getNextNonDebugInstruction(bool SkipPseudoOp = false) {
-    return const_cast<Instruction *>(
-        static_cast<const Instruction *>(this)->getNextNonDebugInstruction(
-            SkipPseudoOp));
+    return getNextNode();
   }
 
   /// Return a pointer to the previous non-debug instruction in the same basic
   /// block as 'this', or nullptr if no such instruction exists. Skip any pseudo
   /// operations if \c SkipPseudoOp is true.
   const Instruction *
-  getPrevNonDebugInstruction(bool SkipPseudoOp = false) const;
+  getPrevNonDebugInstruction(bool SkipPseudoOp = false) const {
+    return getPrevNode();
+  }
   Instruction *getPrevNonDebugInstruction(bool SkipPseudoOp = false) {
-    return const_cast<Instruction *>(
-        static_cast<const Instruction *>(this)->getPrevNonDebugInstruction(
-            SkipPseudoOp));
+    return getPrevNode();
   }
 
   /// Create a copy of 'this' instruction that is identical in all ways except
