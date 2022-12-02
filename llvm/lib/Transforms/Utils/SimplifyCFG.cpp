@@ -1895,6 +1895,7 @@ static bool sinkLastInstruction(ArrayRef<BasicBlock*> Blocks) {
   SmallVector<Instruction*,4> Insts;
   for (auto *BB : Blocks) {
     Instruction *I = BB->getTerminator();
+    I = I->getPrevNode();
     Insts.push_back(I);
   }
 
@@ -2009,6 +2010,7 @@ namespace {
       Insts.clear();
       for (auto *BB : Blocks) {
         Instruction *Inst = BB->getTerminator();
+        Inst = Inst->getPrevNode();
         if (!Inst) {
           // Block wasn't big enough.
           Fail = true;
@@ -2026,6 +2028,7 @@ namespace {
       if (Fail)
         return;
       for (auto *&Inst : Insts) {
+        Inst = Inst->getPrevNode();
         // Already at beginning of block.
         if (!Inst) {
           Fail = true;
@@ -2038,6 +2041,7 @@ namespace {
       if (Fail)
         return;
       for (auto *&Inst : Insts) {
+        Inst = Inst->getNextNode();
         // Already at end of block.
         if (!Inst) {
           Fail = true;
@@ -6816,6 +6820,7 @@ static bool TryToMergeLandingPad(LandingPadInst *LPad, BranchInst *BI,
     LandingPadInst *LPad2 = dyn_cast<LandingPadInst>(I);
     if (!LPad2 || !LPad2->isIdenticalTo(LPad))
       continue;
+    ++I;
     BranchInst *BI2 = dyn_cast<BranchInst>(I);
     if (!BI2 || !BI2->isIdenticalTo(BI))
       continue;
@@ -6897,6 +6902,7 @@ bool SimplifyCFGOpt::simplifyUncondBranch(BranchInst *BI,
   // See if we can merge an empty landing pad block with another which is
   // equivalent.
   if (LandingPadInst *LPad = dyn_cast<LandingPadInst>(I)) {
+    ++I;
     if (I->isTerminator() && TryToMergeLandingPad(LPad, BI, BB, DTU))
       return true;
   }
