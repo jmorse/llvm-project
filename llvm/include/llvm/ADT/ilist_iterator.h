@@ -10,7 +10,6 @@
 #define LLVM_ADT_ILIST_ITERATOR_H
 
 #include "llvm/ADT/ilist_node.h"
-#include "llvm/ADT/PointerIntPair.h"
 #include <cassert>
 #include <cstddef>
 #include <iterator>
@@ -76,7 +75,8 @@ private:
   using node_pointer = typename Traits::node_pointer;
   using node_reference = typename Traits::node_reference;
 
-  PointerIntPair<node_pointer, 1, bool> NodePtr;
+  node_pointer NodePtr = nullptr;
+  bool the_bit = false;
 
 public:
   /// Create from an ilist_node.
@@ -91,14 +91,14 @@ public:
   template <bool RHSIsConst>
   ilist_iterator(const ilist_iterator<OptionsT, IsReverse, RHSIsConst> &RHS,
                  std::enable_if_t<IsConst || !RHSIsConst, void *> = nullptr)
-      : NodePtr(RHS.NodePtr.getPointer(), RHS.NodePtr.getInt()) {}
+      : NodePtr(RHS.NodePtr) {}
 
   // This is templated so that we can allow assigning to a const iterator from
   // a nonconst iterator...
   template <bool RHSIsConst>
   std::enable_if_t<IsConst || !RHSIsConst, ilist_iterator &>
   operator=(const ilist_iterator<OptionsT, IsReverse, RHSIsConst> &RHS) {
-    NodePtr.setFromOpaqueValue(RHS.NodePtr.getOpaqueValue());
+    NodePtr = RHS.NodePtr;
     return *this;
   }
 
@@ -120,42 +120,42 @@ public:
   /// same node.  Converting the endpoint iterators in a range will give a
   /// different range; for range operations, use the explicit conversions.
   ilist_iterator<OptionsT, !IsReverse, IsConst> getReverse() const {
-    if (NodePtr.getOpaqueValue())
-      return ilist_iterator<OptionsT, !IsReverse, IsConst>(*NodePtr.getPointer());
+    if (NodePtr)
+      return ilist_iterator<OptionsT, !IsReverse, IsConst>(*NodePtr);
     return ilist_iterator<OptionsT, !IsReverse, IsConst>();
   }
 
   /// Const-cast.
   ilist_iterator<OptionsT, IsReverse, false> getNonConst() const {
-    if (NodePtr.getOpaqueValue())
+    if (NodePtr)
       return ilist_iterator<OptionsT, IsReverse, false>(
           const_cast<typename ilist_iterator<OptionsT, IsReverse,
-                                             false>::node_reference>(*NodePtr.getPointer()));
+                                             false>::node_reference>(*NodePtr));
     return ilist_iterator<OptionsT, IsReverse, false>();
   }
 
   // Accessors...
   reference operator*() const {
-    assert(!NodePtr.getPointer()->isKnownSentinel());
-    return *Access::getValuePtr(NodePtr.getPointer());
+    assert(!NodePtr->isKnownSentinel());
+    return *Access::getValuePtr(NodePtr);
   }
   pointer operator->() const { return &operator*(); }
 
   // Comparison operators
   friend bool operator==(const ilist_iterator &LHS, const ilist_iterator &RHS) {
-    return LHS.NodePtr.getPointer() == RHS.NodePtr.getPointer();
+    return LHS.NodePtr == RHS.NodePtr;
   }
   friend bool operator!=(const ilist_iterator &LHS, const ilist_iterator &RHS) {
-    return LHS.NodePtr.getPointer() != RHS.NodePtr.getPointer();
+    return LHS.NodePtr != RHS.NodePtr;
   }
 
   // Increment and decrement operators...
   ilist_iterator &operator--() {
-    NodePtr.setPointerAndInt(IsReverse ? NodePtr.getPointer()->getNext() : NodePtr.getPointer()->getPrev(), false);
+    NodePtr = IsReverse ? NodePtr->getNext() : NodePtr->getPrev();
     return *this;
   }
   ilist_iterator &operator++() {
-    NodePtr.setPointerAndInt(IsReverse ? NodePtr.getPointer()->getPrev() : NodePtr.getPointer()->getNext(), false);
+    NodePtr = IsReverse ? NodePtr->getPrev() : NodePtr->getNext();
     return *this;
   }
   ilist_iterator operator--(int) {
@@ -170,13 +170,14 @@ public:
   }
 
   /// Get the underlying ilist_node.
-  node_pointer getNodePtr() const { return static_cast<node_pointer>(NodePtr.getPointer()); }
-
-  bool getStoredBit() const { return NodePtr.getInt(); }
-  void setStoredBit(bool SetBit) { NodePtr.setInt(SetBit); }
+  node_pointer getNodePtr() const { return static_cast<node_pointer>(NodePtr); }
 
   /// Check for end.  Only valid if ilist_sentinel_tracking<true>.
-  bool isEnd() const { return NodePtr.getOpaqueValue() ? NodePtr.getPointer()->isSentinel() : false; }
+  bool isEnd() const { return NodePtr ? NodePtr->isSentinel() : false; }
+
+  bool getStoredBit() const { return the_bit; }
+  void setStoredBit(bool SetBit) { the_bit = SetBit; }
+
 };
 
 template <typename From> struct simplify_type;
