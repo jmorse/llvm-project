@@ -462,10 +462,26 @@ public:
       if (VNum == ValueIDNum::EmptyValue)
         continue;
       VarLocs.push_back(VNum);
+    }
+
+    pickBestLocations(ValueToLoc);
+
+    // Now map variables to their picked LocIdxes.
+    for (const auto &Var : VLocs) {
+      loadVarInloc(MBB, DbgOpStore, ValueToLoc, Var.first, Var.second);
+    }
+    flushDbgValues(MBB.begin(), &MBB);
+  }
+
+  template <class MapType>
+  void pickBestLocations(MapType &TheMap) {
+    for (auto Location : MTracker->locations()) {
+      LocIdx Idx = Location.Idx;
+      const ValueIDNum &VNum = Location.Value;
 
       // Is there a variable that wants a location for this value? If not, skip.
-      auto VIt = ValueToLoc.find(VNum);
-      if (VIt == ValueToLoc.end())
+      auto VIt = TheMap.find(VNum);
+      if (VIt == TheMap.end())
         continue;
 
       auto &Previous = VIt->second;
@@ -476,12 +492,6 @@ public:
       if (ReplacementQuality)
         Previous = LocationAndQuality(Idx, *ReplacementQuality);
     }
-
-    // Now map variables to their picked LocIdxes.
-    for (const auto &Var : VLocs) {
-      loadVarInloc(MBB, DbgOpStore, ValueToLoc, Var.first, Var.second);
-    }
-    flushDbgValues(MBB.begin(), &MBB);
   }
 
   /// Record that \p Var has value \p ID, a value that becomes available
@@ -526,24 +536,7 @@ public:
     if (ValueToLoc.empty())
       return;
 
-    // Determine the best location for each desired value.
-    for (auto Location : MTracker->locations()) {
-      LocIdx Idx = Location.Idx;
-      ValueIDNum &LocValueID = Location.Value;
-
-      // Is there a variable that wants a location for this value? If not, skip.
-      auto VIt = ValueToLoc.find(LocValueID);
-      if (VIt == ValueToLoc.end())
-        continue;
-
-      auto &Previous = VIt->second;
-      // If this is the first location with that value, pick it. Otherwise,
-      // consider whether it's a "longer term" location.
-      std::optional<LocationQuality> ReplacementQuality =
-          getLocQualityIfBetter(Idx, Previous.getQuality());
-      if (ReplacementQuality)
-        Previous = LocationAndQuality(Idx, *ReplacementQuality);
-    }
+    pickBestLocations(ValueToLoc);
 
     // Using the map of values to locations, produce a final set of values for
     // this variable.
