@@ -1392,7 +1392,7 @@ private:
   /// \p EjectionMap Pre-allocated vector in which to install the built ma.
   /// \p ScopeToDILocation Mapping of LexicalScopes to their DILocations.
   /// \p AssignBlocks Map of blocks where assignments happen for a scope.
-  void makeDepthFirstEjectionMap(SmallVectorImpl<unsigned> &EjectionMap,
+  void makeDepthFirstEjectionMap(std::deque<unsigned> &EjectionMap,
                                  const ScopeToDILocT &ScopeToDILocation,
                                  ScopeToAssignBlocksT &AssignBlocks);
 

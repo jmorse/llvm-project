@@ -3358,7 +3358,7 @@ void InstrRefBasedLDV::initialSetup(MachineFunction &MF) {
 // lexical scope it's used in. When exploring in DFS order and we pass that
 // scope, the block can be processed and any tracking information freed.
 void InstrRefBasedLDV::makeDepthFirstEjectionMap(
-    SmallVectorImpl<unsigned> &EjectionMap,
+    std::deque<unsigned> &EjectionMap,
     const ScopeToDILocT &ScopeToDILocation,
     ScopeToAssignBlocksT &ScopeToAssignBlocks) {
   SmallPtrSet<const MachineBasicBlock *, 8> BlocksToExplore;
@@ -3419,7 +3419,7 @@ bool InstrRefBasedLDV::depthFirstVLocAndEmit(
     return false;
 
   // Build map from block number to the last scope that uses the block.
-  SmallVector<unsigned, 16> EjectionMap;
+  std::deque<unsigned> EjectionMap;
   EjectionMap.resize(MaxNumBlocks, 0);
   makeDepthFirstEjectionMap(EjectionMap, ScopeToDILocation,
                             ScopeToAssignBlocks);
