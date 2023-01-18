@@ -430,7 +430,7 @@ public:
   /// FIXME: could just examine mloctracker instead of passing in \p mlocs?
   void
   loadInlocs(MachineBasicBlock &MBB, ValueTable &MLocs, DbgOpIDMap &DbgOpStore,
-             const SmallVectorImpl<std::pair<DebugVariable, DbgValue>> &VLocs,
+             const std::deque<std::pair<DebugVariable, DbgValue>> &VLocs,
              unsigned NumLocs) {
     ActiveMLocs.clear();
     ActiveVLocs.clear();

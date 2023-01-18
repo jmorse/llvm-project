@@ -1061,7 +1061,7 @@ public:
 
   /// Vector (per block) of a collection (inner smallvector) of live-ins.
   /// Used as the result type for the variable value dataflow problem.
-  using LiveInsT = SmallVector<SmallVector<VarAndLoc, 8>, 8>;
+  using LiveInsT = std::deque<std::deque<VarAndLoc>>;
 
   /// Mapping from lexical scopes to a DILocation in that scope.
   using ScopeToDILocT = DenseMap<const LexicalScope *, const DILocation *>;
