@@ -1419,8 +1419,8 @@ bool InstrRefBasedLDV::transferDebugValue(const MachineInstr &MI) {
 }
 
 bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
-                                             const ValueTable *MLiveOuts,
-                                             const ValueTable *MLiveIns) {
+                                             const FuncValueTable &MLiveOuts,
+                                             const FuncValueTable &MLiveIns) {
   if (!MI.isDebugRef())
     return false;
 
@@ -2168,8 +2168,8 @@ void InstrRefBasedLDV::accumulateFragmentMap(MachineInstr &MI) {
   AllSeenFragments.insert(ThisFragment);
 }
 
-void InstrRefBasedLDV::process(MachineInstr &MI, const ValueTable *MLiveOuts,
-                               const ValueTable *MLiveIns) {
+void InstrRefBasedLDV::process(MachineInstr &MI, const FuncValueTable &MLiveOuts,
+                               const FuncValueTable &MLiveIns) {
   // Try to interpret an MI as a debug or transfer instruction. Only if it's
   // none of these should we interpret it's register defs as new value
   // definitions.
@@ -2199,6 +2199,7 @@ void InstrRefBasedLDV::produceMLocTransferFunction(
   // appropriate clobbers.
   SmallVector<BitVector, 32> BlockMasks;
   BlockMasks.resize(MaxNumBlocks);
+  FuncValueTable a, b;
 
   // Reserve one bit per register for the masks described above.
   unsigned BVWords = MachineOperand::getRegMaskSize(TRI->getNumRegs());
@@ -2221,7 +2222,7 @@ void InstrRefBasedLDV::produceMLocTransferFunction(
     for (auto &MI : MBB) {
       // Pass in an empty unique_ptr for the value tables when accumulating the
       // machine transfer function.
-      process(MI, nullptr, nullptr);
+      process(MI, a, b);
 
       // Also accumulate fragment map.
       if (MI.isDebugValue() || MI.isDebugRef())
@@ -3440,14 +3441,14 @@ bool InstrRefBasedLDV::depthFirstVLocAndEmit(
     CurBB = BBNum;
     CurInst = 1;
     for (auto &MI : MBB) {
-      process(MI, MOutLocs.get(), MInLocs.get());
+      process(MI, MOutLocs, MInLocs);
       TTracker->checkInstForNewValues(CurInst, MI.getIterator());
       ++CurInst;
     }
 
     // Free machine-location tables for this block.
-    MInLocs[BBNum].reset();
-    MOutLocs[BBNum].reset();
+    MInLocs[BBNum].clear();
+    MOutLocs[BBNum].clear();
     // We don't need live-in variable values for this block either.
     Output[BBNum].clear();
     AllTheVLocs[BBNum].clear();
@@ -3512,7 +3513,7 @@ bool InstrRefBasedLDV::depthFirstVLocAndEmit(
   // anything for such out-of-scope blocks, but for the sake of being similar
   // to VarLocBasedLDV, eject these too.
   for (auto *MBB : ArtificialBlocks)
-    if (MOutLocs[MBB->getNumber()])
+    if (!MOutLocs[MBB->getNumber()].empty())
       EjectBlock(*MBB);
 
   return emitTransfers(AllVarsNumbering);
@@ -3611,13 +3612,15 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   // Allocate and initialize two array-of-arrays for the live-in and live-out
   // machine values. The outer dimension is the block number; while the inner
   // dimension is a LocIdx from MLocTracker.
-  FuncValueTable MOutLocs = std::make_unique<ValueTable[]>(MaxNumBlocks);
-  FuncValueTable MInLocs = std::make_unique<ValueTable[]>(MaxNumBlocks);
+  FuncValueTable MOutLocs;
+  FuncValueTable MInLocs;
+  MOutLocs.resize(MaxNumBlocks);
+  MInLocs.resize(MaxNumBlocks);
   unsigned NumLocs = MTracker->getNumLocs();
   for (int i = 0; i < MaxNumBlocks; ++i) {
     // These all auto-initialize to ValueIDNum::EmptyValue
-    MOutLocs[i] = std::make_unique<ValueIDNum[]>(NumLocs);
-    MInLocs[i] = std::make_unique<ValueIDNum[]>(NumLocs);
+    MOutLocs[i].resize(NumLocs);
+    MInLocs[i].resize(NumLocs);
   }
 
   // Solve the machine value dataflow problem using the MLocTransfer function,
@@ -3654,7 +3657,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
     MTracker->loadFromArray(MInLocs[CurBB], CurBB);
     CurInst = 1;
     for (auto &MI : MBB) {
-      process(MI, MOutLocs.get(), MInLocs.get());
+      process(MI, MOutLocs, MInLocs);
       ++CurInst;
     }
     MTracker->reset();
@@ -3835,9 +3838,9 @@ public:
   /// Machine location where any PHI must occur.
   LocIdx Loc;
   /// Table of live-in machine value numbers for blocks / locations.
-  const ValueTable *MLiveIns;
+  const FuncValueTable &MLiveIns;
 
-  LDVSSAUpdater(LocIdx L, const ValueTable *MLiveIns)
+  LDVSSAUpdater(LocIdx L, const FuncValueTable &MLiveIns)
       : Loc(L), MLiveIns(MLiveIns) {}
 
   void reset() {
@@ -3996,11 +3999,13 @@ public:
 } // end namespace llvm
 
 std::optional<ValueIDNum> InstrRefBasedLDV::resolveDbgPHIs(
-    MachineFunction &MF, const ValueTable *MLiveOuts,
-    const ValueTable *MLiveIns, MachineInstr &Here, uint64_t InstrNum) {
+    MachineFunction &MF, const FuncValueTable &MLiveOuts,
+    const FuncValueTable &MLiveIns, MachineInstr &Here, uint64_t InstrNum) {
+#if 0
   assert(MLiveOuts && MLiveIns &&
          "Tried to resolve DBG_PHI before location "
          "tables allocated?");
+#endif
 
   // This function will be called twice per DBG_INSTR_REF, and might end up
   // computing lots of SSA information: memoize it.
@@ -4015,8 +4020,8 @@ std::optional<ValueIDNum> InstrRefBasedLDV::resolveDbgPHIs(
 }
 
 std::optional<ValueIDNum> InstrRefBasedLDV::resolveDbgPHIsImpl(
-    MachineFunction &MF, const ValueTable *MLiveOuts,
-    const ValueTable *MLiveIns, MachineInstr &Here, uint64_t InstrNum) {
+    MachineFunction &MF, const FuncValueTable &MLiveOuts,
+    const FuncValueTable &MLiveIns, MachineInstr &Here, uint64_t InstrNum) {
   // Pick out records of DBG_PHI instructions that have been observed. If there
   // are none, then we cannot compute a value number.
   auto RangePair = std::equal_range(DebugPHINumToValue.begin(),
