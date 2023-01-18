@@ -975,12 +975,24 @@ public:
   MapVector<DebugVariable, DbgValue> Vars;
   SmallDenseMap<DebugVariable, const DILocation *, 8> Scopes;
   MachineBasicBlock *MBB = nullptr;
-  const OverlapMap &OverlappingFragments;
+  const OverlapMap *OverlappingFragments;
   DbgValueProperties EmptyProperties;
 
 public:
   VLocTracker(const OverlapMap &O, const DIExpression *EmptyExpr)
-      : OverlappingFragments(O), EmptyProperties(EmptyExpr, false, false) {}
+      : OverlappingFragments(&O), EmptyProperties(EmptyExpr, false, false) {}
+
+  // Copy constructor needed for initialization in resize etc. Thus, only
+  // copy over what's initialized in the above constructor.
+  VLocTracker(const VLocTracker &Other) : OverlappingFragments(Other.OverlappingFragments), EmptyProperties(Other.EmptyProperties) {
+  }
+
+  // Same as above,
+  VLocTracker &operator=(const VLocTracker &Other) {
+    OverlappingFragments = Other.OverlappingFragments;
+    EmptyProperties = Other.EmptyProperties;
+    return *this;
+  }
 
   void defVar(const MachineInstr &MI, const DbgValueProperties &Properties,
               const SmallVectorImpl<DbgOpID> &DebugOps) {
@@ -1001,9 +1013,9 @@ public:
   }
 
   void considerOverlaps(const DebugVariable &Var, const DILocation *Loc) {
-    auto Overlaps = OverlappingFragments.find(
+    auto Overlaps = OverlappingFragments->find(
         {Var.getVariable(), Var.getFragmentOrDefault()});
-    if (Overlaps == OverlappingFragments.end())
+    if (Overlaps == OverlappingFragments->end())
       return;
 
     // Otherwise: terminate any overlapped variable locations.
@@ -1283,7 +1295,7 @@ private:
   /// different assignments.
   void placePHIsForSingleVarDefinition(
           const SmallPtrSetImpl<MachineBasicBlock *> &InScopeBlocks,
-          MachineBasicBlock *MBB, SmallVectorImpl<VLocTracker> &AllTheVLocs,
+          MachineBasicBlock *MBB, std::deque<VLocTracker> &AllTheVLocs,
           const DebugVariable &Var, LiveInsT &Output);
 
   /// Calculate the iterated-dominance-frontier for a set of defs, using the
@@ -1337,7 +1349,7 @@ private:
                          SmallPtrSetImpl<MachineBasicBlock *> &AssignBlocks,
                          LiveInsT &Output, FuncValueTable &MOutLocs,
                          FuncValueTable &MInLocs,
-                         SmallVectorImpl<VLocTracker> &AllTheVLocs);
+                         std::deque<VLocTracker> &AllTheVLocs);
 
   /// Attempt to eliminate un-necessary PHIs on entry to a block. Examines the
   /// live-in values coming from predecessors live-outs, and replaces any PHIs
@@ -1393,7 +1405,7 @@ private:
       unsigned MaxNumBlocks, const ScopeToDILocT &ScopeToDILocation,
       const ScopeToVarsT &ScopeToVars, ScopeToAssignBlocksT &ScopeToBlocks,
       LiveInsT &Output, FuncValueTable &MOutLocs, FuncValueTable &MInLocs,
-      SmallVectorImpl<VLocTracker> &AllTheVLocs, MachineFunction &MF,
+      std::deque<VLocTracker> &AllTheVLocs, MachineFunction &MF,
       DenseMap<DebugVariable, unsigned> &AllVarsNumbering,
       const TargetPassConfig &TPC);
 

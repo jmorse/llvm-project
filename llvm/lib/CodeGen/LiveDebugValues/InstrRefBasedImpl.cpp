@@ -3017,7 +3017,7 @@ void InstrRefBasedLDV::buildVLocValueMap(
     const DILocation *DILoc, const SmallSet<DebugVariable, 4> &VarsWeCareAbout,
     SmallPtrSetImpl<MachineBasicBlock *> &AssignBlocks, LiveInsT &Output,
     FuncValueTable &MOutLocs, FuncValueTable &MInLocs,
-    SmallVectorImpl<VLocTracker> &AllTheVLocs) {
+    std::deque<VLocTracker> &AllTheVLocs) {
   // This method is much like buildMLocValueMap: but focuses on a single
   // LexicalScope at a time. Pick out a set of blocks and variables that are
   // to have their value assignments solved, then run our dataflow algorithm
@@ -3260,7 +3260,7 @@ void InstrRefBasedLDV::buildVLocValueMap(
 
 void InstrRefBasedLDV::placePHIsForSingleVarDefinition(
     const SmallPtrSetImpl<MachineBasicBlock *> &InScopeBlocks,
-    MachineBasicBlock *AssignMBB, SmallVectorImpl<VLocTracker> &AllTheVLocs,
+    MachineBasicBlock *AssignMBB, std::deque<VLocTracker> &AllTheVLocs,
     const DebugVariable &Var, LiveInsT &Output) {
   // If there is a single definition of the variable, then working out it's
   // value everywhere is very simple: it's every block dominated by the
@@ -3407,7 +3407,7 @@ bool InstrRefBasedLDV::depthFirstVLocAndEmit(
     unsigned MaxNumBlocks, const ScopeToDILocT &ScopeToDILocation,
     const ScopeToVarsT &ScopeToVars, ScopeToAssignBlocksT &ScopeToAssignBlocks,
     LiveInsT &Output, FuncValueTable &MOutLocs, FuncValueTable &MInLocs,
-    SmallVectorImpl<VLocTracker> &AllTheVLocs, MachineFunction &MF,
+    std::deque<VLocTracker> &AllTheVLocs, MachineFunction &MF,
     DenseMap<DebugVariable, unsigned> &AllVarsNumbering,
     const TargetPassConfig &TPC) {
   TTracker = new TransferTracker(TII, MTracker, MF, *TRI, CalleeSavedRegs, TPC);
@@ -3592,7 +3592,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   TTracker = nullptr;
 
   SmallVector<MLocTransferMap, 32> MLocTransfer;
-  SmallVector<VLocTracker, 8> vlocs;
+  std::deque<VLocTracker> vlocs;
   LiveInsT SavedLiveIns;
 
   int MaxNumBlocks = -1;

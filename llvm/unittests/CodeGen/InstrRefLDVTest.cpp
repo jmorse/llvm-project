@@ -218,7 +218,7 @@ public:
                     SmallPtrSetImpl<MachineBasicBlock *> &AssignBlocks,
                     InstrRefBasedLDV::LiveInsT &Output, FuncValueTable &MOutLocs,
                     FuncValueTable &MInLocs,
-                    SmallVectorImpl<VLocTracker> &AllTheVLocs) {
+                    std::deque<VLocTracker> &AllTheVLocs) {
     LDV->buildVLocValueMap(DILoc, VarsWeCareAbout, AssignBlocks, Output,
                            MOutLocs, MInLocs, AllTheVLocs);
   }
@@ -2664,7 +2664,7 @@ TEST_F(InstrRefLDVTest, VLocSingleBlock) {
   SmallPtrSet<MachineBasicBlock *, 4> AssignBlocks;
   AssignBlocks.insert(MBB0);
 
-  SmallVector<VLocTracker, 1> VLocs;
+  std::deque<VLocTracker> VLocs;
   VLocs.resize(1, VLocTracker(Overlaps, EmptyExpr));
 
   InstrRefBasedLDV::LiveInsT Output;
@@ -2730,7 +2730,7 @@ TEST_F(InstrRefLDVTest, VLocDiamondBlocks) {
   AssignBlocks.insert(MBB2);
   AssignBlocks.insert(MBB3);
 
-  SmallVector<VLocTracker, 1> VLocs;
+  std::deque<VLocTracker> VLocs;
   VLocs.resize(4, VLocTracker(Overlaps, EmptyExpr));
 
   InstrRefBasedLDV::LiveInsT Output;
@@ -2951,7 +2951,7 @@ TEST_F(InstrRefLDVTest, VLocSimpleLoop) {
   AssignBlocks.insert(MBB1);
   AssignBlocks.insert(MBB2);
 
-  SmallVector<VLocTracker, 3> VLocs;
+  std::deque<VLocTracker> VLocs;
   VLocs.resize(3, VLocTracker(Overlaps, EmptyExpr));
 
   InstrRefBasedLDV::LiveInsT Output;
@@ -3228,7 +3228,7 @@ TEST_F(InstrRefLDVTest, VLocNestedLoop) {
   AssignBlocks.insert(MBB3);
   AssignBlocks.insert(MBB4);
 
-  SmallVector<VLocTracker, 5> VLocs;
+  std::deque<VLocTracker> VLocs;
   VLocs.resize(5, VLocTracker(Overlaps, EmptyExpr));
 
   InstrRefBasedLDV::LiveInsT Output;
