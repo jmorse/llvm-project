@@ -3819,259 +3819,6 @@ LDVImpl *llvm::makeInstrRefBasedLiveDebugValues() {
   return new InstrRefBasedLDV();
 }
 
-namespace {
-class LDVSSABlock;
-class LDVSSAUpdater;
-
-// Pick a type to identify incoming block values as we construct SSA. We
-// can't use anything more robust than an integer unfortunately, as SSAUpdater
-// expects to zero-initialize the type.
-typedef uint64_t BlockValueNum;
-
-/// Represents an SSA PHI node for the SSA updater class. Contains the block
-/// this PHI is in, the value number it would have, and the expected incoming
-/// values from parent blocks.
-class LDVSSAPhi {
-public:
-  SmallVector<std::pair<LDVSSABlock *, BlockValueNum>, 4> IncomingValues;
-  LDVSSABlock *ParentBlock;
-  BlockValueNum PHIValNum;
-  LDVSSAPhi(BlockValueNum PHIValNum, LDVSSABlock *ParentBlock)
-      : ParentBlock(ParentBlock), PHIValNum(PHIValNum) {}
-
-  LDVSSABlock *getParent() { return ParentBlock; }
-};
-
-/// Thin wrapper around a block predecessor iterator. Only difference from a
-/// normal block iterator is that it dereferences to an LDVSSABlock.
-class LDVSSABlockIterator {
-public:
-  MachineBasicBlock::pred_iterator PredIt;
-  LDVSSAUpdater &Updater;
-
-  LDVSSABlockIterator(MachineBasicBlock::pred_iterator PredIt,
-                      LDVSSAUpdater &Updater)
-      : PredIt(PredIt), Updater(Updater) {}
-
-  bool operator!=(const LDVSSABlockIterator &OtherIt) const {
-    return OtherIt.PredIt != PredIt;
-  }
-
-  LDVSSABlockIterator &operator++() {
-    ++PredIt;
-    return *this;
-  }
-
-  LDVSSABlock *operator*();
-};
-
-/// Thin wrapper around a block for SSA Updater interface. Necessary because
-/// we need to track the PHI value(s) that we may have observed as necessary
-/// in this block.
-class LDVSSABlock {
-public:
-  MachineBasicBlock &BB;
-  LDVSSAUpdater &Updater;
-  using PHIListT = SmallVector<LDVSSAPhi, 1>;
-  /// List of PHIs in this block. There should only ever be one.
-  PHIListT PHIList;
-
-  LDVSSABlock(MachineBasicBlock &BB, LDVSSAUpdater &Updater)
-      : BB(BB), Updater(Updater) {}
-
-  LDVSSABlockIterator succ_begin() {
-    return LDVSSABlockIterator(BB.succ_begin(), Updater);
-  }
-
-  LDVSSABlockIterator succ_end() {
-    return LDVSSABlockIterator(BB.succ_end(), Updater);
-  }
-
-  /// SSAUpdater has requested a PHI: create that within this block record.
-  LDVSSAPhi *newPHI(BlockValueNum Value) {
-    PHIList.emplace_back(Value, this);
-    return &PHIList.back();
-  }
-
-  /// SSAUpdater wishes to know what PHIs already exist in this block.
-  PHIListT &phis() { return PHIList; }
-};
-
-/// Utility class for the SSAUpdater interface: tracks blocks, PHIs and values
-/// while SSAUpdater is exploring the CFG. It's passed as a handle / baton to
-// SSAUpdaterTraits<LDVSSAUpdater>.
-class LDVSSAUpdater {
-public:
-  /// Map of value numbers to PHI records.
-  DenseMap<BlockValueNum, LDVSSAPhi *> PHIs;
-  /// Map of which blocks generate Undef values -- blocks that are not
-  /// dominated by any Def.
-  DenseMap<MachineBasicBlock *, BlockValueNum> UndefMap;
-  /// Map of machine blocks to our own records of them.
-  DenseMap<MachineBasicBlock *, LDVSSABlock *> BlockMap;
-  /// Machine location where any PHI must occur.
-  LocIdx Loc;
-  /// Table of live-in machine value numbers for blocks / locations.
-  const ValueTable *MLiveIns;
-
-  LDVSSAUpdater(LocIdx L, const ValueTable *MLiveIns)
-      : Loc(L), MLiveIns(MLiveIns) {}
-
-  void reset() {
-    for (auto &Block : BlockMap)
-      delete Block.second;
-
-    PHIs.clear();
-    UndefMap.clear();
-    BlockMap.clear();
-  }
-
-  ~LDVSSAUpdater() { reset(); }
-
-  /// For a given MBB, create a wrapper block for it. Stores it in the
-  /// LDVSSAUpdater block map.
-  LDVSSABlock *getSSALDVBlock(MachineBasicBlock *BB) {
-    auto it = BlockMap.find(BB);
-    if (it == BlockMap.end()) {
-      BlockMap[BB] = new LDVSSABlock(*BB, *this);
-      it = BlockMap.find(BB);
-    }
-    return it->second;
-  }
-
-  /// Find the live-in value number for the given block. Looks up the value at
-  /// the PHI location on entry.
-  BlockValueNum getValue(LDVSSABlock *LDVBB) {
-    return MLiveIns[LDVBB->BB.getNumber()][Loc.asU64()].asU64();
-  }
-};
-
-LDVSSABlock *LDVSSABlockIterator::operator*() {
-  return Updater.getSSALDVBlock(*PredIt);
-}
-
-#ifndef NDEBUG
-
-raw_ostream &operator<<(raw_ostream &out, const LDVSSAPhi &PHI) {
-  out << "SSALDVPHI " << PHI.PHIValNum;
-  return out;
-}
-
-#endif
-
-} // namespace
-
-namespace llvm {
-
-/// Template specialization to give SSAUpdater access to CFG and value
-/// information. SSAUpdater calls methods in these traits, passing in the
-/// LDVSSAUpdater object, to learn about blocks and the values they define.
-/// It also provides methods to create PHI nodes and track them.
-template <> class SSAUpdaterTraits<LDVSSAUpdater> {
-public:
-  using BlkT = LDVSSABlock;
-  using ValT = BlockValueNum;
-  using PhiT = LDVSSAPhi;
-  using BlkSucc_iterator = LDVSSABlockIterator;
-
-  // Methods to access block successors -- dereferencing to our wrapper class.
-  static BlkSucc_iterator BlkSucc_begin(BlkT *BB) { return BB->succ_begin(); }
-  static BlkSucc_iterator BlkSucc_end(BlkT *BB) { return BB->succ_end(); }
-
-  /// Iterator for PHI operands.
-  class PHI_iterator {
-  private:
-    LDVSSAPhi *PHI;
-    unsigned Idx;
-
-  public:
-    explicit PHI_iterator(LDVSSAPhi *P) // begin iterator
-        : PHI(P), Idx(0) {}
-    PHI_iterator(LDVSSAPhi *P, bool) // end iterator
-        : PHI(P), Idx(PHI->IncomingValues.size()) {}
-
-    PHI_iterator &operator++() {
-      Idx++;
-      return *this;
-    }
-    bool operator==(const PHI_iterator &X) const { return Idx == X.Idx; }
-    bool operator!=(const PHI_iterator &X) const { return !operator==(X); }
-
-    BlockValueNum getIncomingValue() { return PHI->IncomingValues[Idx].second; }
-
-    LDVSSABlock *getIncomingBlock() { return PHI->IncomingValues[Idx].first; }
-  };
-
-  static inline PHI_iterator PHI_begin(PhiT *PHI) { return PHI_iterator(PHI); }
-
-  static inline PHI_iterator PHI_end(PhiT *PHI) {
-    return PHI_iterator(PHI, true);
-  }
-
-  /// FindPredecessorBlocks - Put the predecessors of BB into the Preds
-  /// vector.
-  static void FindPredecessorBlocks(LDVSSABlock *BB,
-                                    SmallVectorImpl<LDVSSABlock *> *Preds) {
-    for (MachineBasicBlock *Pred : BB->BB.predecessors())
-      Preds->push_back(BB->Updater.getSSALDVBlock(Pred));
-  }
-
-  /// GetUndefVal - Normally creates an IMPLICIT_DEF instruction with a new
-  /// register. For LiveDebugValues, represents a block identified as not having
-  /// any DBG_PHI predecessors.
-  static BlockValueNum GetUndefVal(LDVSSABlock *BB, LDVSSAUpdater *Updater) {
-    // Create a value number for this block -- it needs to be unique and in the
-    // "undef" collection, so that we know it's not real. Use a number
-    // representing a PHI into this block.
-    BlockValueNum Num = ValueIDNum(BB->BB.getNumber(), 0, Updater->Loc).asU64();
-    Updater->UndefMap[&BB->BB] = Num;
-    return Num;
-  }
-
-  /// CreateEmptyPHI - Create a (representation of a) PHI in the given block.
-  /// SSAUpdater will populate it with information about incoming values. The
-  /// value number of this PHI is whatever the  machine value number problem
-  /// solution determined it to be. This includes non-phi values if SSAUpdater
-  /// tries to create a PHI where the incoming values are identical.
-  static BlockValueNum CreateEmptyPHI(LDVSSABlock *BB, unsigned NumPreds,
-                                   LDVSSAUpdater *Updater) {
-    BlockValueNum PHIValNum = Updater->getValue(BB);
-    LDVSSAPhi *PHI = BB->newPHI(PHIValNum);
-    Updater->PHIs[PHIValNum] = PHI;
-    return PHIValNum;
-  }
-
-  /// AddPHIOperand - Add the specified value as an operand of the PHI for
-  /// the specified predecessor block.
-  static void AddPHIOperand(LDVSSAPhi *PHI, BlockValueNum Val, LDVSSABlock *Pred) {
-    PHI->IncomingValues.push_back(std::make_pair(Pred, Val));
-  }
-
-  /// ValueIsPHI - Check if the instruction that defines the specified value
-  /// is a PHI instruction.
-  static LDVSSAPhi *ValueIsPHI(BlockValueNum Val, LDVSSAUpdater *Updater) {
-    auto PHIIt = Updater->PHIs.find(Val);
-    if (PHIIt == Updater->PHIs.end())
-      return nullptr;
-    return PHIIt->second;
-  }
-
-  /// ValueIsNewPHI - Like ValueIsPHI but also check if the PHI has no source
-  /// operands, i.e., it was just added.
-  static LDVSSAPhi *ValueIsNewPHI(BlockValueNum Val, LDVSSAUpdater *Updater) {
-    LDVSSAPhi *PHI = ValueIsPHI(Val, Updater);
-    if (PHI && PHI->IncomingValues.size() == 0)
-      return PHI;
-    return nullptr;
-  }
-
-  /// GetPHIValue - For the specified PHI instruction, return the value
-  /// that it defines.
-  static BlockValueNum GetPHIValue(LDVSSAPhi *PHI) { return PHI->PHIValNum; }
-};
-
-} // end namespace llvm
-
 std::optional<ValueIDNum> InstrRefBasedLDV::resolveDbgPHIs(
     MachineFunction &MF, const ValueTable *MLiveOuts,
     const ValueTable *MLiveIns, MachineInstr &Here, uint64_t InstrNum) {
@@ -4118,111 +3865,144 @@ std::optional<ValueIDNum> InstrRefBasedLDV::resolveDbgPHIsImpl(
   if (std::distance(LowerIt, UpperIt) == 1)
     return *LowerIt->ValueRead;
 
+  for (const DebugPHIRecord &DBG_PHI : DBGPHIRange)
+    if (DBG_PHI.MBB == Here.getParent())
+      return DBG_PHI.ValueRead;
+
   // Pick out the location (physreg, slot) where any PHIs must occur. It's
   // technically possible for us to merge values in different registers in each
   // block, but highly unlikely that LLVM will generate such code after register
   // allocation.
   LocIdx Loc = *LowerIt->ReadLoc;
 
-  // We have several DBG_PHIs, and a use position (the Here inst). All each
-  // DBG_PHI does is identify a value at a program position. We can treat each
-  // DBG_PHI like it's a Def of a value, and the use position is a Use of a
-  // value, just like SSA. We use the bulk-standard LLVM SSA updater class to
-  // determine which Def is used at the Use, and any PHIs that happen along
-  // the way.
-  // Adapted LLVM SSA Updater:
-  LDVSSAUpdater Updater(Loc, MLiveIns);
-  // Map of which Def or PHI is the current value in each block.
-  DenseMap<LDVSSABlock *, BlockValueNum> AvailableValues;
-  // Set of PHIs that we have created along the way.
-  SmallVector<LDVSSAPhi *, 8> CreatedPHIs;
+SmallPtrSet<MachineBasicBlock *, 32> DefBlocks;
+for (auto &DBG_PHI : DBGPHIRange)
+  DefBlocks.insert(DBG_PHI.MBB);
 
-  // Each existing DBG_PHI is a Def'd value under this model. Record these Defs
-  // for the SSAUpdater.
-  for (const auto &DBG_PHI : DBGPHIRange) {
-    LDVSSABlock *Block = Updater.getSSALDVBlock(DBG_PHI.MBB);
-    const ValueIDNum &Num = *DBG_PHI.ValueRead;
-    AvailableValues.insert(std::make_pair(Block, Num.asU64()));
+SmallPtrSet<MachineBasicBlock *, 32> AllBlocks;
+
+// Do a depth first search in the post-dominator from the desired block "down"
+// to the defining values.
+SmallVector<MachineBasicBlock *> WorkList;
+// XXX consider putting in hash map in meantime.
+WorkList.push_back(Here.getParent());
+while (!WorkList.empty()) {
+  MachineBasicBlock *MBB = WorkList.back();
+  WorkList.pop_back();
+  if (AllBlocks.count(MBB))
+    continue;
+
+  AllBlocks.insert(MBB);
+
+  if (DefBlocks.count(MBB))
+    continue;
+
+  for (auto *NewMBB : MBB->predecessors())
+    WorkList.push_back(NewMBB);
+}
+
+
+SmallVector<MachineBasicBlock *> PHIBlocks;
+// Apply IDF calculator to the designated set of location defs, storing
+// required PHIs into PHIBlocks. Uses the dominator tree stored in the
+// InstrRefBasedLDV object.
+IDFCalculatorBase<MachineBasicBlock, false> IDF(DomTree->getBase());
+
+IDF.setLiveInBlocks(AllBlocks);
+IDF.setDefiningBlocks(DefBlocks);
+IDF.calculate(PHIBlocks);
+DenseMap<MachineBasicBlock *, ValueIDNum> thevalues;
+SmallVector<std::pair<MachineBasicBlock *, ValueIDNum>> ResolvedValuesLol;
+for (auto &DBG_PHI : DBGPHIRange) {
+  thevalues.insert({DBG_PHI.MBB, *DBG_PHI.ValueRead});
+  ResolvedValuesLol.push_back({DBG_PHI.MBB, *DBG_PHI.ValueRead});
+}
+
+llvm::sort(PHIBlocks, [&](MachineBasicBlock *A, MachineBasicBlock *B) {
+  return BBToOrder[A] < BBToOrder[B];
+});
+
+SmallVector<MachineBasicBlock *> AllBlocksOrder(AllBlocks.begin(), AllBlocks.end());
+llvm::sort(AllBlocksOrder, [&](MachineBasicBlock *A, MachineBasicBlock *B) {
+  return BBToOrder[A] < BBToOrder[B];
+});
+
+
+
+bool SecondaryCorrect = true;
+for (auto *ThisBB : AllBlocksOrder) {
+  // Find the dominating values for each predecessor.
+  SmallVector<std::pair<MachineBasicBlock *, ValueIDNum>> PredVals;
+
+  if (DefBlocks.contains(ThisBB)) {
+    ResolvedValuesLol.push_back({ThisBB, thevalues[ThisBB]});
+    continue;
   }
 
-  LDVSSABlock *HereBlock = Updater.getSSALDVBlock(Here.getParent());
-  const auto &AvailIt = AvailableValues.find(HereBlock);
-  if (AvailIt != AvailableValues.end()) {
-    // Actually, we already know what the value is -- the Use is in the same
-    // block as the Def.
-    return ValueIDNum::fromU64(AvailIt->second);
+  SmallVector<MachineBasicBlock *> ToValidatePreds;
+  bool Correct = true;
+  for (auto *Pred : ThisBB->predecessors()) {
+    // Walk backwards through resolved values... needs to be ordered so that we rely
+    // on the RPOT order and get the last dominating value before any other dominators.
+    ValueIDNum TheVal = ValueIDNum::EmptyValue;
+    auto it = thevalues.find(Pred);
+    if (it == thevalues.end()) {
+      ToValidatePreds.push_back(Pred);
+      continue;
+    }
+    PredVals.push_back({Pred, it->second});
   }
 
-  // Otherwise, we must use the SSA Updater. It will identify the value number
-  // that we are to use, and the PHIs that must happen along the way.
-  SSAUpdaterImpl<LDVSSAUpdater> Impl(&Updater, &AvailableValues, &CreatedPHIs);
-  BlockValueNum ResultInt = Impl.GetValue(Updater.getSSALDVBlock(Here.getParent()));
-  ValueIDNum Result = ValueIDNum::fromU64(ResultInt);
-
-  // We have the number for a PHI, or possibly live-through value, to be used
-  // at this Use. There are a number of things we have to check about it though:
-  //  * Does any PHI use an 'Undef' (like an IMPLICIT_DEF) value? If so, this
-  //    Use was not completely dominated by DBG_PHIs and we should abort.
-  //  * Are the Defs or PHIs clobbered in a block? SSAUpdater isn't aware that
-  //    we've left SSA form. Validate that the inputs to each PHI are the
-  //    expected values.
-  //  * Is a PHI we've created actually a merging of values, or are all the
-  //    predecessor values the same, leading to a non-PHI machine value number?
-  //    (SSAUpdater doesn't know that either). Remap validated PHIs into the
-  //    the ValidatedValues collection below to sort this out.
-  DenseMap<LDVSSABlock *, ValueIDNum> ValidatedValues;
-
-  // Define all the input DBG_PHI values in ValidatedValues.
-  for (const auto &DBG_PHI : DBGPHIRange) {
-    LDVSSABlock *Block = Updater.getSSALDVBlock(DBG_PHI.MBB);
-    const ValueIDNum &Num = *DBG_PHI.ValueRead;
-    ValidatedValues.insert(std::make_pair(Block, Num));
+  // Validate the PHI. We could try and seek out PHIs in different locations per
+  // block, however that's not a common case and it would be expensive.
+  for (auto &P : PredVals) {
+    if (MLiveOuts[P.first->getNumber()][Loc.asU64()] != P.second) {
+      Correct = false;
+      break;
+    }
   }
 
-  // Sort PHIs to validate into RPO-order.
-  SmallVector<LDVSSAPhi *, 8> SortedPHIs;
-  for (auto &PHI : CreatedPHIs)
-    SortedPHIs.push_back(PHI);
-
-  llvm::sort(SortedPHIs, [&](LDVSSAPhi *A, LDVSSAPhi *B) {
-    return BBToOrder[&A->getParent()->BB] < BBToOrder[&B->getParent()->BB];
-  });
-
-  for (auto &PHI : SortedPHIs) {
-    ValueIDNum ThisBlockValueNum =
-        MLiveIns[PHI->ParentBlock->BB.getNumber()][Loc.asU64()];
-
-    // Are all these things actually defined?
-    for (auto &PHIIt : PHI->IncomingValues) {
-      // Any undef input means DBG_PHIs didn't dominate the use point.
-      if (Updater.UndefMap.find(&PHIIt.first->BB) != Updater.UndefMap.end())
-        return std::nullopt;
-
-      ValueIDNum ValueToCheck;
-      const ValueTable &BlockLiveOuts = MLiveOuts[PHIIt.first->BB.getNumber()];
-
-      auto VVal = ValidatedValues.find(PHIIt.first);
-      if (VVal == ValidatedValues.end()) {
-        // We cross a loop, and this is a backedge. LLVMs tail duplication
-        // happens so late that DBG_PHI instructions should not be able to
-        // migrate into loops -- meaning we can only be live-through this
-        // loop.
-        ValueToCheck = ThisBlockValueNum;
-      } else {
-        // Does the block have as a live-out, in the location we're examining,
-        // the value that we expect? If not, it's been moved or clobbered.
-        ValueToCheck = VVal->second;
-      }
-
-      if (BlockLiveOuts[Loc.asU64()] != ValueToCheck)
-        return std::nullopt;
+  if (!ToValidatePreds.empty()) {
+    // First, are all incoming values the same?
+    SmallSet<ValueIDNum, 4> lol;
+    for (auto &P : PredVals) {
+      lol.insert(P.second);
     }
 
-    // Record this value as validated.
-    ValidatedValues.insert({PHI->ParentBlock, ThisBlockValueNum});
+    if (lol.size() == 1) {
+      for (auto *PredPtr : ToValidatePreds) {
+        if (MLiveOuts[PredPtr->getNumber()][Loc.asU64()] != *lol.begin())
+          Correct = false;
+      }
+      // Also check there are no subsequent DBG_PHIs that might re-state the value.
+      for (auto *Def : DefBlocks) {
+        if (DomTree->dominates(ThisBB, Def))
+          Correct = false;
+      }
+    } else {
+      // Or, if they're different, does the PHI that happens here feed back in?
+      ValueIDNum PHIHere(ThisBB->getNumber(), 0, Loc.asU64());
+      assert(MLiveIns[ThisBB->getNumber()][Loc.asU64()] == PHIHere);
+      for (auto *PredPtr : ToValidatePreds) {
+        if (MLiveOuts[PredPtr->getNumber()][Loc.asU64()]  != PHIHere)
+          Correct = false;
+      }
+    }
   }
 
-  // All the PHIs are valid: we can return what the SSAUpdater said our value
-  // number was.
-  return Result;
+  if (!Correct) {
+    // Oh dear.
+    SecondaryCorrect = false;
+    break;
+  }
+
+  // Record that we found a legit PHI. Or a PHI that value-props away.
+  ResolvedValuesLol.push_back({ThisBB, MLiveIns[ThisBB->getNumber()][Loc.asU64()]});
+  thevalues[ThisBB] = MLiveIns[ThisBB->getNumber()][Loc.asU64()];
+}
+
+if (SecondaryCorrect)
+  return ResolvedValuesLol.back().second;
+return std::nullopt;
+
 }

@@ -1076,6 +1076,7 @@ public:
 
 private:
   MachineDominatorTree *DomTree;
+  MachineDominatorTree *PDomTree;
   const TargetRegisterInfo *TRI;
   const MachineRegisterInfo *MRI;
   const TargetInstrInfo *TII;
