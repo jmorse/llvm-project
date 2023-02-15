@@ -959,7 +959,33 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
               // inline through the SCC the function will end up being
               // self-recursive which the inliner bails out on, and inlining
               // within an SCC is necessary for performance.
-              if (CalleeSCC != C &&
+
+              // Was there an edge from the callee to the new callee? if there
+              // wasn't, this call was devirtualised.
+              bool WasEdge = false;
+              auto &Node = CG.get(Callee);
+              for (llvm::LazyCallGraph::Edge &E : *Node)
+                if (&E.getNode() == &CG.get(*NewCallee))
+                  WasEdge = true;
+
+              if (!WasEdge && CalleeSCC != C &&
+                  CalleeSCC != CG.lookupSCC(CG.get(*NewCallee)))  {
+                // Take cost multiplier from the new call-site function: we do
+                // not get the SCC-post-order traversal guarantee, the new
+                // call could be to somewhere before or after our current
+                // position in the RefSCC, and might be "reset" to a lower
+                // value by another call.
+                auto OptCost =
+                    getStringFnAttrAsInt(
+                        *ICB, InlineConstants::
+                                 FunctionInlineCostMultiplierAttributeName);
+                CBCostMult = (OptCost) ? *OptCost : 1;
+                Attribute NewCBCostMult = Attribute::get(
+                    M.getContext(),
+                    InlineConstants::FunctionInlineCostMultiplierAttributeName,
+                    itostr(std::min(CBCostMult * IntraSCCCostMultiplier, 10000)));
+                NewCallee->addFnAttr(NewCBCostMult);
+              } else if (CalleeSCC != C &&
                   CalleeSCC == CG.lookupSCC(CG.get(*NewCallee))) {
                 Attribute NewCBCostMult = Attribute::get(
                     M.getContext(),
