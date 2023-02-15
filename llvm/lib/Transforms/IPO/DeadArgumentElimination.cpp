@@ -16,7 +16,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/IPO/DeadArgumentElimination.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Argument.h"
@@ -24,7 +23,6 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DIBuilder.h"
-#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
@@ -45,6 +43,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/DeadArgumentElimination.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include <cassert>
 #include <utility>
@@ -1102,20 +1101,11 @@ PreservedAnalyses DeadArgumentEliminationPass::run(Module &M,
   for (auto &F : M)
     surveyFunction(F);
 
-  bool AssignmentTrackingEnabled = isAssignmentTrackingEnabled(M);
-
   // Now, remove all dead arguments and return values from each function in
   // turn.  We use make_early_inc_range here because functions will probably get
   // removed (i.e. replaced by new ones).
-  for (Function &F : llvm::make_early_inc_range(M)) {
-    if (removeDeadStuffFromFunction(&F)) {
-      Changed = true;
-      if (AssignmentTrackingEnabled) {
-        for (auto &BB : F)
-          RemoveRedundantDbgInstrs(&BB);
-      }
-    }
-  }
+  for (Function &F : llvm::make_early_inc_range(M))
+    Changed |= removeDeadStuffFromFunction(&F);
 
   // Finally, look for any unused parameters in functions with non-local
   // linkage and replace the passed in parameters with poison.
