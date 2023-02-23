@@ -5792,7 +5792,7 @@ def fctor_dtor_return_this : Flag<["-"], "fctor-dtor-return-this">,
 
 defm experimental_assignment_tracking :
   BoolOption<"f", "experimental-assignment-tracking",
-  CodeGenOpts<"EnableAssignmentTracking">, DefaultFalse,
+  CodeGenOpts<"EnableAssignmentTracking">, DefaultTrue,
   PosFlag<SetTrue, [CC1Option]>, NegFlag<SetFalse>, BothFlags<[CoreOption]>>,
   Group<f_Group>;
 
