@@ -13,7 +13,7 @@ The overwhelming objective of this design is to demonstrate that the same inform
 
 ## What should I look at?
 
-There are about 200 files changed -- there should be a PR open showing the diff. Please observe that the mental overhead for pass authors should be /fairly/ low, in that they have to pass an iterator into methods that insert instructions into blocks, where previously we used instruction pointers, and in other places you have to use a specific implementation of moveBefore.
+There are about 200 files changed -- there should be a PR open showing the diff. Observe the (hopefully) low overhead of the changes that are necessary in optimisation passes: some function calls change names, in other scenarios iterators are used to mark the position where an insertion should happen. Consider how invasive this, and whether the extra mental burdern of being aware of these things is a good trade-off for better debug-info management.
 
 In an ideal world we'd prohibit having insertion API calls that take an instruction pointer, forcing the pass author to type out "getIterator()", which necessitates the thought process of "I'm changing an instruction into a position in the block". That would be a great way of using type safety to mandate some decision making. On the other hand: it would be verbose, which no-one wants. Some significant unanswered questions are "how many debug-info faults are caused by using the wrong insertion method", "how damaging is that to the user experience" and "can we easily discover those scenarios through testing".
 
