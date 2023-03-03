@@ -853,7 +853,8 @@ void GVNSink::sinkLastInstruction(ArrayRef<BasicBlock *> Blocks,
     auto *Op = I0->getOperand(O);
     assert(!Op->getType()->isTokenTy() && "Can't PHI tokens!");
     auto *PN = PHINode::Create(Op->getType(), Insts.size(),
-                               Op->getName() + ".sink", &BBEnd->front());
+                               Op->getName() + ".sink");
+    PN->insertBefore(BBEnd->begin());
     for (auto *I : Insts)
       PN->addIncoming(I->getOperand(O), I->getParent());
     NewOperands.push_back(PN);
@@ -863,7 +864,7 @@ void GVNSink::sinkLastInstruction(ArrayRef<BasicBlock *> Blocks,
   // and move it to the start of the successor block.
   for (unsigned O = 0, E = I0->getNumOperands(); O != E; ++O)
     I0->getOperandUse(O).set(NewOperands[O]);
-  I0->moveBefore(&*BBEnd->getFirstInsertionPt());
+  I0->moveBeforeBreaking(&*BBEnd->getFirstInsertionPt());
 
   // Update metadata and IR flags.
   for (auto *I : Insts)

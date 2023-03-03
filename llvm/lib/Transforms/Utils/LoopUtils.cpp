@@ -593,6 +593,7 @@ void llvm::deleteDeadLoop(Loop *L, DominatorTree *DT, ScalarEvolution *SE,
   // Use a map to unique and a vector to guarantee deterministic ordering.
   llvm::SmallDenseSet<std::pair<DIVariable *, DIExpression *>, 4> DeadDebugSet;
   llvm::SmallVector<DbgVariableIntrinsic *, 4> DeadDebugInst;
+  llvm::SmallVector<DPValue *, 4> DeadDPValues;
 
   if (ExitBlock) {
     // Given LCSSA form is satisfied, we should not have users of instructions
@@ -617,6 +618,20 @@ void llvm::deleteDeadLoop(Loop *L, DominatorTree *DT, ScalarEvolution *SE,
                    "Unexpected user in reachable block");
           U.set(Poison);
         }
+
+        // DDD: do the same as below for DPValues.
+        if (Block->IsInhaled) {
+          for (DebugProgramInstruction &DP : I.getDbgValueRange()) {
+            DPValue *DPV = &static_cast<DPValue&>(DP);
+            auto Key =
+                DeadDebugSet.find({DPV->getVariable(), DPV->getExpression()});
+            if (Key != DeadDebugSet.end())
+              continue;
+            DeadDebugSet.insert({DPV->getVariable(), DPV->getExpression()});
+            DeadDPValues.push_back(DPV);
+          }
+        }
+
         auto *DVI = dyn_cast<DbgVariableIntrinsic>(&I);
         if (!DVI)
           continue;
@@ -638,10 +653,24 @@ void llvm::deleteDeadLoop(Loop *L, DominatorTree *DT, ScalarEvolution *SE,
     assert(InsertDbgValueBefore &&
            "There should be a non-PHI instruction in exit block, else these "
            "instructions will have no parent.");
-    for (auto *DVI : DeadDebugInst)
+
+    for (auto *DVI : DeadDebugInst) {
       DIB.insertDbgValueIntrinsic(UndefValue::get(Builder.getInt32Ty()),
                                   DVI->getVariable(), DVI->getExpression(),
                                   DVI->getDebugLoc(), InsertDbgValueBefore);
+    }
+
+    // DDD: above block moves dbg.declares, this moves DPValues/dbg.values:
+    if (ExitBlock->IsInhaled) {
+      for (DPValue *DPV : DeadDPValues) {
+        // Debug intrinsic will be created, then immediately converted to a
+        // DPValue on insertion. Inefficient, but correct.
+        auto *DVI = DPV->createDebugIntrinsic(ExitBlock->getModule(), nullptr);
+        auto *VAM = ValueAsMetadata::get(UndefValue::get(Builder.getInt32Ty()));
+        DVI->setRawLocation(VAM);
+        DVI->insertDebugBefore(InsertDbgValueBefore);
+      }
+    }
   }
 
   // Remove the block from the reference counting scheme, so that we can

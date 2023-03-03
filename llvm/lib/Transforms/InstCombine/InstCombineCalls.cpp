@@ -2350,7 +2350,7 @@ Instruction *InstCombinerImpl::visitCallInst(CallInst &CI) {
         while (MoveI != NextInst) {
           auto *Temp = MoveI;
           MoveI = MoveI->getNextNonDebugInstruction();
-          Temp->moveBefore(II);
+          Temp->moveBeforeBreaking(II);
         }
         replaceOperand(*II, 0, Builder.CreateAnd(CurrCond, NextCond));
       }
@@ -3451,13 +3451,13 @@ bool InstCombinerImpl::transformConstExprCastCall(CallBase &Call) {
       // first non-phi instruction in the normal successor block.
       if (InvokeInst *II = dyn_cast<InvokeInst>(Caller)) {
         BasicBlock::iterator I = II->getNormalDest()->getFirstInsertionPt();
-        InsertNewInstBefore(NC, *I);
+        InsertNewInstBefore(NC, I);
       } else if (CallBrInst *CBI = dyn_cast<CallBrInst>(Caller)) {
         BasicBlock::iterator I = CBI->getDefaultDest()->getFirstInsertionPt();
-        InsertNewInstBefore(NC, *I);
+        InsertNewInstBefore(NC, I);
       } else {
         // Otherwise, it's a call, just insert cast right after the call.
-        InsertNewInstBefore(NC, *Caller);
+        InsertNewInstBefore(NC, Caller->getIterator());
       }
       Worklist.pushUsersToWorkList(*Caller);
     } else {

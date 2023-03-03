@@ -389,25 +389,6 @@ public:
       std::function<void(Instruction *, unsigned, APInt, APInt &)>
           SimplifyAndSetOp);
 
-  /// Inserts an instruction \p New before instruction \p Old
-  ///
-  /// Also adds the new instruction to the worklist and returns \p New so that
-  /// it is suitable for use as the return from the visitation patterns.
-  Instruction *InsertNewInstBefore(Instruction *New, Instruction &Old) {
-    assert(New && !New->getParent() &&
-           "New instruction already inserted into a basic block!");
-    BasicBlock *BB = Old.getParent();
-    BB->getInstList().insert(Old.getIterator(), New); // Insert inst
-    Worklist.push(New);
-    return New;
-  }
-
-  /// Same as InsertNewInstBefore, but also sets the debug loc.
-  Instruction *InsertNewInstWith(Instruction *New, Instruction &Old) {
-    New->setDebugLoc(Old.getDebugLoc());
-    return InsertNewInstBefore(New, Old);
-  }
-
   /// A combiner-aware RAUW-like routine.
   ///
   /// This method is to be used when an instruction is found to be dead,

@@ -813,9 +813,11 @@ void ReassociatePass::RewriteExprTree(BinaryOperator *I,
       // Discard any debug info related to the expressions that has changed (we
       // can leave debug infor related to the root, since the result of the
       // expression tree should be the same even after reassociation).
+      // jmorse: this feels like somewhere we should be salvaging, problem for
+      // some other time.
       replaceDbgUsesWithUndef(ExpressionChanged);
 
-      ExpressionChanged->moveBefore(I);
+      ExpressionChanged->moveBeforeBreaking(I);
       ExpressionChanged = cast<BinaryOperator>(*ExpressionChanged->user_begin());
     } while (true);
 
@@ -861,7 +863,7 @@ static Value *NegateValue(Value *V, Instruction *BI,
     // assured that the neg instructions we just inserted dominate the
     // instruction we are about to insert after them.
     //
-    I->moveBefore(BI);
+    I->moveBeforeBreaking(BI);
     I->setName(I->getName()+".neg");
 
     // Add the intermediate negates to the redo list as processing them later
@@ -893,7 +895,7 @@ static Value *NegateValue(Value *V, Instruction *BI,
       if (InvokeInst *II = dyn_cast<InvokeInst>(InstInput)) {
         InsertPt = II->getNormalDest()->begin();
       } else {
-        InsertPt = ++InstInput->getIterator();
+        InsertPt = InstInput->getNextNonDebugInstruction()->getIterator();
       }
 
       const BasicBlock *BB = InsertPt->getParent();
@@ -919,7 +921,7 @@ static Value *NegateValue(Value *V, Instruction *BI,
     if (FoundCatchSwitch)
       break;
 
-    TheNeg->moveBefore(&*InsertPt);
+    TheNeg->moveBeforeBreaking(&*InsertPt);
     if (TheNeg->getOpcode() == Instruction::Sub) {
       TheNeg->setHasNoUnsignedWrap(false);
       TheNeg->setHasNoSignedWrap(false);

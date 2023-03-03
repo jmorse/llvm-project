@@ -552,7 +552,7 @@ void HexagonVectorLoopCarriedReuse::reuseValue() {
   }
   BasicBlock *BB = BEInst->getParent();
   IRBuilder<> IRB(BB);
-  IRB.SetInsertPoint(BB->getFirstNonPHI());
+  IRB.SetInsertPoint(BB, BB->getFirstInsertionPt());
   Value *BEVal = BEInst;
   PHINode *NewPhi;
   for (int i = Iterations-1; i >=0 ; --i) {

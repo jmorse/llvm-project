@@ -103,9 +103,19 @@ private:
   /// needs it.  The hasLazyArguments predicate returns true if the arg list
   /// hasn't been set up yet.
 public:
+  bool IsInhaled;
   bool hasLazyArguments() const {
     return getSubclassDataFromValue() & (1<<0);
   }
+
+  void inhaleDbgValues();
+  void exhaleDbgValues();
+  void setInhaled(bool NewInhaled);
+
+  void functionSplice(iterator Dest, Function *Source);
+  void functionSplice(iterator Dest, Function *Source, BasicBlock *ToMove);
+  void functionSplice(iterator Dest, Function *Source, iterator Begin,
+                      iterator End);
 
 private:
   void CheckLazyArguments() const {

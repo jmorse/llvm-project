@@ -353,7 +353,7 @@ void SjLjEHPrepare::lowerAcrossUnwindEdges(Function &F,
       DemotePHIToStack(PN);
 
     // Move the landingpad instruction back to the top of the landing pad block.
-    LPI->moveBefore(&UnwindBlock->front());
+    LPI->moveBeforeBreaking(&UnwindBlock->front());
   }
 }
 

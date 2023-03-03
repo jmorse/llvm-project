@@ -21,11 +21,14 @@
 namespace llvm {
 
 class Constant;
+class DIBuilder;
+class DPValue;
 class Function;
 class GlobalVariable;
 class Instruction;
 class MDNode;
 class Metadata;
+class Module;
 class Type;
 class Value;
 
@@ -174,6 +177,7 @@ public:
   Constant *mapConstant(const Constant &C);
 
   void remapInstruction(Instruction &I);
+  void remapDPValue(Module *M, DPValue &V);
   void remapFunction(Function &F);
 
   void scheduleMapGlobalInitializer(GlobalVariable &GV, Constant &Init,
@@ -256,6 +260,17 @@ inline void RemapInstruction(Instruction *I, ValueToValueMapTy &VM,
                              ValueMapTypeRemapper *TypeMapper = nullptr,
                              ValueMaterializer *Materializer = nullptr) {
   ValueMapper(VM, Flags, TypeMapper, Materializer).remapInstruction(*I);
+}
+
+/// Modify the Values used in the DPValue \a V using the value map \a VM.
+/// For this prototype, we simplify this by converting the DPValue to a debug
+/// intrinsic, remap that, and then convert back to a DPValue. Not great for
+/// performance, but cuts down on boilerplate.
+inline void RemapDPValue(Module *M, DPValue *V, ValueToValueMapTy &VM,
+                  RemapFlags Flags = RF_None,
+                  ValueMapTypeRemapper *TypeMapper = nullptr,
+                  ValueMaterializer *Materializer = nullptr) {
+  ValueMapper(VM, Flags, TypeMapper, Materializer).remapDPValue(M, *V);
 }
 
 /// Remap the operands, metadata, arguments, and instructions of a function.

@@ -510,16 +510,17 @@ void TailRecursionEliminator::createTailRecurseLoopHeader(CallInst *CI) {
        OEBI != E;)
     if (AllocaInst *AI = dyn_cast<AllocaInst>(OEBI++))
       if (isa<ConstantInt>(AI->getArraySize()))
-        AI->moveBefore(&*NEBI);
+        AI->moveBeforeBreaking(&*NEBI);
 
   // Now that we have created a new block, which jumps to the entry
   // block, insert a PHI node for each argument of the function.
   // For now, we initialize each PHI to only have the real arguments
   // which are passed in.
-  Instruction *InsertPos = &HeaderBB->front();
+  BasicBlock::iterator InsertPos = HeaderBB->begin();
   for (Function::arg_iterator I = F.arg_begin(), E = F.arg_end(); I != E; ++I) {
     PHINode *PN =
-        PHINode::Create(I->getType(), 2, I->getName() + ".tr", InsertPos);
+        PHINode::Create(I->getType(), 2, I->getName() + ".tr");
+    PN->insertBefore(InsertPos);
     I->replaceAllUsesWith(PN); // Everyone use the PHI node now!
     PN->addIncoming(&*I, NewEntry);
     ArgumentPHIs.push_back(PN);
@@ -532,8 +533,10 @@ void TailRecursionEliminator::createTailRecurseLoopHeader(CallInst *CI) {
   Type *RetType = F.getReturnType();
   if (!RetType->isVoidTy()) {
     Type *BoolType = Type::getInt1Ty(F.getContext());
-    RetPN = PHINode::Create(RetType, 2, "ret.tr", InsertPos);
-    RetKnownPN = PHINode::Create(BoolType, 2, "ret.known.tr", InsertPos);
+    RetPN = PHINode::Create(RetType, 2, "ret.tr");
+    RetPN->insertBefore(InsertPos);
+    RetKnownPN = PHINode::Create(BoolType, 2, "ret.known.tr");
+    RetKnownPN->insertBefore(InsertPos);
 
     RetPN->addIncoming(PoisonValue::get(RetType), NewEntry);
     RetKnownPN->addIncoming(ConstantInt::getFalse(BoolType), NewEntry);
@@ -553,7 +556,8 @@ void TailRecursionEliminator::insertAccumulator(Instruction *AccRecInstr) {
   // Start by inserting a new PHI node for the accumulator.
   pred_iterator PB = pred_begin(HeaderBB), PE = pred_end(HeaderBB);
   AccPN = PHINode::Create(F.getReturnType(), std::distance(PB, PE) + 1,
-                          "accumulator.tr", &HeaderBB->front());
+                          "accumulator.tr");
+  AccPN->insertBefore(HeaderBB->begin());
 
   // Loop over all of the predecessors of the tail recursion block.  For the
   // real entry into the function we seed the PHI with the identity constant for
@@ -714,8 +718,8 @@ bool TailRecursionEliminator::eliminateCall(CallInst *CI) {
   BranchInst *NewBI = BranchInst::Create(HeaderBB, Ret);
   NewBI->setDebugLoc(CI->getDebugLoc());
 
-  BB->getInstList().erase(Ret);  // Remove return.
-  BB->getInstList().erase(CI);   // Remove call.
+  Ret->eraseFromParent();  // Remove return.
+  CI->eraseFromParent();   // Remove call.
   DTU.applyUpdates({{DominatorTree::Insert, BB, HeaderBB}});
   ++NumEliminated;
   return true;

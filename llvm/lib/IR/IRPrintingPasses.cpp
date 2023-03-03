@@ -29,6 +29,8 @@ PrintModulePass::PrintModulePass(raw_ostream &OS, const std::string &Banner,
       ShouldPreserveUseListOrder(ShouldPreserveUseListOrder) {}
 
 PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &) {
+  // To ease understanding, exhale when printing so we can read dbg.values.
+  M.exhaleDbgValues();
   if (llvm::isFunctionInPrintList("*")) {
     if (!Banner.empty())
       OS << Banner << "\n";
@@ -46,6 +48,7 @@ PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &) {
       }
     }
   }
+  M.inhaleDbgValues();
   return PreservedAnalyses::all();
 }
 
@@ -55,12 +58,17 @@ PrintFunctionPass::PrintFunctionPass(raw_ostream &OS, const std::string &Banner)
 
 PreservedAnalyses PrintFunctionPass::run(Function &F,
                                          FunctionAnalysisManager &) {
+  // To ease understanding, exhale when printing so we can read dbg.values.
+  bool Inhaled = F.IsInhaled;
+  F.exhaleDbgValues();
   if (isFunctionInPrintList(F.getName())) {
     if (forcePrintModuleIR())
       OS << Banner << " (function: " << F.getName() << ")\n" << *F.getParent();
     else
       OS << Banner << '\n' << static_cast<Value &>(F);
   }
+  if (Inhaled)
+    F.inhaleDbgValues();
   return PreservedAnalyses::all();
 }
 

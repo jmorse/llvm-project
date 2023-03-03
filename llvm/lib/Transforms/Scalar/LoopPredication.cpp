@@ -1172,7 +1172,7 @@ bool LoopPredication::predicateLoopExits(Loop *L, SCEVExpander &Rewriter) {
   auto *IP = cast<Instruction>(WidenableBR->getCondition());
   // Here we unconditionally modify the IR, so after this point we should return
   // only `true`!
-  IP->moveBefore(WidenableBR);
+  IP->moveBeforeBreaking(WidenableBR);
   if (MSSAU)
     if (auto *MUD = MSSAU->getMemorySSA()->getMemoryAccess(IP))
        MSSAU->moveToPlace(MUD, WidenableBR->getParent(),

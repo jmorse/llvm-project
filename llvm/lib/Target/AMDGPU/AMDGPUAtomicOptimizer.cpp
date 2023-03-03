@@ -484,7 +484,7 @@ void AMDGPUAtomicOptimizer::optimizeAtomic(Instruction &I,
     // Record I's new position as the exit block.
     PixelExitBB = I.getParent();
 
-    I.moveBefore(NonHelperTerminator);
+    I.moveBeforeBreaking(NonHelperTerminator);
     B.SetInsertPoint(&I);
   }
 
@@ -687,7 +687,7 @@ void AMDGPUAtomicOptimizer::optimizeAtomic(Instruction &I,
 
     if (IsPixelShader) {
       // Need a final PHI to reconverge to above the helper lane branch mask.
-      B.SetInsertPoint(PixelExitBB->getFirstNonPHI());
+      B.SetInsertPoint(PixelExitBB, PixelExitBB->getFirstInsertionPt());
 
       PHINode *const PHI = B.CreatePHI(Ty, 2);
       PHI->addIncoming(UndefValue::get(Ty), PixelEntryBB);

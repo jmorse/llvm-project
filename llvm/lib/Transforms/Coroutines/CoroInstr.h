@@ -136,7 +136,7 @@ public:
       Inst->eraseFromParent();
       return;
     }
-    Inst->moveBefore(getCoroBegin()->getNextNode());
+    Inst->moveBeforeBreaking(getCoroBegin()->getNextNode());
   }
 
   // Info argument of coro.id is

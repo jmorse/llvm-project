@@ -33,6 +33,7 @@
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/Type.h"
@@ -1174,6 +1175,15 @@ MDNode *ValueMapper::mapMDNode(const MDNode &N) {
 
 void ValueMapper::remapInstruction(Instruction &I) {
   FlushingMapper(pImpl)->remapInstruction(&I);
+}
+
+void ValueMapper::remapDPValue(Module *M, DPValue &V) {
+  DbgVariableIntrinsic *NewDebugValue = V.createDebugIntrinsic(M, nullptr);
+  remapInstruction(*NewDebugValue);
+  V.setRawLocation(NewDebugValue->getRawLocation());
+  V.setVariable(NewDebugValue->getVariable());
+  V.setExpression(NewDebugValue->getExpression());
+  NewDebugValue->deleteValue();
 }
 
 void ValueMapper::remapFunction(Function &F) {

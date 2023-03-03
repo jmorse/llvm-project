@@ -277,10 +277,10 @@ static bool optimizeDivRem(Function &F, const TargetTransformInfo &TTI,
           all_of(predecessors(DivBB),
                  [&](BasicBlock *BB) { return BB == RemBB || BB == PredBB; })) {
         DivDominates = true;
-        DivInst->moveBefore(PredBB->getTerminator());
+        DivInst->moveBeforeBreaking(PredBB->getTerminator());
         Changed = true;
         if (HasDivRemOp) {
-          RemInst->moveBefore(PredBB->getTerminator());
+          RemInst->moveBeforeBreaking(PredBB->getTerminator());
           continue;
         }
       } else
@@ -296,9 +296,9 @@ static bool optimizeDivRem(Function &F, const TargetTransformInfo &TTI,
       // The target has a single div/rem operation. Hoist the lower instruction
       // to make the matched pair visible to the backend.
       if (DivDominates)
-        RemInst->moveAfter(DivInst);
+        RemInst->moveAfterBreaking(DivInst);
       else
-        DivInst->moveAfter(RemInst);
+        DivInst->moveAfterBreaking(RemInst);
       NumHoisted++;
     } else {
       // The target does not have a single div/rem operation,
@@ -346,7 +346,7 @@ static bool optimizeDivRem(Function &F, const TargetTransformInfo &TTI,
       // but any code movement would be within the same block.
 
       if (!DivDominates)
-        DivInst->moveBefore(RemInst);
+        DivInst->moveBeforeBreaking(RemInst);
       Mul->insertAfter(RemInst);
       Sub->insertAfter(Mul);
 

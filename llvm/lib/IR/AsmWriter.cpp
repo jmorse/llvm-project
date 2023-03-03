@@ -41,6 +41,7 @@
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/IR/DebugProgramInstruction.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalAlias.h"
@@ -283,6 +284,11 @@ static const Module *getModuleFromVal(const Value *V) {
   }
 
   return nullptr;
+}
+
+static const Module *getModuleFromDPI(const DebugProgramInstruction *DPI) {
+  const Function *M = DPI->getParent() ? DPI->getParent()->getParent() : nullptr;
+  return M ? M->getParent() : nullptr;
 }
 
 static void PrintCallingConv(unsigned cc, raw_ostream &Out) {
@@ -2581,6 +2587,7 @@ public:
   void printBasicBlock(const BasicBlock *BB);
   void printInstructionLine(const Instruction &I);
   void printInstruction(const Instruction &I);
+  void printDebugProgramInstruction(const DebugProgramInstruction &DPI);
 
   void printUseListOrder(const Value *V, const std::vector<unsigned> &Shuffle);
   void printUseLists(const Function *F);
@@ -3905,6 +3912,11 @@ void AssemblyWriter::printInfoComment(const Value &V) {
 
   if (AnnotationWriter)
     AnnotationWriter->printInfoComment(V, Out);
+  else if (const Instruction *I = dyn_cast<Instruction>(&V)) {
+    if (I->DbgMarker) {
+      Out << "; dbgmarker @ " << I->DbgMarker;
+    }
+  }
 }
 
 static void maybePrintCallAddrSpace(const Value *Operand, const Instruction *I,
@@ -4357,6 +4369,27 @@ void AssemblyWriter::printInstruction(const Instruction &I) {
   printInfoComment(I);
 }
 
+void AssemblyWriter::printDebugProgramInstruction(const DebugProgramInstruction &DPI) {
+  if (DPI.isMarker()) {
+    const DPMarker *Marker = static_cast<const DPMarker*>(&DPI);
+    Out << "  DPMarker -> { ";
+    printInstruction(*Marker->MarkedInstr);
+    Out << " }";
+    return;
+  }
+  assert(DPI.isValue());
+  const DPValue *Value = static_cast<const DPValue*>(&DPI);
+  Out << "  DPValue { ";
+  auto WriterCtx = getContext();
+  WriteAsOperandInternal(Out, Value->getRawLocation(), WriterCtx, true);
+  Out << ", ";
+  WriteAsOperandInternal(Out, Value->getVariable(), WriterCtx, true);
+  Out << ", ";
+  WriteAsOperandInternal(Out, Value->getExpression(), WriterCtx, true);
+  Out << ", ";
+  WriteAsOperandInternal(Out, Value->getDebugLoc().get(), WriterCtx, true);
+  Out << " }";
+}
 void AssemblyWriter::printMetadataAttachments(
     const SmallVectorImpl<std::pair<unsigned, MDNode *>> &MDs,
     StringRef Separator) {
@@ -4581,6 +4614,26 @@ static bool isReferencingMDNode(const Instruction &I) {
             if (isa<MDNode>(V->getMetadata()))
               return true;
   return false;
+}
+
+void DebugProgramInstruction::print(raw_ostream &ROS, bool IsForDebug) const {
+
+  ModuleSlotTracker MST(getModuleFromDPI(this), true);
+  print(ROS, MST, IsForDebug);
+}
+void DebugProgramInstruction::print(raw_ostream &ROS, ModuleSlotTracker &MST,
+                                    bool IsForDebug) const {
+  formatted_raw_ostream OS(ROS);
+  SlotTracker EmptySlotTable(static_cast<const Module *>(nullptr));
+  SlotTracker &SlotTable =
+      MST.getMachine() ? *MST.getMachine() : EmptySlotTable;
+  auto incorporateFunction = [&](const Function *F) {
+    if (F)
+      MST.incorporateFunction(*F);
+  };
+  incorporateFunction(getParent() ? getParent()->getParent() : nullptr);
+  AssemblyWriter W(OS, SlotTable, getModuleFromDPI(this), nullptr, IsForDebug);
+  W.printDebugProgramInstruction(*this);
 }
 
 void Value::print(raw_ostream &ROS, bool IsForDebug) const {
@@ -4827,6 +4880,10 @@ void ModuleSlotTracker::collectMDNodes(MachineMDNodeListType &L, unsigned LB,
 // Value::dump - allow easy printing of Values from the debugger.
 LLVM_DUMP_METHOD
 void Value::dump() const { print(dbgs(), /*IsForDebug=*/true); dbgs() << '\n'; }
+
+// Value::dump - allow easy printing of Values from the debugger.
+LLVM_DUMP_METHOD
+void DebugProgramInstruction::dump() const { print(dbgs(), /*IsForDebug=*/true); dbgs() << '\n'; }
 
 // Type::dump - allow easy printing of Types from the debugger.
 LLVM_DUMP_METHOD

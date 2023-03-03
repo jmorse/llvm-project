@@ -766,7 +766,7 @@ static Instruction *foldSelectZeroOrMul(SelectInst &SI, InstCombinerImpl &IC) {
 
   auto *FalseValI = cast<Instruction>(FalseVal);
   auto *FrY = IC.InsertNewInstBefore(new FreezeInst(Y, Y->getName() + ".fr"),
-                                     *FalseValI);
+                                     FalseValI->getIterator());
   IC.replaceOperand(*FalseValI, FalseValI->getOperand(0) == Y ? 0 : 1, FrY);
   return IC.replaceInstUsesWith(SI, FalseValI);
 }
@@ -1083,7 +1083,7 @@ static bool adjustMinMax(SelectInst &Sel, ICmpInst &Cmp) {
 
   // Move the compare instruction right before the select instruction. Otherwise
   // the sext/zext value may be defined after the compare instruction uses it.
-  Cmp.moveBefore(&Sel);
+  Cmp.moveBeforeBreaking(&Sel);
 
   return true;
 }
@@ -2413,7 +2413,7 @@ static Instruction *foldSelectToPhiImpl(SelectInst &Sel, BasicBlock *BB,
         return nullptr;
   }
 
-  Builder.SetInsertPoint(&*BB->begin());
+  Builder.SetInsertPoint(BB, BB->begin());
   auto *PN = Builder.CreatePHI(Sel.getType(), Inputs.size());
   for (auto *Pred : predecessors(BB))
     PN->addIncoming(Inputs[Pred], Pred);
@@ -2768,7 +2768,7 @@ Instruction *InstCombinerImpl::visitSelectInst(SelectInst &SI) {
       Value *Op1 = IsAnd ? TrueVal : FalseVal;
       if (isCheckForZeroAndMulWithOverflow(CondVal, Op1, IsAnd, Y)) {
         auto *FI = new FreezeInst(*Y, (*Y)->getName() + ".fr");
-        InsertNewInstBefore(FI, *cast<Instruction>(Y->getUser()));
+        InsertNewInstBefore(FI, cast<Instruction>(Y->getUser())->getIterator());
         replaceUse(*Y, FI);
         return replaceInstUsesWith(SI, Op1);
       }

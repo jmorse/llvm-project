@@ -259,8 +259,7 @@ void llvm::spliceBB(IRBuilderBase::InsertPoint IP, BasicBlock *New,
 
   // Move instructions to new block.
   BasicBlock *Old = IP.getBlock();
-  New->getInstList().splice(New->begin(), Old->getInstList(), IP.getPoint(),
-                            Old->end());
+  New->blockSplice(New->begin(), Old, IP.getPoint(), Old->end());
 
   if (CreateBranch)
     BranchInst::Create(New, Old);
@@ -497,7 +496,7 @@ void OpenMPIRBuilder::finalize(Function *Fn) {
         if (I.isTerminator())
           continue;
 
-        I.moveBefore(*OI.EntryBB, OI.EntryBB->getFirstInsertionPt());
+        I.moveBeforePreserving(*OI.EntryBB, OI.EntryBB->getFirstInsertionPt());
       }
 
       OI.EntryBB->moveBefore(&ArtificialEntry);
@@ -3423,7 +3422,7 @@ OpenMPIRBuilder::InsertPointTy OpenMPIRBuilder::emitCommonDirectiveEntry(
   // Emit thenBB and set the Builder's insertion point there for
   // body generation next. Place the block after the current block.
   Function *CurFn = EntryBB->getParent();
-  CurFn->getBasicBlockList().insertAfter(EntryBB->getIterator(), ThenBB);
+  ThenBB->insertInto(CurFn, ++EntryBB->getIterator());
 
   // Move Entry branch to end of ThenBB, and replace with conditional
   // branch (If-stmt)

@@ -324,7 +324,7 @@ SetVector<Instruction *> ConstantHoistingPass::findConstantInsertionPoint(
       BBs.insert(findMatInsertPt(U.Inst, U.OpndIdx)->getParent());
 
   if (BBs.count(Entry)) {
-    InsertPts.insert(&Entry->front());
+    InsertPts.insert(Entry->getFirstNonPHIOrDbg());
     return InsertPts;
   }
 
@@ -332,7 +332,7 @@ SetVector<Instruction *> ConstantHoistingPass::findConstantInsertionPoint(
     findBestInsertionSet(*DT, *BFI, Entry, BBs);
     for (auto BB : BBs) {
       BasicBlock::iterator InsertPt = BB->begin();
-      for (; isa<PHINode>(InsertPt) || InsertPt->isEHPad(); ++InsertPt)
+      for (; isa<PHINode>(InsertPt) || InsertPt->isEHPad() || isa<DbgInfoIntrinsic>(InsertPt); ++InsertPt)
         ;
       InsertPts.insert(&*InsertPt);
     }
@@ -345,13 +345,13 @@ SetVector<Instruction *> ConstantHoistingPass::findConstantInsertionPoint(
     BB2 = BBs.pop_back_val();
     BB = DT->findNearestCommonDominator(BB1, BB2);
     if (BB == Entry) {
-      InsertPts.insert(&Entry->front());
+      InsertPts.insert(Entry->getFirstNonPHIOrDbg());
       return InsertPts;
     }
     BBs.insert(BB);
   }
   assert((BBs.size() == 1) && "Expected only one element.");
-  Instruction &FirstInst = (*BBs.begin())->front();
+  Instruction &FirstInst = *(*BBs.begin())->getFirstNonPHIOrDbg();
   InsertPts.insert(findMatInsertPt(&FirstInst));
   return InsertPts;
 }

@@ -19,6 +19,7 @@
 #include "llvm/ADT/ilist_node.h"
 #include "llvm/ADT/iterator.h"
 #include "llvm/ADT/iterator_range.h"
+#include "llvm/IR/DebugProgramInstruction.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/SymbolTableListTraits.h"
 #include "llvm/IR/Value.h"
@@ -63,6 +64,40 @@ private:
 
   InstListType InstList;
   Function *Parent;
+  Function *MarkerFn;
+
+public:
+  using DbgProgramListType = simple_ilist<DebugProgramInstruction>;
+  using DIIterator = DbgProgramListType::iterator;
+  DbgProgramListType DbgProgramList;
+  bool IsInhaled;
+  DIIterator createMarker(DIIterator InsertPos, Instruction *I);
+
+  void inhaleDbgValues();
+  void exhaleDbgValues();
+  void setInhaled(bool NewInhaled);
+  void validateDbgValues();
+
+  void dumpDbgValues() const;
+  // Returns the position of the marker for It.
+  DIIterator getMarkerPosition(InstListType::iterator It);
+  // Returns the position immediately after the marker for It.
+  DIIterator getPostMarkerPosition(InstListType::iterator It);
+  // Returns the start of the range of DbgProgramList that is associated with It, including It's marker.
+  DIIterator beginDebugProgramRange(InstListType::iterator It);
+  // Returns the end of the range of DbgProgramList that is associated with It, including It's marker.
+  DIIterator endDebugProgramRange(InstListType::iterator It);
+  // Returns the start of the range of DbgProgramList that become live immediately before It.
+  // The range includes It's marker; if no debug values are live immediately before It, will return It's marker.
+  DIIterator beginDebugValueRange(InstListType::iterator It);
+  // Returns the end of the range of DbgProgramList that become live immediately before It.
+  DIIterator endDebugValueRange(InstListType::iterator It);
+  DIIterator getDbgValueMarkerPos(InstListType::iterator FromHere);
+
+  iterator_range<DIIterator> getDanglingDbgValues();
+  void flushTerminatorDbgValues();
+
+private:
 
   void setParent(Function *parent);
 
@@ -238,6 +273,8 @@ public:
   ///
   /// \pre \a getParent() is \c nullptr.
   void insertInto(Function *Parent, BasicBlock *InsertBefore = nullptr);
+  void insertInto(Function *Parent,
+                  SymbolTableList<BasicBlock>::iterator InsertBefore);
 
   /// Return the predecessor of this block if it has a single predecessor
   /// block. Otherwise return a null pointer.
@@ -294,8 +331,16 @@ public:
   //===--------------------------------------------------------------------===//
   /// Instruction iterator methods
   ///
-  inline iterator                begin()       { return InstList.begin(); }
-  inline const_iterator          begin() const { return InstList.begin(); }
+  inline iterator                begin()       {
+    iterator It = InstList.begin();
+    It.setHeadBit(true);
+    return It;
+  }
+  inline const_iterator          begin() const {
+    const_iterator It = InstList.begin();
+    It.setHeadBit(true);
+    return It;
+  }
   inline iterator                end  ()       { return InstList.end();   }
   inline const_iterator          end  () const { return InstList.end();   }
 
@@ -367,6 +412,10 @@ public:
   /// Returns a pointer to a member of the instruction list.
   static InstListType BasicBlock::*getSublistAccess(Instruction*) {
     return &BasicBlock::InstList;
+  }
+  /// Returns a pointer to a member of the debug program list.
+  static DbgProgramListType BasicBlock::*getSublistAccess(DebugProgramInstruction*) {
+    return &BasicBlock::DbgProgramList;
   }
 
   /// Returns a pointer to the symbol table if one exists.
@@ -512,6 +561,12 @@ public:
   /// each ordering to ensure that transforms have the same algorithmic
   /// complexity when asserts are enabled as when they are disabled.
   void validateInstrOrdering() const;
+
+  // Copy the range [First, Last) from Src to this block before Dest, including any debug values
+  // * InsertAtHead: Make [first,Last) happen before any DbgValues attached to Dest.
+  // * ReadFromHead: Copy DbgValues that are attached to "first" as well.
+  void blockSplice(iterator Dest, BasicBlock *Src, iterator First, iterator Last);
+  void blockSplice(iterator Dest, BasicBlock *Src);
 
 private:
 #if defined(_AIX) && (!defined(__GNUC__) || defined(__clang__))

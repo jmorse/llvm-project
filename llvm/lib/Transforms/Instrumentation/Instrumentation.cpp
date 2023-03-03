@@ -28,7 +28,7 @@ static BasicBlock::iterator moveBeforeInsertPoint(BasicBlock::iterator I, BasicB
     ++IP;
   } else {
     // Otherwise, move I before IP and return IP.
-    I->moveBefore(&*IP);
+    I->moveBeforeBreaking(&*IP);
   }
   return IP;
 }

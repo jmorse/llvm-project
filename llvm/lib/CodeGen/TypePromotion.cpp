@@ -435,9 +435,9 @@ void IRPromoter::ExtendSources() {
     Value *ZExt = Builder.CreateZExt(V, ExtTy);
     if (auto *I = dyn_cast<Instruction>(ZExt)) {
       if (isa<Argument>(V))
-        I->moveBefore(InsertPt);
+        I->moveBeforeBreaking(InsertPt);
       else
-        I->moveAfter(InsertPt);
+        I->moveAfterBreaking(InsertPt);
       NewInsts.insert(I);
     }
 
@@ -533,7 +533,7 @@ void IRPromoter::TruncateSinks() {
         Value *Arg = Call->getArgOperand(i);
         Type *Ty = TruncTysMap[Call][i];
         if (Instruction *Trunc = InsertTrunc(Arg, Ty)) {
-          Trunc->moveBefore(Call);
+          Trunc->moveBeforeBreaking(Call);
           Call->setArgOperand(i, Trunc);
         }
       }
@@ -544,7 +544,7 @@ void IRPromoter::TruncateSinks() {
     if (auto *Switch = dyn_cast<SwitchInst>(I)) {
       Type *Ty = TruncTysMap[Switch][0];
       if (Instruction *Trunc = InsertTrunc(Switch->getCondition(), Ty)) {
-        Trunc->moveBefore(Switch);
+        Trunc->moveBeforeBreaking(Switch);
         Switch->setCondition(Trunc);
       }
       continue;
@@ -559,7 +559,7 @@ void IRPromoter::TruncateSinks() {
     for (unsigned i = 0; i < I->getNumOperands(); ++i) {
       Type *Ty = TruncTysMap[I][i];
       if (Instruction *Trunc = InsertTrunc(I->getOperand(i), Ty)) {
-        Trunc->moveBefore(I);
+        Trunc->moveBeforeBreaking(I);
         I->setOperand(i, Trunc);
       }
     }

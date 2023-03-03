@@ -3599,6 +3599,10 @@ public:
   iterator args_begin() { return Args.begin(); }
   iterator args_end() { return Args.end(); }
 
+  ReplaceableMetadataImpl *getReplaceableUses() {
+    return Context.getReplaceableUses();
+  }
+
   static bool classof(const Metadata *MD) {
     return MD->getMetadataID() == DIArgListKind;
   }

@@ -378,6 +378,10 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
          "-fast-isel-abort > 0 requires -fast-isel");
 
   const Function &Fn = mf.getFunction();
+  // DDD: out of lazyness, don't refactor all of SelectionDAG to seek out
+  // debug-info on all instructions, just move back to the dbg.value
+  // representation when we run isel.
+  const_cast<Function&>(Fn).exhaleDbgValues();
   MF = &mf;
 
   // Decide what flavour of variable location debug-info will be used, before
@@ -642,6 +646,8 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
   LLVM_DEBUG(dbgs() << "*** MachineFunction at end of ISel ***\n");
   LLVM_DEBUG(MF->print(dbgs()));
 
+  // DDD: return to the old form.
+  const_cast<Function&>(Fn).inhaleDbgValues();
   return true;
 }
 

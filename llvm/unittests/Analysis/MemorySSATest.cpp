@@ -282,7 +282,7 @@ TEST_F(MemorySSATest, SinkLoad) {
   // - remove from original block
 
   LoadInst *LoadInstClone = cast<LoadInst>(LoadInst1->clone());
-  Merge->getInstList().insert(Merge->begin(), LoadInstClone);
+  LoadInstClone->insertBefore(*Merge, Merge->begin());
   MemoryAccess * NewLoadAccess =
       Updater.createMemoryAccessInBB(LoadInstClone, nullptr,
                                      LoadInstClone->getParent(),
@@ -319,7 +319,7 @@ TEST_F(MemorySSATest, MoveAStore) {
   MemorySSA &MSSA = *Analyses->MSSA;
   MemorySSAUpdater Updater(&MSSA);
   // Move the store
-  SideStore->moveBefore(Entry->getTerminator());
+  SideStore->moveBeforeBreaking(Entry->getTerminator());
   MemoryAccess *EntryStoreAccess = MSSA.getMemoryAccess(EntryStore);
   MemoryAccess *SideStoreAccess = MSSA.getMemoryAccess(SideStore);
   MemoryAccess *NewStoreAccess = Updater.createMemoryAccessAfter(
@@ -356,7 +356,7 @@ TEST_F(MemorySSATest, MoveAStoreUpdater) {
   MemorySSAUpdater Updater(&MSSA);
 
   // Move the store
-  SideStore->moveBefore(Entry->getTerminator());
+  SideStore->moveBeforeBreaking(Entry->getTerminator());
   auto *EntryStoreAccess = MSSA.getMemoryAccess(EntryStore);
   auto *SideStoreAccess = MSSA.getMemoryAccess(SideStore);
   auto *NewStoreAccess = Updater.createMemoryAccessAfter(
@@ -410,7 +410,7 @@ TEST_F(MemorySSATest, MoveAStoreUpdaterMove) {
   MemoryPhi *MergePhi = cast<MemoryPhi>(LoadAccess->getDefiningAccess());
   EXPECT_EQ(MergePhi->getIncomingValue(1), EntryStoreAccess);
   EXPECT_EQ(MergePhi->getIncomingValue(0), SideStoreAccess);
-  SideStore->moveBefore(*EntryStore->getParent(), ++EntryStore->getIterator());
+  SideStore->moveBeforeBreaking(*EntryStore->getParent(), ++EntryStore->getIterator());
   Updater.moveAfter(SideStoreAccess, EntryStoreAccess);
   // After, it's a phi of the side store.
   EXPECT_EQ(MergePhi->getIncomingValue(0), SideStoreAccess);
@@ -455,20 +455,20 @@ TEST_F(MemorySSATest, MoveAStoreAllAround) {
   EXPECT_EQ(MergePhi->getIncomingValue(1), EntryStoreAccess);
   EXPECT_EQ(MergePhi->getIncomingValue(0), SideStoreAccess);
   // Move the store before the entry store
-  SideStore->moveBefore(*EntryStore->getParent(), EntryStore->getIterator());
+  SideStore->moveBeforeBreaking(*EntryStore->getParent(), EntryStore->getIterator());
   Updater.moveBefore(SideStoreAccess, EntryStoreAccess);
   // After, it's a phi of the entry store.
   EXPECT_EQ(MergePhi->getIncomingValue(0), EntryStoreAccess);
   EXPECT_EQ(MergePhi->getIncomingValue(1), EntryStoreAccess);
   MSSA.verifyMemorySSA();
   // Now move the store to the right branch
-  SideStore->moveBefore(*Right, Right->begin());
+  SideStore->moveBeforeBreaking(*Right, Right->begin());
   Updater.moveToPlace(SideStoreAccess, Right, MemorySSA::Beginning);
   MSSA.verifyMemorySSA();
   EXPECT_EQ(MergePhi->getIncomingValue(0), EntryStoreAccess);
   EXPECT_EQ(MergePhi->getIncomingValue(1), SideStoreAccess);
   // Now move it before the load
-  SideStore->moveBefore(MergeLoad);
+  SideStore->moveBeforeBreaking(MergeLoad);
   Updater.moveBefore(SideStoreAccess, LoadAccess);
   EXPECT_EQ(MergePhi->getIncomingValue(0), EntryStoreAccess);
   EXPECT_EQ(MergePhi->getIncomingValue(1), EntryStoreAccess);
@@ -849,7 +849,7 @@ TEST_F(MemorySSATest, MoveAboveMemoryDef) {
   MemorySSAWalker &Walker = *Analyses->Walker;
 
   MemorySSAUpdater Updater(&MSSA);
-  StoreC->moveBefore(StoreB);
+  StoreC->moveBeforeBreaking(StoreB);
   Updater.moveBefore(cast<MemoryDef>(MSSA.getMemoryAccess(StoreC)),
                      cast<MemoryDef>(MSSA.getMemoryAccess(StoreB)));
 
@@ -1831,7 +1831,7 @@ TEST_F(MemorySSATest, TestVisitedBlocks) {
     // Move %v1 before the terminator of %header.i.check
     BasicBlock *BB = getBasicBlockByName(*F, "header.i.check");
     Instruction *LI = getInstructionByName(*F, "v1");
-    LI->moveBefore(BB->getTerminator());
+    LI->moveBeforeBreaking(BB->getTerminator());
     if (MemoryUseOrDef *MUD = MSSA.getMemoryAccess(LI))
       Updater.moveToPlace(MUD, BB, MemorySSA::BeforeTerminator);
 
@@ -1854,7 +1854,7 @@ TEST_F(MemorySSATest, TestVisitedBlocks) {
     // Move %v2 before the terminator of %preheader.i
     BasicBlock *BB = getBasicBlockByName(*F, "preheader.i");
     Instruction *LI = getInstructionByName(*F, "v2");
-    LI->moveBefore(BB->getTerminator());
+    LI->moveBeforeBreaking(BB->getTerminator());
     // Check that there is no assertion of "Incomplete phi during partial
     // rename"
     if (MemoryUseOrDef *MUD = MSSA.getMemoryAccess(LI))

@@ -344,6 +344,10 @@ public:
     Builder.SetInsertPoint(IP);
   }
 
+  void setInsertPoint(BasicBlock::iterator IP) {
+    Builder.SetInsertPoint(IP->getParent(), IP);
+  }
+
   /// Clear the current insertion point. This is useful if the instruction
   /// that had been serving as the insertion point may have been deleted.
   void clearInsertPoint() { Builder.ClearInsertionPoint(); }
@@ -402,7 +406,10 @@ private:
   /// program. The code is inserted into the specified block. If \p
   /// Root is true, this indicates that \p SH is the top-level expression to
   /// expand passed from an external client call.
-  Value *expandCodeForImpl(const SCEV *SH, Type *Ty, Instruction *I, bool Root);
+  Value *expandCodeForImpl(const SCEV *SH, Type *Ty, BasicBlock::iterator I, bool Root);
+  Value *expandCodeForImpl(const SCEV *SH, Type *Ty, Instruction *I, bool Root) {
+    return expandCodeForImpl(SH, Ty, I->getIterator(), Root);
+  }
 
   /// Recursive helper function for isHighCostExpansion.
   bool isHighCostExpansionHelper(const SCEVOperand &WorkItem, Loop *L,
@@ -425,7 +432,7 @@ private:
   /// cast if a suitable one exists, moving an existing cast if a suitable one
   /// exists but isn't in the right place, or creating a new one.
   Value *ReuseOrCreateCast(Value *V, Type *Ty, Instruction::CastOps Op,
-                           BasicBlock::iterator IP);
+                           BasicBlock::iterator);
 
   /// Insert a cast of V to the specified type, which must be possible with a
   /// noop cast, doing what we can to share the casts.

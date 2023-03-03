@@ -153,7 +153,7 @@ bool SVEIntrinsicOpts::coalescePTrueIntrinsicCalls(
   // Hoist MostEncompassingPTrue to the start of the basic block. It is always
   // safe to do this, since ptrue intrinsic calls are guaranteed to have no
   // predecessors.
-  MostEncompassingPTrue->moveBefore(BB, BB.getFirstInsertionPt());
+  MostEncompassingPTrue->moveBeforeBreaking(BB, BB.getFirstInsertionPt());
 
   LLVMContext &Ctx = BB.getContext();
   IRBuilder<> Builder(Ctx);

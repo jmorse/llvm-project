@@ -3050,7 +3050,7 @@ private:
              ScheduleStart->comesBefore(ScheduleEnd) &&
              "Not a valid scheduling region?");
 
-      for (auto *I = ScheduleStart; I != ScheduleEnd; I = I->getNextNode()) {
+      for (auto *I = ScheduleStart; I != ScheduleEnd; I = I->getNextNonDebugInstruction()) {
         auto *SD = getScheduleData(I);
         if (!SD)
           continue;
@@ -3083,7 +3083,7 @@ private:
     /// Put all instructions into the ReadyList which are ready for scheduling.
     template <typename ReadyListType>
     void initialFillReadyList(ReadyListType &ReadyList) {
-      for (auto *I = ScheduleStart; I != ScheduleEnd; I = I->getNextNode()) {
+      for (auto *I = ScheduleStart; I != ScheduleEnd; I = I->getNextNonDebugInstruction()) {
         doForAllOpcodes(I, [&](ScheduleData *SD) {
           if (SD->isSchedulingEntity() && SD->hasValidDependencies() &&
               SD->isReady()) {
@@ -7503,22 +7503,22 @@ void BoUpSLP::setInsertPointAfterBundle(const TreeEntry *E) {
   // should not be scheduled.
   if (E->State != TreeEntry::NeedToGather &&
       doesNotNeedToSchedule(E->Scalars)) {
-    Instruction *InsertInst;
+    BasicBlock::iterator InsertPt;
     if (all_of(E->Scalars, isUsedOutsideBlock))
-      InsertInst = FindLastInst();
+      InsertPt = FindLastInst()->getIterator();
     else
-      InsertInst = FindFirstInst();
+      InsertPt = FindFirstInst()->getIterator();
     // If the instruction is PHI, set the insert point after all the PHIs.
-    if (isa<PHINode>(InsertInst))
-      InsertInst = BB->getFirstNonPHI();
-    BasicBlock::iterator InsertPt = InsertInst->getIterator();
+    if (isa<PHINode>(InsertPt))
+      InsertPt = BB->getFirstInsertionPt();
+
     Builder.SetInsertPoint(BB, InsertPt);
     Builder.SetCurrentDebugLocation(Front->getDebugLoc());
     return;
   }
 
   // The last instruction in the bundle in program order.
-  Instruction *LastInst = nullptr;
+  BasicBlock::iterator LastInst = BB->end();
 
   // Find the last instruction. The common case should be that BB has been
   // scheduled, and the last instruction is VL.back(). So we start with
@@ -7532,7 +7532,7 @@ void BoUpSLP::setInsertPointAfterBundle(const TreeEntry *E) {
     if (Bundle && Bundle->isPartOfBundle())
       for (; Bundle; Bundle = Bundle->NextInBundle)
         if (Bundle->OpValue == Bundle->Inst)
-          LastInst = Bundle->Inst;
+          LastInst = Bundle->Inst->getIterator();
   }
 
   // LastInst can still be null at this point if there's either not an entry
@@ -7553,17 +7553,22 @@ void BoUpSLP::setInsertPointAfterBundle(const TreeEntry *E) {
   // not ideal. However, this should be exceedingly rare since it requires that
   // we both exit early from buildTree_rec and that the bundle be out-of-order
   // (causing us to iterate all the way to the end of the block).
-  if (!LastInst) {
-    LastInst = FindLastInst();
+  if (LastInst == BB->end()) {
+    LastInst = FindLastInst()->getIterator();
     // If the instruction is PHI, set the insert point after all the PHIs.
-    if (isa<PHINode>(LastInst))
-      LastInst = BB->getFirstNonPHI()->getPrevNode();
+    if (isa<PHINode>(LastInst)) {
+      LastInst = BB->getFirstInsertionPt();
+    } else {
+      LastInst = LastInst->getNextNonDebugInstruction()->getIterator();
+    }
+  } else {
+    LastInst = LastInst->getNextNonDebugInstruction()->getIterator();
   }
-  assert(LastInst && "Failed to find last instruction in bundle");
+  assert(LastInst != BB->end() && "Failed to find last instruction in bundle");
 
   // Set the insertion point after the last instruction in the bundle. Set the
   // debug location to Front.
-  Builder.SetInsertPoint(BB, std::next(LastInst->getIterator()));
+  Builder.SetInsertPoint(BB, LastInst);
   Builder.SetCurrentDebugLocation(Front->getDebugLoc());
 }
 
@@ -7882,13 +7887,13 @@ Value *BoUpSLP::vectorizeTree(TreeEntry *E) {
               !E->UserTreeIndices.empty()) &&
              "PHI reordering is free.");
       auto *PH = cast<PHINode>(VL0);
-      Builder.SetInsertPoint(PH->getParent()->getFirstNonPHI());
+      Builder.SetInsertPoint(PH->getParent(), PH->getParent()->getFirstInsertionPt());
       Builder.SetCurrentDebugLocation(PH->getDebugLoc());
       PHINode *NewPhi = Builder.CreatePHI(VecTy, PH->getNumIncomingValues());
       Value *V = NewPhi;
 
       // Adjust insertion point once all PHI's have been generated.
-      Builder.SetInsertPoint(&*PH->getParent()->getFirstInsertionPt());
+      Builder.SetInsertPoint(PH->getParent(), PH->getParent()->getFirstInsertionPt());
       Builder.SetCurrentDebugLocation(PH->getDebugLoc());
 
       ShuffleBuilder.addInversedMask(E->ReorderIndices);
@@ -8440,7 +8445,7 @@ BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues) {
     scheduleBlock(BSIter.second.get());
   }
 
-  Builder.SetInsertPoint(&F->getEntryBlock().front());
+  Builder.SetInsertPoint(&F->getEntryBlock(), F->getEntryBlock().begin());
   auto *VectorRoot = vectorizeTree(VectorizableTree[0].get());
 
   // If the vectorized tree can be rewritten in a smaller type, we truncate the
@@ -8452,7 +8457,7 @@ BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues) {
       // If current instr is a phi and not the last phi, insert it after the
       // last phi node.
       if (isa<PHINode>(I))
-        Builder.SetInsertPoint(&*I->getParent()->getFirstInsertionPt());
+        Builder.SetInsertPoint(I->getParent(), I->getParent()->getFirstInsertionPt());
       else
         Builder.SetInsertPoint(&*++BasicBlock::iterator(I));
     }
@@ -8527,7 +8532,7 @@ BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues) {
         Builder.SetInsertPoint(VecI->getParent(),
                                std::next(VecI->getIterator()));
       } else {
-        Builder.SetInsertPoint(&F->getEntryBlock().front());
+        Builder.SetInsertPoint(&F->getEntryBlock(), F->getEntryBlock().begin());
       }
       Value *NewInst = ExtractAndExtendIfNeeded(Vec);
       CSEBlocks.insert(cast<Instruction>(Scalar)->getParent());
@@ -8631,7 +8636,7 @@ BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues) {
         User->replaceUsesOfWith(Scalar, NewInst);
       }
     } else {
-      Builder.SetInsertPoint(&F->getEntryBlock().front());
+      Builder.SetInsertPoint(&F->getEntryBlock(), F->getEntryBlock().begin());
       Value *NewInst = ExtractAndExtendIfNeeded(Vec);
       CSEBlocks.insert(&F->getEntryBlock());
       User->replaceUsesOfWith(Scalar, NewInst);
@@ -8841,7 +8846,7 @@ BoUpSLP::vectorizeTree(ExtraValueToDebugLocsMap &ExternallyUsedValues) {
       II->replaceUsesOfWith(II->getOperand(0), NewInst);
       if (auto *NewI = dyn_cast<Instruction>(NewInst))
         if (II->getParent() == NewI->getParent() && II->comesBefore(NewI))
-          II->moveAfter(NewI);
+          II->moveAfterBreaking(NewI);
       NewInst = II;
     }
     LastInsert->replaceAllUsesWith(NewInst);
@@ -8926,7 +8931,7 @@ void BoUpSLP::optimizeGatherSequence() {
       continue;
 
     // We can hoist this instruction. Move it to the pre-header.
-    I->moveBefore(PreHeader->getTerminator());
+    I->moveBeforeBreaking(PreHeader->getTerminator());
   }
 
   // Make a list of all reachable blocks in our CSE queue.
@@ -9025,7 +9030,7 @@ void BoUpSLP::optimizeGatherSequence() {
             GatherShuffleSeq.contains(V) &&
             IsIdenticalOrLessDefined(V, &In, NewMask) &&
             DT->dominates(In.getParent(), V->getParent())) {
-          In.moveAfter(V);
+          In.moveAfterBreaking(V);
           V->replaceAllUsesWith(&In);
           eraseInstruction(V);
           if (auto *SI = dyn_cast<ShuffleVectorInst>(&In))
@@ -9096,7 +9101,7 @@ BoUpSLP::BlockScheduling::tryScheduleBundle(ArrayRef<Value *> VL, BoUpSLP *SLP,
     // It is seldom that this needs to be done a second time after adding the
     // initial bundle to the region.
     if (ScheduleEnd != OldScheduleEnd) {
-      for (auto *I = ScheduleStart; I != ScheduleEnd; I = I->getNextNode())
+      for (auto *I = ScheduleStart; I != ScheduleEnd; I = I->getNextNonDebugInstruction())
         doForAllOpcodes(I, [](ScheduleData *SD) { SD->clearDependencies(); });
       ReSchedule = true;
     }
@@ -9242,9 +9247,9 @@ bool BoUpSLP::BlockScheduling::extendSchedulingRegion(Value *V,
     return true;
   if (!ScheduleStart) {
     // It's the first instruction in the new region.
-    initScheduleData(I, I->getNextNode(), nullptr, nullptr);
+    initScheduleData(I, I->getNextNonDebugInstruction(), nullptr, nullptr);
     ScheduleStart = I;
-    ScheduleEnd = I->getNextNode();
+    ScheduleEnd = I->getNextNonDebugInstruction();
     if (isOneOf(S, I) != I)
       CheckScheduleForI(I);
     assert(ScheduleEnd && "tried to vectorize a terminator?");
@@ -9284,9 +9289,9 @@ bool BoUpSLP::BlockScheduling::extendSchedulingRegion(Value *V,
          "lower end.");
   assert(I->getParent() == ScheduleEnd->getParent() &&
          "Instruction is in wrong basic block.");
-  initScheduleData(ScheduleEnd, I->getNextNode(), LastLoadStoreInRegion,
+  initScheduleData(ScheduleEnd, I->getNextNonDebugInstruction(), LastLoadStoreInRegion,
                    nullptr);
-  ScheduleEnd = I->getNextNode();
+  ScheduleEnd = I->getNextNonDebugInstruction();
   if (isOneOf(S, I) != I)
     CheckScheduleForI(I);
   assert(ScheduleEnd && "tried to vectorize a terminator?");
@@ -9299,7 +9304,7 @@ void BoUpSLP::BlockScheduling::initScheduleData(Instruction *FromI,
                                                 ScheduleData *PrevLoadStore,
                                                 ScheduleData *NextLoadStore) {
   ScheduleData *CurrentLoadStore = PrevLoadStore;
-  for (Instruction *I = FromI; I != ToI; I = I->getNextNode()) {
+  for (Instruction *I = FromI; I != ToI; I = I->getNextNonDebugInstruction()) {
     // No need to allocate data for non-schedulable instructions.
     if (doesNotNeedToBeScheduled(I))
       continue;
@@ -9399,8 +9404,8 @@ void BoUpSLP::BlockScheduling::calculateDependencies(ScheduleData *SD,
       // block is control dependend on any early exit or non-willreturn call
       // which proceeds it.
       if (!isGuaranteedToTransferExecutionToSuccessor(BundleMember->Inst)) {
-        for (Instruction *I = BundleMember->Inst->getNextNode();
-             I != ScheduleEnd; I = I->getNextNode()) {
+        for (Instruction *I = BundleMember->Inst->getNextNonDebugInstruction();
+             I != ScheduleEnd; I = I->getNextNonDebugInstruction()) {
           if (isSafeToSpeculativelyExecute(I, &*BB->begin()))
             continue;
 
@@ -9419,8 +9424,8 @@ void BoUpSLP::BlockScheduling::calculateDependencies(ScheduleData *SD,
         // from reordering above a preceeding stackrestore.
         if (match(BundleMember->Inst, m_Intrinsic<Intrinsic::stacksave>()) ||
             match(BundleMember->Inst, m_Intrinsic<Intrinsic::stackrestore>())) {
-          for (Instruction *I = BundleMember->Inst->getNextNode();
-               I != ScheduleEnd; I = I->getNextNode()) {
+          for (Instruction *I = BundleMember->Inst->getNextNonDebugInstruction();
+               I != ScheduleEnd; I = I->getNextNonDebugInstruction()) {
             if (match(I, m_Intrinsic<Intrinsic::stacksave>()) ||
                 match(I, m_Intrinsic<Intrinsic::stackrestore>()))
               // Any allocas past here must be control dependent on I, and I
@@ -9439,8 +9444,8 @@ void BoUpSLP::BlockScheduling::calculateDependencies(ScheduleData *SD,
         // allocas from moving below a stacksave.  The stackrestore case
         // is currently thought to be conservatism.
         if (isa<AllocaInst>(BundleMember->Inst)) {
-          for (Instruction *I = BundleMember->Inst->getNextNode();
-               I != ScheduleEnd; I = I->getNextNode()) {
+          for (Instruction *I = BundleMember->Inst->getNextNonDebugInstruction();
+               I != ScheduleEnd; I = I->getNextNonDebugInstruction()) {
             if (!match(I, m_Intrinsic<Intrinsic::stacksave>()) &&
                 !match(I, m_Intrinsic<Intrinsic::stackrestore>()))
               continue;
@@ -9524,7 +9529,7 @@ void BoUpSLP::BlockScheduling::calculateDependencies(ScheduleData *SD,
 void BoUpSLP::BlockScheduling::resetSchedule() {
   assert(ScheduleStart &&
          "tried to reset schedule on block which has not been scheduled");
-  for (Instruction *I = ScheduleStart; I != ScheduleEnd; I = I->getNextNode()) {
+  for (Instruction *I = ScheduleStart; I != ScheduleEnd; I = I->getNextNonDebugInstruction()) {
     doForAllOpcodes(I, [&](ScheduleData *SD) {
       assert(isInSchedulingRegion(SD) &&
              "ScheduleData not in scheduling region");
@@ -9564,7 +9569,7 @@ void BoUpSLP::scheduleBlock(BlockScheduling *BS) {
   // and fill the ready-list with initial instructions.
   int Idx = 0;
   for (auto *I = BS->ScheduleStart; I != BS->ScheduleEnd;
-       I = I->getNextNode()) {
+       I = I->getNextNonDebugInstruction()) {
     BS->doForAllOpcodes(I, [this, &Idx, BS](ScheduleData *SD) {
       TreeEntry *SDTE = getTreeEntry(SD->Inst);
       (void)SDTE;
@@ -9592,8 +9597,8 @@ void BoUpSLP::scheduleBlock(BlockScheduling *BS) {
     for (ScheduleData *BundleMember = picked; BundleMember;
          BundleMember = BundleMember->NextInBundle) {
       Instruction *pickedInst = BundleMember->Inst;
-      if (pickedInst->getNextNode() != LastScheduledInst)
-        pickedInst->moveBefore(LastScheduledInst);
+      if (pickedInst->getNextNonDebugInstruction() != LastScheduledInst)
+        pickedInst->moveBeforeBreaking(LastScheduledInst);
       LastScheduledInst = pickedInst;
     }
 
@@ -9607,7 +9612,7 @@ void BoUpSLP::scheduleBlock(BlockScheduling *BS) {
 
 #if !defined(NDEBUG) || defined(EXPENSIVE_CHECKS)
   // Check that all schedulable entities got scheduled
-  for (auto *I = BS->ScheduleStart; I != BS->ScheduleEnd; I = I->getNextNode()) {
+  for (auto *I = BS->ScheduleStart; I != BS->ScheduleEnd; I = I->getNextNonDebugInstruction()) {
     BS->doForAllOpcodes(I, [&](ScheduleData *SD) {
       if (SD->isSchedulingEntity() && SD->hasValidDependencies()) {
         assert(SD->IsScheduled && "must be scheduled at this point");

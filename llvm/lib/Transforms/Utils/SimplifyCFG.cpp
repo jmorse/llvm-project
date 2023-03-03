@@ -42,6 +42,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/GlobalVariable.h"
@@ -1100,12 +1101,17 @@ static void CloneInstructionsIntoPredecessorBlockAndUpdateSSAUses(
   // Note that there may be multiple predecessor blocks, so we cannot move
   // bonus instructions to a predecessor block.
   for (Instruction &BonusInst : *BB) {
-    if (isa<DbgInfoIntrinsic>(BonusInst) || BonusInst.isTerminator())
+    // jmorse: remove really special handling of dbg.value that dates to
+    // d715ec82b4ad12c598dd9e2329bdad9b887f397f . It never really needed to be
+    // that special -- we could just clone things as they came up. Do that now
+    // and remap dbg.values (and DPValues) in order, to avoid having to jump
+    // through lots of re-ordering hoops in the callers.
+    if (BonusInst.isTerminator())
       continue;
 
-    Instruction *NewBonusInst = BonusInst.clone();
+    Instruction *NewBonusInst = BonusInst.cloneMaybeDbg();
 
-    if (PTI->getDebugLoc() != NewBonusInst->getDebugLoc()) {
+    if (!isa<DbgInfoIntrinsic>(BonusInst) && PTI->getDebugLoc() != NewBonusInst->getDebugLoc()) {
       // Unless the instruction has the same !dbg location as the original
       // branch, drop it. When we fold the bonus instructions we want to make
       // sure we reset their debug locations in order to avoid stepping on
@@ -1115,7 +1121,6 @@ static void CloneInstructionsIntoPredecessorBlockAndUpdateSSAUses(
 
     RemapInstruction(NewBonusInst, VMap,
                      RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
-    VMap[&BonusInst] = NewBonusInst;
 
     // If we moved a load, we cannot any longer claim any knowledge about
     // its potential value. The previous information might have been valid
@@ -1128,7 +1133,19 @@ static void CloneInstructionsIntoPredecessorBlockAndUpdateSSAUses(
     NewBonusInst->dropUndefImplyingAttrsAndUnknownMetadata(
         LLVMContext::MD_annotation);
 
-    PredBlock->getInstList().insert(PTI->getIterator(), NewBonusInst);
+    NewBonusInst->insertBefore(PTI);
+    NewBonusInst->cloneDebugInfoFrom(&BonusInst); // remapped by caller
+
+    for (auto &DPI : NewBonusInst->getDbgValueRange()) {
+      assert(DPI.isValue());
+      DPValue *DPV = static_cast<DPValue*>(&DPI);
+      RemapDPValue(NewBonusInst->getModule(), DPV, VMap, RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
+    }
+
+    if (isa<DbgInfoIntrinsic>(BonusInst))
+      continue;
+
+    VMap[&BonusInst] = NewBonusInst;
     NewBonusInst->takeName(&BonusInst);
     BonusInst.setName(NewBonusInst->getName() + ".old");
 
@@ -1526,17 +1543,19 @@ bool SimplifyCFGOpt::HoistThenElseCodeToIf(BranchInst *BI,
       // The debug location is an integral part of a debug info intrinsic
       // and can't be separated from it or replaced.  Instead of attempting
       // to merge locations, simply hoist both copies of the intrinsic.
-      BIParent->getInstList().splice(BI->getIterator(),
-                                     BB1->getInstList(), I1);
-      BIParent->getInstList().splice(BI->getIterator(),
-                                     BB2->getInstList(), I2);
+// XXX jmorse: there's no reason why we couldn't do this with DPValues,
+// but it's fiddly, so don't do that yet.
+// XXX maybe it's not so hard?
+#if 0
+      I1->moveBeforePreserving(BI);
+      I2->moveBeforePreserving(BI);
       Changed = true;
+#endif
     } else {
       // For a normal instruction, we just move one to right before the branch,
       // then replace all uses of the other with the first.  Finally, we remove
       // the now redundant second instruction.
-      BIParent->getInstList().splice(BI->getIterator(),
-                                     BB1->getInstList(), I1);
+      I1->moveBeforeBreaking(BI);
       if (!I2->use_empty())
         I2->replaceAllUsesWith(I1);
       I1->andIRFlags(I2);
@@ -1576,7 +1595,7 @@ bool SimplifyCFGOpt::HoistThenElseCodeToIf(BranchInst *BI,
     }
   } while (I1->isIdenticalToWhenDefined(I2));
 
-  return true;
+  return Changed;
 
 HoistTerminator:
   // It may not be possible to hoist an invoke.
@@ -1605,7 +1624,7 @@ HoistTerminator:
 
   // Okay, it is safe to hoist the terminator.
   Instruction *NT = I1->clone();
-  BIParent->getInstList().insert(BI->getIterator(), NT);
+  NT->insertBefore(BI);
   if (!NT->getType()->isVoidTy()) {
     I1->replaceAllUsesWith(NT);
     I2->replaceAllUsesWith(NT);
@@ -1878,7 +1897,8 @@ static bool sinkLastInstruction(ArrayRef<BasicBlock*> Blocks) {
     auto *Op = I0->getOperand(O);
     assert(!Op->getType()->isTokenTy() && "Can't PHI tokens!");
     auto *PN = PHINode::Create(Op->getType(), Insts.size(),
-                               Op->getName() + ".sink", &BBEnd->front());
+                               Op->getName() + ".sink");
+    PN->insertBefore(BBEnd->begin());
     for (auto *I : Insts)
       PN->addIncoming(I->getOperand(O), I->getParent());
     NewOperands.push_back(PN);
@@ -1888,7 +1908,8 @@ static bool sinkLastInstruction(ArrayRef<BasicBlock*> Blocks) {
   // and move it to the start of the successor block.
   for (unsigned O = 0, E = I0->getNumOperands(); O != E; ++O)
     I0->getOperandUse(O).set(NewOperands[O]);
-  I0->moveBefore(&*BBEnd->getFirstInsertionPt());
+
+  I0->moveBeforeBreaking(*BBEnd, BBEnd->getFirstInsertionPt());
 
   // Update metadata and IR flags, and merge debug locations.
   for (auto *I : Insts)
@@ -2403,7 +2424,7 @@ static void MergeCompatibleInvokesImpl(ArrayRef<InvokeInst *> Invokes,
 
     auto *MergedInvoke = cast<InvokeInst>(II0->clone());
     // NOTE: all invokes have the same attributes, so no handling needed.
-    MergedInvokeBB->getInstList().push_back(MergedInvoke);
+    MergedInvoke->insertBefore(*MergedInvokeBB, MergedInvokeBB->begin());
 
     if (!HasNormalDest) {
       // This set does not have a normal destination,
@@ -2881,8 +2902,11 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
   }
 
   // Hoist the instructions.
-  BB->getInstList().splice(BI->getIterator(), ThenBB->getInstList(),
-                           ThenBB->begin(), std::prev(ThenBB->end()));
+  // jmorse: drop DPValues, in dbg.value mode this is done at end of this block.
+  for (auto &It : make_range(ThenBB->begin(), ThenBB->end()))
+    It.dropDbgValues();
+  BB->blockSplice(BI->getIterator(), ThenBB,
+                  ThenBB->begin(), std::prev(ThenBB->end()));
 
   // Insert selects and rewrite the PHI operands.
   IRBuilder<NoFolder> Builder(BI);
@@ -3058,13 +3082,16 @@ FoldCondBranchOnValueKnownInPredecessorImpl(BranchInst *BI, DomTreeUpdater *DTU,
     BasicBlock::iterator InsertPt = EdgeBB->getFirstInsertionPt();
     DenseMap<Value *, Value *> TranslateMap; // Track translated values.
     TranslateMap[Cond] = CB;
+    // DDD: track instructions that we optimise away while folding, so that we
+    // can copy DPValues from them later.
+    SmallVector<Instruction *> StuffToCloneFrom;
     for (BasicBlock::iterator BBI = BB->begin(); &*BBI != BI; ++BBI) {
       if (PHINode *PN = dyn_cast<PHINode>(BBI)) {
         TranslateMap[PN] = PN->getIncomingValueForBlock(EdgeBB);
         continue;
       }
       // Clone the instruction.
-      Instruction *N = BBI->clone();
+      Instruction *N = BBI->cloneMaybeDbg();
       if (BBI->hasName())
         N->setName(BBI->getName() + ".c");
 
@@ -3080,6 +3107,7 @@ FoldCondBranchOnValueKnownInPredecessorImpl(BranchInst *BI, DomTreeUpdater *DTU,
         if (!BBI->use_empty())
           TranslateMap[&*BBI] = V;
         if (!N->mayHaveSideEffects()) {
+          StuffToCloneFrom.push_back(&*BBI);
           N->deleteValue(); // Instruction folded away, don't need actual inst
           N = nullptr;
         }
@@ -3089,7 +3117,13 @@ FoldCondBranchOnValueKnownInPredecessorImpl(BranchInst *BI, DomTreeUpdater *DTU,
       }
       if (N) {
         // Insert the new instruction into its new home.
-        EdgeBB->getInstList().insert(InsertPt, N);
+        N->insertBefore(&*InsertPt);
+
+        for (Instruction *PrevInst : StuffToCloneFrom)
+          N->cloneDebugInfoFrom(PrevInst);
+        StuffToCloneFrom.clear();
+
+        N->cloneDebugInfoFrom(&*BBI);
 
         // Register the new instruction with the assumption cache if necessary.
         if (auto *Assume = dyn_cast<AssumeInst>(N))
@@ -3097,6 +3131,13 @@ FoldCondBranchOnValueKnownInPredecessorImpl(BranchInst *BI, DomTreeUpdater *DTU,
             AC->registerAssumption(Assume);
       }
     }
+
+    // jmorse -- we need to copy across dbg.values too, including those attached
+    // to instructions that got optimised away.
+    for (Instruction *PrevInst : StuffToCloneFrom)
+      InsertPt->cloneDebugInfoFrom(PrevInst, true);
+    StuffToCloneFrom.clear();
+    InsertPt->cloneDebugInfoFrom(BI, true);
 
     BB->removePredecessor(EdgeBB);
     BranchInst *EdgeBI = cast<BranchInst>(EdgeBB->getTerminator());
@@ -3511,21 +3552,22 @@ static bool performBranchToCommonDestFolding(BranchInst *BI, BranchInst *PBI,
   ValueToValueMapTy VMap; // maps original values to cloned values
   CloneInstructionsIntoPredecessorBlockAndUpdateSSAUses(BB, PredBlock, VMap);
 
+  Module *M = BB->getModule();
+
+  if (PredBlock->IsInhaled) {
+    PredBlock->getTerminator()->cloneDebugInfoFrom(BB->getTerminator());
+    for (auto &DPI : PredBlock->getTerminator()->getDbgValueRange()) {
+      assert(DPI.isValue());
+      DPValue *DPV = static_cast<DPValue*>(&DPI);
+      RemapDPValue(M, DPV, VMap, RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
+    }
+  }
+
   // Now that the Cond was cloned into the predecessor basic block,
   // or/and the two conditions together.
   Value *BICond = VMap[BI->getCondition()];
   PBI->setCondition(
       createLogicalOp(Builder, Opc, PBI->getCondition(), BICond, "or.cond"));
-
-  // Copy any debug value intrinsics into the end of PredBlock.
-  for (Instruction &I : *BB) {
-    if (isa<DbgInfoIntrinsic>(I)) {
-      Instruction *NewI = I.clone();
-      RemapInstruction(NewI, VMap,
-                       RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
-      NewI->insertBefore(PBI);
-    }
-  }
 
   ++NumFoldBranchToCommonDest;
   return true;
@@ -3725,7 +3767,8 @@ static Value *ensureValueAvailableInSuccessor(Value *V, BasicBlock *BB,
       (!isa<Instruction>(V) || cast<Instruction>(V)->getParent() != BB))
     return V;
 
-  PHI = PHINode::Create(V->getType(), 2, "simplifycfg.merge", &Succ->front());
+  PHI = PHINode::Create(V->getType(), 2, "simplifycfg.merge");
+  PHI->insertBefore(Succ->begin());
   PHI->addIncoming(V, BB);
   for (BasicBlock *PredBB : predecessors(Succ))
     if (PredBB != BB)
@@ -3849,6 +3892,14 @@ static bool mergeConditionalStoreToAddress(
                                                 QStore->getParent(), PPHI);
 
   IRBuilder<> QB(&*PostBB->getFirstInsertionPt());
+  QB.SetInsertPoint(PostBB, PostBB->getFirstInsertionPt());
+  // DDD: fetch DebugLoc from the next non-debug instruction. (This is a common
+  // error, inheriting a line number from the adjacent debug instruction rather
+  // than a "real" instruction.
+  Instruction *foo = &*PostBB->getFirstInsertionPt();
+  if (isa<DbgInfoIntrinsic>(foo))
+    foo = foo->getNextNonDebugInstruction();
+  QB.SetCurrentDebugLocation(foo->getDebugLoc());
 
   Value *PPred = PStore->getParent() == PTB ? PCond : QB.CreateNot(PCond);
   Value *QPred = QStore->getParent() == QTB ? QCond : QB.CreateNot(QCond);
@@ -3859,9 +3910,14 @@ static bool mergeConditionalStoreToAddress(
     QPred = QB.CreateNot(QPred);
   Value *CombinedPred = QB.CreateOr(PPred, QPred);
 
-  auto *T = SplitBlockAndInsertIfThen(CombinedPred, &*QB.GetInsertPoint(),
+  BasicBlock::iterator InsertPt = QB.GetInsertPoint();
+  // This shooouuulllddd be transmitted from the call to getFirstInsertionPt
+  // above now.
+  //InsertPt.setHeadBit(true);
+  auto *T = SplitBlockAndInsertIfThen(CombinedPred, InsertPt,
                                       /*Unreachable=*/false,
                                       /*BranchWeights=*/nullptr, DTU);
+
   QB.SetInsertPoint(T);
   StoreInst *SI = cast<StoreInst>(QB.CreateStore(QPHI, Address));
   SI->setAAMetadata(PStore->getAAMetadata().merge(QStore->getAAMetadata()));
@@ -4848,7 +4904,7 @@ static bool removeEmptyCleanup(CleanupReturnInst *RI, DomTreeUpdater *DTU) {
       for (auto *pred : predecessors(UnwindDest))
         if (pred != BB)
           PN.addIncoming(&PN, pred);
-      PN.moveBefore(InsertPt);
+      PN.moveBeforeBreaking(InsertPt);
       // Also, add a dummy incoming value for the original BB itself,
       // so that the PHI is well-formed until we drop said predecessor.
       PN.addIncoming(PoisonValue::get(PN.getType()), BB);
@@ -4940,6 +4996,13 @@ bool SimplifyCFGOpt::simplifyUnreachable(UnreachableInst *UI) {
 
   bool Changed = false;
 
+  // Flush dbg-values if they're dangling. Unreachable is a terminator.
+  BB->flushTerminatorDbgValues();
+
+  // dbg.values on the unreachable inst itself should be deleted, as below we
+  // delete everything past the final executable instruction.
+  UI->dropDbgValues();
+
   // If there are any instructions immediately before the unreachable that can
   // be removed, do so.
   while (UI->getIterator() != BB->begin()) {
@@ -4955,6 +5018,9 @@ bool SimplifyCFGOpt::simplifyUnreachable(UnreachableInst *UI) {
     // of subtle reasoning. If this inst is an EH, all the predecessors of this
     // block will be the unwind edges of Invoke/CatchSwitch/CleanupReturn,
     // and we can therefore guarantee this block will be erased.
+
+    // If we're deleting this, we're deleting any subsequent dbg.values.
+    BBI->dropDbgValues();
 
     // Delete this instruction (any uses are guaranteed to be dead)
     BBI->replaceAllUsesWith(PoisonValue::get(BBI->getType()));

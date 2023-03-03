@@ -182,6 +182,7 @@ bool WasmEHPrepare::prepareThrows(Function &F) {
     Changed = true;
     auto *BB = ThrowI->getParent();
     SmallVector<BasicBlock *, 4> Succs(successors(BB));
+    // XXX jmorse: this won't build if we enable WASM. Defer for now.
     auto &InstList = BB->getInstList();
     InstList.erase(std::next(BasicBlock::iterator(ThrowI)), InstList.end());
     IRB.SetInsertPoint(BB);
@@ -273,7 +274,7 @@ void WasmEHPrepare::prepareEHPad(BasicBlock *BB, bool NeedPersonality,
                                  unsigned Index) {
   assert(BB->isEHPad() && "BB is not an EHPad!");
   IRBuilder<> IRB(BB->getContext());
-  IRB.SetInsertPoint(&*BB->getFirstInsertionPt());
+  IRB.SetInsertPoint(BB, BB->getFirstInsertionPt());
 
   auto *FPI = cast<FuncletPadInst>(BB->getFirstNonPHI());
   Instruction *GetExnCI = nullptr, *GetSelectorCI = nullptr;

@@ -449,7 +449,7 @@ struct CallCoroDelete final : public EHScopeStack::Cleanup {
 
     // Get back to the block we were originally and move coro.free there.
     auto *InsertPt = SaveInsertBlock->getTerminator();
-    CoroFree->moveBefore(InsertPt);
+    CoroFree->moveBeforeBreaking(InsertPt);
     CGF.Builder.SetInsertPoint(InsertPt);
 
     // Add if (auto *mem = coro.free) Deallocate;

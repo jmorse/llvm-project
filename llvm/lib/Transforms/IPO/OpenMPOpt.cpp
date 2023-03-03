@@ -1898,9 +1898,9 @@ private:
             assert(KernelInitCI &&
                    "Expected a call to __kmpc_target_init in kernel\n");
 
-            CI->moveAfter(KernelInitCI);
+            CI->moveAfterBreaking(KernelInitCI);
           } else
-            CI->moveBefore(&*F.getEntryBlock().getFirstInsertionPt());
+            CI->moveBeforeBreaking(&*F.getEntryBlock().getFirstInsertionPt());
           ReplVal = CI;
           break;
         }
@@ -3574,7 +3574,7 @@ struct AAKernelInfoFunction : AAKernelInfo {
         LastEffect = &*IP;
       }
       for (auto &Reorder : Reorders)
-        Reorder.first->moveBefore(Reorder.second);
+        Reorder.first->moveBeforeBreaking(Reorder.second);
     }
 
     SmallVector<std::pair<Instruction *, Instruction *>, 4> GuardedRegions;

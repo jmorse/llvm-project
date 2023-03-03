@@ -76,6 +76,8 @@ private:
   using node_reference = typename Traits::node_reference;
 
   node_pointer NodePtr = nullptr;
+  mutable bool head_inclusive_bit = false;
+  mutable bool tail_inclusive_bit = false;
 
 public:
   /// Create from an ilist_node.
@@ -90,7 +92,8 @@ public:
   template <bool RHSIsConst>
   ilist_iterator(const ilist_iterator<OptionsT, IsReverse, RHSIsConst> &RHS,
                  std::enable_if_t<IsConst || !RHSIsConst, void *> = nullptr)
-      : NodePtr(RHS.NodePtr) {}
+      : NodePtr(RHS.NodePtr), head_inclusive_bit(RHS.head_inclusive_bit),
+        tail_inclusive_bit(RHS.tail_inclusive_bit) {}
 
   // This is templated so that we can allow assigning to a const iterator from
   // a nonconst iterator...
@@ -98,6 +101,8 @@ public:
   std::enable_if_t<IsConst || !RHSIsConst, ilist_iterator &>
   operator=(const ilist_iterator<OptionsT, IsReverse, RHSIsConst> &RHS) {
     NodePtr = RHS.NodePtr;
+    head_inclusive_bit = RHS.head_inclusive_bit;
+    tail_inclusive_bit = RHS.tail_inclusive_bit;
     return *this;
   }
 
@@ -126,10 +131,14 @@ public:
 
   /// Const-cast.
   ilist_iterator<OptionsT, IsReverse, false> getNonConst() const {
-    if (NodePtr)
-      return ilist_iterator<OptionsT, IsReverse, false>(
+    if (NodePtr) {
+      auto New = ilist_iterator<OptionsT, IsReverse, false>(
           const_cast<typename ilist_iterator<OptionsT, IsReverse,
                                              false>::node_reference>(*NodePtr));
+      New.head_inclusive_bit = head_inclusive_bit;
+      New.tail_inclusive_bit = tail_inclusive_bit;
+      return New;
+    }
     return ilist_iterator<OptionsT, IsReverse, false>();
   }
 
@@ -173,6 +182,11 @@ public:
 
   /// Check for end.  Only valid if ilist_sentinel_tracking<true>.
   bool isEnd() const { return NodePtr ? NodePtr->isSentinel() : false; }
+
+  bool getHeadBit() const { return head_inclusive_bit; }
+  bool getTailBit() const { return tail_inclusive_bit; }
+  void setHeadBit(bool SetBit) const { head_inclusive_bit = SetBit; }
+  void setTailBit(bool SetBit) const { tail_inclusive_bit = SetBit; }
 };
 
 template <typename From> struct simplify_type;

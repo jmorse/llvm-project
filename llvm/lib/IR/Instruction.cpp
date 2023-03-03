@@ -13,6 +13,7 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
@@ -28,7 +29,7 @@ Instruction::Instruction(Type *ty, unsigned it, Use *Ops, unsigned NumOps,
   if (InsertBefore) {
     BasicBlock *BB = InsertBefore->getParent();
     assert(BB && "Instruction to insert before is not in a basic block!");
-    BB->getInstList().insert(InsertBefore->getIterator(), this);
+    insertBefore(InsertBefore);
   }
 }
 
@@ -38,7 +39,7 @@ Instruction::Instruction(Type *ty, unsigned it, Use *Ops, unsigned NumOps,
 
   // append this instruction into the basic block
   assert(InsertAtEnd && "Basic block to append to may not be NULL!");
-  InsertAtEnd->getInstList().push_back(this);
+  insertBefore(*InsertAtEnd, InsertAtEnd->end());
 }
 
 Instruction::~Instruction() {
@@ -71,40 +72,257 @@ const Function *Instruction::getFunction() const {
 }
 
 void Instruction::removeFromParent() {
+  // Detect dbg.value intrinsics being removed from blocks and being juggled
+  // around. This would be very difficult to track for DPValues, so let's
+  // detect whether it happens. (It doesn't so far).
+  assert(!isa<DbgValueInst>(this));
+  // If this instruction no longer lives in a basic block, it should not have a
+  // marker
+  if (DbgMarker)
+    DbgMarker->eraseFromParent();
+  DbgMarker = nullptr;
   getParent()->getInstList().remove(getIterator());
 }
 
 iplist<Instruction>::iterator Instruction::eraseFromParent() {
+  if (DbgMarker)
+    DbgMarker->eraseFromParent();
+  DbgMarker = nullptr;
   return getParent()->getInstList().erase(getIterator());
+}
+
+void Instruction::insertBefore(Instruction *InsertPos) {
+  insertBefore(InsertPos->getIterator());
 }
 
 /// Insert an unlinked instruction into a basic block immediately before the
 /// specified instruction.
-void Instruction::insertBefore(Instruction *InsertPos) {
-  InsertPos->getParent()->getInstList().insert(InsertPos->getIterator(), this);
+void Instruction::insertBefore(BasicBlock::iterator InsertPos) {
+  bool InsertAtHead = InsertPos.getHeadBit();
+  // Insert this instruction before the position, if InsertAtHead is set then
+  // we go ahead of InsertPos' debug-info.
+  assert(!DbgMarker);
+  BasicBlock *DestParent = InsertPos->getParent();
+  if (DestParent->IsInhaled) {
+    BasicBlock::DIIterator DbgInsertPos = InsertAtHead ? DestParent->beginDebugProgramRange(InsertPos) : DestParent->getDbgValueMarkerPos(InsertPos);
+    DestParent->createMarker(DbgInsertPos, this);
+  }
+
+  DestParent->getInstList().insert(InsertPos, this);
+
+  if (isTerminator())
+    getParent()->flushTerminatorDbgValues();
 }
 
 /// Insert an unlinked instruction into a basic block immediately after the
 /// specified instruction.
 void Instruction::insertAfter(Instruction *InsertPos) {
-  InsertPos->getParent()->getInstList().insertAfter(InsertPos->getIterator(),
+  // Ensure all dbg.value insertion goes via insertDebugBefore or after.
+  assert(!isa<DbgValueInst>(this));
+
+  BasicBlock *DestParent = InsertPos->getParent();  
+  if (DestParent->IsInhaled) {
+    BasicBlock::DIIterator DbgInsertPos = DestParent->endDebugProgramRange(InsertPos->getIterator());
+    DestParent->createMarker(DbgInsertPos, this);
+  }
+
+  DestParent->getInstList().insertAfter(InsertPos->getIterator(),
                                                     this);
+}
+
+extern bool DDDInhaleDbgValues;
+
+void Instruction::insertDebugAfter(Instruction *Where) {
+  // This is a debug info intrinsic -- we might have to insert this into the DbgProgramList
+  // at some point, depending on whether we're inhaled into the block or not.
+  assert(isa<DbgValueInst>(this));
+  // If Where has no DbgMarker, we have not inhaled, so insert us normally.
+  assert((!Where->DbgMarker || DDDInhaleDbgValues) && "Can't have a debug marker set when we aren't using inhalation!");
+  if (!Where->DbgMarker) {
+    Where->getParent()->getInstList().insertAfter(Where->getIterator(),
+                                                      this);
+    return;
+  }
+
+  // Insert ourselves in front of Where.
+  BasicBlock *WhereParent = Where->getParent();
+  BasicBlock::DIIterator DbgValueInsertPos = WhereParent->endDebugProgramRange(Where->getIterator());
+  // Insert ourselves after Where's marker.
+  DPValue *New = new DPValue(cast<DbgVariableIntrinsic>(this));
+  New->setParent(WhereParent);
+  WhereParent->DbgProgramList.insert(DbgValueInsertPos, *New);
+  deleteValue();
+}
+
+void Instruction::insertBefore(BasicBlock &BB, SymbolTableList<Instruction>::iterator InsertPos) {
+  bool InsertAtHead = InsertPos.getHeadBit();
+  // Account for debug info -- insert this instruction before InsertPos and
+  // after any nearby debug-info, unless InsertAtHead is set.
+  if (BB.IsInhaled) {
+    BasicBlock::DIIterator DbgInsertPos = InsertAtHead ? BB.beginDebugProgramRange(InsertPos) : BB.getDbgValueMarkerPos(InsertPos);
+    BB.createMarker(DbgInsertPos, this);
+  }
+  
+  BB.getInstList().insert(InsertPos, this);
+
+  if (isTerminator())
+    getParent()->flushTerminatorDbgValues();
 }
 
 /// Unlink this instruction from its current basic block and insert it into the
 /// basic block that MovePos lives in, right before MovePos.
-void Instruction::moveBefore(Instruction *MovePos) {
-  moveBefore(*MovePos->getParent(), MovePos->getIterator());
+void Instruction::moveBeforeBreaking(Instruction *MovePos) {
+  // Don't allow dbg.values to move around with this method.
+  assert(!isa<DbgValueInst>(this));
+  moveBefore1(*MovePos->getParent(), MovePos->getIterator(), false);
 }
 
-void Instruction::moveAfter(Instruction *MovePos) {
-  moveBefore(*MovePos->getParent(), ++MovePos->getIterator());
+void Instruction::moveBeforePreserving(Instruction *MovePos) {
+  // This over-aggressive assertion tries to detect whether the caller is
+  // using moveBeforePreserving to insert into the _middle_ of a block,
+  // between several "real" instructions. It doesn't fire: thus we can
+  // have some confidence that callers are always moving snippets of code
+  // to the start or end of a block.
+  // (This isn't functionally important: but it's an interesting property).
+  assert(MovePos->getIterator() == MovePos->getParent()->getFirstInsertionPt() ||
+         MovePos->isTerminator() || MovePos->getIterator() == MovePos->getParent()->begin());
+  moveBefore1(*MovePos->getParent(), MovePos->getIterator(), true);
 }
 
-void Instruction::moveBefore(BasicBlock &BB,
+void Instruction::moveAfterBreaking(Instruction *MovePos) {
+  assert(!isa<DbgValueInst>(this));
+  auto NextIt = std::next(MovePos->getIterator());
+  // We want this instruction to be moved to before NextIt in the instruction
+  // list, but before NextIt's debug value range.
+  NextIt.setHeadBit(true);
+  moveBefore1(*MovePos->getParent(), NextIt, false);
+}
+
+void Instruction::moveAfterPreserving(Instruction *MovePos) {
+  // Over-aggressive assertion, see other moveBeforePreserving overload comments
+  assert(MovePos->getIterator() == MovePos->getParent()->getFirstInsertionPt());
+  auto NextIt = std::next(MovePos->getIterator());
+  // We want this instruction and its debug range to be moved to before NextIt 
+  // in the instruction list, but before NextIt's debug value range.
+  NextIt.setHeadBit(true);
+  moveBefore1(*MovePos->getParent(), NextIt, true);
+}
+
+void Instruction::moveBeforeBreaking(BasicBlock &BB,
                              SymbolTableList<Instruction>::iterator I) {
+  assert(!isa<DbgValueInst>(this));
+  moveBefore1(BB, I, false);
+}
+
+void Instruction::moveBeforePreserving(BasicBlock &BB,
+                             SymbolTableList<Instruction>::iterator I) {
+  // Over-aggressive assertion, see other moveBeforePreserving overload comments
+  assert(I == BB.end() || I == I->getParent()->getFirstInsertionPt() ||
+         I->isTerminator() || I == I->getParent()->begin());
+
+  moveBefore1(BB, I, true);
+}
+
+void Instruction::moveBefore1(BasicBlock &BB,
+                              SymbolTableList<Instruction>::iterator I, bool Preserve) {
   assert(I == BB.end() || I->getParent() == &BB);
+  bool InsertAtHead = I.getHeadBit();
+
+  BasicBlock *OriginalParent = getParent();
+  // Find the start of the portion to copy; if Preserve is specified, this includes our debug value range, otherwise this is just our marker.
+  BasicBlock::DIIterator MoveRangeBegin = Preserve ? OriginalParent->beginDebugProgramRange(getIterator()) : OriginalParent->getDbgValueMarkerPos(getIterator());
+  // Find the end of the portion to copy.
+  BasicBlock::DIIterator MoveRangeEnd = OriginalParent->endDebugProgramRange(getIterator());
+  // Find out where to _place_ these dbg.values; if InsertAtHead is specified, this will be at the start of I's debug value range, otherwise this is just I's marker.
+  BasicBlock::DIIterator InsertPoint = InsertAtHead ? BB.beginDebugProgramRange(I) : BB.getDbgValueMarkerPos(I);
+
+  for (auto &Item : make_range(MoveRangeBegin, MoveRangeEnd))
+    Item.setParent(&BB);
+  if (InsertPoint != MoveRangeBegin && InsertPoint != MoveRangeEnd)
+    BB.DbgProgramList.splice(InsertPoint, OriginalParent->DbgProgramList,
+                             MoveRangeBegin, MoveRangeEnd);
+
   BB.getInstList().splice(I, getParent()->getInstList(), getIterator());
+  if (BB.IsInhaled && !DbgMarker)
+    BB.createMarker(InsertPoint, this);
+
+  if (isTerminator())
+    getParent()->flushTerminatorDbgValues();
+}
+
+void Instruction::insertDebugBefore(Instruction *Where) {
+  insertDebugBefore(Where->getParent(), Where->getIterator());
+}
+
+void Instruction::insertDebugBefore(BasicBlock *BB, BasicBlock::iterator InsertPos) {
+  bool InsertAtHead = InsertPos.getHeadBit();
+
+  assert(isa<DbgValueInst>(this));
+  // If Where has no DbgMarker, we have not inhaled, so insert us normally.
+  assert((!InsertPos->DbgMarker || DDDInhaleDbgValues) && "Can't have a debug marker set when we aren't using inhalation!");
+  if (!InsertPos->DbgMarker) {
+    InsertPos->getParent()->getInstList().insert(InsertPos, this);
+    return;
+  }
+
+  // Insert at the start of the list for the next inst.
+  assert(!getParent() && "Should not be inserting a debug instr that already has a parent!");
+
+  // Insert ourselves in front of Where.
+  BasicBlock *WhereParent = InsertPos->getParent();
+  BasicBlock::DIIterator DbgValueInsertPos = InsertAtHead ? WhereParent->beginDebugValueRange(InsertPos) : WhereParent->endDebugValueRange(InsertPos);
+  DPValue *New = new DPValue(cast<DbgVariableIntrinsic>(this));
+  New->setParent(WhereParent);
+  WhereParent->DbgProgramList.insert(DbgValueInsertPos, *New);
+  deleteValue();
+}
+
+void Instruction::cloneDebugInfoFrom(const Instruction *From, bool InsertAtHead) {
+  assert(getParent()->IsInhaled == From->getParent()->IsInhaled);
+  if (!getParent()->IsInhaled)
+    return;
+
+  iterator_range<BasicBlock::DIIterator> FromDbgValueRange = From->getDbgValueRange();
+
+  BasicBlock::DIIterator DbgValueInsertPos = InsertAtHead ? getParent()->beginDebugValueRange(getIterator()) : getParent()->endDebugValueRange(getIterator());
+
+  for (DebugProgramInstruction &DPI : FromDbgValueRange) {
+    assert(DPI.getInstrType() == DebugProgramInstruction::DPInstrType::Value);
+    DPValue *New = static_cast<DPValue*>(&DPI)->clone();
+    New->setParent(getParent());
+    getParent()->DbgProgramList.insert(DbgValueInsertPos, *New);
+  }
+}
+
+auto Instruction::getDbgValueRange() const -> iterator_range<BasicBlock::DIIterator> {
+  BasicBlock *Parent = const_cast<BasicBlock*>(getParent());
+  if (!DbgMarker)
+    return make_range(Parent->DbgProgramList.end(), Parent->DbgProgramList.end());
+  assert(!Parent->DbgProgramList.empty());
+
+  BasicBlock::DIIterator DbgBegin = Parent->beginDebugValueRange(const_cast<Instruction*>(this)->getIterator());
+  BasicBlock::DIIterator DbgEnd = Parent->endDebugValueRange(const_cast<Instruction*>(this)->getIterator());
+  return make_range(DbgBegin, DbgEnd);
+}
+
+bool Instruction::hasDbgValues() const {
+  return !getDbgValueRange().empty();
+}
+
+void Instruction::dropDbgValues() {
+  auto Range = getDbgValueRange();
+  for (auto &It : make_early_inc_range(Range)) {
+    getParent()->DbgProgramList.erase(It.getIterator());
+    It.deleteInstr();
+  }
+}
+
+void Instruction::dropOneDbgValue(DPValue *DPV) {
+  assert(any_of(getDbgValueRange(), [DPV](DebugProgramInstruction &DPI) {
+    return &DPI == DPV;
+  }) && "Trying to drop a debug value not associated with this instruction?");
+  getParent()->DbgProgramList.erase(DPV->getIterator());
+  DPV->deleteInstr();
 }
 
 bool Instruction::comesBefore(const Instruction *Other) const {
@@ -859,7 +1077,9 @@ void Instruction::copyMetadata(const Instruction &SrcInst,
     setDebugLoc(SrcInst.getDebugLoc());
 }
 
-Instruction *Instruction::clone() const {
+Instruction *Instruction::clone(bool shouldassert) const {
+  if (shouldassert)
+    assert(!isa<DbgValueInst>(this));
   Instruction *New = nullptr;
   switch (getOpcode()) {
   default:

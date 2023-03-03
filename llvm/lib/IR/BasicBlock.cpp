@@ -16,6 +16,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/LLVMContext.h"
@@ -25,6 +26,132 @@ using namespace llvm;
 
 #define DEBUG_TYPE "ir"
 STATISTIC(NumInstrRenumberings, "Number of renumberings across all blocks");
+
+bool DDDInhaleDbgValues = true;
+
+BasicBlock::DIIterator BasicBlock::createMarker(DIIterator InsertPos, Instruction *I) {
+  assert(IsInhaled && "Tried to create a marker in a non-inhaled block!");
+  assert(I->DbgMarker == nullptr &&
+         "Tried to create marker for instuction that already has one!");
+  DPMarker *Marker = new DPMarker();
+  Marker->MarkedInstr = I;
+  I->DbgMarker = Marker;
+  return DbgProgramList.insert(InsertPos, *Marker);
+}
+
+void BasicBlock::inhaleDbgValues() {
+  if (!DDDInhaleDbgValues)
+    return;
+
+  IsInhaled = true;
+  assert(DbgProgramList.empty());
+  for (Instruction &I : make_early_inc_range(InstList)) {
+    assert(!I.DbgMarker && "DbgMarker already set on inhalation");
+    if (DbgValueInst *DVI = dyn_cast<DbgValueInst>(&I)) {
+      DPValue *Value = new DPValue(DVI);
+      DbgProgramList.insert(DbgProgramList.end(), *Value);
+      DVI->eraseFromParent();
+      continue;
+    }
+    // Create the marker function that notes this Instruction's position in the DebugValueList.
+    createMarker(DbgProgramList.end(), &I);
+  }
+}
+
+void BasicBlock::exhaleDbgValues() {
+  invalidateOrders();
+  IsInhaled = false;
+  InstListType::iterator InsertPoint = InstList.begin();
+  for (DebugProgramInstruction &DPI : DbgProgramList) {
+    if (DPI.getInstrType() == DebugProgramInstruction::DPInstrType::Marker) {
+      DPMarker *Marker = static_cast<DPMarker*>(&DPI);
+      assert(Marker->MarkedInstr == &*InsertPoint);
+      Marker->MarkedInstr->DbgMarker = nullptr;
+      InsertPoint = std::next(InsertPoint);
+      continue;
+    }
+    assert(DPI.getInstrType() == DebugProgramInstruction::DPInstrType::Value);
+    DPValue *DPV = static_cast<DPValue*>(&DPI);
+    InstList.insert(InsertPoint, DPV->createDebugIntrinsic(getModule(), nullptr));
+  }
+
+  for (auto &DPI : make_early_inc_range(DbgProgramList)) {
+    DbgProgramList.erase(DPI.getIterator());
+    DPI.deleteInstr();
+  }
+
+  for (auto &I : *this)
+    assert(!I.DbgMarker);
+}
+
+void BasicBlock::validateDbgValues() {
+  // Only validate if we have a debug program.
+  if (DbgProgramList.empty())
+    return;
+  assert(!empty() && "BasicBlock with DebugProgram but no Instructions?");
+
+  // Match every DebugProgramMarker to every Instruction and vice versa, and
+  // verify that there are no invalid DebugProgramValues.
+  auto DbgProgramIt = DbgProgramList.begin();
+  auto BlockInstructionIt = begin();
+  while (DbgProgramIt != DbgProgramList.end() && BlockInstructionIt != end()) {
+    auto *CurrentBlockInstruction = &*BlockInstructionIt;
+    auto *CurrentDebugProgramInstruction = &*DbgProgramIt;
+    if (DbgProgramIt->isMarker()) {
+      // Validate DebugProgramMarkers.
+      auto *CurrentDebugMarker =
+          static_cast<DPMarker *>(CurrentDebugProgramInstruction);
+
+      // If this is a marker, it should match the instruction and vice versa.
+      assert(CurrentDebugMarker->MarkedInstr == CurrentBlockInstruction &&
+             "Debug Marker points to incorrect instruction?");
+      assert(CurrentBlockInstruction->DbgMarker == CurrentDebugMarker &&
+             "Instruction points to incorrect Debug Marker?");
+
+      // Advance both iterators.
+      ++DbgProgramIt;
+      ++BlockInstructionIt;
+    } else {
+      assert(DbgProgramIt->getParent() == this);
+      // Validate DebugProgramValues.
+      assert(CurrentDebugProgramInstruction->isValue() &&
+             "If not marker, DebugProgramInstuction must be a value.");
+      auto *CurrentDebugValue =
+          static_cast<DPValue *>(CurrentDebugProgramInstruction);
+
+      // Verify that no DbgValues appear prior to PHIs.
+      assert(!isa<PHINode>(CurrentBlockInstruction) &&
+             "DebugProgramValues must not appear before PHI nodes in a block!");
+
+      // Advance only the DebugProgram iterator, as we are "between"
+      // instructions.
+      ++DbgProgramIt;
+    }
+  }
+
+  // Both normal and debug programs should end with the terminator and its
+  // marker, and so should finish at the same point.
+  assert(DbgProgramIt == DbgProgramList.end() &&
+         "Dangling Debug Program Instructions after end of block!");
+  assert(BlockInstructionIt == end() &&
+         "Dangling Instructions after end of Debug Program!");
+}
+
+void BasicBlock::setInhaled(bool NewInhaled) {
+  if (NewInhaled && !IsInhaled)
+    inhaleDbgValues();
+  else if (!NewInhaled && IsInhaled)
+    exhaleDbgValues();
+}
+
+#ifndef NDEBUG
+void BasicBlock::dumpDbgValues() const {
+  for (auto &DPI : DbgProgramList) {
+    dbgs() << "@ " << &DPI << " ";
+    DPI.dump();
+  }
+}
+#endif
 
 ValueSymbolTable *BasicBlock::getValueSymbolTable() {
   if (Function *F = getParent())
@@ -48,6 +175,8 @@ BasicBlock::BasicBlock(LLVMContext &C, const Twine &Name, Function *NewParent,
                        BasicBlock *InsertBefore)
   : Value(Type::getLabelTy(C), Value::BasicBlockVal), Parent(nullptr) {
 
+  MarkerFn = nullptr;
+  IsInhaled = false;
   if (NewParent)
     insertInto(NewParent, InsertBefore);
   else
@@ -61,10 +190,20 @@ void BasicBlock::insertInto(Function *NewParent, BasicBlock *InsertBefore) {
   assert(NewParent && "Expected a parent");
   assert(!Parent && "Already has a parent");
 
+  setInhaled(NewParent->IsInhaled);
   if (InsertBefore)
     NewParent->getBasicBlockList().insert(InsertBefore->getIterator(), this);
   else
     NewParent->getBasicBlockList().push_back(this);
+}
+
+void BasicBlock::insertInto(Function *NewParent,
+                            Function::iterator InsertBefore) {
+  assert(NewParent && "Expected a parent");
+  assert(!Parent && "Already has a parent");
+
+  setInhaled(NewParent->IsInhaled);
+  NewParent->getBasicBlockList().insert(InsertBefore, this);
 }
 
 BasicBlock::~BasicBlock() {
@@ -91,6 +230,10 @@ BasicBlock::~BasicBlock() {
   assert(getParent() == nullptr && "BasicBlock still linked into the program!");
   dropAllReferences();
   InstList.clear();
+  for (auto &DPI : make_early_inc_range(DbgProgramList)) {
+    DbgProgramList.erase(DPI.getIterator());
+    DPI.deleteInstr();
+  }
 }
 
 void BasicBlock::setParent(Function *parent) {
@@ -134,14 +277,13 @@ iplist<BasicBlock>::iterator BasicBlock::eraseFromParent() {
 }
 
 void BasicBlock::moveBefore(BasicBlock *MovePos) {
-  MovePos->getParent()->getBasicBlockList().splice(
-      MovePos->getIterator(), getParent()->getBasicBlockList(), getIterator());
+  MovePos->getParent()->functionSplice(MovePos->getIterator(), getParent(),
+                                       this);
 }
 
 void BasicBlock::moveAfter(BasicBlock *MovePos) {
-  MovePos->getParent()->getBasicBlockList().splice(
-      ++MovePos->getIterator(), getParent()->getBasicBlockList(),
-      getIterator());
+  MovePos->getParent()->functionSplice(++MovePos->getIterator(), getParent(),
+                                       this);
 }
 
 const Module *BasicBlock::getModule() const {
@@ -250,6 +392,9 @@ BasicBlock::const_iterator BasicBlock::getFirstInsertionPt() const {
 
   const_iterator InsertPt = FirstNonPHI->getIterator();
   if (InsertPt->isEHPad()) ++InsertPt;
+  // Signal to users of this iterator that it's supposed to come "before" any
+  // debug-info at the start of the block.
+  InsertPt.setHeadBit(true);
   return InsertPt;
 }
 
@@ -389,9 +534,12 @@ BasicBlock *BasicBlock::splitBasicBlock(iterator I, const Twine &BBName,
 
   // Save DebugLoc of split point before invalidating iterator.
   DebugLoc Loc = I->getDebugLoc();
+  // DDD: Don't take DebugLocs from debug intrinsics.
+  if (isa<DbgInfoIntrinsic>(&*I))
+    Loc = I->getNextNonDebugInstruction()->getDebugLoc();
   // Move all of the specified instructions from the original basic block into
   // the new basic block.
-  New->getInstList().splice(New->end(), this->getInstList(), I, end());
+  New->blockSplice(New->end(), this, I, end());
 
   // Add a branch instruction to the newly formed basic block.
   BranchInst *BI = BranchInst::Create(New, this);
@@ -420,7 +568,7 @@ BasicBlock *BasicBlock::splitBasicBlockBefore(iterator I, const Twine &BBName) {
   DebugLoc Loc = I->getDebugLoc();
   // Move all of the specified instructions from the original basic block into
   // the new basic block.
-  New->getInstList().splice(New->end(), this->getInstList(), begin(), I);
+  New->blockSplice(New->end(), this, begin(), I);
 
   // Loop through all of the predecessors of the 'this' block (which will be the
   // predecessors of the New block), replace the specified successor 'this'
@@ -504,6 +652,134 @@ void BasicBlock::renumberInstructions() {
   setBasicBlockBits(Bits);
 
   NumInstrRenumberings++;
+}
+
+auto BasicBlock::getDanglingDbgValues() -> iterator_range<DIIterator> {
+  // Return the range of DPValues and other items that are hanging around at
+  // the end of the block, past any terminator. This is a non-cannonical form.
+  return make_range(beginDebugValueRange(InstList.end()), DbgProgramList.end());
+}
+
+void BasicBlock::flushTerminatorDbgValues() {
+  // If we juggle the terminators in a block, any DPValues will sink and "fall
+  // off the end", existing after any terminator that gets inserted. Where
+  // normally if we inserted a terminator at the end of a block, it would come
+  // after any dbg.values. To get out of this unfortunate form, whenever we
+  // insert a terminator, check whether there's anything dangling at the end
+  // and move those DPValues in front of the terminator.
+
+  if (DbgProgramList.empty())
+    return;
+
+  Instruction *Term = getTerminator();
+  if (!Term)
+    return;
+  
+  // Move the terminator's marker to the end of the list. Function is no-op if the terminator's marker is already at the end (i.e. there are no dangling debug values).
+  auto MarkerIt = Term->DbgMarker->getIterator();
+  DbgProgramList.splice(DbgProgramList.end(), DbgProgramList, MarkerIt, std::next(MarkerIt));
+}
+
+auto BasicBlock::beginDebugProgramRange(iterator FromHere) -> DIIterator {
+  if (FromHere == begin())
+    return DbgProgramList.begin();
+  if (FromHere == end()) {
+    // Hmmm, so everything up to the terminator and past it, eh?
+    return DbgProgramList.end();
+  }
+  auto Previous = std::prev(FromHere);
+  // If there is no DbgMarker, we are not inhaled, so DbgProgramList must be empty.
+  if (!Previous->DbgMarker) {
+    assert(DbgProgramList.empty());
+    return DbgProgramList.end();
+  }
+  return std::next(Previous->DbgMarker->getIterator());
+}
+
+auto BasicBlock::endDebugProgramRange(iterator FromHere) -> DIIterator {
+  if (FromHere == end())
+    return DbgProgramList.end();
+  // If there is no DbgMarker, we are not inhaled, so DbgProgramList must be empty.
+  if (!FromHere->DbgMarker) {
+    assert(DbgProgramList.empty());
+    return DbgProgramList.end();
+  }
+  return std::next(FromHere->DbgMarker->getIterator());
+}
+
+auto BasicBlock::beginDebugValueRange(iterator FromHere) -> DIIterator {
+  return beginDebugProgramRange(FromHere);
+}
+auto BasicBlock::endDebugValueRange(iterator FromHere) -> DIIterator {
+  return getDbgValueMarkerPos(FromHere);
+}
+
+auto BasicBlock::getDbgValueMarkerPos(iterator FromHere) -> DIIterator {
+  if (FromHere == end())
+    return DbgProgramList.end();
+  // If there is no DbgMarker, we are not inhaled, so DbgProgramList must be empty.
+  if (!FromHere->DbgMarker) {
+    assert(DbgProgramList.empty());
+    return DbgProgramList.end();
+  }
+  return FromHere->DbgMarker->getIterator();
+}
+
+void BasicBlock::blockSplice(iterator Dest, BasicBlock *Src, iterator First, iterator Last) {
+  // Find out where to _place_ these dbg.values; if InsertAtHead is specified,
+  // this will be at the start of Dest's debug value range, otherwise this is
+  // just Dest's marker.
+  bool InsertAtHead = Dest.getHeadBit();
+  bool ReadFromHead = First.getHeadBit();
+  // Use this flag to signal the abnormal case, where we don't want to copy the
+  // DPValues ahead of the "Last" position. 
+  bool ReadFromTail = !Last.getTailBit();
+
+  DIIterator InsertPoint = InsertAtHead ? beginDebugProgramRange(Dest) : getDbgValueMarkerPos(Dest);
+
+  // Lots of horrible special casing for empty transfers: the dbg.values between
+  // two positions could be spliced in dbg.value mode.
+  if (First == Last) {
+    if (!Src->empty() || DbgProgramList.empty()) {
+      // Non-empty block. Are we copying from the head?
+      if (!Src->empty() && First == Src->begin() && ReadFromHead) {
+        // We need to copy everything from the head of the block over to the destination then.
+        DIIterator MoveRangeBegin = Src->DbgProgramList.begin();
+        DIIterator MoveRangeEnd = Src->getDbgValueMarkerPos(First);
+        for (auto &Item : make_range(MoveRangeBegin, MoveRangeEnd))
+          Item.setParent(this);
+        DbgProgramList.splice(InsertPoint, Src->DbgProgramList, MoveRangeBegin, MoveRangeEnd);
+        return;
+      }
+    } else {
+      // Oh dear; dbg.values in an empty block. Move them over too.
+      for (auto &Item : Src->DbgProgramList)
+        Item.setParent(this);
+      DbgProgramList.splice(InsertPoint, Src->DbgProgramList, Src->DbgProgramList.begin(), Src->DbgProgramList.end());
+      return;
+    }
+  }
+
+  assert(Src->IsInhaled == IsInhaled);
+
+  // Find the start of the portion to copy; if ReadFromHead is specified, this includes First's debug value range, otherwise this is just First's marker.
+  DIIterator MoveRangeBegin = ReadFromHead ? Src->beginDebugProgramRange(First) : Src->getDbgValueMarkerPos(First);
+  // Find the end of the portion to copy.
+  DIIterator MoveRangeEnd = ReadFromTail ? Src->endDebugValueRange(Last) : Src->beginDebugValueRange(Last);
+
+  // Move debug stuff...
+  for (auto &Item : make_range(MoveRangeBegin, MoveRangeEnd))
+    Item.setParent(this);
+  DbgProgramList.splice(InsertPoint, Src->DbgProgramList, MoveRangeBegin, MoveRangeEnd);
+
+  // And move the instructions.
+  getInstList().splice(Dest, Src->getInstList(), First, Last);
+
+  flushTerminatorDbgValues();
+}
+
+void BasicBlock::blockSplice(iterator Dest, BasicBlock *Src) {
+  blockSplice(Dest, Src, Src->begin(), Src->end());
 }
 
 #ifndef NDEBUG

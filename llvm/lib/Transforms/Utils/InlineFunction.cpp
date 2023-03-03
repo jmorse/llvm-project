@@ -190,20 +190,21 @@ BasicBlock *LandingPadInliningInfo::getInnerResumeDest() {
   const unsigned PHICapacity = 2;
 
   // Create corresponding new PHIs for all the PHIs in the outer landing pad.
-  Instruction *InsertPoint = &InnerResumeDest->front();
+  BasicBlock::iterator InsertPoint = InnerResumeDest->begin();
   BasicBlock::iterator I = OuterResumeDest->begin();
   for (unsigned i = 0, e = UnwindDestPHIValues.size(); i != e; ++i, ++I) {
     PHINode *OuterPHI = cast<PHINode>(I);
     PHINode *InnerPHI = PHINode::Create(OuterPHI->getType(), PHICapacity,
-                                        OuterPHI->getName() + ".lpad-body",
-                                        InsertPoint);
+                                        OuterPHI->getName() + ".lpad-body");
+    InnerPHI->insertBefore(InsertPoint);
     OuterPHI->replaceAllUsesWith(InnerPHI);
     InnerPHI->addIncoming(OuterPHI, OuterResumeDest);
   }
 
   // Create a PHI for the exception values.
   InnerEHValuesPHI = PHINode::Create(CallerLPad->getType(), PHICapacity,
-                                     "eh.lpad-body", InsertPoint);
+                                     "eh.lpad-body");
+  InnerEHValuesPHI->insertBefore(InsertPoint);
   CallerLPad->replaceAllUsesWith(InnerEHValuesPHI);
   InnerEHValuesPHI->addIncoming(CallerLPad, OuterResumeDest);
 
@@ -1406,6 +1407,7 @@ static void HandleByValArgumentInit(Type *ByValType, Value *Dst, Value *Src,
                                     Module *M, BasicBlock *InsertBlock,
                                     InlineFunctionInfo &IFI) {
   IRBuilder<> Builder(InsertBlock, InsertBlock->begin());
+  Builder.SetInsertPoint(InsertBlock, InsertBlock->begin());
 
   Value *Size =
       Builder.getInt64(M->getDataLayout().getTypeStoreSize(ByValType));
@@ -1461,10 +1463,11 @@ static Value *HandleByValArgument(Type *ByValType, Value *Arg,
   if (ByValAlignment > 0)
     Alignment = std::max(Alignment, Align(ByValAlignment));
 
-  Value *NewAlloca =
+  AllocaInst *NewAlloca =
       new AllocaInst(ByValType, DL.getAllocaAddrSpace(), nullptr, Alignment,
-                     Arg->getName(), &*Caller->begin()->begin());
-  IFI.StaticAllocas.push_back(cast<AllocaInst>(NewAlloca));
+                     Arg->getName());
+  NewAlloca->insertBefore(Caller->begin()->begin());
+  IFI.StaticAllocas.push_back(NewAlloca);
 
   // Uses of the argument in the function should use our new alloca
   // instead.
@@ -1542,42 +1545,65 @@ static void fixupLineNumbers(Function *Fn, Function::iterator FI,
   // the call site location instead.
   bool NoInlineLineTables = Fn->hasFnAttribute("no-inline-line-tables");
 
+  // DDD: We need to update the inlined-at locations of inlined debug
+  // intrinsics, and update any DPValues in exactly the same way. So the
+  // logic below is copied and then updated for DPValues in another lambda.
+  auto UpdateInst = [&](Instruction &I) {
+    // Loop metadata needs to be updated so that the start and end locs
+    // reference inlined-at locations.
+    auto updateLoopInfoLoc = [&Ctx, &InlinedAtNode,
+                              &IANodes](Metadata *MD) -> Metadata * {
+      if (auto *Loc = dyn_cast_or_null<DILocation>(MD))
+        return inlineDebugLoc(Loc, InlinedAtNode, Ctx, IANodes).get();
+      return MD;
+    };
+    updateLoopMetadataDebugLocations(I, updateLoopInfoLoc);
+
+    if (!NoInlineLineTables)
+      if (DebugLoc DL = I.getDebugLoc()) {
+        DebugLoc IDL =
+            inlineDebugLoc(DL, InlinedAtNode, I.getContext(), IANodes);
+        I.setDebugLoc(IDL);
+        return;
+      }
+
+    if (CalleeHasDebugInfo && !NoInlineLineTables)
+      return;
+
+    // If the inlined instruction has no line number, or if inline info
+    // is not being generated, make it look as if it originates from the call
+    // location. This is important for ((__always_inline, __nodebug__))
+    // functions which must use caller location for all instructions in their
+    // function body.
+
+    // Don't update static allocas, as they may get moved later.
+    if (auto *AI = dyn_cast<AllocaInst>(&I))
+      if (allocaWouldBeStaticInEntry(AI))
+        return;
+
+    I.setDebugLoc(TheCallDL);
+  };
+  auto UpdateDPV = [&](DPValue *DPV) {
+    assert(DPV->getDebugLoc() && "Debug Value must have debug loc");
+    if (NoInlineLineTables) {
+      DPV->setDebugLoc(TheCallDL);
+      return;
+    }
+    DebugLoc DL = DPV->getDebugLoc();
+    DebugLoc IDL =
+        inlineDebugLoc(DL, InlinedAtNode, DPV->getParent()->getContext(), IANodes);
+    DPV->setDebugLoc(IDL);
+  };
+
   for (; FI != Fn->end(); ++FI) {
     for (BasicBlock::iterator BI = FI->begin(), BE = FI->end();
          BI != BE; ++BI) {
-      // Loop metadata needs to be updated so that the start and end locs
-      // reference inlined-at locations.
-      auto updateLoopInfoLoc = [&Ctx, &InlinedAtNode,
-                                &IANodes](Metadata *MD) -> Metadata * {
-        if (auto *Loc = dyn_cast_or_null<DILocation>(MD))
-          return inlineDebugLoc(Loc, InlinedAtNode, Ctx, IANodes).get();
-        return MD;
-      };
-      updateLoopMetadataDebugLocations(*BI, updateLoopInfoLoc);
-
-      if (!NoInlineLineTables)
-        if (DebugLoc DL = BI->getDebugLoc()) {
-          DebugLoc IDL =
-              inlineDebugLoc(DL, InlinedAtNode, BI->getContext(), IANodes);
-          BI->setDebugLoc(IDL);
-          continue;
-        }
-
-      if (CalleeHasDebugInfo && !NoInlineLineTables)
-        continue;
-
-      // If the inlined instruction has no line number, or if inline info
-      // is not being generated, make it look as if it originates from the call
-      // location. This is important for ((__always_inline, __nodebug__))
-      // functions which must use caller location for all instructions in their
-      // function body.
-
-      // Don't update static allocas, as they may get moved later.
-      if (auto *AI = dyn_cast<AllocaInst>(BI))
-        if (allocaWouldBeStaticInEntry(AI))
-          continue;
-
-      BI->setDebugLoc(TheCallDL);
+      UpdateInst(*BI);
+      for (auto &DPI : BI->getDbgValueRange()) {
+        assert(DPI.isValue());
+        DPValue *Value = static_cast<DPValue*>(&DPI);
+        UpdateDPV(Value);
+      }
     }
 
     // Remove debug info intrinsics if we're not keeping inline info.
@@ -1587,11 +1613,12 @@ static void fixupLineNumbers(Function *Fn, Function::iterator FI,
         if (isa<DbgInfoIntrinsic>(BI)) {
           BI = BI->eraseFromParent();
           continue;
+        } else {
+          BI->dropDbgValues();
         }
         ++BI;
       }
     }
-
   }
 }
 
@@ -1788,6 +1815,7 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
                                         bool InsertLifetime,
                                         Function *ForwardVarArgsTo) {
   assert(CB.getParent() && CB.getFunction() && "Instruction not in function!");
+Function *CallingFunction = CB.getFunction();
 
   // FIXME: we don't inline callbr yet.
   if (isa<CallBrInst>(CB))
@@ -1904,7 +1932,6 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
       }
     }
   }
-
   // Determine if we are dealing with a call in an EHPad which does not unwind
   // to caller.
   bool EHPadForCallUnwindsLocally = false;
@@ -2136,8 +2163,9 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
       // Transfer all of the allocas over in a block.  Using splice means
       // that the instructions aren't removed from the symbol table, then
       // reinserted.
-      Caller->getEntryBlock().getInstList().splice(
-          InsertPoint, FirstNewBlock->getInstList(), AI->getIterator(), I);
+      I.setTailBit(true);
+      Caller->getEntryBlock().blockSplice(
+          InsertPoint, &*FirstNewBlock, AI->getIterator(), I);
     }
   }
 
@@ -2241,6 +2269,7 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
   if ((InsertLifetime || Caller->isPresplitCoroutine()) &&
       !IFI.StaticAllocas.empty()) {
     IRBuilder<> builder(&FirstNewBlock->front());
+    builder.SetInsertPoint(&*FirstNewBlock, FirstNewBlock->begin());
     for (unsigned ai = 0, ae = IFI.StaticAllocas.size(); ai != ae; ++ai) {
       AllocaInst *AI = IFI.StaticAllocas[ai];
       // Don't mark swifterror allocas. They can't have bitcast uses.
@@ -2480,8 +2509,7 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
   // the calling basic block.
   if (Returns.size() == 1 && std::distance(FirstNewBlock, Caller->end()) == 1) {
     // Move all of the instructions right before the call.
-    OrigBB->getInstList().splice(CB.getIterator(), FirstNewBlock->getInstList(),
-                                 FirstNewBlock->begin(), FirstNewBlock->end());
+    OrigBB->blockSplice(CB.getIterator(), &*FirstNewBlock);
     // Remove the cloned basic block.
     Caller->getBasicBlockList().pop_back();
 
@@ -2556,9 +2584,8 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
   // Now that the function is correct, make it a little bit nicer.  In
   // particular, move the basic blocks inserted from the end of the function
   // into the space made by splitting the source basic block.
-  Caller->getBasicBlockList().splice(AfterCallBB->getIterator(),
-                                     Caller->getBasicBlockList(), FirstNewBlock,
-                                     Caller->end());
+  Caller->functionSplice(AfterCallBB->getIterator(), Caller, FirstNewBlock,
+                         Caller->end());
 
   // Handle all of the return instructions that we just cloned in, and eliminate
   // any users of the original call/invoke instruction.
@@ -2569,8 +2596,8 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
     // The PHI node should go at the front of the new basic block to merge all
     // possible incoming values.
     if (!CB.use_empty()) {
-      PHI = PHINode::Create(RTy, Returns.size(), CB.getName(),
-                            &AfterCallBB->front());
+      PHI = PHINode::Create(RTy, Returns.size(), CB.getName());
+      PHI->insertBefore(AfterCallBB->begin());
       // Anything that used the result of the function call should now use the
       // PHI node as their operand.
       CB.replaceAllUsesWith(PHI);
@@ -2618,8 +2645,7 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
 
     // Splice the code from the return block into the block that it will return
     // to, which contains the code that was after the call.
-    AfterCallBB->getInstList().splice(AfterCallBB->begin(),
-                                      ReturnBB->getInstList());
+    AfterCallBB->blockSplice(AfterCallBB->begin(), ReturnBB);
 
     if (CreatedBranchToNormalDest)
       CreatedBranchToNormalDest->setDebugLoc(Returns[0]->getDebugLoc());
@@ -2649,10 +2675,10 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
   // Splice the code entry block into calling block, right before the
   // unconditional branch.
   CalleeEntry->replaceAllUsesWith(OrigBB);  // Update PHI nodes
-  OrigBB->getInstList().splice(Br->getIterator(), CalleeEntry->getInstList());
+  OrigBB->blockSplice(Br->getIterator(), CalleeEntry);
 
   // Remove the unconditional branch.
-  OrigBB->getInstList().erase(Br);
+  Br->eraseFromParent();
 
   // Now we can remove the CalleeEntry block, which is now empty.
   Caller->getBasicBlockList().erase(CalleeEntry);

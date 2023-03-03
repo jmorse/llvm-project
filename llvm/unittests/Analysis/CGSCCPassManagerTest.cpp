@@ -1628,7 +1628,7 @@ TEST_F(CGSCCPassManagerTest, TestUpdateCGAndAnalysisManagerForPasses8) {
         BasicBlock *BB = BasicBlock::Create(FnewF->getContext(), "", FnewF);
         auto *RI = ReturnInst::Create(FnewF->getContext(), BB);
         while (FnF->getEntryBlock().size() > 1)
-          FnF->getEntryBlock().front().moveBefore(RI);
+          FnF->getEntryBlock().front().moveBeforeBreaking(RI);
         ASSERT_NE(FnF, nullptr);
 
         // Create an unsused constant that is referencing the old (=replaced)

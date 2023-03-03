@@ -385,14 +385,14 @@ static BasicBlock *insertUniqueBackedgeBlock(Loop *L, BasicBlock *Preheader,
   BasicBlock *BEBlock = BasicBlock::Create(Header->getContext(),
                                            Header->getName() + ".backedge", F);
   BranchInst *BETerminator = BranchInst::Create(Header, BEBlock);
-  BETerminator->setDebugLoc(Header->getFirstNonPHI()->getDebugLoc());
+  BETerminator->setDebugLoc(Header->getFirstNonPHIOrDbg()->getDebugLoc());
 
   LLVM_DEBUG(dbgs() << "LoopSimplify: Inserting unique backedge block "
                     << BEBlock->getName() << "\n");
 
   // Move the new backedge block to right after the last backedge block.
   Function::iterator InsertPos = ++BackedgeBlocks.back()->getIterator();
-  F->getBasicBlockList().splice(InsertPos, F->getBasicBlockList(), BEBlock);
+  F->functionSplice(InsertPos, F, BEBlock);
 
   // Now that the block has been inserted into the function, create PHI nodes in
   // the backedge block which correspond to any PHI nodes in the header block.
@@ -440,7 +440,7 @@ static BasicBlock *insertUniqueBackedgeBlock(Loop *L, BasicBlock *Preheader,
     // eliminate the PHI Node.
     if (HasUniqueIncomingValue) {
       NewPN->replaceAllUsesWith(UniqueValue);
-      BEBlock->getInstList().erase(NewPN);
+      NewPN->eraseFromParent();
     }
   }
 

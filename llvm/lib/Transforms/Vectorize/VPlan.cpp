@@ -409,6 +409,7 @@ VPBasicBlock *VPBasicBlock::splitAt(iterator SplitAt) {
   // Finally, move the recipes starting at SplitAt to new block.
   for (VPRecipeBase &ToMove :
        make_early_inc_range(make_range(SplitAt, this->end())))
+#warning Looks and feels like this is moving a whole bunch of stuff... but it isn't moving instructions?
     ToMove.moveBefore(*SplitBlock, SplitBlock->end());
 
   return SplitBlock;
@@ -710,7 +711,7 @@ void VPlan::execute(VPTransformState *State) {
       // Move the last step to the end of the latch block. This ensures
       // consistent placement of all induction updates.
       Instruction *Inc = cast<Instruction>(Phi->getIncomingValue(1));
-      Inc->moveBefore(VectorLatchBB->getTerminator()->getPrevNode());
+      Inc->moveBeforeBreaking(VectorLatchBB->getTerminator()->getPrevNode());
       continue;
     }
 

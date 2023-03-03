@@ -1461,7 +1461,7 @@ static void hoistValue(Value *V, Instruction *HoistPoint, Region *R,
     for (Value *Op : I->operands()) {
       hoistValue(Op, HoistPoint, R, HoistStopMap, HoistedSet, TrivialPHIs, DT);
     }
-    I->moveBefore(HoistPoint);
+    I->moveBeforeBreaking(HoistPoint);
     HoistedSet.insert(I);
     CHR_DEBUG(dbgs() << "hoistValue " << *I << "\n");
   }
@@ -1585,8 +1585,8 @@ static void insertTrivialPHIs(CHRScope *Scope,
         // Insert a trivial phi for I (phi [&I, P0], [&I, P1], ...) at
         // ExitBlock. Replace I with the new phi in UI unless UI is another
         // phi at ExitBlock.
-        PHINode *PN = PHINode::Create(I.getType(), pred_size(ExitBlock), "",
-                                      &ExitBlock->front());
+        PHINode *PN = PHINode::Create(I.getType(), pred_size(ExitBlock), "");
+        PN->insertBefore(ExitBlock->begin());
         for (BasicBlock *Pred : predecessors(ExitBlock)) {
           PN->addIncoming(&I, Pred);
         }
@@ -1746,6 +1746,7 @@ void CHR::cloneScopeBlocks(CHRScope *Scope,
                                             // sub-Scopes.
       assert(BB != PreEntryBlock && "Don't copy the preetntry block");
       BasicBlock *NewBB = CloneBasicBlock(BB, VMap, ".nonchr", &F);
+      NewBB->setInhaled(F.IsInhaled);
       NewBlocks.push_back(NewBB);
       VMap[BB] = NewBB;
     }
@@ -1753,9 +1754,8 @@ void CHR::cloneScopeBlocks(CHRScope *Scope,
   // Place the cloned blocks right after the original blocks (right before the
   // exit block of.)
   if (ExitBlock)
-    F.getBasicBlockList().splice(ExitBlock->getIterator(),
-                                 F.getBasicBlockList(),
-                                 NewBlocks[0]->getIterator(), F.end());
+    F.functionSplice(ExitBlock->getIterator(), &F, NewBlocks[0]->getIterator(),
+                     F.end());
 
   // Update the cloned blocks/instructions to refer to themselves.
   for (unsigned i = 0, e = NewBlocks.size(); i != e; ++i)
@@ -1801,7 +1801,7 @@ BranchInst *CHR::createMergedBranch(BasicBlock *PreEntryBlock,
   BranchInst *NewBR = BranchInst::Create(NewEntryBlock,
                                          cast<BasicBlock>(VMap[NewEntryBlock]),
                                          ConstantInt::getTrue(F.getContext()));
-  PreEntryBlock->getInstList().push_back(NewBR);
+  NewBR->insertBefore(*PreEntryBlock, PreEntryBlock->end());
   assert(NewEntryBlock->getSinglePredecessor() == EntryBlock &&
          "NewEntryBlock's only pred must be EntryBlock");
   return NewBR;

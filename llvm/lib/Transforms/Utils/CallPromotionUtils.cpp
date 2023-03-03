@@ -110,7 +110,7 @@ static void createRetPHINode(Instruction *OrigInst, Instruction *NewInst,
   if (OrigInst->getType()->isVoidTy() || OrigInst->use_empty())
     return;
 
-  Builder.SetInsertPoint(&MergeBlock->front());
+  Builder.SetInsertPoint(MergeBlock, MergeBlock->begin());
   PHINode *Phi = Builder.CreatePHI(OrigInst->getType(), 0);
   SmallVector<User *, 16> UsersToUpdate(OrigInst->users());
   for (User *U : UsersToUpdate)
@@ -345,7 +345,7 @@ CallBase &llvm::versionCallSite(CallBase &CB, Value *Callee,
   MergeBlock->setName("if.end.icp");
 
   CallBase *NewInst = cast<CallBase>(OrigInst->clone());
-  OrigInst->moveBefore(ElseTerm);
+  OrigInst->moveBeforeBreaking(ElseTerm);
   NewInst->insertBefore(ThenTerm);
 
   // If the original call site is an invoke instruction, we have extra work to

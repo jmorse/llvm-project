@@ -1379,7 +1379,7 @@ bool LoopInterchangeTransform::transform() {
     for (Instruction &I :
          make_early_inc_range(make_range(InnerLoopPreHeader->begin(),
                                          std::prev(InnerLoopPreHeader->end()))))
-      I.moveBefore(OuterLoopHeader->getTerminator());
+      I.moveBeforePreserving(OuterLoopHeader->getTerminator());
   }
 
   Transformed |= adjustLoopLinks();
@@ -1394,11 +1394,9 @@ bool LoopInterchangeTransform::transform() {
 /// \brief Move all instructions except the terminator from FromBB right before
 /// InsertBefore
 static void moveBBContents(BasicBlock *FromBB, Instruction *InsertBefore) {
-  auto &ToList = InsertBefore->getParent()->getInstList();
-  auto &FromList = FromBB->getInstList();
-
-  ToList.splice(InsertBefore->getIterator(), FromList, FromList.begin(),
-                FromBB->getTerminator()->getIterator());
+  BasicBlock *Dest = InsertBefore->getParent();
+  Dest->blockSplice(InsertBefore->getIterator(), FromBB,
+                    FromBB->begin(), FromBB->getTerminator()->getIterator());
 }
 
 /// Swap instructions between \p BB1 and \p BB2 but keep terminators intact.
@@ -1501,12 +1499,12 @@ static void moveLCSSAPhis(BasicBlock *InnerExit, BasicBlock *InnerHeader,
   // InnerLatch, which will become the new exit block for the innermost
   // loop after interchanging.
   for (PHINode *P : LcssaInnerExit)
-    P->moveBefore(InnerLatch->getFirstNonPHI());
+    P->moveBeforeBreaking(InnerLatch->getFirstNonPHI());
 
   // If the inner loop latch contains LCSSA PHIs, those come from a child loop
   // and we have to move them to the new inner latch.
   for (PHINode *P : LcssaInnerLatch)
-    P->moveBefore(InnerExit->getFirstNonPHI());
+    P->moveBeforeBreaking(InnerExit->getFirstNonPHI());
 
   // Deal with LCSSA PHI nodes in the loop nest exit block. For PHIs that have
   // incoming values defined in the outer loop, we have to add a new PHI
@@ -1672,12 +1670,12 @@ bool LoopInterchangeTransform::adjustLoopBranches() {
   // outer loop and all the remains to do is and updating the incoming blocks.
   for (PHINode *PHI : OuterLoopPHIs) {
     LLVM_DEBUG(dbgs() << "Outer loop reduction PHIs:\n"; PHI->dump(););
-    PHI->moveBefore(InnerLoopHeader->getFirstNonPHI());
+    PHI->moveBeforeBreaking(InnerLoopHeader->getFirstNonPHI());
     assert(OuterInnerReductions.count(PHI) && "Expected a reduction PHI node");
   }
   for (PHINode *PHI : InnerLoopPHIs) {
     LLVM_DEBUG(dbgs() << "Inner loop reduction PHIs:\n"; PHI->dump(););
-    PHI->moveBefore(OuterLoopHeader->getFirstNonPHI());
+    PHI->moveBeforeBreaking(OuterLoopHeader->getFirstNonPHI());
     assert(OuterInnerReductions.count(PHI) && "Expected a reduction PHI node");
   }
 

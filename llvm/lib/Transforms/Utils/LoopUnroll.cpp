@@ -537,7 +537,7 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
     for (LoopBlocksDFS::RPOIterator BB = BlockBegin; BB != BlockEnd; ++BB) {
       ValueToValueMapTy VMap;
       BasicBlock *New = CloneBasicBlock(*BB, VMap, "." + Twine(It));
-      Header->getParent()->getBasicBlockList().insert(BlockInsertPt, New);
+      New->insertInto(Header->getParent(), BlockInsertPt);
 
       assert((*BB != Header || LI->getLoopFor(*BB) == L) &&
              "Header should not be in a sub-loop");
@@ -556,7 +556,7 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
             if (It > 1 && L->contains(InValI))
               InVal = LastValueMap[InValI];
           VMap[OrigPHI] = InVal;
-          New->getInstList().erase(NewPHI);
+          NewPHI->eraseFromParent();
         }
 
       // Update our running map of newest clones
@@ -629,7 +629,7 @@ LoopUnrollResult llvm::UnrollLoop(Loop *L, UnrollLoopOptions ULO, LoopInfo *LI,
   for (PHINode *PN : OrigPHINode) {
     if (CompletelyUnroll) {
       PN->replaceAllUsesWith(PN->getIncomingValueForBlock(Preheader));
-      Header->getInstList().erase(PN);
+      PN->eraseFromParent();
     } else if (ULO.Count > 1) {
       Value *InVal = PN->removeIncomingValue(LatchBlock, false);
       // If this value was defined in the loop, take the value defined by the

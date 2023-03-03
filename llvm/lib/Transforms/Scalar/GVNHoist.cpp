@@ -1144,7 +1144,7 @@ std::pair<unsigned, unsigned> GVNHoist::hoist(HoistingPointList &HPL) {
       // Move the instruction at the end of HoistPt.
       Instruction *Last = DestBB->getTerminator();
       MD->removeInstruction(Repl);
-      Repl->moveBefore(Last);
+      Repl->moveBeforeBreaking(Last);
 
       DFSNumber[Repl] = DFSNumber[Last]++;
     }

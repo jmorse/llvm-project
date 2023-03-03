@@ -250,7 +250,7 @@ static bool sinkInstruction(
   }
   LLVM_DEBUG(dbgs() << "Sinking " << I << " To: " << MoveBB->getName() << '\n');
   NumLoopSunk++;
-  I.moveBefore(&*MoveBB->getFirstInsertionPt());
+  I.moveBeforeBreaking(&*MoveBB->getFirstInsertionPt());
 
   if (MSSAU)
     if (MemoryUseOrDef *OldMemAcc = cast_or_null<MemoryUseOrDef>(
@@ -358,7 +358,6 @@ PreservedAnalyses LoopSinkPass::run(Function &F, FunctionAnalysisManager &FAM) {
     Changed |= sinkLoopInvariantInstructions(L, AA, LI, DT, BFI, MSSA,
                                              /*ScalarEvolution*/ nullptr);
   } while (!PreorderLoops.empty());
-
   if (!Changed)
     return PreservedAnalyses::all();
 

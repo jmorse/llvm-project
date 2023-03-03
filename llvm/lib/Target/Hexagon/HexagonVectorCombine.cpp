@@ -662,11 +662,11 @@ auto AlignVectors::move(const MoveGroup &Move) const -> bool {
   if (Move.IsLoad) {
     // Move all deps to before Where, keeping order.
     for (Instruction *D : Move.Deps)
-      D->moveBefore(Where);
+      D->moveBeforeBreaking(Where);
     // Move all main instructions to after Where, keeping order.
     ArrayRef<Instruction *> Main(Move.Main);
     for (Instruction *M : Main.drop_front(1)) {
-      M->moveAfter(Where);
+      M->moveAfterBreaking(Where);
       Where = M;
     }
   } else {
@@ -676,7 +676,7 @@ auto AlignVectors::move(const MoveGroup &Move) const -> bool {
     // Move all main instructions to before Where, inverting order.
     ArrayRef<Instruction *> Main(Move.Main);
     for (Instruction *M : Main.drop_front(1)) {
-      M->moveBefore(Where);
+      M->moveBeforeBreaking(Where);
       Where = M;
     }
   }

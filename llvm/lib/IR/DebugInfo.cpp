@@ -24,6 +24,7 @@
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/DebugLoc.h"
+#include "llvm/IR/DebugProgramInstruction.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GVMaterializer.h"
 #include "llvm/IR/Instruction.h"
@@ -72,7 +73,7 @@ TinyPtrVector<DbgDeclareInst *> llvm::FindDbgDeclareUses(Value *V) {
   return DDIs;
 }
 
-void llvm::findDbgValues(SmallVectorImpl<DbgValueInst *> &DbgValues, Value *V) {
+void llvm::findDbgValues(SmallVectorImpl<DbgValueInst *> &DbgValues, SmallVectorImpl<DPValue *> &DPValues, Value *V) {
   // This function is hot. Check whether the value has any metadata to avoid a
   // DenseMap lookup.
   if (!V->isUsedByMetadata())
@@ -81,24 +82,41 @@ void llvm::findDbgValues(SmallVectorImpl<DbgValueInst *> &DbgValues, Value *V) {
   // only add the owning DbgValueInst once; use this set to track ArgListUsers.
   // This behaviour can be removed when we can automatically remove duplicates.
   SmallPtrSet<DbgValueInst *, 4> EncounteredDbgValues;
+  SmallPtrSet<DPValue *, 4> EncounteredDPValues;
   if (auto *L = LocalAsMetadata::getIfExists(V)) {
+    // Get DbgValueInsts that use this as a single value.
     if (auto *MDV = MetadataAsValue::getIfExists(V->getContext(), L)) {
       for (User *U : MDV->users())
         if (DbgValueInst *DVI = dyn_cast<DbgValueInst>(U))
           DbgValues.push_back(DVI);
     }
-    for (Metadata *AL : L->getAllArgListUsers()) {
+    // Get DPValues that use this as a single value.
+    for (DPValue *DPV : L->getAllDPValueUsers())
+      if (DPV->getType() == DPValue::LocationType::Value)
+        DPValues.push_back(DPV);
+    // For uses of this value wrapped in a DIArgList...
+    for (Metadata *MD : L->getAllArgListUsers()) {
+      DIArgList *AL = cast<DIArgList>(MD);
+      // Get DbgValueInsts that use this DIArgList.
       if (auto *MDV = MetadataAsValue::getIfExists(V->getContext(), AL)) {
         for (User *U : MDV->users())
           if (DbgValueInst *DVI = dyn_cast<DbgValueInst>(U))
             if (EncounteredDbgValues.insert(DVI).second)
               DbgValues.push_back(DVI);
       }
+      // Get DPValues that use this DIArgList.
+      if (auto *Replaceable = AL->getReplaceableUses()) {
+        for (DPValue *DPV : Replaceable->getAllDPValueUsers())
+          if (DPV->getType() == DPValue::LocationType::Value)
+            if (EncounteredDPValues.insert(DPV).second)
+              DPValues.push_back(DPV);
+      }
     }
   }
 }
 
 void llvm::findDbgUsers(SmallVectorImpl<DbgVariableIntrinsic *> &DbgUsers,
+                        SmallVectorImpl<DPValue *> &DPValues,
                         Value *V) {
   // This function is hot. Check whether the value has any metadata to avoid a
   // DenseMap lookup.
@@ -108,18 +126,31 @@ void llvm::findDbgUsers(SmallVectorImpl<DbgVariableIntrinsic *> &DbgUsers,
   // only add the owning DbgValueInst once; use this set to track ArgListUsers.
   // This behaviour can be removed when we can automatically remove duplicates.
   SmallPtrSet<DbgVariableIntrinsic *, 4> EncounteredDbgValues;
+  SmallPtrSet<DPValue *, 4> EncounteredDPValues;
   if (auto *L = LocalAsMetadata::getIfExists(V)) {
+    // Get DbgVariableIntrinsics that use this as a single value.
     if (auto *MDV = MetadataAsValue::getIfExists(V->getContext(), L)) {
       for (User *U : MDV->users())
         if (DbgVariableIntrinsic *DII = dyn_cast<DbgVariableIntrinsic>(U))
           DbgUsers.push_back(DII);
     }
-    for (Metadata *AL : L->getAllArgListUsers()) {
+    // Get DPValues that use this as a single value.
+    DPValues.append(L->getAllDPValueUsers());
+    // For uses of this value wrapped in a DIArgList...
+    for (Metadata *MD : L->getAllArgListUsers()) {
+      DIArgList *AL = cast<DIArgList>(MD);
+      // Get DbgValueInsts that use this DIArgList.
       if (auto *MDV = MetadataAsValue::getIfExists(V->getContext(), AL)) {
         for (User *U : MDV->users())
           if (DbgVariableIntrinsic *DII = dyn_cast<DbgVariableIntrinsic>(U))
             if (EncounteredDbgValues.insert(DII).second)
               DbgUsers.push_back(DII);
+      }
+      // Get DPValues that use this DIArgList.
+      if (auto *Replaceable = AL->getReplaceableUses()) {
+        for (DPValue *DPV : Replaceable->getAllDPValueUsers())
+          if (EncounteredDPValues.insert(DPV).second)
+            DPValues.push_back(DPV);
       }
     }
   }

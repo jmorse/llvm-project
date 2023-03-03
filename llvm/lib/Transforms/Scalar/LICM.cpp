@@ -471,7 +471,7 @@ bool LoopInvariantCodeMotion::runOnLoop(
       InsertPts.reserve(ExitBlocks.size());
       MSSAInsertPts.reserve(ExitBlocks.size());
       for (BasicBlock *ExitBlock : ExitBlocks) {
-        InsertPts.push_back(&*ExitBlock->getFirstInsertionPt());
+        InsertPts.push_back(&*ExitBlock->getFirstNonPHIOrDbg());
         MSSAInsertPts.push_back(nullptr);
       }
 
@@ -1420,7 +1420,7 @@ static Instruction *cloneInstructionInExitBlock(
     New = I.clone();
   }
 
-  ExitBlock.getInstList().insert(ExitBlock.getFirstInsertionPt(), New);
+  New->insertBefore(ExitBlock, ExitBlock.getFirstInsertionPt());
   if (!I.getName().empty())
     New->setName(I.getName() + ".le");
 
@@ -1450,7 +1450,8 @@ static Instruction *cloneInstructionInExitBlock(
       auto *OInst = cast<Instruction>(Op.get());
       PHINode *OpPN =
         PHINode::Create(OInst->getType(), PN.getNumIncomingValues(),
-                        OInst->getName() + ".lcssa", &ExitBlock.front());
+                        OInst->getName() + ".lcssa");
+      OpPN->insertBefore(ExitBlock.begin());
       for (unsigned i = 0, e = PN.getNumIncomingValues(); i != e; ++i)
         OpPN->addIncoming(OInst, PN.getIncomingBlock(i));
       Op = OpPN;
@@ -1471,7 +1472,7 @@ static void moveInstructionBefore(Instruction &I, Instruction &Dest,
                                   ScalarEvolution *SE) {
   SafetyInfo.removeInstruction(&I);
   SafetyInfo.insertInstructionTo(&I, Dest.getParent());
-  I.moveBefore(&Dest);
+  I.moveBeforeBreaking(&Dest);
   if (MemoryUseOrDef *OldMemAcc = cast_or_null<MemoryUseOrDef>(
           MSSAU.getMemorySSA()->getMemoryAccess(&I)))
     MSSAU.moveToPlace(OldMemAcc, Dest.getParent(), MemorySSA::BeforeTerminator);
@@ -1720,7 +1721,7 @@ static void hoist(Instruction &I, const DominatorTree *DT, const Loop *CurLoop,
 
   if (isa<PHINode>(I))
     // Move the new node to the end of the phi list in the destination block.
-    moveInstructionBefore(I, *Dest->getFirstNonPHI(), *SafetyInfo, MSSAU, SE);
+    moveInstructionBefore(I, *Dest->getFirstNonPHIOrDbg(), *SafetyInfo, MSSAU, SE);
   else
     // Move the new node to the destination block, before its terminator.
     moveInstructionBefore(I, *Dest->getTerminator(), *SafetyInfo, MSSAU, SE);
@@ -1790,7 +1791,8 @@ class LoopPromoter : public LoadAndStorePromoter {
     // We need to create an LCSSA PHI node for the incoming value and
     // store that.
     PHINode *PN = PHINode::Create(I->getType(), PredCache.size(BB),
-                                  I->getName() + ".lcssa", &BB->front());
+                                  I->getName() + ".lcssa");
+    PN->insertBefore(BB->begin());
     for (BasicBlock *Pred : PredCache.get(BB))
       PN->addIncoming(I, Pred);
     return PN;

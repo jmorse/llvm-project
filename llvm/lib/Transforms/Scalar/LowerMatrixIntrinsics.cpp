@@ -1623,7 +1623,7 @@ public:
         return DT->dominates(A, B);
       });
       for (Instruction *I : ToHoist)
-        I->moveBefore(MatMul);
+        I->moveBeforeBreaking(MatMul);
 
       emitSIMDTiling(MatMul, LoadOp0, LoadOp1, Store, FusedInsts);
       return;

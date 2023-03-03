@@ -228,7 +228,7 @@ void createBasicBlockAndSinkSelectInst(
                                  EndBlock->getParent(), EndBlock);
   NewBBs->push_back(*NewBlock);
   *NewBranch = BranchInst::Create(EndBlock, *NewBlock);
-  SIToSink->moveBefore(*NewBranch);
+  SIToSink->moveBeforeBreaking(*NewBranch);
   NewSIsToUnfold->push_back(SelectInstToUnfold(SIToSink, SIUse));
   DTU->applyUpdates({{DominatorTree::Insert, *NewBlock, EndBlock}});
 }

@@ -4737,7 +4737,7 @@ Error BitcodeReader::parseFunctionBody(Function *F) {
         if (Temp) {
           InstructionList.push_back(Temp);
           assert(CurBB && "No current BB?");
-          CurBB->getInstList().push_back(Temp);
+          Temp->insertBefore(*CurBB, CurBB->end());
         }
       } else {
         auto CastOp = (Instruction::CastOps)Opc;
@@ -5985,7 +5985,7 @@ Error BitcodeReader::parseFunctionBody(Function *F) {
         // Before weak cmpxchgs existed, the instruction simply returned the
         // value loaded from memory, so bitcode files from that era will be
         // expecting the first component of a modern cmpxchg.
-        CurBB->getInstList().push_back(I);
+        I->insertBefore(*CurBB, CurBB->end());
         I = ExtractValueInst::Create(I, 0);
         ResTypeID = CmpTypeID;
       } else {
@@ -6309,7 +6309,7 @@ Error BitcodeReader::parseFunctionBody(Function *F) {
       I->deleteValue();
       return error("Operand bundles found with no consumer");
     }
-    CurBB->getInstList().push_back(I);
+    I->insertBefore(*CurBB, CurBB->end());
 
     // If this was a terminator instruction, move to the next block.
     if (I->isTerminator()) {

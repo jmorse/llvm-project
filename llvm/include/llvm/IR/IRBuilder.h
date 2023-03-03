@@ -65,7 +65,7 @@ public:
   virtual void InsertHelper(Instruction *I, const Twine &Name,
                             BasicBlock *BB,
                             BasicBlock::iterator InsertPt) const {
-    if (BB) BB->getInstList().insert(InsertPt, I);
+    if (BB) I->insertBefore(*BB, InsertPt);
     I->setName(Name);
   }
 };
@@ -181,13 +181,21 @@ public:
     InsertPt = BB->end();
   }
 
+  // Avoid gnochange problems with where we get line numbers from.
+  // Really gmlt-no-change
+  DebugLoc getNextDebugLoc(Instruction *I) {
+    if (I->isDebugOrPseudoInst())
+      return I->getNextNonDebugInstruction()->getDebugLoc();
+    return I->getDebugLoc();
+  }
+
   /// This specifies that created instructions should be inserted before
   /// the specified instruction.
   void SetInsertPoint(Instruction *I) {
     BB = I->getParent();
     InsertPt = I->getIterator();
     assert(InsertPt != BB->end() && "Can't read debug loc from end()");
-    SetCurrentDebugLocation(I->getDebugLoc());
+    SetCurrentDebugLocation(getNextDebugLoc(I));
   }
 
   /// This specifies that created instructions should be inserted at the
@@ -196,7 +204,7 @@ public:
     BB = TheBB;
     InsertPt = IP;
     if (IP != TheBB->end())
-      SetCurrentDebugLocation(IP->getDebugLoc());
+      SetCurrentDebugLocation(getNextDebugLoc(&*IP));
   }
 
   /// Set location information used by debugging information.

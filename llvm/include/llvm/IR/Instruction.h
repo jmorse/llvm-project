@@ -30,6 +30,9 @@
 namespace llvm {
 
 class BasicBlock;
+class DebugProgramInstruction;
+class DPMarker;
+class DPValue;
 class FastMathFlags;
 class MDNode;
 class Module;
@@ -47,6 +50,20 @@ class Instruction : public User,
   /// Relative order of this instruction in its parent basic block. Used for
   /// O(1) local dominance checks between instructions.
   mutable unsigned Order = 0;
+
+public:
+  DPMarker *DbgMarker = nullptr;
+  void insertDebugBefore(Instruction *InsertPos);
+  void insertDebugBefore(BasicBlock *BB, SymbolTableList<Instruction>::iterator InsertPos);
+  // Retain this InsertAtHead flag -- this method is uncommon, and the position
+  // to insert at is within the debug-intrinsic list, not the IR list, so it
+  // doesn't make sense to communicate via that iterator.
+  void cloneDebugInfoFrom(const Instruction *From, bool InsertAtHead = false);
+  iterator_range<simple_ilist<DebugProgramInstruction>::iterator> getDbgValueRange() const;
+  bool hasDbgValues() const;
+  void dropDbgValues();
+  void dropOneDbgValue(DPValue *I);
+
 
 protected:
   // The 15 first bits of `Value::SubclassData` are available for subclasses of
@@ -124,23 +141,39 @@ public:
   /// Insert an unlinked instruction into a basic block immediately before
   /// the specified instruction.
   void insertBefore(Instruction *InsertPos);
+  void insertBefore(SymbolTableList<Instruction>::iterator InsertPos);
 
   /// Insert an unlinked instruction into a basic block immediately after the
   /// specified instruction.
   void insertAfter(Instruction *InsertPos);
+  void insertDebugAfter(Instruction *InsertPos);
+
+  void insertBefore(BasicBlock &BB, SymbolTableList<Instruction>::iterator InsertPos);
 
   /// Unlink this instruction from its current basic block and insert it into
   /// the basic block that MovePos lives in, right before MovePos.
-  void moveBefore(Instruction *MovePos);
+  // DDD: Use two flavours of move before, "breaking" signals that the control
+  // flow order of instructions is being broken (aka you're hoisting/sinking),
+  // while "preserving" means you're copying a block from one place to another.
+  // Debug-info should not move for the former, should for the latter.
+  void moveBeforeBreaking(Instruction *MovePos);
+  void moveBeforePreserving(Instruction *MovePos);
 
   /// Unlink this instruction and insert into BB before I.
   ///
   /// \pre I is a valid iterator into BB.
-  void moveBefore(BasicBlock &BB, SymbolTableList<Instruction>::iterator I);
+private:
+  // DDD: all other moves implemented with this method.
+  void moveBefore1(BasicBlock &BB, SymbolTableList<Instruction>::iterator I, bool Preserve);
+public:
+  void moveBeforeBreaking(BasicBlock &BB, SymbolTableList<Instruction>::iterator I);
+  void moveBeforePreserving(BasicBlock &BB, SymbolTableList<Instruction>::iterator I);
 
   /// Unlink this instruction from its current basic block and insert it into
   /// the basic block that MovePos lives in, right after MovePos.
-  void moveAfter(Instruction *MovePos);
+  // DDD: see comment on moveBeforeBreaking etc.
+  void moveAfterBreaking(Instruction *MovePos);
+  void moveAfterPreserving(Instruction *MovePos);
 
   /// Given an instruction Other in the same basic block as this instruction,
   /// return true if this instruction comes before Other. In this worst case,
@@ -694,7 +727,13 @@ public:
   ///   * The instruction has no parent
   ///   * The instruction has no name
   ///
-  Instruction *clone() const;
+  // DDD: Add an assert flag to detect scenarios where dbg.values get cloned. If
+  // they do then we want a runtime signal that the adjacent code needs to
+  // perform debug-info maintenence.
+  Instruction *clone(bool shouldassert=true) const;
+  Instruction *cloneMaybeDbg() const {
+    return clone(false);
+  }
 
   /// Return true if the specified instruction is exactly identical to the
   /// current one. This means that all operands match and any extra information

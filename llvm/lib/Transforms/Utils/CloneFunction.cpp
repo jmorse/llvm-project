@@ -21,6 +21,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -43,6 +44,7 @@ BasicBlock *llvm::CloneBasicBlock(const BasicBlock *BB, ValueToValueMapTy &VMap,
                                   ClonedCodeInfo *CodeInfo,
                                   DebugInfoFinder *DIFinder) {
   BasicBlock *NewBB = BasicBlock::Create(BB->getContext(), "", F);
+  NewBB->IsInhaled = BB->IsInhaled;
   if (BB->hasName())
     NewBB->setName(BB->getName() + NameSuffix);
 
@@ -54,10 +56,11 @@ BasicBlock *llvm::CloneBasicBlock(const BasicBlock *BB, ValueToValueMapTy &VMap,
     if (DIFinder && TheModule)
       DIFinder->processInstruction(*TheModule, I);
 
-    Instruction *NewInst = I.clone();
+    Instruction *NewInst = I.cloneMaybeDbg();
     if (I.hasName())
       NewInst->setName(I.getName() + NameSuffix);
-    NewBB->getInstList().push_back(NewInst);
+    NewInst->insertBefore(*NewBB, NewBB->end());
+    NewInst->cloneDebugInfoFrom(&I);
     VMap[&I] = NewInst; // Add instruction map to value.
 
     hasCalls |= (isa<CallInst>(I) && !I.isDebugOrPseudoInst());
@@ -434,8 +437,85 @@ PruningFunctionCloner::cloneInstruction(BasicBlock::const_iterator II) {
     }
   }
   if (!NewInst)
-    NewInst = II->clone();
+    NewInst = II->cloneMaybeDbg();
+
   return NewInst;
+}
+
+// DDD: there are several functions out there that follow a pattern of copying
+// the body of one block to another, that involves:
+//  * Re-mapping the Values to their new context,
+//  * Simplifying instructions in their new context, and
+//  * Deleting now redundant or simplified-away instructions.
+// In dbg.value mode, dbg.values in between instructions get cloned and remapped
+// in the normal course of things -- however we need to ensure that any DPValues
+// attached to instructions don't see the re-mapped value in that instruction:
+//
+//   dbg.value(%2, ...)
+//   %2 = add %0, %1
+//   %3 = mul %2, $2
+//
+// We would expect the dbg.value/DPValue to not be remapped, which requires
+// special sequencing. Even better: if %2 gets simplified away for some reason,
+// then  we will need to attach the dbg.value to the cloned instance of mul, but
+// without having "observed" the add. Which means some dbg.values/DPValues can
+// "see" some instructions that happend in the past, but not others!
+//
+// It's not easy, but not really difficult to implement this at each site that
+// features this cloning pattern. For speed of development, the function below
+// is provided to avoid re-implementing it a bunch of times: when cloning, we
+// record what instructions and dbg.values / DPValues were seen and when, then
+// unwind state whenever we insert a cloned instruction.
+extern bool DDDInhaleDbgValues;
+void
+cloneAndRemapDPValues(Module *M, iterator_range<BasicBlock::DIIterator> &DebugEntriesToRemap,
+          SmallVectorImpl<Instruction *> &ThingsToUnmap, Instruction *NewInst,
+          ValueToValueMapTy &VMap, bool ModuleLevelChanges, bool ignorelocals = false) {
+  // Do nothing if we're not supposed to be inhaled.
+  if (!DDDInhaleDbgValues)
+    return;
+
+  // Unmap from the value-mapper all instructions that we tried to clone since
+  // the last instruction was inserted.
+  SmallVector<Value *> MappedValuesToRestore;
+  for (Value *ToErase : ThingsToUnmap) {
+    MappedValuesToRestore.push_back(VMap[ToErase]);
+    VMap.erase(ToErase);
+  }
+
+  // Proceed to: step through DebugEntriesToRemap, cloning in and remapping
+  // the dbg.values / DPValues there. Incrementally step through ThingsToUnmap,
+  // which records the order of what was seen:
+  //  * DPValues for dbg.values that were encountered, and
+  //  * DPMarkers for "real" instructions encountered, indicating we should
+  //    restore their entry in the value map so that dbg.values get the
+  //    Authentic (TM) view of what values were defined if they were real
+  //    instructions.
+  unsigned int RemapIdx = 0;
+  for (auto &DebugEntry : DebugEntriesToRemap) {
+    if (DebugEntry.isMarker()) {
+      // Remap this real instruction.
+      DPMarker *Marker = static_cast<DPMarker*>(&DebugEntry);
+      if (ThingsToUnmap[RemapIdx] == Marker->MarkedInstr) {
+        VMap[ThingsToUnmap[RemapIdx]] = MappedValuesToRestore[RemapIdx];
+        ++RemapIdx;
+      }
+      continue;
+    }
+
+    // Remap and insert this DPValue.
+    assert(DebugEntry.isValue());
+    DPValue *DbgValue = static_cast<DPValue*>(&DebugEntry);
+    // TODO: Make this less awful by allowing the ValueMapper to directly remap DPValues.
+    DbgVariableIntrinsic *NewDebugValue = DbgValue->createDebugIntrinsic(M, nullptr);
+    RemapInstruction(NewDebugValue, VMap,
+                     (ModuleLevelChanges ? RF_None : RF_NoModuleLevelChanges) | (ignorelocals ? RF_IgnoreMissingLocals : RF_None));
+    NewDebugValue->insertDebugBefore(NewInst);
+  }
+
+  // We should have re-mapped all the instructions that we first unmapped.
+  assert(RemapIdx == ThingsToUnmap.size());
+  ThingsToUnmap.clear();
 }
 
 /// The specified block is found to be reachable, clone it and
@@ -454,6 +534,8 @@ void PruningFunctionCloner::CloneBlock(
   BBEntry = NewBB = BasicBlock::Create(BB->getContext());
   if (BB->hasName())
     NewBB->setName(BB->getName() + NameSuffix);
+  NewBB->IsInhaled = BB->IsInhaled;
+  Module *M = const_cast<Module*>(BB->getModule());
 
   // It is only legal to clone a function if a block address within that
   // function is never referenced outside of the function.  Given that, we
@@ -471,6 +553,10 @@ void PruningFunctionCloner::CloneBlock(
   }
 
   bool hasCalls = false, hasDynamicAllocas = false, hasStaticAllocas = false;
+
+  // DDD: see comment on cloneAndRemapDPValues for what we're tracking here.
+  BasicBlock::DIIterator StartDebugToRemap = const_cast<BasicBlock*>(BB)->DbgProgramList.begin();
+  SmallVector<Instruction *> ThingsToUnmap;
 
   // Loop over all instructions, and copy them over, DCE'ing as we go.  This
   // loop doesn't include the terminator.
@@ -505,6 +591,7 @@ void PruningFunctionCloner::CloneBlock(
 
         if (!NewInst->mayHaveSideEffects()) {
           VMap[&*II] = V;
+          ThingsToUnmap.push_back(const_cast<Instruction*>(&*II));
           NewInst->deleteValue();
           continue;
         }
@@ -514,8 +601,22 @@ void PruningFunctionCloner::CloneBlock(
     if (II->hasName())
       NewInst->setName(II->getName() + NameSuffix);
     VMap[&*II] = NewInst; // Add instruction map to value.
-    NewBB->getInstList().push_back(NewInst);
+    NewInst->insertBefore(*NewBB, NewBB->end());
     hasCalls |= (isa<CallInst>(II) && !II->isDebugOrPseudoInst());
+
+    // Remap cloned DPValues. Create a range from the last DPValue that we
+    // didn't clone, up to the current instruction inclusive. That means
+    // incrementing one past the current instructions marker.
+    BasicBlock *MutBB = const_cast<BasicBlock*>(BB);
+    Instruction *MutII = const_cast<Instruction*>(&*II);
+    auto CurMarker = MutBB->endDebugValueRange(MutII->getIterator());
+    auto CurMarkerPlusOne = std::next(CurMarker);
+    auto DebugRangeToRemap = make_range(StartDebugToRemap, CurMarkerPlusOne);
+    // We're mapping instrs that happen _before_ NewInst, so start by unmapping it.
+    ThingsToUnmap.push_back(MutII);
+    cloneAndRemapDPValues(M, DebugRangeToRemap, ThingsToUnmap, NewInst, VMap, ModuleLevelChanges);
+    // Final DPValue / marker may have changed,
+    StartDebugToRemap = MutBB->endDebugProgramRange(MutII->getIterator());
 
     if (CodeInfo) {
       CodeInfo->OrigVMap[&*II] = NewInst;
@@ -573,7 +674,13 @@ void PruningFunctionCloner::CloneBlock(
     Instruction *NewInst = OldTI->clone();
     if (OldTI->hasName())
       NewInst->setName(OldTI->getName() + NameSuffix);
-    NewBB->getInstList().push_back(NewInst);
+    NewInst->insertBefore(*NewBB, NewBB->end());
+
+    BasicBlock *MutBB = const_cast<BasicBlock*>(BB);
+    Instruction *MutTI = const_cast<Instruction*>(OldTI);
+    auto DebugToRemap = make_range(StartDebugToRemap, MutBB->endDebugValueRange(MutTI->getIterator()));
+    cloneAndRemapDPValues(M, DebugToRemap, ThingsToUnmap, NewInst, VMap, ModuleLevelChanges);
+
     VMap[OldTI] = NewInst; // Add instruction map to value.
 
     if (CodeInfo) {
@@ -585,6 +692,15 @@ void PruningFunctionCloner::CloneBlock(
 
     // Recursively clone any reachable successor blocks.
     append_range(ToClone, successors(BB->getTerminator()));
+  } else {
+    // If we didn't create a new terminator, clone DPValues from the old
+    // terminator onto the new terminator.
+    Instruction *NewInst = NewBB->getTerminator();
+    assert(NewInst);
+    BasicBlock *MutBB = const_cast<BasicBlock*>(BB);
+    Instruction *MutTI = const_cast<Instruction*>(OldTI);
+    auto DebugToRemap = make_range(StartDebugToRemap, MutBB->endDebugValueRange(MutTI->getIterator()));
+    cloneAndRemapDPValues(M, DebugToRemap, ThingsToUnmap, NewInst, VMap, ModuleLevelChanges);
   }
 
   if (CodeInfo) {
@@ -650,7 +766,7 @@ void llvm::CloneAndPruneIntoFromInst(Function *NewFunc, const Function *OldFunc,
       continue; // Dead block.
 
     // Add the new block to the new function.
-    NewFunc->getBasicBlockList().push_back(NewBB);
+    NewBB->insertInto(NewFunc, NewFunc->end());
 
     // Handle PHI nodes specially, as we have to remove references to dead
     // blocks.
@@ -856,7 +972,7 @@ void llvm::CloneAndPruneIntoFromInst(Function *NewFunc, const Function *OldFunc,
     Dest->replaceAllUsesWith(&*I);
 
     // Move all the instructions in the succ to the pred.
-    I->getInstList().splice(I->end(), Dest->getInstList());
+    I->blockSplice(I->end(), Dest);
 
     // Remove the dest block.
     Dest->eraseFromParent();
@@ -893,10 +1009,26 @@ void llvm::CloneAndPruneFunctionInto(
 void llvm::remapInstructionsInBlocks(
     const SmallVectorImpl<BasicBlock *> &Blocks, ValueToValueMapTy &VMap) {
   // Rewrite the code to refer to itself.
-  for (auto *BB : Blocks)
-    for (auto &Inst : *BB)
+  for (auto *BB : Blocks) {
+    Module *M = BB->getModule();
+    for (auto &Inst : *BB) {
+      for (auto &DbgValue : Inst.getDbgValueRange()) {
+        // Convert to debug intrinsic, remap that, then convert back to DPValue.
+        // TODO: Later on the ValueMapper should handle DPValues directly.
+        assert(DbgValue.isValue());
+        DPValue *Value = static_cast<DPValue*>(&DbgValue);
+        DbgVariableIntrinsic *DVI = Value->createDebugIntrinsic(M, nullptr);
+        RemapInstruction(DVI, VMap,
+                         RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
+        Value->setRawLocation(DVI->getRawLocation());
+        Value->setVariable(DVI->getVariable());
+        Value->setExpression(DVI->getExpression());
+        DVI->deleteValue();
+      }
       RemapInstruction(&Inst, VMap,
                        RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
+    }
+  }
 }
 
 /// Clones a loop \p OrigLoop.  Returns the loop and the blocks in \p
@@ -980,10 +1112,9 @@ Loop *llvm::cloneLoopWithPreheader(BasicBlock *Before, BasicBlock *LoopDomBB,
   }
 
   // Move them physically from the end of the block list.
-  F->getBasicBlockList().splice(Before->getIterator(), F->getBasicBlockList(),
-                                NewPH);
-  F->getBasicBlockList().splice(Before->getIterator(), F->getBasicBlockList(),
-                                NewLoop->getHeader()->getIterator(), F->end());
+  F->functionSplice(Before->getIterator(), F, NewPH);
+  F->functionSplice(Before->getIterator(), F,
+                    NewLoop->getHeader()->getIterator(), F->end());
 
   return NewLoop;
 }
@@ -1018,7 +1149,7 @@ BasicBlock *llvm::DuplicateInstructionsInSplitBetween(
   // Stop once we see the terminator too. This covers the case where BB's
   // terminator gets replaced and StopAt == BB's terminator.
   for (; StopAt != &*BI && BB->getTerminator() != &*BI; ++BI) {
-    Instruction *New = BI->clone();
+    Instruction *New = BI->cloneMaybeDbg();
     New->setName(BI->getName());
     New->insertBefore(NewTerm);
     ValueMapping[&*BI] = New;

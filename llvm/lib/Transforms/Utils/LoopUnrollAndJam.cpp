@@ -181,7 +181,7 @@ static void moveHeaderPhiOperandsToForeBlocks(BasicBlock *Header,
   BasicBlock *InsertLocBB = InsertLoc->getParent();
   for (Instruction *I : reverse(Visited)) {
     if (I->getParent() != InsertLocBB)
-      I->moveBefore(InsertLoc);
+      I->moveBeforePreserving(InsertLoc);
   }
 }
 
@@ -375,7 +375,7 @@ llvm::UnrollAndJamLoop(Loop *L, unsigned Count, unsigned TripCount,
     for (LoopBlocksDFS::RPOIterator BB = BlockBegin; BB != BlockEnd; ++BB) {
       ValueToValueMapTy VMap;
       BasicBlock *New = CloneBasicBlock(*BB, VMap, "." + Twine(It));
-      Header->getParent()->getBasicBlockList().push_back(New);
+      New->insertInto(Header->getParent(), Header->getParent()->end());
 
       // Tell LI about New.
       addClonedBlockToLoopInfo(*BB, New, LI, NewLoops);
@@ -481,7 +481,7 @@ llvm::UnrollAndJamLoop(Loop *L, unsigned Count, unsigned TripCount,
   auto movePHIs = [](BasicBlock *Src, BasicBlock *Dest) {
     Instruction *insertPoint = Dest->getFirstNonPHI();
     while (PHINode *Phi = dyn_cast<PHINode>(Src->begin()))
-      Phi->moveBefore(insertPoint);
+      Phi->moveBeforeBreaking(insertPoint);
   };
 
   // Update the PHI values outside the loop to point to the last block
@@ -497,7 +497,7 @@ llvm::UnrollAndJamLoop(Loop *L, unsigned Count, unsigned TripCount,
   if (CompletelyUnroll) {
     while (PHINode *Phi = dyn_cast<PHINode>(ForeBlocksFirst[0]->begin())) {
       Phi->replaceAllUsesWith(Phi->getIncomingValueForBlock(Preheader));
-      Phi->getParent()->getInstList().erase(Phi);
+      Phi->eraseFromParent();
     }
   } else {
     // Update the PHI values to point to the last aft block

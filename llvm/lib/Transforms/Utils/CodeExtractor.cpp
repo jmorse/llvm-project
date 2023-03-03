@@ -722,7 +722,8 @@ void CodeExtractor::severSplitPHINodesOfEntry(BasicBlock *&Header) {
       // Create a new PHI node in the new region, which has an incoming value
       // from OldPred of PN.
       PHINode *NewPN = PHINode::Create(PN->getType(), 1 + NumPredsFromRegion,
-                                       PN->getName() + ".ce", &NewBB->front());
+                                       PN->getName() + ".ce");
+      NewPN->insertBefore(NewBB->begin());
       PN->replaceAllUsesWith(NewPN);
       NewPN->addIncoming(PN, OldPred);
 
@@ -778,7 +779,8 @@ void CodeExtractor::severSplitPHINodesOfExits(
       // Split this PHI.
       PHINode *NewPN =
           PHINode::Create(PN.getType(), IncomingVals.size(),
-                          PN.getName() + ".ce", NewBB->getFirstNonPHI());
+                          PN.getName() + ".ce");
+      NewPN->insertBefore(NewBB->getFirstInsertionPt());
       for (unsigned i : IncomingVals)
         NewPN->addIncoming(PN.getIncomingValue(i), PN.getIncomingBlock(i));
       for (unsigned i : reverse(IncomingVals))
@@ -999,7 +1001,7 @@ Function *CodeExtractor::constructFunction(const ValueSet &inputs,
 
     newFunction->addFnAttr(Attr);
   }
-  newFunction->getBasicBlockList().push_back(newRootNode);
+  newRootNode->insertInto(newFunction, newFunction->end());
 
   // Create scalar and aggregate iterators to name all of the arguments we
   // inserted.
@@ -1208,7 +1210,7 @@ CallInst *CodeExtractor::emitCallAndSwitchStatement(Function *newFunction,
         Idx[1] = ConstantInt::get(Type::getInt32Ty(Context), i);
         GetElementPtrInst *GEP = GetElementPtrInst::Create(
             StructArgTy, Struct, Idx, "gep_" + StructValues[i]->getName());
-        codeReplacer->getInstList().push_back(GEP);
+        GEP->insertBefore(*codeReplacer, codeReplacer->end());
         new StoreInst(StructValues[i], GEP, codeReplacer);
         NumAggregatedInputs++;
       }
@@ -1226,7 +1228,7 @@ CallInst *CodeExtractor::emitCallAndSwitchStatement(Function *newFunction,
     if (auto DL = newFunction->getEntryBlock().getTerminator()->getDebugLoc())
       call->setDebugLoc(DL);
   }
-  codeReplacer->getInstList().push_back(call);
+  call->insertBefore(*codeReplacer, codeReplacer->end());
 
   // Set swifterror parameter attributes.
   for (unsigned SwiftErrArgNo : SwiftErrorArgs) {
@@ -1246,7 +1248,7 @@ CallInst *CodeExtractor::emitCallAndSwitchStatement(Function *newFunction,
       Idx[1] = ConstantInt::get(Type::getInt32Ty(Context), aggIdx);
       GetElementPtrInst *GEP = GetElementPtrInst::Create(
           StructArgTy, Struct, Idx, "gep_reload_" + outputs[i]->getName());
-      codeReplacer->getInstList().push_back(GEP);
+      GEP->insertBefore(*codeReplacer, codeReplacer->end());
       Output = GEP;
       ++aggIdx;
     } else {
@@ -1509,10 +1511,14 @@ void CodeExtractor::calculateNewCallTerminatorWeights(
 static void eraseDebugIntrinsicsWithNonLocalRefs(Function &F) {
   for (Instruction &I : instructions(F)) {
     SmallVector<DbgVariableIntrinsic *, 4> DbgUsers;
-    findDbgUsers(DbgUsers, &I);
+    SmallVector<DPValue *, 4> DPUsers;
+    findDbgUsers(DbgUsers, DPUsers, &I);
     for (DbgVariableIntrinsic *DVI : DbgUsers)
       if (DVI->getFunction() != &F)
         DVI->eraseFromParent();
+    for (DPValue *DPV : DPUsers)
+      if (DPV->getFunction() != &F)
+        DPV->eraseFromParent();
   }
 }
 
@@ -1725,7 +1731,7 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC,
       });
     });
   }
-  newFuncRoot->getInstList().push_back(BranchI);
+  BranchI->insertBefore(*newFuncRoot, newFuncRoot->end());
 
   ValueSet SinkingCands, HoistingCands;
   BasicBlock *CommonExit = nullptr;
@@ -1741,7 +1747,7 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC,
   AllocaInst *FirstSunkAlloca = nullptr;
   for (auto *II : SinkingCands) {
     if (auto *AI = dyn_cast<AllocaInst>(II)) {
-      AI->moveBefore(*newFuncRoot, newFuncRoot->getFirstInsertionPt());
+      AI->moveBeforeBreaking(*newFuncRoot, newFuncRoot->getFirstInsertionPt());
       if (!FirstSunkAlloca)
         FirstSunkAlloca = AI;
     }
@@ -1750,7 +1756,7 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC,
          "Did not expect a sink candidate without any allocas");
   for (auto *II : SinkingCands) {
     if (!isa<AllocaInst>(II)) {
-      cast<Instruction>(II)->moveAfter(FirstSunkAlloca);
+      cast<Instruction>(II)->moveAfterBreaking(FirstSunkAlloca);
     }
   }
 
@@ -1758,7 +1764,7 @@ CodeExtractor::extractCodeRegion(const CodeExtractorAnalysisCache &CEAC,
     auto *HoistToBlock = findOrCreateBlockForHoisting(CommonExit);
     Instruction *TI = HoistToBlock->getTerminator();
     for (auto *II : HoistingCands)
-      cast<Instruction>(II)->moveBefore(TI);
+      cast<Instruction>(II)->moveBeforeBreaking(TI);
   }
 
   // Collect objects which are inputs to the extraction region and also

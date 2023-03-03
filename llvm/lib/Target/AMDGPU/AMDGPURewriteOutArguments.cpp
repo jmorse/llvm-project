@@ -330,9 +330,11 @@ bool AMDGPURewriteOutArguments::runOnFunction(Function &F) {
   NewFunc->removeRetAttrs(RetAttrs);
   // TODO: How to preserve metadata?
 
+  NewFunc->setInhaled(F.IsInhaled);
+
   // Move the body of the function into the new rewritten function, and replace
   // this function with a stub.
-  NewFunc->getBasicBlockList().splice(NewFunc->begin(), F.getBasicBlockList());
+  NewFunc->functionSplice(NewFunc->begin(), &F);
 
   for (std::pair<ReturnInst *, ReplacementVec> &Replacement : Replacements) {
     ReturnInst *RI = Replacement.first;

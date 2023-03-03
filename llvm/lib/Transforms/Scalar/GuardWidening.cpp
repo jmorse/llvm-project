@@ -494,7 +494,7 @@ void GuardWideningImpl::makeAvailableAt(Value *V, Instruction *Loc) const {
   for (Value *Op : Inst->operands())
     makeAvailableAt(Op, Loc);
 
-  Inst->moveBefore(Loc);
+  Inst->moveBeforeBreaking(Loc);
   // If we moved instruction before guard we must clean poison generating flags.
   Inst->dropPoisonGeneratingFlags();
 }

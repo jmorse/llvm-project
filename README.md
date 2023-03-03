@@ -1,122 +1,34 @@
-# The LLVM Compiler Infrastructure
+# What's this?
 
-This directory and its sub-directories contain the source code for LLVM,
-a toolkit for the construction of highly optimized compilers,
-optimizers, and run-time environments.
+This tree is a prototype "what if we recorded debug-info outside of the instruction stream" implementation for exploring the design space. It's based on llvm-15. Caveats:
+ * This is _not_ intended to be submitted for review, it's an experiment.
+ * We've focused only on dbg.value intrinsics, as they best embody the problem we want to solve.
+ * Making the changes ergonomic to pass authors is the priority: there's a lot of design space for dbg.value storage to explore.
 
-The README briefly describes how to get started with building LLVM.
-For more information on how to contribute to the LLVM project, please
-take a look at the
-[Contributing to LLVM](https://llvm.org/docs/Contributing.html) guide.
+## What's the debug program stuff?
 
-## Getting Started with the LLVM System
+We transfer ("inhale") dbg.value intrinsics into a non-Instruction-class data structure, forming the "debug program" of DPValues and DPMarkers. It's effectively a shadow list of DPMarkers for real instructions, and DPValues inbetween them to record what used to be dbg.values. This has a number of properties that are close to the dbg.value implementation, for example the order of consecutive dbg.values is meaningful, and having the "debug program" in a list preserves that. It also has constant-time complexity. Having a lot of extra allocations behind the scenes isn't especially efficient, but that's not the objective at this stage.
 
-Taken from [here](https://llvm.org/docs/GettingStarted.html).
+The overwhelming objective of this design is to demonstrate that the same information (variable locations) can be preserved through LLVM, producing an identical binary, using only the (relatively small) collection of changes to the instruction API. If those changes are paletable to the wider community, we can think about making this fast too.
 
-### Overview
+## What should I look at?
 
-Welcome to the LLVM project!
+There are about 200 files changed -- there should be a PR open showing the diff. Please observe that the mental overhead for pass authors should be /fairly/ low, in that they have to pass an iterator into methods that insert instructions into blocks, where previously we used instruction pointers, and in other places you have to use a specific implementation of moveBefore.
 
-The LLVM project has multiple components. The core of the project is
-itself called "LLVM". This contains all of the tools, libraries, and header
-files needed to process intermediate representations and convert them into
-object files. Tools include an assembler, disassembler, bitcode analyzer, and
-bitcode optimizer. It also contains basic regression tests.
+In an ideal world we'd prohibit having insertion API calls that take an instruction pointer, forcing the pass author to type out "getIterator()", which necessitates the thought process of "I'm changing an instruction into a position in the block". That would be a great way of using type safety to mandate some decision making. On the other hand: it would be verbose, which no-one wants. Some significant unanswered questions are "how many debug-info faults are caused by using the wrong insertion method", "how damaging is that to the user experience" and "can we easily discover those scenarios through testing".
 
-C-like languages use the [Clang](http://clang.llvm.org/) frontend. This
-component compiles C, C++, Objective-C, and Objective-C++ code into LLVM bitcode
--- and from there into object files, using LLVM.
+In the same vein, we've removed the "moveBefore" method and mandated that moveBeforeBreaking or moveBeforePreserving is used, thus requiring pass authors to explicitly consider whether their instruction moving breaks the control-flow order of instructions, or preserves it. Maybe it's alright to just leave a plain moveBefore alias for moveBeforeBreaking -- we think explicit is better than implicit right now.
 
-Other components include:
-the [libc++ C++ standard library](https://libcxx.llvm.org),
-the [LLD linker](https://lld.llvm.org), and more.
+## Tell me about the shortcuts and long tail of ugly parts
 
-### Getting the Source Code and Building LLVM
-
-The LLVM Getting Started documentation may be out of date. The [Clang
-Getting Started](http://clang.llvm.org/get_started.html) page might have more
-accurate information.
-
-This is an example work-flow and configuration to get and build the LLVM source:
-
-1. Checkout LLVM (including related sub-projects like Clang):
-
-     * ``git clone https://github.com/llvm/llvm-project.git``
-
-     * Or, on windows, ``git clone --config core.autocrlf=false
-    https://github.com/llvm/llvm-project.git``
-
-2. Configure and build LLVM and Clang:
-
-     * ``cd llvm-project``
-
-     * ``cmake -S llvm -B build -G <generator> [options]``
-
-        Some common build system generators are:
-
-        * ``Ninja`` --- for generating [Ninja](https://ninja-build.org)
-          build files. Most llvm developers use Ninja.
-        * ``Unix Makefiles`` --- for generating make-compatible parallel makefiles.
-        * ``Visual Studio`` --- for generating Visual Studio projects and
-          solutions.
-        * ``Xcode`` --- for generating Xcode projects.
-
-        Some common options:
-
-        * ``-DLLVM_ENABLE_PROJECTS='...'`` and ``-DLLVM_ENABLE_RUNTIMES='...'`` ---
-          semicolon-separated list of the LLVM sub-projects and runtimes you'd like to
-          additionally build. ``LLVM_ENABLE_PROJECTS`` can include any of: clang,
-          clang-tools-extra, cross-project-tests, flang, libc, libclc, lld, lldb,
-          mlir, openmp, polly, or pstl. ``LLVM_ENABLE_RUNTIMES`` can include any of
-          libcxx, libcxxabi, libunwind, compiler-rt, libc or openmp. Some runtime
-          projects can be specified either in ``LLVM_ENABLE_PROJECTS`` or in
-          ``LLVM_ENABLE_RUNTIMES``.
-
-          For example, to build LLVM, Clang, libcxx, and libcxxabi, use
-          ``-DLLVM_ENABLE_PROJECTS="clang" -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi"``.
-
-        * ``-DCMAKE_INSTALL_PREFIX=directory`` --- Specify for *directory* the full
-          path name of where you want the LLVM tools and libraries to be installed
-          (default ``/usr/local``). Be careful if you install runtime libraries: if
-          your system uses those provided by LLVM (like libc++ or libc++abi), you
-          must not overwrite your system's copy of those libraries, since that
-          could render your system unusable. In general, using something like
-          ``/usr`` is not advised, but ``/usr/local`` is fine.
-
-        * ``-DCMAKE_BUILD_TYPE=type`` --- Valid options for *type* are Debug,
-          Release, RelWithDebInfo, and MinSizeRel. Default is Debug.
-
-        * ``-DLLVM_ENABLE_ASSERTIONS=On`` --- Compile with assertion checks enabled
-          (default is Yes for Debug builds, No for all other build types).
-
-      * ``cmake --build build [-- [options] <target>]`` or your build system specified above
-        directly.
-
-        * The default target (i.e. ``ninja`` or ``make``) will build all of LLVM.
-
-        * The ``check-all`` target (i.e. ``ninja check-all``) will run the
-          regression tests to ensure everything is in working order.
-
-        * CMake will generate targets for each tool and library, and most
-          LLVM sub-projects generate their own ``check-<project>`` target.
-
-        * Running a serial build will be **slow**. To improve speed, try running a
-          parallel build. That's done by default in Ninja; for ``make``, use the option
-          ``-j NNN``, where ``NNN`` is the number of parallel jobs to run.
-          In most cases, you get the best performance if you specify the number of CPU threads you have.
-          On some Unix systems, you can specify this with ``-j$(nproc)``.
-
-      * For more information see [CMake](https://llvm.org/docs/CMake.html).
-
-Consult the
-[Getting Started with LLVM](https://llvm.org/docs/GettingStarted.html#getting-started-with-llvm)
-page for detailed information on configuring and compiling LLVM. You can visit
-[Directory Layout](https://llvm.org/docs/GettingStarted.html#directory-layout)
-to learn about the layout of the source code tree.
-
-## Getting in touch
-
-Join [LLVM Discourse forums](https://discourse.llvm.org/), [discord chat](https://discord.gg/xS7Z362) or #llvm IRC channel on [OFTC](https://oftc.net/).
-
-The LLVM project has adopted a [code of conduct](https://llvm.org/docs/CodeOfConduct.html) for
-participants to all modes of communication within the project.
+If you insist. Here's a list of weirdnesses in our changes for future addressing, or if you spot something strange and wonder why. Plus, three or four scenarios where we haven't fully replicated the behaviour of dbg.values as it'd be labour intensive and won't shed any light on the API problems we want to address:
+ * There are numerous places where calls to getNextNonDebugInstruction or similar are added -- this is because we've run into every single "-g affects codegen" bug in this process.
+ * In 5-10 places we've replaced getFirstNonPHI with getFirstNonPHIOrDbg out of sheer lazyness. This makes the debug-info generated by this tree different from normal llvm-15, the former behaviour can be recovered through using getFirstInsertionPt and having the receiver of the position take an iterator
+ * MergeICmps: the doesOtherWork method has a debug-info-affects-codegen issue in it, where dbg.values are seen as "other work" that justifies creating a new block and having instructions hoisted into it before icmps are merged. By complete fluke, in the examples I've seen, they all produce the same code as before (with -g and without), but I don't believe that's guaranteed. This is a scenario where we would need extra special-casing for DPValues -- special casing that should already exist for dbg.values too. In our persuit of an identical binary, we've made both modes (dbg.value and "inhaled") drop debug-info, until we write that special casing.
+ * CodeGenPrepare: this pass speculatively starts making changes in a transaction manager, that then get rolled back if they're not going to work out. Unfortuantely, that's anathema to the DPValue design, as removing instructions at some position is going to mean coalescing all the DPValues nearby together, but if that gets rolled back then they will need to be peeled apart. It's not impossible, but we're not going to bother labouring on that when the design is very likely to change again.
+ * SimplifyCFG HoistThenElseCodeToIf -- this pairs up dbg.values from either side of the if/else and joins them into the hoisted block. This can be done with DPValues, but is fiddly, so we haven't bothered yet.
+ * removeRedundantDbgInstrsUsingBackwardScan exhales dbg.values, runs, and then inhales back to DPValues. We could re-implement this to work on DPValues easily, but haven't bothered yet.
+ * CloneFunction and LoopRotationUtils call a method called cloneAndRemapDPValues: because they optimise instructions at the same time as they clone them into new locations, it's especially horrible to maintain debug-info. This isn't a common code pattern, but will inevitably require more instrumentation for DPValues versus using dbg.value intrinsics.
+ * LoopRotationUtils also contains some extra special-cases because it hoists instructions as well as just cloning them.
+ * We skipped re-implementing replaceDbgValueForAlloca to use DPValues, it's very clear how this would be achieved, but it's used so rarely it didn't seem important right now.
+ * In LoopStrengthReduce we've also skipped salvaging of Values into DIArgLists -- there's a reasonably large block of code to clone and re-implement with DPValues. Again, not impossible to re-implement, but it doesn't tell us anything about debug-info maintenence in the rest of LLVM.

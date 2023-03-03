@@ -336,7 +336,7 @@ bool AtomicExpand::bracketInstWithFences(Instruction *I, AtomicOrdering Order) {
   // We have a guard here because not every atomic operation generates a
   // trailing fence.
   if (TrailingFence)
-    TrailingFence->moveAfter(I);
+    TrailingFence->moveAfterBreaking(I);
 
   return (LeadingFence || TrailingFence);
 }

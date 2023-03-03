@@ -156,7 +156,7 @@ struct OutlinableGroup {
 /// \param TargetBB - the BasicBlock to put Instruction into.
 static void moveBBContents(BasicBlock &SourceBB, BasicBlock &TargetBB) {
   for (Instruction &I : llvm::make_early_inc_range(SourceBB))
-    I.moveBefore(TargetBB, TargetBB.end());
+    I.moveBeforePreserving(TargetBB, TargetBB.end());
 }
 
 /// A function to sort the keys of \p Map, which must be a mapping of constant
@@ -1861,7 +1861,7 @@ replaceArgumentUses(OutlinableRegion &Region,
       StoreInst *NewI = cast<StoreInst>(I->clone());
       NewI->setDebugLoc(DebugLoc());
       BasicBlock *OutputBB = VBBIt->second;
-      OutputBB->getInstList().push_back(NewI);
+      NewI->insertBefore(*OutputBB, OutputBB->end());
       LLVM_DEBUG(dbgs() << "Move store for instruction " << *I << " to "
                         << *OutputBB << "\n");
 
@@ -2166,7 +2166,7 @@ void createSwitchStatement(
       Instruction *Term = EndBB->getTerminator();
       // Move the return value to the final block instead of the original exit
       // stub.
-      Term->moveBefore(*ReturnBlock, ReturnBlock->end());
+      Term->moveBeforeBreaking(*ReturnBlock, ReturnBlock->end());
       // Put the switch statement in the old end basic block for the function
       // with a fall through to the new return block.
       LLVM_DEBUG(dbgs() << "Create switch statement in " << *AggFunc << " for "
@@ -2216,7 +2216,7 @@ void createSwitchStatement(
       Term->eraseFromParent();
       Term = EndBB->getTerminator();
       moveBBContents(*OutputBB, *EndBB);
-      Term->moveBefore(*EndBB, EndBB->end());
+      Term->moveBeforeBreaking(*EndBB, EndBB->end());
       OutputBB->eraseFromParent();
     }
   }

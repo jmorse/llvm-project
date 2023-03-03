@@ -179,7 +179,7 @@ llvm::SplitKnownCriticalEdge(Instruction *TI, unsigned SuccNum,
   // Insert the block into the function... right after the block TI lives in.
   Function &F = *TIBB->getParent();
   Function::iterator FBBI = TIBB->getIterator();
-  F.getBasicBlockList().insert(++FBBI, NewBB);
+  NewBB->insertInto(&F, ++FBBI);
 
   // Branch to the new block, breaking the edge.
   TI->setSuccessor(SuccNum, NewBB);
@@ -449,8 +449,8 @@ bool llvm::SplitIndirectBrCriticalEdges(Function &F,
 
       // Create a PHI in the body block, to merge the direct and indirect
       // predecessors.
-      PHINode *MergePHI =
-          PHINode::Create(IndPHI->getType(), 2, "merge", &*MergeInsert);
+      PHINode *MergePHI = PHINode::Create(IndPHI->getType(), 2, "merge");
+      MergePHI->insertBefore(MergeInsert);
       MergePHI->addIncoming(NewIndPHI, Target);
       MergePHI->addIncoming(DirPHI, DirectSucc);
 

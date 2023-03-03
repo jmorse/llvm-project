@@ -2894,7 +2894,8 @@ bool GVNPass::performScalarPRE(Instruction *CurInst) {
   // Create a PHI to make the value available in this block.
   PHINode *Phi =
       PHINode::Create(CurInst->getType(), predMap.size(),
-                      CurInst->getName() + ".pre-phi", &CurrentBlock->front());
+                      CurInst->getName() + ".pre-phi");
+  Phi->insertBefore(CurrentBlock->begin());
   for (unsigned i = 0, e = predMap.size(); i != e; ++i) {
     if (Value *V = predMap[i].first) {
       // If we use an existing value in this phi, we have to patch the original

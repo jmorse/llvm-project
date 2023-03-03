@@ -1113,13 +1113,14 @@ Error IRLinker::linkFunctionBody(Function &Dst, Function &Src) {
     Dst.setPrologueData(Src.getPrologueData());
   if (Src.hasPersonalityFn())
     Dst.setPersonalityFn(Src.getPersonalityFn());
+  assert(Src.IsInhaled == Dst.IsInhaled);
 
   // Copy over the metadata attachments without remapping.
   Dst.copyMetadata(&Src, 0);
 
   // Steal arguments and splice the body of Src into Dst.
   Dst.stealArgumentListFrom(Src);
-  Dst.getBasicBlockList().splice(Dst.end(), Src.getBasicBlockList());
+  Dst.functionSplice(Dst.end(), &Src);
 
   // Everything has been moved over.  Remap it.
   Mapper.scheduleRemapFunction(Dst);

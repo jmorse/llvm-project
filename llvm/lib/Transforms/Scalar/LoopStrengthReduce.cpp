@@ -2514,13 +2514,13 @@ LSRInstance::OptimizeLoopTermCond() {
     // the exiting block branch, move it.
     if (Cond->getNextNonDebugInstruction() != TermBr) {
       if (Cond->hasOneUse()) {
-        Cond->moveBefore(TermBr);
+        Cond->moveBeforeBreaking(TermBr);
       } else {
         // Clone the terminating condition and insert into the loopend.
         ICmpInst *OldCond = Cond;
         Cond = cast<ICmpInst>(Cond->clone());
         Cond->setName(L->getHeader()->getName() + ".termcond");
-        ExitingBlock->getInstList().insert(TermBr->getIterator(), Cond);
+        Cond->insertBefore(TermBr);
 
         // Clone the IVUse, as the old use still exists!
         CondUse = &IU.AddUser(Cond, CondUse->getOperandValToReplace());
@@ -5274,7 +5274,7 @@ BasicBlock::iterator LSRInstance::AdjustInsertPositionForExpand(
   // IP consistent across expansions and allows the previously inserted
   // instructions to be reused by subsequent expansion.
   while (Rewriter.isInsertedInstruction(&*IP) && IP != LowestIP)
-    ++IP;
+    IP = IP->getNextNonDebugInstruction()->getIterator();;
 
   return IP;
 }
@@ -5290,7 +5290,7 @@ Value *LSRInstance::Expand(const LSRUse &LU, const LSRFixup &LF,
   // Determine an input position which will be dominated by the operands and
   // which will dominate the result.
   IP = AdjustInsertPositionForExpand(IP, LF, LU);
-  Rewriter.setInsertPoint(&*IP);
+  Rewriter.setInsertPoint(IP); // jmorse -- first case of needing to remove &*?
 
   // Inform the Rewriter if we have a post-increment use, so that it can
   // perform an advantageous expansion.
@@ -5686,7 +5686,7 @@ void LSRInstance::ImplementSolution(
     if (!llvm::all_of(BO->uses(),
                       [&](Use &U) {return DT.dominates(IVIncInsertPos, U);}))
       continue;
-    BO->moveBefore(IVIncInsertPos);
+    BO->moveBeforeBreaking(IVIncInsertPos);
     Changed = true;
   }
 
@@ -6583,7 +6583,10 @@ static bool ReduceLoopStrength(Loop *L, IVUsers &IU, ScalarEvolution &SE,
   // meet the salvageable criteria and store their DIExpression and SCEVs.
   SmallVector<std::unique_ptr<DVIRecoveryRec>, 2> SalvageableDVIRecords;
   SmallSet<AssertingVH<DbgValueInst>, 2> DVIHandles;
-  DbgGatherSalvagableDVI(L, SE, SalvageableDVIRecords, DVIHandles);
+// XXX jmorse: intrinsinc storage is kind of inherent to this facility. It could
+// be re-implemented with DPValues, however, that won't shed any light on the
+// API behaviours we want to expose.
+//  DbgGatherSalvagableDVI(L, SE, SalvageableDVIRecords, DVIHandles);
 
   bool Changed = false;
   std::unique_ptr<MemorySSAUpdater> MSSAU;

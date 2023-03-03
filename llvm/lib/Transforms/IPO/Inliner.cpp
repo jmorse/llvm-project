@@ -268,7 +268,10 @@ static void mergeInlinedArrayAllocas(Function *Caller, InlineFunctionInfo &IFI,
         if (auto *MDV = MetadataAsValue::getIfExists(AI->getContext(), L))
           for (User *U : MDV->users())
             if (DbgDeclareInst *DDI = dyn_cast<DbgDeclareInst>(U))
-              DDI->moveBefore(AvailableAlloca->getNextNode());
+              // jmorse: deliberately moving a dbg.declare is not the same as
+              // moving a dbg.value. Pipe this through moveBeforeBreaking
+              // for now, as we don't want to think about dbg.declares yet.
+              DDI->moveBeforeBreaking(AvailableAlloca->getNextNode());
 
       AI->replaceAllUsesWith(AvailableAlloca);
 

@@ -434,7 +434,9 @@ void SelectOptimize::convertProfitableSIGroups(SelectGroups &ProfSIGroups) {
       DIt++;
     }
     for (auto *DI : DebugPseudoINS) {
-      DI->moveBefore(&*EndBlock->getFirstInsertionPt());
+      // XXX -- this is suspicious behaviour. Also, hasn't shown up in identical
+      // binary testing as causing a difference yet.
+      DI->moveBeforePreserving(&*EndBlock->getFirstInsertionPt());
     }
 
     // These are the new basic blocks for the conditional branch.
@@ -447,7 +449,7 @@ void SelectOptimize::convertProfitableSIGroups(SelectGroups &ProfSIGroups) {
       TrueBranch = BranchInst::Create(EndBlock, TrueBlock);
       TrueBranch->setDebugLoc(LastSI->getDebugLoc());
       for (Instruction *TrueInst : TrueSlicesInterleaved)
-        TrueInst->moveBefore(TrueBranch);
+        TrueInst->moveBeforeBreaking(TrueBranch);
     }
     if (!FalseSlicesInterleaved.empty()) {
       FalseBlock = BasicBlock::Create(LastSI->getContext(), "select.false.sink",
@@ -455,7 +457,7 @@ void SelectOptimize::convertProfitableSIGroups(SelectGroups &ProfSIGroups) {
       FalseBranch = BranchInst::Create(EndBlock, FalseBlock);
       FalseBranch->setDebugLoc(LastSI->getDebugLoc());
       for (Instruction *FalseInst : FalseSlicesInterleaved)
-        FalseInst->moveBefore(FalseBranch);
+        FalseInst->moveBeforeBreaking(FalseBranch);
     }
     // If there was nothing to sink, then arbitrarily choose the 'false' side
     // for a new input value to the PHI.
@@ -500,7 +502,8 @@ void SelectOptimize::convertProfitableSIGroups(SelectGroups &ProfSIGroups) {
     for (auto It = ASI.rbegin(); It != ASI.rend(); ++It) {
       SelectInst *SI = *It;
       // The select itself is replaced with a PHI Node.
-      PHINode *PN = PHINode::Create(SI->getType(), 2, "", &EndBlock->front());
+      PHINode *PN = PHINode::Create(SI->getType(), 2, "");
+      PN->insertBefore(EndBlock->begin());
       PN->takeName(SI);
       PN->addIncoming(getTrueOrFalseValue(SI, true, INS), TrueBlock);
       PN->addIncoming(getTrueOrFalseValue(SI, false, INS), FalseBlock);

@@ -162,7 +162,7 @@ static std::pair<Value *, Value *> getShape(IntrinsicInst *II, unsigned OpNo) {
         // %106.
         Builder.SetInsertPoint(cast<Instruction>(II->getOperand(2)));
         Row = Builder.CreateUDiv(II->getOperand(2), Builder.getInt16(4));
-        cast<Instruction>(Row)->moveAfter(cast<Instruction>(II->getOperand(2)));
+        cast<Instruction>(Row)->moveAfterBreaking(cast<Instruction>(II->getOperand(2)));
       } else {
         // When it is not a const value and it is a function argument, we create
         // Row at the entry bb.
@@ -790,10 +790,10 @@ bool X86LowerAMXCast::optimizeAMXCastFromPhi(
         BasicBlock::iterator Iter = Block->getTerminator()->getIterator();
         Instruction *NewInst = Builder.CreateIntrinsic(
             Intrinsic::x86_tilezero_internal, None, {Row, Col});
-        NewInst->moveBefore(&*Iter);
+        NewInst->moveBeforeBreaking(&*Iter);
         NewInst = Builder.CreateIntrinsic(Intrinsic::x86_cast_tile_to_vector,
                                           {IncValue->getType()}, {NewInst});
-        NewInst->moveBefore(&*Iter);
+        NewInst->moveBeforeBreaking(&*Iter);
         // Replace InValue with new Value.
         OldPN->setIncomingValue(I, NewInst);
         IncValue = NewInst;

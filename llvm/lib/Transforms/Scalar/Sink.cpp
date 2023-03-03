@@ -167,7 +167,7 @@ static bool SinkInstruction(Instruction *Inst,
              SuccToSinkTo->printAsOperand(dbgs(), false); dbgs() << ")\n");
 
   // Move the instruction.
-  Inst->moveBefore(&*SuccToSinkTo->getFirstInsertionPt());
+  Inst->moveBeforeBreaking(&*SuccToSinkTo->getFirstInsertionPt());
   return true;
 }
 

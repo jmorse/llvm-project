@@ -138,7 +138,8 @@ TEST_F(ScalarEvolutionsTest, SimplifiedPHI) {
                      LoopBB);
   ReturnInst::Create(Context, nullptr, ExitBB);
   auto *Ty = Type::getInt32Ty(Context);
-  auto *PN = PHINode::Create(Ty, 2, "", &*LoopBB->begin());
+  auto *PN = PHINode::Create(Ty, 2, "");
+  PN->insertBefore(&*LoopBB->begin(), true);
   PN->addIncoming(Constant::getNullValue(Ty), EntryBB);
   PN->addIncoming(UndefValue::get(Ty), LoopBB);
   ScalarEvolution SE = buildSE(*F);

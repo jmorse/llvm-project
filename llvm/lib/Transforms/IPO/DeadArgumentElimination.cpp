@@ -168,6 +168,7 @@ bool DeadArgumentEliminationPass::deleteDeadVarargs(Function &F) {
   NF->setComdat(F.getComdat());
   F.getParent()->getFunctionList().insert(F.getIterator(), NF);
   NF->takeName(&F);
+  NF->IsInhaled = F.IsInhaled;
 
   // Loop over all the callers of the function, transforming the call sites
   // to pass in a smaller number of arguments into the new function.
@@ -222,7 +223,7 @@ bool DeadArgumentEliminationPass::deleteDeadVarargs(Function &F) {
   // Since we have now created the new function, splice the body of the old
   // function right into the new function, leaving the old rotting hulk of the
   // function empty.
-  NF->getBasicBlockList().splice(NF->begin(), F.getBasicBlockList());
+  NF->functionSplice(NF->begin(), &F);
 
   // Loop over the argument list, transferring uses of the old arguments over to
   // the new arguments, also transferring over the names as well.  While we're
@@ -863,6 +864,7 @@ bool DeadArgumentEliminationPass::removeDeadStuffFromFunction(Function *F) {
   // it again.
   F->getParent()->getFunctionList().insert(F->getIterator(), NF);
   NF->takeName(F);
+  NF->IsInhaled = F->IsInhaled;
 
   // Loop over all the callers of the function, transforming the call sites to
   // pass in a smaller number of arguments into the new function.
@@ -996,7 +998,7 @@ bool DeadArgumentEliminationPass::removeDeadStuffFromFunction(Function *F) {
   // Since we have now created the new function, splice the body of the old
   // function right into the new function, leaving the old rotting hulk of the
   // function empty.
-  NF->getBasicBlockList().splice(NF->begin(), F->getBasicBlockList());
+  NF->functionSplice(NF->begin(), F);
 
   // Loop over the argument list, transferring uses of the old arguments over to
   // the new arguments, also transferring over the names as well.
@@ -1056,7 +1058,7 @@ bool DeadArgumentEliminationPass::removeDeadStuffFromFunction(Function *F) {
         // value (possibly 0 if we became void).
         auto *NewRet = ReturnInst::Create(F->getContext(), RetVal, RI);
         NewRet->setDebugLoc(RI->getDebugLoc());
-        BB.getInstList().erase(RI);
+        RI->eraseFromParent();
       }
 
   // Clone metadata from the old function, including debug info descriptor.

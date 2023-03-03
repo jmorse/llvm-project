@@ -1234,7 +1234,7 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
 
   // See if any instructions in the block can be eliminated.  If so, do it.  If
   // not, add them to AvailableValues.
-  for (Instruction &Inst : make_early_inc_range(BB->getInstList())) {
+  for (Instruction &Inst : make_early_inc_range(*BB)) {
     // Dead instructions should just be removed.
     if (isInstructionTriviallyDead(&Inst, &TLI)) {
       LLVM_DEBUG(dbgs() << "EarlyCSE DCE: " << Inst << '\n');
@@ -1250,6 +1250,15 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
       Changed = true;
       ++NumSimplify;
       continue;
+    }
+
+    // jmorse: also try to knobble any meaningless dbg.values.
+    for (DebugProgramInstruction &DPInst : make_early_inc_range(Inst.getDbgValueRange())) {
+      assert(DPInst.isValue());
+      DPValue *DPV = static_cast<DPValue *>(&DPInst);
+      // Try to emulate `isInstructionTriviallyDead` here for DPValue.
+      if (DPV->getVariableLocationOp(0) == nullptr)
+        Inst.dropOneDbgValue(DPV);
     }
 
     // Skip assume intrinsics, they don't really have side effects (although

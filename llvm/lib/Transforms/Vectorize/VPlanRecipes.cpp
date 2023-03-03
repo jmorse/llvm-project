@@ -963,8 +963,8 @@ void VPWidenMemoryInstructionRecipe::print(raw_ostream &O, const Twine &Indent,
 
 void VPCanonicalIVPHIRecipe::execute(VPTransformState &State) {
   Value *Start = getStartValue()->getLiveInIRValue();
-  PHINode *EntryPart = PHINode::Create(
-      Start->getType(), 2, "index", &*State.CFG.PrevBB->getFirstInsertionPt());
+  PHINode *EntryPart = PHINode::Create(Start->getType(), 2, "index");
+  EntryPart->insertBefore(State.CFG.PrevBB->getFirstInsertionPt());
 
   BasicBlock *VectorPH = State.CFG.getPreheaderBBFor(this);
   EntryPart->addIncoming(Start, VectorPH);
@@ -1071,8 +1071,8 @@ void VPFirstOrderRecurrencePHIRecipe::execute(VPTransformState &State) {
   }
 
   // Create a phi node for the new recurrence.
-  PHINode *EntryPart = PHINode::Create(
-      VecTy, 2, "vector.recur", &*State.CFG.PrevBB->getFirstInsertionPt());
+  PHINode *EntryPart = PHINode::Create(VecTy, 2, "vector.recur");
+  EntryPart->insertBefore(State.CFG.PrevBB->getFirstInsertionPt());
   EntryPart->addIncoming(VectorInit, VectorPH);
   State.set(this, EntryPart, 0);
 }
@@ -1104,8 +1104,8 @@ void VPReductionPHIRecipe::execute(VPTransformState &State) {
          "recipe must be in the vector loop header");
   unsigned LastPartForNewPhi = isOrdered() ? 1 : State.UF;
   for (unsigned Part = 0; Part < LastPartForNewPhi; ++Part) {
-    Value *EntryPart =
-        PHINode::Create(VecTy, 2, "vec.phi", &*HeaderBB->getFirstInsertionPt());
+    Instruction *EntryPart = PHINode::Create(VecTy, 2, "vec.phi");
+    EntryPart->insertBefore(HeaderBB->getFirstInsertionPt());
     State.set(this, EntryPart, Part);
   }
 

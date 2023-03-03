@@ -191,6 +191,7 @@ doPromotion(Function *F, FunctionAnalysisManager &FAM,
                                   F->getName());
   NF->copyAttributesFrom(F);
   NF->copyMetadata(F, 0);
+  NF->setInhaled(F->IsInhaled);
 
   // The new function will have the !dbg metadata copied from the original
   // function. The original function may not be deleted, and dbg metadata need
@@ -300,7 +301,7 @@ doPromotion(Function *F, FunctionAnalysisManager &FAM,
   // Since we have now created the new function, splice the body of the old
   // function right into the new function, leaving the old rotting hulk of the
   // function empty.
-  NF->getBasicBlockList().splice(NF->begin(), F->getBasicBlockList());
+  NF->functionSplice(NF->begin(), F);
 
   // We will collect all the new created allocas to promote them into registers
   // after the following loop

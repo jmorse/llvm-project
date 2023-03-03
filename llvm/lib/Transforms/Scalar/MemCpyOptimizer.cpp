@@ -646,7 +646,7 @@ bool MemCpyOptPass::moveUp(StoreInst *SI, Instruction *P, const LoadInst *LI) {
   // We made it, we need to lift.
   for (auto *I : llvm::reverse(ToLift)) {
     LLVM_DEBUG(dbgs() << "Lifting " << *I << " before " << *P << "\n");
-    I->moveBefore(P);
+    I->moveBeforeBreaking(P);
     assert(MemInsertPoint && "Must have found insert point");
     if (MemoryUseOrDef *MA = MSSAU->getMemorySSA()->getMemoryAccess(I)) {
       MSSAU->moveAfter(MA, MemInsertPoint);
@@ -1038,7 +1038,7 @@ bool MemCpyOptPass::performCallSlotOptzn(Instruction *cpyLoad,
     auto *GEP = dyn_cast<GetElementPtrInst>(cpyDest);
     if (GEP && GEP->hasAllConstantIndices() &&
         DT->dominates(GEP->getPointerOperand(), C))
-      GEP->moveBefore(C);
+      GEP->moveBeforeBreaking(C);
     else
       return false;
   }
@@ -1648,7 +1648,6 @@ PreservedAnalyses MemCpyOptPass::run(Function &F, FunctionAnalysisManager &AM) {
   auto *AC = &AM.getResult<AssumptionAnalysis>(F);
   auto *DT = &AM.getResult<DominatorTreeAnalysis>(F);
   auto *MSSA = &AM.getResult<MemorySSAAnalysis>(F);
-
   bool MadeChange = runImpl(F, &TLI, AA, AC, DT, &MSSA->getMSSA());
   if (!MadeChange)
     return PreservedAnalyses::all();

@@ -81,10 +81,10 @@ void llvm::detachDeadBlocks(
       // eventually be removed (they are themselves dead).
       if (!I.use_empty())
         I.replaceAllUsesWith(PoisonValue::get(I.getType()));
-      BB->getInstList().pop_back();
+      I.eraseFromParent();
     }
     new UnreachableInst(BB->getContext(), BB);
-    assert(BB->getInstList().size() == 1 &&
+    assert(BB->size() == 1 &&
            isa<UnreachableInst>(BB->getTerminator()) &&
            "The successor list of BB isn't empty before "
            "applying corresponding DTU updates.");
@@ -266,8 +266,8 @@ bool llvm::MergeBlockIntoPredecessor(BasicBlock *BB, DomTreeUpdater *DTU,
     Start = PTI;
 
   // Move all definitions in the successor to the predecessor...
-  PredBB->getInstList().splice(PTI->getIterator(), BB->getInstList(),
-                               BB->begin(), STI->getIterator());
+  PredBB->blockSplice(PTI->getIterator(), BB,
+                      BB->begin(), STI->getIterator());
 
   if (MSSAU)
     MSSAU->moveAllAfterMergeBlocks(BB, PredBB, Start);
@@ -277,17 +277,17 @@ bool llvm::MergeBlockIntoPredecessor(BasicBlock *BB, DomTreeUpdater *DTU,
   BB->replaceAllUsesWith(PredBB);
 
   if (PredecessorWithTwoSuccessors) {
-    // Delete the unconditional branch from BB.
-    BB->getInstList().pop_back();
+    // Remove the unconditional branch from BB.
+    BB->back().eraseFromParent();
 
     // Update branch in the predecessor.
     PredBB_BI->setSuccessor(FallThruPath, NewSucc);
   } else {
-    // Delete the unconditional branch from the predecessor.
-    PredBB->getInstList().pop_back();
+    // Remove the unconditional branch from the predecessor.
+    PredBB->back().eraseFromParent();
 
     // Move terminator instruction.
-    PredBB->getInstList().splice(PredBB->end(), BB->getInstList());
+    BB->back().moveBeforePreserving(*PredBB, PredBB->end());
 
     // Terminator may be a memory accessing instruction too.
     if (MSSAU)
@@ -364,6 +364,11 @@ bool llvm::MergeBlockSuccessorsIntoGivenBlocks(
 /// - Support dbg.addr, dbg.declare. dbg.label, and possibly other meta
 ///   instructions being part of the sequence of consecutive instructions.
 static bool removeRedundantDbgInstrsUsingBackwardScan(BasicBlock *BB) {
+  // DDD: there's no principled reason why we can't re-implement this with
+  // DPValues, we're just lazy for now.
+  bool IsInhaled = BB->IsInhaled;
+  BB->exhaleDbgValues();
+
   SmallVector<DbgValueInst *, 8> ToBeRemoved;
   SmallDenseSet<DebugVariable> VariableSet;
   for (auto &I : reverse(*BB)) {
@@ -388,6 +393,9 @@ static bool removeRedundantDbgInstrsUsingBackwardScan(BasicBlock *BB) {
   for (auto &Instr : ToBeRemoved)
     Instr->eraseFromParent();
 
+  if (IsInhaled)
+    BB->inhaleDbgValues();
+
   return !ToBeRemoved.empty();
 }
 
@@ -411,6 +419,11 @@ static bool removeRedundantDbgInstrsUsingBackwardScan(BasicBlock *BB) {
 /// Possible improvements:
 /// - Keep track of non-overlapping fragments.
 static bool removeRedundantDbgInstrsUsingForwardScan(BasicBlock *BB) {
+  // As with the backward scan: don't bother re-implementing this with DPValues
+  // yet.
+  bool IsInhaled = BB->IsInhaled;
+  BB->exhaleDbgValues();
+
   SmallVector<DbgValueInst *, 8> ToBeRemoved;
   DenseMap<DebugVariable, std::pair<SmallVector<Value *, 4>, DIExpression *>>
       VariableMap;
@@ -436,6 +449,8 @@ static bool removeRedundantDbgInstrsUsingForwardScan(BasicBlock *BB) {
   for (auto &Instr : ToBeRemoved)
     Instr->eraseFromParent();
 
+  if (IsInhaled)
+    BB->inhaleDbgValues();
   return !ToBeRemoved.empty();
 }
 
@@ -461,7 +476,7 @@ bool llvm::RemoveRedundantDbgInstrs(BasicBlock *BB) {
   return MadeChanges;
 }
 
-void llvm::ReplaceInstWithValue(BasicBlock::InstListType &BIL,
+void llvm::ReplaceInstWithValue(BasicBlock &BB,
                                 BasicBlock::iterator &BI, Value *V) {
   Instruction &I = *BI;
   // Replaces all of the uses of the instruction with uses of the value
@@ -472,10 +487,12 @@ void llvm::ReplaceInstWithValue(BasicBlock::InstListType &BIL,
     V->takeName(&I);
 
   // Delete the unnecessary instruction now...
-  BI = BIL.erase(BI);
+  auto ToDelete = BI;
+  BI = std::next(BI);
+  ToDelete->eraseFromParent();
 }
 
-void llvm::ReplaceInstWithInst(BasicBlock::InstListType &BIL,
+void llvm::ReplaceInstWithInst(BasicBlock &BB,
                                BasicBlock::iterator &BI, Instruction *I) {
   assert(I->getParent() == nullptr &&
          "ReplaceInstWithInst: Instruction already inserted into basic block!");
@@ -486,10 +503,11 @@ void llvm::ReplaceInstWithInst(BasicBlock::InstListType &BIL,
     I->setDebugLoc(BI->getDebugLoc());
 
   // Insert the new instruction into the basic block...
-  BasicBlock::iterator New = BIL.insert(BI, I);
+  I->insertBefore(BB, BI);
+  BasicBlock::iterator New = I->getIterator();
 
   // Replace all uses of the old instruction, and delete it.
-  ReplaceInstWithValue(BIL, BI, I);
+  ReplaceInstWithValue(BB, BI, I);
 
   // Move BI back to point to the newly inserted instruction
   BI = New;
@@ -511,7 +529,7 @@ bool llvm::IsBlockFollowedByDeoptOrUnreachable(const BasicBlock *BB) {
 
 void llvm::ReplaceInstWithInst(Instruction *From, Instruction *To) {
   BasicBlock::iterator BI(From);
-  ReplaceInstWithInst(From->getParent()->getInstList(), BI, To);
+  ReplaceInstWithInst(*From->getParent(), BI, To);
 }
 
 BasicBlock *llvm::SplitEdge(BasicBlock *BB, BasicBlock *Succ, DominatorTree *DT,
@@ -754,8 +772,9 @@ void llvm::createPHIsForSplitLoopExit(ArrayRef<BasicBlock *> Preds,
 
     // Otherwise a new PHI is needed. Create one and populate it.
     PHINode *NewPN = PHINode::Create(
-        PN.getType(), Preds.size(), "split",
-        SplitBB->isLandingPad() ? &SplitBB->front() : SplitBB->getTerminator());
+        PN.getType(), Preds.size(), "split");
+    BasicBlock::iterator InsertPos = SplitBB->isLandingPad() ? SplitBB->begin() : SplitBB->getTerminator()->getIterator();
+    NewPN->insertBefore(InsertPos);
     for (BasicBlock *BB : Preds)
       NewPN->addIncoming(V, BB);
 
@@ -778,7 +797,7 @@ llvm::SplitAllCriticalEdges(Function &F,
   return NumBroken;
 }
 
-static BasicBlock *SplitBlockImpl(BasicBlock *Old, Instruction *SplitPt,
+static BasicBlock *SplitBlockImpl(BasicBlock *Old, BasicBlock::iterator SplitPt,
                                   DomTreeUpdater *DTU, DominatorTree *DT,
                                   LoopInfo *LI, MemorySSAUpdater *MSSAU,
                                   const Twine &BBName, bool Before) {
@@ -788,7 +807,7 @@ static BasicBlock *SplitBlockImpl(BasicBlock *Old, Instruction *SplitPt,
                             DTU ? DTU : (DT ? &LocalDTU : nullptr), LI, MSSAU,
                             BBName);
   }
-  BasicBlock::iterator SplitIt = SplitPt->getIterator();
+  BasicBlock::iterator SplitIt = SplitPt;
   while (isa<PHINode>(SplitIt) || SplitIt->isEHPad()) {
     ++SplitIt;
     assert(SplitIt != SplitPt->getParent()->end());
@@ -834,14 +853,14 @@ static BasicBlock *SplitBlockImpl(BasicBlock *Old, Instruction *SplitPt,
   return New;
 }
 
-BasicBlock *llvm::SplitBlock(BasicBlock *Old, Instruction *SplitPt,
+BasicBlock *llvm::SplitBlock(BasicBlock *Old, BasicBlock::iterator SplitPt,
                              DominatorTree *DT, LoopInfo *LI,
                              MemorySSAUpdater *MSSAU, const Twine &BBName,
                              bool Before) {
   return SplitBlockImpl(Old, SplitPt, /*DTU=*/nullptr, DT, LI, MSSAU, BBName,
                         Before);
 }
-BasicBlock *llvm::SplitBlock(BasicBlock *Old, Instruction *SplitPt,
+BasicBlock *llvm::SplitBlock(BasicBlock *Old, BasicBlock::iterator SplitPt,
                              DomTreeUpdater *DTU, LoopInfo *LI,
                              MemorySSAUpdater *MSSAU, const Twine &BBName,
                              bool Before) {
@@ -849,12 +868,12 @@ BasicBlock *llvm::SplitBlock(BasicBlock *Old, Instruction *SplitPt,
                         Before);
 }
 
-BasicBlock *llvm::splitBlockBefore(BasicBlock *Old, Instruction *SplitPt,
+BasicBlock *llvm::splitBlockBefore(BasicBlock *Old, BasicBlock::iterator SplitPt,
                                    DomTreeUpdater *DTU, LoopInfo *LI,
                                    MemorySSAUpdater *MSSAU,
                                    const Twine &BBName) {
 
-  BasicBlock::iterator SplitIt = SplitPt->getIterator();
+  BasicBlock::iterator SplitIt = SplitPt;
   while (isa<PHINode>(SplitIt) || SplitIt->isEHPad())
     ++SplitIt;
   std::string Name = BBName.str();
@@ -1205,7 +1224,7 @@ static void SplitLandingPadPredecessorsImpl(
 
   // The new block unconditionally branches to the old block.
   BranchInst *BI1 = BranchInst::Create(OrigBB, NewBB1);
-  BI1->setDebugLoc(OrigBB->getFirstNonPHI()->getDebugLoc());
+  BI1->setDebugLoc(OrigBB->getFirstNonPHIOrDbg()->getDebugLoc());
 
   // Move the edges from Preds to point to NewBB1 instead of OrigBB.
   for (unsigned i = 0, e = Preds.size(); i != e; ++i) {
@@ -1246,7 +1265,7 @@ static void SplitLandingPadPredecessorsImpl(
 
     // The new block unconditionally branches to the old block.
     BranchInst *BI2 = BranchInst::Create(OrigBB, NewBB2);
-    BI2->setDebugLoc(OrigBB->getFirstNonPHI()->getDebugLoc());
+    BI2->setDebugLoc(OrigBB->getFirstNonPHIOrDbg()->getDebugLoc());
 
     // Move the remaining edges from OrigBB to point to NewBB2.
     for (BasicBlock *NewBB2Pred : NewBB2Preds)
@@ -1264,12 +1283,12 @@ static void SplitLandingPadPredecessorsImpl(
   LandingPadInst *LPad = OrigBB->getLandingPadInst();
   Instruction *Clone1 = LPad->clone();
   Clone1->setName(Twine("lpad") + Suffix1);
-  NewBB1->getInstList().insert(NewBB1->getFirstInsertionPt(), Clone1);
+  Clone1->insertBefore(*NewBB1, NewBB1->getFirstInsertionPt());
 
   if (NewBB2) {
     Instruction *Clone2 = LPad->clone();
     Clone2->setName(Twine("lpad") + Suffix2);
-    NewBB2->getInstList().insert(NewBB2->getFirstInsertionPt(), Clone2);
+    Clone2->insertBefore(*NewBB2, NewBB2->getFirstInsertionPt());
 
     // Create a PHI node for the two cloned landingpad instructions only
     // if the original landingpad instruction has some uses.
@@ -1320,7 +1339,7 @@ ReturnInst *llvm::FoldReturnIntoUncondBranch(ReturnInst *RI, BasicBlock *BB,
   Instruction *UncondBranch = Pred->getTerminator();
   // Clone the return and add it to the end of the predecessor.
   Instruction *NewRet = RI->clone();
-  Pred->getInstList().push_back(NewRet);
+  NewRet->insertBefore(*Pred, Pred->end());
 
   // If the return instruction returns a value, and if the value was a
   // PHI node in "BB", propagate the right value into the return.
@@ -1332,7 +1351,7 @@ ReturnInst *llvm::FoldReturnIntoUncondBranch(ReturnInst *RI, BasicBlock *BB,
       // return instruction.
       V = BCI->getOperand(0);
       NewBC = BCI->clone();
-      Pred->getInstList().insert(NewRet->getIterator(), NewBC);
+      NewBC->insertBefore(NewRet);
       Op = NewBC;
     }
 
@@ -1342,9 +1361,9 @@ ReturnInst *llvm::FoldReturnIntoUncondBranch(ReturnInst *RI, BasicBlock *BB,
       NewEV = EVI->clone();
       if (NewBC) {
         NewBC->setOperand(0, NewEV);
-        Pred->getInstList().insert(NewBC->getIterator(), NewEV);
+        NewEV->insertBefore(NewBC);
       } else {
-        Pred->getInstList().insert(NewRet->getIterator(), NewEV);
+        NewEV->insertBefore(NewRet);
         Op = NewEV;
       }
     }
@@ -1373,13 +1392,17 @@ ReturnInst *llvm::FoldReturnIntoUncondBranch(ReturnInst *RI, BasicBlock *BB,
 }
 
 static Instruction *
-SplitBlockAndInsertIfThenImpl(Value *Cond, Instruction *SplitBefore,
+SplitBlockAndInsertIfThenImpl(Value *Cond, BasicBlock::iterator SplitBefore,
                               bool Unreachable, MDNode *BranchWeights,
                               DomTreeUpdater *DTU, DominatorTree *DT,
                               LoopInfo *LI, BasicBlock *ThenBlock) {
   SmallVector<DominatorTree::UpdateType, 8> Updates;
   BasicBlock *Head = SplitBefore->getParent();
-  BasicBlock *Tail = Head->splitBasicBlock(SplitBefore->getIterator());
+  DebugLoc DbgLoc = SplitBefore->getDebugLoc();
+  // DDD: don't take DebugLocs from debug instructions.
+  if (isa<DbgInfoIntrinsic>(&*SplitBefore))
+    DbgLoc = SplitBefore->getNextNonDebugInstruction()->getDebugLoc();
+  BasicBlock *Tail = Head->splitBasicBlock(SplitBefore, "", false);
   if (DTU) {
     SmallPtrSet<BasicBlock *, 8> UniqueSuccessorsOfHead;
     Updates.push_back({DominatorTree::Insert, Head, Tail});
@@ -1403,7 +1426,7 @@ SplitBlockAndInsertIfThenImpl(Value *Cond, Instruction *SplitBefore,
       if (DTU)
         Updates.push_back({DominatorTree::Insert, ThenBlock, Tail});
     }
-    CheckTerm->setDebugLoc(SplitBefore->getDebugLoc());
+    CheckTerm->setDebugLoc(DbgLoc);
   } else
     CheckTerm = ThenBlock->getTerminator();
   BranchInst *HeadNewTerm =
@@ -1442,7 +1465,7 @@ SplitBlockAndInsertIfThenImpl(Value *Cond, Instruction *SplitBefore,
 }
 
 Instruction *llvm::SplitBlockAndInsertIfThen(Value *Cond,
-                                             Instruction *SplitBefore,
+                                             BasicBlock::iterator SplitBefore,
                                              bool Unreachable,
                                              MDNode *BranchWeights,
                                              DominatorTree *DT, LoopInfo *LI,
@@ -1452,7 +1475,7 @@ Instruction *llvm::SplitBlockAndInsertIfThen(Value *Cond,
                                        /*DTU=*/nullptr, DT, LI, ThenBlock);
 }
 Instruction *llvm::SplitBlockAndInsertIfThen(Value *Cond,
-                                             Instruction *SplitBefore,
+                                             BasicBlock::iterator SplitBefore,
                                              bool Unreachable,
                                              MDNode *BranchWeights,
                                              DomTreeUpdater *DTU, LoopInfo *LI,
@@ -1467,15 +1490,19 @@ void llvm::SplitBlockAndInsertIfThenElse(Value *Cond, Instruction *SplitBefore,
                                          Instruction **ElseTerm,
                                          MDNode *BranchWeights) {
   BasicBlock *Head = SplitBefore->getParent();
+  DebugLoc DbgLoc = SplitBefore->getDebugLoc();
+  // DDD: don't take DebugLocs from debug instructions.
+  if (isa<DbgInfoIntrinsic>(SplitBefore))
+    DbgLoc = SplitBefore->getNextNonDebugInstruction()->getDebugLoc();
   BasicBlock *Tail = Head->splitBasicBlock(SplitBefore->getIterator());
   Instruction *HeadOldTerm = Head->getTerminator();
   LLVMContext &C = Head->getContext();
   BasicBlock *ThenBlock = BasicBlock::Create(C, "", Head->getParent(), Tail);
   BasicBlock *ElseBlock = BasicBlock::Create(C, "", Head->getParent(), Tail);
   *ThenTerm = BranchInst::Create(Tail, ThenBlock);
-  (*ThenTerm)->setDebugLoc(SplitBefore->getDebugLoc());
+  (*ThenTerm)->setDebugLoc(DbgLoc);
   *ElseTerm = BranchInst::Create(Tail, ElseBlock);
-  (*ElseTerm)->setDebugLoc(SplitBefore->getDebugLoc());
+  (*ElseTerm)->setDebugLoc(DbgLoc);
   BranchInst *HeadNewTerm =
     BranchInst::Create(/*ifTrue*/ThenBlock, /*ifFalse*/ElseBlock, Cond);
   HeadNewTerm->setMetadata(LLVMContext::MD_prof, BranchWeights);

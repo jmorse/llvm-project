@@ -27,6 +27,7 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/Module.h"
@@ -104,8 +105,8 @@ static void ConnectProlog(Loop *L, Value *BECount, unsigned Count,
       // PrologLatch. When supporting multiple-exiting block loops, we can have
       // two or more blocks that have the LatchExit as the target in the
       // original loop.
-      PHINode *NewPN = PHINode::Create(PN.getType(), 2, PN.getName() + ".unr",
-                                       PrologExit->getFirstNonPHI());
+      PHINode *NewPN = PHINode::Create(PN.getType(), 2, PN.getName() + ".unr");
+      NewPN->insertBefore(PrologExit->getFirstInsertionPt());
       // Adding a value to the new PHI node from the original loop preheader.
       // This is the value that skips all the prolog code.
       if (L->contains(&PN)) {
@@ -268,8 +269,8 @@ static void ConnectEpilog(Loop *L, Value *ModVal, BasicBlock *NewExit,
     for (PHINode &PN : Succ->phis()) {
       // Add new PHI nodes to the loop exit block and update epilog
       // PHIs with the new PHI values.
-      PHINode *NewPN = PHINode::Create(PN.getType(), 2, PN.getName() + ".unr",
-                                       NewExit->getFirstNonPHI());
+      PHINode *NewPN = PHINode::Create(PN.getType(), 2, PN.getName() + ".unr");
+      NewPN->insertBefore(NewExit->getFirstInsertionPt());
       // Adding a value to the new PHI node from the unrolling loop preheader.
       NewPN->addIncoming(PN.getIncomingValueForBlock(NewPreHeader), PreHeader);
       // Adding a value to the new PHI node from the unrolling loop latch.
@@ -363,8 +364,8 @@ CloneLoopBlocks(Loop *L, Value *NewIter, const bool UseEpilogRemainder,
       BranchInst *LatchBR = cast<BranchInst>(NewBB->getTerminator());
       IRBuilder<> Builder(LatchBR);
       PHINode *NewIdx = PHINode::Create(NewIter->getType(), 2,
-                                        suffix + ".iter",
-                                        FirstLoopBB->getFirstNonPHI());
+                                        suffix + ".iter");
+      NewIdx->insertBefore(FirstLoopBB->getFirstInsertionPt());
       auto *Zero = ConstantInt::get(NewIdx->getType(), 0);
       auto *One = ConstantInt::get(NewIdx->getType(), 1);
       Value *IdxNext = Builder.CreateAdd(NewIdx, One, NewIdx->getName() + ".next");
@@ -811,10 +812,8 @@ bool llvm::UnrollRuntimeLoopRemainder(
     updateLatchBranchWeightsForRemainderLoop(L, remainderLoop, Count);
 
   // Insert the cloned blocks into the function.
-  F->getBasicBlockList().splice(InsertBot->getIterator(),
-                                F->getBasicBlockList(),
-                                NewBlocks[0]->getIterator(),
-                                F->end());
+  F->functionSplice(InsertBot->getIterator(), F, NewBlocks[0]->getIterator(),
+                    F->end());
 
   // Now the loop blocks are cloned and the other exiting blocks from the
   // remainder are connected to the original Loop's exit blocks. The remaining
@@ -895,9 +894,16 @@ bool llvm::UnrollRuntimeLoopRemainder(
   // Rewrite the cloned instruction operands to use the values created when the
   // clone is created.
   for (BasicBlock *BB : NewBlocks) {
+    Module *M = BB->getModule();
     for (Instruction &I : *BB) {
       RemapInstruction(&I, VMap,
                        RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
+      for (auto &DPI : I.getDbgValueRange()) {
+        assert(DPI.isValue());
+        DPValue *Value = static_cast<DPValue*>(&DPI);
+        RemapDPValue(M, Value, VMap,
+                     RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
+      }
     }
   }
 
@@ -914,8 +920,8 @@ bool llvm::UnrollRuntimeLoopRemainder(
     IRBuilder<> B2(NewPreHeader->getTerminator());
     Value *TestVal = B2.CreateSub(TripCount, ModVal, "unroll_iter");
     BranchInst *LatchBR = cast<BranchInst>(Latch->getTerminator());
-    PHINode *NewIdx = PHINode::Create(TestVal->getType(), 2, "niter",
-                                      Header->getFirstNonPHI());
+    PHINode *NewIdx = PHINode::Create(TestVal->getType(), 2, "niter");
+    NewIdx->insertBefore(Header->getFirstInsertionPt());
     B2.SetInsertPoint(LatchBR);
     auto *Zero = ConstantInt::get(NewIdx->getType(), 0);
     auto *One = ConstantInt::get(NewIdx->getType(), 1);

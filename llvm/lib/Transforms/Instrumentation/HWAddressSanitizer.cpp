@@ -1487,7 +1487,7 @@ bool HWAddressSanitizer::sanitizeFunction(Function &F,
          llvm::make_early_inc_range(*EntryIRB.GetInsertBlock())) {
       if (auto *AI = dyn_cast<AllocaInst>(&I))
         if (isa<ConstantInt>(AI->getArraySize()))
-          I.moveBefore(InsertPt);
+          I.moveBeforeBreaking(InsertPt);
     }
   }
 
