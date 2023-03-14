@@ -384,15 +384,18 @@ PreservedAnalyses DevirtSCCRepeatedPass::run(LazyCallGraph::SCC &InitialC,
       CallCount &Count =
           CallCounts.insert(std::make_pair(&N.getFunction(), CountLocal))
               .first->second;
-      for (Instruction &I : instructions(N.getFunction()))
-        if (auto *CB = dyn_cast<CallBase>(&I)) {
-          if (CB->getCalledFunction()) {
-            ++Count.Direct;
-          } else {
-            ++Count.Indirect;
-            CallHandles.insert({CB, WeakTrackingVH(CB)});
+      for (BasicBlock &BB : N.getFunction()) {
+        for (Instruction &I : BB.instructionsWithoutDebug()) {
+          if (auto *CB = dyn_cast<CallBase>(&I)) {
+            if (CB->getCalledFunction()) {
+              ++Count.Direct;
+            } else {
+              ++Count.Indirect;
+              CallHandles.insert({CB, WeakTrackingVH(CB)});
+            }
           }
         }
+      }
     }
 
     return CallCounts;
