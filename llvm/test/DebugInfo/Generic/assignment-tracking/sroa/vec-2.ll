@@ -31,7 +31,7 @@
 ; CHECK-NEXT: dbg.value
 ; CHECK-NEXT: dbg.assign
 ; CHECK-NEXT: dbg.assign
-; CHECK-NEXT: call void @llvm.dbg.assign(metadata float %2,{{.+}}, metadata !DIExpression(DW_OP_LLVM_fragment, 96, 32),{{.+}}, metadata ptr undef, metadata !DIExpression()), !dbg
+; CHECK-NEXT: call void @llvm.dbg.assign(metadata float %2,{{.+}}, metadata !DIExpression(DW_OP_LLVM_fragment, 96, 32),{{.+}}, metadata !{}, metadata !DIExpression()), !dbg
 
 %class.d = type { %class.a }
 %class.a = type { [4 x float] }

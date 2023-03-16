@@ -98,7 +98,7 @@ define void @PR13920(ptr %a, ptr %b) {
 ;
 ; CHECK-DEBUGLOC-LABEL: @PR13920(
 ; CHECK-DEBUGLOC-NEXT:  entry:
-; CHECK-DEBUGLOC-NEXT:    call void @llvm.dbg.value(metadata ptr undef, metadata [[META37:![0-9]+]], metadata !DIExpression()), !dbg [[DBG38:![0-9]+]]
+; CHECK-DEBUGLOC-NEXT:    call void @llvm.dbg.value(metadata !{}, metadata [[META37:![0-9]+]], metadata !DIExpression()), !dbg [[DBG38:![0-9]+]]
 ; CHECK-DEBUGLOC-NEXT:    [[AA_0_COPYLOAD:%.*]] = load <2 x i64>, ptr [[A:%.*]], align 2, !dbg [[DBG39:![0-9]+]]
 ; CHECK-DEBUGLOC-NEXT:    store <2 x i64> [[AA_0_COPYLOAD]], ptr [[B:%.*]], align 2, !dbg [[DBG40:![0-9]+]]
 ; CHECK-DEBUGLOC-NEXT:    ret void, !dbg [[DBG41:![0-9]+]]

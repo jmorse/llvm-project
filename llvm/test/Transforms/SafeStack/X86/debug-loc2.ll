@@ -15,11 +15,11 @@ entry:
   %x2 = alloca i32, align 4
 
 ; Unhandled dbg.value: expression does not start with OP_DW_deref
-; CHECK: call void @llvm.dbg.value(metadata ptr undef, metadata !{{.*}}, metadata !{{.*}})
+; CHECK: call void @llvm.dbg.value(metadata !{}, metadata !{{.*}}, metadata !{{.*}})
   tail call void @llvm.dbg.value(metadata ptr %x1, metadata !10, metadata !23), !dbg !16
 
 ; Unhandled dbg.value: expression does not start with OP_DW_deref
-; CHECK: call void @llvm.dbg.value(metadata ptr undef, metadata !{{.*}}, metadata !{{.*}})
+; CHECK: call void @llvm.dbg.value(metadata !{}, metadata !{{.*}}, metadata !{{.*}})
   tail call void @llvm.dbg.value(metadata ptr %x1, metadata !10, metadata !24), !dbg !16
 
 ; Supported dbg.value: rewritted based on the [[USP]] value.
@@ -31,8 +31,8 @@ entry:
   tail call void @llvm.dbg.value(metadata ptr %x1, metadata !10, metadata !15), !dbg !16
   call void @capture(ptr nonnull %x1), !dbg !17
 
-; An extra non-dbg.value metadata use of %x2. Replaced with undef.
-; CHECK: call void @llvm.random.metadata.use(metadata ptr undef
+; An extra non-dbg.value metadata use of %x2.
+; CHECK: call void @llvm.random.metadata.use(metadata !{}
   call void @llvm.random.metadata.use(metadata ptr %x2)
 
 ; CHECK: call void @llvm.dbg.value(metadata ptr %[[USP]], metadata ![[X2:.*]], metadata !DIExpression(DW_OP_constu, 8, DW_OP_minus, DW_OP_deref))
