@@ -2506,6 +2506,12 @@ static void WriteAsOperandInternal(raw_ostream &Out, const Metadata *MD,
   }
 
   if (const MDNode *N = dyn_cast<MDNode>(MD)) {
+    // Write empty metadata tuples wrapped in MetadataAsValue inline.
+    if (isa<MDTuple>(N) && !N->getNumOperands() && FromValue) {
+      WriteMDNodeBodyInternal(Out, N, WriterCtx);
+      return;
+    }
+
     std::unique_ptr<SlotTracker> MachineStorage;
     SaveAndRestore SARMachine(WriterCtx.Machine);
     if (!WriterCtx.Machine) {
@@ -4874,7 +4880,7 @@ static void printMetadataImpl(raw_ostream &ROS, const Metadata &MD,
     WriterCtx =
         std::make_unique<AsmWriterContext>(&TypePrinter, MST.getMachine(), M);
 
-  WriteAsOperandInternal(OS, &MD, *WriterCtx, /* FromValue */ true);
+  WriteAsOperandInternal(OS, &MD, *WriterCtx, /* FromValue */ false);
 
   auto *N = dyn_cast<MDNode>(&MD);
   if (OnlyAsOperand || !N || isa<DIExpression>(MD) || isa<DIArgList>(MD))
