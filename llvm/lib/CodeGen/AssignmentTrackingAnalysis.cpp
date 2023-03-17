@@ -47,6 +47,12 @@ static cl::opt<bool> EnableMemLocFragFill("mem-loc-frag-fill", cl::init(true),
 static cl::opt<bool> PrintResults("print-debug-ata", cl::init(false),
                                   cl::Hidden);
 
+/// Coalesce adjacent dbg locs describing memory locations that have contiguous
+/// fragments. This reduces the cost of LiveDebugValues which does SSA
+/// construction for each explicitly stated variable fragment.
+static cl::opt<bool> CoalesceAdjacentFragments("ata-coalesce-frags",
+                                               cl::init(true), cl::Hidden);
+
 // Implicit conversions are disabled for enum class types, so unfortunately we
 // need to create a DenseMapInfo wrapper around the specified underlying type.
 template <> struct llvm::DenseMapInfo<VariableID> {
@@ -722,6 +728,19 @@ class MemLocFragmentFill {
       LLVM_DEBUG(dbgs() << "- Insert DEF into now-empty space\n");
       FragMap.insert(StartBit, EndBit, Base);
     }
+
+    if (CoalesceAdjacentFragments) {
+      // We've inserted the location into the map. The map will have coalesced
+      // adjacent intervals (variable fragments) that describe the same memory
+      // location. Use this knowledge to insert a debug location that describes
+      // that coalesced fragment. This may eclipse other locs we've just
+      // inserted. This is okay as redundant locs will be cleaned up later.
+      auto CoalescedFrag = FragMap.find(StartBit);
+      LLVM_DEBUG(dbgs() << "- Insert loc for bits " << CoalescedFrag.start()
+                        << " to " << CoalescedFrag.stop() << "\n");
+      insertMemLoc(BB, Before, Var, CoalescedFrag.start(), CoalescedFrag.stop(),
+                   Base, VarLoc.DL);
+    }
   }
 
   bool skipVariable(const DILocalVariable *V) { return !V->getSizeInBits(); }
@@ -857,8 +876,10 @@ public:
 
         for (auto FragMemLoc : FragMemLocs) {
           DIExpression *Expr = DIExpression::get(Ctx, std::nullopt);
-          Expr = *DIExpression::createFragmentExpression(
-              Expr, FragMemLoc.OffsetInBits, FragMemLoc.SizeInBits);
+          if (FragMemLoc.SizeInBits !=
+              *Aggregates[FragMemLoc.Var].first->getSizeInBits())
+            Expr = *DIExpression::createFragmentExpression(
+                Expr, FragMemLoc.OffsetInBits, FragMemLoc.SizeInBits);
           Expr = DIExpression::prepend(Expr, DIExpression::DerefAfter,
                                        FragMemLoc.OffsetInBits / 8);
           DebugVariable Var(Aggregates[FragMemLoc.Var].first, Expr,
