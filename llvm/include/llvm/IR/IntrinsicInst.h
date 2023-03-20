@@ -272,8 +272,13 @@ public:
     for (Value *OldValue : location_ops()) {
       if (!RemovedValues.insert(OldValue).second)
         continue;
-      Value *Poison = PoisonValue::get(OldValue->getType());
-      replaceVariableLocationOp(OldValue, Poison);
+      if (hasArgList()) {
+        Value *Poison = PoisonValue::get(OldValue->getType());
+        replaceVariableLocationOp(OldValue, Poison);
+      } else {
+        auto *MAV = MetadataAsValue::get(getContext(), MDNode::get(getContext(), std::nullopt));
+        replaceVariableLocationOp(OldValue, MAV);
+      }
     }
   }
 
