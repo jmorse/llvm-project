@@ -1997,7 +1997,7 @@ static AssignmentTrackingLowering::OverlapMap buildOverlapMapAndRecordDeclares(
   // partially homed vars.
   for (auto *DDI : Declares)
     FnVarLocs->addSingleLocVar(DebugVariable(DDI), DDI->getExpression(),
-                               DDI->getDebugLoc(), DDI->getWrappedLocation());
+                               DDI->getDebugLoc(), DDI->getAddress());
   return Map;
 }
 
