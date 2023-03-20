@@ -1885,7 +1885,8 @@ getUntaggedStoreAssignmentInfo(const Instruction &I, const DataLayout &Layout) {
 /// These tasks are bundled together to reduce the number of times we need
 /// to iterate over the function as they can be achieved together in one pass.
 static AssignmentTrackingLowering::OverlapMap buildOverlapMapAndRecordDeclares(
-    Function &Fn, FunctionVarLocsBuilder *FnVarLocs,
+    Function &Fn, const DenseSet<DebugAggregate> &VarsWithStackSlot,
+    FunctionVarLocsBuilder *FnVarLocs,
     AssignmentTrackingLowering::UntaggedStoreAssignmentMap &UntaggedStoreVars) {
   DenseSet<DebugVariable> Seen;
   // Map of Variable: [Fragments].
@@ -1905,6 +1906,8 @@ static AssignmentTrackingLowering::OverlapMap buildOverlapMapAndRecordDeclares(
       } else if (auto *DII = dyn_cast<DbgVariableIntrinsic>(&I)) {
         DebugVariable DV = DebugVariable(DII);
         DebugAggregate DA = {DV.getVariable(), DV.getInlinedAt()};
+        if (!VarsWithStackSlot.contains(DA))
+          continue;
         if (Seen.insert(DV).second)
           FragmentMap[DA].push_back(DV);
       } else if (auto Info = getUntaggedStoreAssignmentInfo(
@@ -1929,6 +1932,8 @@ static AssignmentTrackingLowering::OverlapMap buildOverlapMapAndRecordDeclares(
           DebugVariable DV = DebugVariable(DAI->getVariable(), FragInfo,
                                            DAI->getDebugLoc().getInlinedAt());
           DebugAggregate DA = {DV.getVariable(), DV.getInlinedAt()};
+          if (!VarsWithStackSlot.contains(DA))
+            continue;
 
           // Cache this info for later.
           UntaggedStoreVars[&I].push_back(
@@ -1996,8 +2001,8 @@ bool AssignmentTrackingLowering::run(FunctionVarLocsBuilder *FnVarLocsBuilder) {
   // Note that this pass doesn't handle partial overlaps correctly (FWIW
   // neither does LiveDebugVariables) because that is difficult to do and
   // appears to be rare occurance.
-  VarContains =
-      buildOverlapMapAndRecordDeclares(Fn, FnVarLocs, UntaggedStoreVars);
+  VarContains = buildOverlapMapAndRecordDeclares(Fn, *VarsWithStackSlot,
+                                                 FnVarLocs, UntaggedStoreVars);
 
   // Prepare for traversal.
   ReversePostOrderTraversal<Function *> RPOT(&Fn);
