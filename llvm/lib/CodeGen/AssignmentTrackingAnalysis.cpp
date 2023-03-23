@@ -940,9 +940,9 @@ public:
   /// join(x, x) = x
   /// join(x, y) = NoneOrPhi
   struct Assignment {
-    enum S { Known, NoneOrPhi } Status;
+    typedef enum { Known, NoneOrPhi } StatusTy;
     /// ID of the assignment. nullptr if Status is not Known.
-    DIAssignID *ID;
+    PointerIntPair<DIAssignID *, 1, StatusTy> ID;
     /// The dbg.assign that marks this dbg-def. Mem-defs don't use this field.
     /// May be nullptr.
     DbgAssignIntrinsic *Source;
@@ -950,13 +950,13 @@ public:
     bool isSameSourceAssignment(const Assignment &Other) const {
       // Don't include Source in the equality check. Assignments are
       // defined by their ID, not debug intrinsic(s).
-      return std::tie(Status, ID) == std::tie(Other.Status, Other.ID);
+      return ID == Other.ID;
     }
     void dump(raw_ostream &OS) {
       static const char *LUT[] = {"Known", "NoneOrPhi"};
-      OS << LUT[Status] << "(id=";
-      if (ID)
-        OS << ID;
+      OS << LUT[ID.getInt()] << "(id=";
+      if (ID.getPointer())
+        OS << ID.getPointer();
       else
         OS << "null";
       OS << ", s=";
@@ -977,11 +977,10 @@ public:
       return Assignment(NoneOrPhi, nullptr, nullptr);
     }
     // Again, need a Top value?
-    Assignment()
-        : Status(NoneOrPhi), ID(nullptr), Source(nullptr) {
+    Assignment() : ID(nullptr, NoneOrPhi), Source(nullptr) {
     } // Can we delete this?
-    Assignment(S Status, DIAssignID *ID, DbgAssignIntrinsic *Source)
-        : Status(Status), ID(ID), Source(Source) {
+    Assignment(StatusTy Status, DIAssignID *ID, DbgAssignIntrinsic *Source)
+        : ID(ID, Status), Source(Source) {
       // If the Status is Known then we expect there to be an assignment ID.
       assert(Status == NoneOrPhi || ID);
     }
@@ -1567,7 +1566,7 @@ void AssignmentTrackingLowering::processTaggedInstruction(
       // location for this variable, and the Assignment doesn't match what
       // we'd expect to see in memory.
       Assignment DbgAV = LiveSet->getAssignment(BlockInfo::Debug, Var);
-      if (DbgAV.Status == Assignment::NoneOrPhi) {
+      if (DbgAV.ID.getInt() == Assignment::NoneOrPhi) {
         // We need to terminate any previously open location now.
         LLVM_DEBUG(dbgs() << "None, No Debug value available\n";);
         setLocKind(LiveSet, Var, LocKind::None);
@@ -1739,7 +1738,7 @@ AssignmentTrackingLowering::joinAssignment(const Assignment &A,
   // NoneOrPhi (joining two values is a Phi).
   if (!A.isSameSourceAssignment(B))
     return Assignment::makeNoneOrPhi();
-  if (A.Status == Assignment::NoneOrPhi)
+  if (A.ID.getInt() == Assignment::NoneOrPhi)
     return Assignment::makeNoneOrPhi();
 
   // Source is used to lookup the value + expression in the debug program if
@@ -1765,9 +1764,8 @@ AssignmentTrackingLowering::joinAssignment(const Assignment &A,
     return nullptr;
   };
   DbgAssignIntrinsic *Source = JoinSource();
-  assert(A.Status == B.Status && A.Status == Assignment::Known);
   assert(A.ID == B.ID);
-  return Assignment::make(A.ID, Source);
+  return Assignment::make(A.ID.getPointer(), Source);
 }
 
 AssignmentTrackingLowering::BlockInfo AssignmentTrackingLowering::joinBlockInfo(
