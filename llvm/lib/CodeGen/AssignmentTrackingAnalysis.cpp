@@ -184,6 +184,7 @@ void FunctionVarLocs::print(raw_ostream &OS, const Function &Fn) const {
 
 void FunctionVarLocs::init(FunctionVarLocsBuilder &Builder) {
   // Add the single-location variables first.
+  VarLocRecords.reserve(Builder.SingleLocVars.size());
   for (const auto &VarLoc : Builder.SingleLocVars)
     VarLocRecords.emplace_back(VarLoc);
   // Mark the end of the section.
@@ -191,6 +192,7 @@ void FunctionVarLocs::init(FunctionVarLocsBuilder &Builder) {
 
   // Insert a contiguous block of VarLocInfos for each instruction, mapping it
   // to the start and end position in the vector with VarLocsBeforeInst.
+  VarLocsBeforeInst.reserve(Builder.VarLocsBeforeInst.size());
   for (auto &P : Builder.VarLocsBeforeInst) {
     unsigned BlockStart = VarLocRecords.size();
     for (const VarLocInfo &VarLoc : P.second)
@@ -803,8 +805,8 @@ public:
         Pending;
     DenseMap<unsigned int, BasicBlock *> OrderToBB;
     DenseMap<BasicBlock *, unsigned int> BBToOrder;
+    unsigned int RPONumber = 0;
     { // Init OrderToBB and BBToOrder.
-      unsigned int RPONumber = 0;
       for (auto RI = RPOT.begin(), RE = RPOT.end(); RI != RE; ++RI) {
         OrderToBB[RPONumber] = *RI;
         BBToOrder[*RI] = RPONumber;
@@ -814,6 +816,9 @@ public:
       LiveIn.init(RPONumber);
       LiveOut.init(RPONumber);
     }
+
+    // Reserve space for all the MapVectors, to avoid re-allocation as we explore.
+    BBInsertBeforeMap.reserve(RPONumber);
 
     // Perform the traversal.
     //
