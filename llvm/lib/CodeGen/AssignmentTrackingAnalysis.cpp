@@ -342,7 +342,7 @@ class MemLocFragmentFill {
     unsigned SizeInBits;
     DebugLoc DL;
   };
-  using InsertMap = MapVector<Instruction *, SmallVector<FragMemLoc>>;
+  using InsertMap = DenseMap<Instruction *, SmallVector<FragMemLoc>>;
 
   /// BBInsertBeforeMap holds a description for the set of location defs to be
   /// inserted after the analysis is complete. It is updated during the dataflow
@@ -878,13 +878,20 @@ public:
     // Insert new location defs.
     for (auto Pair : BBInsertBeforeMap) {
       InsertMap &Map = Pair.second;
-      for (auto Pair : Map) {
-        Instruction *InsertBefore = Pair.first;
+
+      // Sort instructions base on block order.
+      SmallVector<Instruction *> Instrs;
+      Instrs.reserve(Map.size());
+      for (auto &P : Map)
+        Instrs.push_back(P.first);
+      llvm::sort(Instrs, [](auto *A, auto *B) { return A->comesBefore(B);});
+
+      for (Instruction *InsertBefore : Instrs) {
         assert(InsertBefore && "should never be null");
-        auto FragMemLocs = Pair.second;
+        auto &FragMemLocs = Map[InsertBefore];
         auto &Ctx = Fn.getContext();
 
-        for (auto FragMemLoc : FragMemLocs) {
+        for (auto &FragMemLoc : FragMemLocs) {
           DIExpression *Expr = DIExpression::get(Ctx, std::nullopt);
           if (FragMemLoc.SizeInBits !=
               *Aggregates[FragMemLoc.Var].first->getSizeInBits())
