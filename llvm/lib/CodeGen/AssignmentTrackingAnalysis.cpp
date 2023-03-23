@@ -1773,7 +1773,7 @@ AssignmentTrackingLowering::joinAssignment(const Assignment &A,
       return A.Source;
     if (A.Source == nullptr || B.Source == nullptr)
       return nullptr;
-    if (A.Source->isIdenticalTo(B.Source))
+    if (A.Source->getOperand(0) == B.Source->getOperand(0) && A.Source->getOperand(2) == B.Source->getOperand(2))
       return A.Source;
     return nullptr;
   };
