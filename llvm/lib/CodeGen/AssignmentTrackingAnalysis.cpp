@@ -1908,9 +1908,8 @@ static AssignmentTrackingLowering::OverlapMap buildOverlapMapAndRecordDeclares(
     FunctionVarLocsBuilder *FnVarLocs,
     AssignmentTrackingLowering::UntaggedStoreAssignmentMap &UntaggedStoreVars,
     unsigned &TrackedVariablesVectorSize) {
-  DenseSet<DebugVariable> Seen;
   // Map of Variable: [Fragments].
-  DenseMap<DebugAggregate, SmallVector<DebugVariable, 8>> FragmentMap;
+  DenseMap<DebugAggregate, SmallSet<DebugVariable, 4>> FragmentMap;
   // Iterate over all instructions:
   // - dbg.declare    -> add single location variable record
   // - dbg.*          -> Add fragments to FragmentMap
@@ -1928,8 +1927,7 @@ static AssignmentTrackingLowering::OverlapMap buildOverlapMapAndRecordDeclares(
         DebugAggregate DA = {DV.getVariable(), DV.getInlinedAt()};
         if (!VarsWithStackSlot.contains(DA))
           continue;
-        if (Seen.insert(DV).second)
-          FragmentMap[DA].push_back(DV);
+        FragmentMap[DA].insert(DV);
       } else if (auto Info = getUntaggedStoreAssignmentInfo(
                      I, Fn.getParent()->getDataLayout())) {
         // Find markers linked to this alloca.
@@ -1959,29 +1957,28 @@ static AssignmentTrackingLowering::OverlapMap buildOverlapMapAndRecordDeclares(
           UntaggedStoreVars[&I].push_back(
               {FnVarLocs->insertVariable(DV), *Info});
 
-          if (Seen.insert(DV).second)
-            FragmentMap[DA].push_back(DV);
+          FragmentMap[DA].insert(DV);
         }
       }
     }
   }
 
-  // Sort the fragment map for each DebugAggregate in non-descending
-  // order of fragment size. Assert no entries are duplicates.
-  for (auto &Pair : FragmentMap) {
-    SmallVector<DebugVariable, 8> &Frags = Pair.second;
+  // Build the map.
+  AssignmentTrackingLowering::OverlapMap Map;
+  for (auto Pair : FragmentMap) {
+    // Sort the fragment map for each DebugAggregate in non-descending
+    // order of fragment size. Assert no entries are duplicates.
+    SmallVector<DebugVariable, 8> Frags;
+    Frags.reserve(Pair.second.size());
+    for (auto &Var : Pair.second)
+      Frags.push_back(Var);
     std::sort(
         Frags.begin(), Frags.end(), [](DebugVariable Next, DebugVariable Elmt) {
           assert(!(Elmt.getFragmentOrDefault() == Next.getFragmentOrDefault()));
           return Elmt.getFragmentOrDefault().SizeInBits >
                  Next.getFragmentOrDefault().SizeInBits;
         });
-  }
 
-  // Build the map.
-  AssignmentTrackingLowering::OverlapMap Map;
-  for (auto Pair : FragmentMap) {
-    auto &Frags = Pair.second;
     for (auto It = Frags.begin(), IEnd = Frags.end(); It != IEnd; ++It) {
       DIExpression::FragmentInfo Frag = It->getFragmentOrDefault();
       // Find the frags that this is contained within.
