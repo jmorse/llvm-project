@@ -80,7 +80,9 @@ class FunctionVarLocsBuilder {
   UniqueVector<DebugVariable> Variables;
   // Use an unordered_map so we don't invalidate iterators after
   // insert/modifications.
-  std::unordered_map<const Instruction *, SmallVector<VarLocInfo>>
+  // jmorse: nothing stores those iterators though, and we only iterate and
+  // insert into an unrelated map?
+  DenseMap<const Instruction *, SmallVector<VarLocInfo>>
       VarLocsBeforeInst;
 
   SmallVector<VarLocInfo> SingleLocVars;
