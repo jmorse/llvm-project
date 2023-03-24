@@ -964,7 +964,7 @@ public:
     bool isSameSourceAssignment(const Assignment &Other) const {
       // Don't include Source in the equality check. Assignments are
       // defined by their ID, not debug intrinsic(s).
-      return ID == Other.ID;
+      return ID.getPointer() == Other.ID.getPointer();
     }
     void dump(raw_ostream &OS) {
       static const char *LUT[] = {"Known", "NoneOrPhi"};
@@ -1778,7 +1778,7 @@ AssignmentTrackingLowering::joinAssignment(const Assignment &A,
     return nullptr;
   };
   DbgAssignIntrinsic *Source = JoinSource();
-  assert(A.ID == B.ID);
+  assert(A.ID.getPointer() == B.ID.getPointer());
   return Assignment::make(A.ID.getPointer(), Source);
 }
 
