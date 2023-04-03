@@ -740,19 +740,13 @@ bool LoopIdiomRecognize::processLoopMemIntrinsic(
     bool (LoopIdiomRecognize::*Processor)(MemInst *, const SCEV *),
     const SCEV *BECount) {
   bool MadeChange = false;
-  for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E;) {
-    Instruction *Inst = &*I++;
+  for (auto &Inst : make_early_inc_range(*BB)) {
     // Look for memory instructions, which may be optimized to a larger one.
-    if (MemInst *MI = dyn_cast<MemInst>(Inst)) {
-      WeakTrackingVH InstPtr(&*I);
+    if (MemInst *MI = dyn_cast<MemInst>(&Inst)) {
+      WeakTrackingVH InstPtr(&Inst);
       if (!(this->*Processor)(MI, BECount))
         continue;
       MadeChange = true;
-
-      // If processing the instruction invalidated our iterator, start over from
-      // the top of the block.
-      if (!InstPtr)
-        I = BB->begin();
     }
   }
   return MadeChange;
