@@ -99,6 +99,8 @@ namespace llvm {
 extern FunctionSummary::ForceSummaryHotnessType ForceSummaryEdgesCold;
 }
 
+extern bool DDDDirectBC;
+
 namespace {
 
 /// These are manifest constants used by the bitcode writer. They do not need to
@@ -3434,25 +3436,56 @@ void ModuleBitcodeWriter::writeFunction(
       NeedsMetadataAttachment |= I.hasMetadataOtherThanDebugLoc();
 
       // If the instruction has a debug location, emit it.
-      DILocation *DL = I.getDebugLoc();
-      if (!DL)
-        continue;
+      auto EncodeDbgLoc = [&](DebugLoc DL) {
+        Vals.push_back(DL->getLine());
+        Vals.push_back(DL->getColumn());
+        Vals.push_back(VE.getMetadataOrNullID(DL->getScope()));
+        Vals.push_back(VE.getMetadataOrNullID(DL->getInlinedAt()));
+        Vals.push_back(DL->isImplicitCode());
+      };
+      auto EmitDbgLocForInst = [&]() {
+        DILocation *DL = I.getDebugLoc();
+        if (!DL)
+          return;
 
-      if (DL == LastDL) {
-        // Just repeat the same debug loc as last time.
-        Stream.EmitRecord(bitc::FUNC_CODE_DEBUG_LOC_AGAIN, Vals);
-        continue;
+        if (DL == LastDL) {
+          // Just repeat the same debug loc as last time.
+          Stream.EmitRecord(bitc::FUNC_CODE_DEBUG_LOC_AGAIN, Vals);
+          return;
+        }
+
+        EncodeDbgLoc(DL);
+        Stream.EmitRecord(bitc::FUNC_CODE_DEBUG_LOC, Vals);
+        Vals.clear();
+
+        LastDL = DL;
+      };
+      EmitDbgLocForInst();
+
+      // If the instruction has DPValues attached to it, emit them. Note that
+      // they come after the instruction so that it's easy to attach them again
+      // when reading the bitcode, even though conceptually the debug locations
+      // start "before" the instruction.
+      if (I.DbgMarker && DDDDirectBC) {
+        // Create a record for each marker.
+        for (DPValue &DPV : I.DbgMarker->getDbgValueRange()) {
+          // Don't need to encode the LocationType or Marker as those
+          // are derived from the values operand and the bitcode position
+          // respectively.
+          if (DPV.getRawLocation())
+            Vals.push_back(VE.getMetadataID(DPV.getRawLocation()));
+          else // Little hack to ensure `!{}` locations work.
+            Vals.push_back(VE.getMetadataID(MDTuple::get(I.getContext(), {})));
+          Vals.push_back(VE.getMetadataID(DPV.getExpression()));
+          Vals.push_back(VE.getMetadataID(DPV.getVariable()));
+          // DebugLoc. Don't use the DEBUG_LOC(_AGAIN) framework to avoid
+          // having extra code in the reader to handle DebugLocs attached to
+          // non-instructions. TODO: Do that to improve compression.
+          EncodeDbgLoc(DPV.getDebugLoc());
+          Stream.EmitRecord(bitc::FUNC_CODE_DEBUG_VAR_LOC, Vals);
+          Vals.clear();
+        }
       }
-
-      Vals.push_back(DL->getLine());
-      Vals.push_back(DL->getColumn());
-      Vals.push_back(VE.getMetadataOrNullID(DL->getScope()));
-      Vals.push_back(VE.getMetadataOrNullID(DL->getInlinedAt()));
-      Vals.push_back(DL->isImplicitCode());
-      Stream.EmitRecord(bitc::FUNC_CODE_DEBUG_LOC, Vals);
-      Vals.clear();
-
-      LastDL = DL;
     }
 
     if (BlockAddress *BA = BlockAddress::lookup(&BB)) {

@@ -372,7 +372,7 @@ static void splitCallSite(CallBase &CB,
     return;
   }
 
-  auto *OriginalBegin = &*TailBB->begin();
+  auto OriginalBegin = TailBB->begin();
   // Replace users of the original call with a PHI mering call-sites split.
   if (CallPN) {
     CallPN->insertBefore(OriginalBegin);
@@ -399,12 +399,12 @@ static void splitCallSite(CallBase &CB,
       for (auto &Mapping : ValueToValueMaps)
         NewPN->addIncoming(Mapping[CurrentI],
                            cast<Instruction>(Mapping[CurrentI])->getParent());
-      NewPN->insertBefore(&*TailBB->begin());
+      NewPN->insertBefore(TailBB->begin());
       CurrentI->replaceAllUsesWith(NewPN);
     }
     CurrentI->eraseFromParent();
     // We are done once we handled the first original instruction in TailBB.
-    if (CurrentI == OriginalBegin)
+    if (CurrentI == &*OriginalBegin)
       break;
   }
 }
