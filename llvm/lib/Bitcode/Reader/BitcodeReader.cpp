@@ -90,6 +90,9 @@
 
 using namespace llvm;
 
+extern llvm::cl::opt<bool> UseNewDbgInfoFormat;
+extern bool DDDDirectBC;
+
 static cl::opt<bool> PrintSummaryGUIDs(
     "print-summary-global-ids", cl::init(false), cl::Hidden,
     cl::desc(
@@ -983,6 +986,11 @@ Error BitcodeReader::materializeForwardReferencedFunctions() {
 
   while (!BasicBlockFwdRefQueue.empty()) {
     Function *F = BasicBlockFwdRefQueue.front();
+    // DDD: Little bit of a weird hack - we need to mark everything as
+    // IsNewDbgInfoFormat, including declarations.
+    if (UseNewDbgInfoFormat && DDDDirectBC)
+      F->IsNewDbgInfoFormat = true;
+
     BasicBlockFwdRefQueue.pop_front();
     assert(F && "Expected valid function");
     if (!BasicBlockFwdRefs.count(F))
@@ -1002,9 +1010,14 @@ Error BitcodeReader::materializeForwardReferencedFunctions() {
   }
   assert(BasicBlockFwdRefs.empty() && "Function missing from queue");
 
-  for (Function *F : BackwardRefFunctions)
+  for (Function *F : BackwardRefFunctions) {
+    // DDD: Little bit of a weird hack - we need to mark everything as
+    // IsNewDbgInfoFormat, including declarations.
+    if (UseNewDbgInfoFormat && DDDDirectBC)
+      F->IsNewDbgInfoFormat = true;
     if (Error Err = materialize(F))
       return Err;
+  }
   BackwardRefFunctions.clear();
 
   // Reset state.
@@ -3674,6 +3687,16 @@ Error BitcodeReader::globalCleanup() {
     UpgradeFunctionAttributes(F);
   }
 
+  // DDD: Continue to scatter IsNewDbgInfoFormat updates all over.
+  if (UseNewDbgInfoFormat && DDDDirectBC) {
+    TheModule->IsNewDbgInfoFormat = true;
+    for (Function &F : *TheModule) {
+      F.IsNewDbgInfoFormat = true;
+      for (auto &BB : F)
+        BB.IsNewDbgInfoFormat = true;
+    }
+  }
+
   // Look for global variables which need to be renamed.
   std::vector<std::pair<GlobalVariable *, GlobalVariable *>> UpgradedVariables;
   for (GlobalVariable &GV : TheModule->globals())
@@ -3954,6 +3977,11 @@ Error BitcodeReader::parseFunctionRecord(ArrayRef<uint64_t> Record) {
       Function::Create(cast<FunctionType>(FTy), GlobalValue::ExternalLinkage,
                        AddrSpace, Name, TheModule);
 
+  // DDD: Little bit of a weird hack - we need to mark everything as IsNewDbgInfoFormat,
+  // including declarations.
+  if (UseNewDbgInfoFormat && DDDDirectBC)
+    Func->IsNewDbgInfoFormat = true;
+
   assert(Func->getFunctionType() == FTy &&
          "Incorrect fully specified type provided for function");
   FunctionTypeIDs[Func] = FTyID;
@@ -4227,6 +4255,9 @@ Error BitcodeReader::parseModule(uint64_t ResumeBit,
     TheModule->setDataLayout(MaybeDL.get());
     return Error::success();
   };
+
+  if (UseNewDbgInfoFormat && DDDDirectBC)
+    TheModule->IsNewDbgInfoFormat = true;
 
   // Read all the records for this module.
   while (true) {
@@ -4610,6 +4641,9 @@ Error BitcodeReader::parseFunctionBody(Function *F) {
   if (MDLoader->hasFwdRefs())
     return error("Invalid function metadata: incoming forward references");
 
+  if (UseNewDbgInfoFormat && DDDDirectBC)
+    F->IsNewDbgInfoFormat = true;
+
   InstructionList.clear();
   unsigned ModuleValueListSize = ValueList.size();
   unsigned ModuleMDLoaderSize = MDLoader->size();
@@ -4642,6 +4676,29 @@ Error BitcodeReader::parseFunctionBody(Function *F) {
              !FunctionBBs[CurBBNo - 1]->empty())
       return &FunctionBBs[CurBBNo - 1]->back();
     return nullptr;
+  };
+  // FIXME: Should use Error return type?
+  auto DecodeDebugLoc =
+      [this](ArrayRef<uint64_t> Record) -> std::optional<DILocation *> {
+    unsigned Line = Record[0], Col = Record[1];
+    unsigned ScopeID = Record[2], IAID = Record[3];
+    bool IsImplicitCode = Record.size() == 5 && Record[4];
+
+    MDNode *Scope = nullptr, *IA = nullptr;
+    if (ScopeID) {
+      Scope = dyn_cast_or_null<MDNode>(
+          MDLoader->getMetadataFwdRefOrLoad(ScopeID - 1));
+      if (!Scope)
+        return std::nullopt;
+    }
+    if (IAID) {
+      IA =
+          dyn_cast_or_null<MDNode>(MDLoader->getMetadataFwdRefOrLoad(IAID - 1));
+      if (!IA)
+        return std::nullopt;
+    }
+    return DILocation::get(Scope->getContext(), Line, Col, Scope, IA,
+                           IsImplicitCode);
   };
 
   std::vector<OperandBundleDef> OperandBundles;
@@ -4783,26 +4840,10 @@ Error BitcodeReader::parseFunctionBody(Function *F) {
       I = getLastInstruction();
       if (!I || Record.size() < 4)
         return error("Invalid record");
-
-      unsigned Line = Record[0], Col = Record[1];
-      unsigned ScopeID = Record[2], IAID = Record[3];
-      bool isImplicitCode = Record.size() == 5 && Record[4];
-
-      MDNode *Scope = nullptr, *IA = nullptr;
-      if (ScopeID) {
-        Scope = dyn_cast_or_null<MDNode>(
-            MDLoader->getMetadataFwdRefOrLoad(ScopeID - 1));
-        if (!Scope)
-          return error("Invalid record");
-      }
-      if (IAID) {
-        IA = dyn_cast_or_null<MDNode>(
-            MDLoader->getMetadataFwdRefOrLoad(IAID - 1));
-        if (!IA)
-          return error("Invalid record");
-      }
-      LastLoc = DILocation::get(Scope->getContext(), Line, Col, Scope, IA,
-                                isImplicitCode);
+      auto MaybeDbgLoc = DecodeDebugLoc(Record);
+      if (!MaybeDbgLoc)
+        return error("Invalid record");
+      LastLoc = *MaybeDbgLoc;
       I->setDebugLoc(LastLoc);
       I = nullptr;
       continue;
@@ -6282,6 +6323,34 @@ Error BitcodeReader::parseFunctionBody(Function *F) {
       InstructionList.push_back(I);
       break;
     }
+    case bitc::FUNC_CODE_DEBUG_VAR_LOC: {
+      assert(UseNewDbgInfoFormat && "not in ddd mode but have dpvalue record");
+      assert(DDDDirectBC && "not in ddd bc mode but have dpvalue record");
+      // DPValues are placed after the Instructions that they are attached to.
+      Instruction *Inst = getLastInstruction();
+      if (!Inst)
+        return error("Invalid record");
+
+      Metadata *Values = getFnMetadataByID(Record[0]);
+      DIExpression *Expr = cast<DIExpression>(getFnMetadataByID(Record[1]));
+      DILocalVariable *Var =
+          cast<DILocalVariable>(getFnMetadataByID(Record[2]));
+      // The rest of the record describes the DebugLoc.
+      ArrayRef<uint64_t> DbgLocRecord =
+          ArrayRef<uint64_t>(Record).drop_front(3);
+      auto MaybeDbgLoc = DecodeDebugLoc(DbgLocRecord);
+      if (!MaybeDbgLoc)
+        return error("Invalid record");
+      DPValue *DPV = new DPValue(Values, Var, Expr, *MaybeDbgLoc);
+      // Inst->getParent()->IsNewDbgInfoFormat = true; // uh... need to do this for all
+      // blocks... Inst->getParent()->getParent()->IsNewDbgInfoFormat = true; // uh...
+      // need to do this for all blocks...
+      // Inst->getParent()->getParent()->getParent()->IsNewDbgInfoFormat = true;
+      if (!Inst->DbgMarker)
+        Inst->getParent()->createMarker(Inst);
+      Inst->getParent()->insertDPValueBefore(DPV, Inst->getIterator());
+      continue; // This isn't an instruction.
+    }
     case bitc::FUNC_CODE_INST_CALL: {
       // CALL: [paramattrs, cc, fmf, fnty, fnid, arg0, arg1...]
       if (Record.size() < 3)
@@ -6332,9 +6401,11 @@ Error BitcodeReader::parseFunctionBody(Function *F) {
         unsigned ArgTyID = getContainedTypeID(FTyID, i + 1);
         if (FTy->getParamType(i)->isLabelTy())
           Args.push_back(getBasicBlock(Record[OpNum]));
-        else
-          Args.push_back(getValue(Record, OpNum, NextValueNo,
-                                  FTy->getParamType(i), ArgTyID, CurBB));
+        else {
+          Value *V = getValue(Record, OpNum, NextValueNo, FTy->getParamType(i),
+                              ArgTyID, CurBB);
+          Args.push_back(V);
+        }
         ArgTyIDs.push_back(ArgTyID);
         if (!Args.back())
           return error("Invalid record");
@@ -6455,6 +6526,8 @@ Error BitcodeReader::parseFunctionBody(Function *F) {
     // If this was a terminator instruction, move to the next block.
     if (I->isTerminator()) {
       ++CurBBNo;
+      if (UseNewDbgInfoFormat && DDDDirectBC)
+        CurBB->IsNewDbgInfoFormat = true;
       CurBB = CurBBNo < FunctionBBs.size() ? FunctionBBs[CurBBNo] : nullptr;
     }
 

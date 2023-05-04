@@ -1043,9 +1043,17 @@ void Mapper::remapFunction(Function &F) {
       A.mutateType(TypeMapper->remapType(A.getType()));
 
   // Remap the instructions.
-  for (BasicBlock &BB : F)
-    for (Instruction &I : BB)
+  for (BasicBlock &BB : F) {
+    for (Instruction &I : BB) {
       remapInstruction(&I);
+      // XXX -- why can't we just do this instead of inhale/exhale?
+      // XXX has this been covered?
+      if (I.DbgMarker) {
+        auto DbgValueRange = I.DbgMarker->getDbgValueRange();
+        RemapDPValueRange(F.getParent(), DbgValueRange, getVM(), Flags);
+      }
+    }
+  }
 }
 
 void Mapper::mapAppendingVariable(GlobalVariable &GV, Constant *InitPrefix,

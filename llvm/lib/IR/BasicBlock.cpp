@@ -36,6 +36,11 @@ cl::opt<bool>
                                  "through iterators, eliminating intrinsics"),
                         cl::init(false));
 
+bool DDDDirectBC /*set default value in cl::init() below*/;
+cl::opt<bool, true> WriteDDDDirectToBC("ddd-to-bc", cl::Hidden,
+                                       cl::location(DDDDirectBC),
+                                       cl::init(true));
+
 DPMarker *BasicBlock::createMarker(Instruction *I) {
   assert(IsNewDbgInfoFormat &&
          "Tried to create a marker in a non new debug-info block!");
