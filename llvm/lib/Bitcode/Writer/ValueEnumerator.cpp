@@ -134,7 +134,17 @@ static OrderMap orderModule(const Module &M) {
     // Metadata used by instructions is decoded before the actual instructions,
     // so visit any constants used by it beforehand.
     for (const BasicBlock &BB : F)
-      for (const Instruction &I : BB)
+      for (const Instruction &I : BB) {
+        for (DPValue &DPV : I.getDbgValueRange()) {
+          if (const auto *VAM =
+                  dyn_cast_or_null<ValueAsMetadata>(DPV.getRawLocation())) {
+            orderConstantValue(VAM->getValue());
+          } else if (const auto *AL =
+                         dyn_cast_or_null<DIArgList>(DPV.getRawLocation())) {
+            for (const auto *VAM : AL->getArgs())
+              orderConstantValue(VAM->getValue());
+          }
+        }
         for (const Value *V : I.operands()) {
           if (const auto *MAV = dyn_cast<MetadataAsValue>(V)) {
             if (const auto *VAM =
@@ -147,6 +157,7 @@ static OrderMap orderModule(const Module &M) {
             }
           }
         }
+      }
 
     for (const Argument &A : F.args())
       orderValue(&A, OM);
@@ -269,6 +280,16 @@ static UseListOrderStack predictUseListOrder(const Module &M) {
       predictValueUseListOrder(&A, &F, OM, Stack);
     for (const BasicBlock &BB : F)
       for (const Instruction &I : BB) {
+        for (DPValue &DPV : I.getDbgValueRange()) {
+          if (const auto *VAM =
+                  dyn_cast_or_null<ValueAsMetadata>(DPV.getRawLocation())) {
+            predictValueUseListOrder(VAM->getValue(), &F, OM, Stack);
+          } else if (const auto *AL =
+                         dyn_cast_or_null<DIArgList>(DPV.getRawLocation())) {
+            for (const auto *VAM : AL->getArgs())
+              predictValueUseListOrder(VAM->getValue(), &F, OM, Stack);
+          }
+        }
         for (const Value *Op : I.operands()) {
           if (isa<Constant>(*Op) || isa<InlineAsm>(*Op)) // Visit GlobalValues.
             predictValueUseListOrder(Op, &F, OM, Stack);
@@ -389,11 +410,12 @@ ValueEnumerator::ValueEnumerator(const Module &M,
   for (const GlobalVariable &GV : M.globals()) {
     MDs.clear();
     GV.getAllMetadata(MDs);
-    for (const auto &I : MDs)
+    for (const auto &I : MDs) {
       // FIXME: Pass GV to EnumerateMetadata and arrange for the bitcode writer
       // to write metadata to the global variable's own metadata block
       // (PR28134).
       EnumerateMetadata(nullptr, I.second);
+    }
   }
 
   // Enumerate types used by function bodies and argument lists.
@@ -409,13 +431,35 @@ ValueEnumerator::ValueEnumerator(const Module &M,
 
     for (const BasicBlock &BB : F)
       for (const Instruction &I : BB) {
+        for (DPValue &DPV : I.getDbgValueRange()) {
+          // Enumerate non-location metadata.
+          EnumerateMetadata(&F, DPV.getExpression());
+          EnumerateMetadata(&F, DPV.getVariable());
+          for (const Metadata *Op : DPV.getDebugLoc()->operands())
+            EnumerateMetadata(&F, Op);
+
+          // Enumerate non-local location metadata.
+          if (!DPV.getRawLocation()) {
+            // Little hack to ensure `!{}` locations work.
+            // FIXME: getRawLocation isn't really a "raw" location, since it
+            // preserves the "empty MD tuple as nullptr" abstraction.
+            EnumerateMetadata(&F, MDTuple::get(I.getContext(), {}));
+          } else if (const auto *AL =
+                         dyn_cast<DIArgList>(DPV.getRawLocation())) {
+            for (const auto *VAM : AL->getArgs()) {
+              if (isa<ConstantAsMetadata>(VAM))
+                EnumerateMetadata(&F, VAM);
+            }
+          } else if (!isa<LocalAsMetadata>(DPV.getRawLocation())) {
+            EnumerateMetadata(&F, DPV.getRawLocation());
+          }
+        }
         for (const Use &Op : I.operands()) {
           auto *MD = dyn_cast<MetadataAsValue>(&Op);
           if (!MD) {
             EnumerateOperandType(Op);
             continue;
           }
-
           // Local metadata is enumerated during function-incorporation, but
           // any ConstantAsMetadata arguments in a DIArgList should be examined
           // now.
@@ -427,7 +471,6 @@ ValueEnumerator::ValueEnumerator(const Module &M,
                 EnumerateMetadata(&F, VAM);
             continue;
           }
-
           EnumerateMetadata(&F, MD->getMetadata());
         }
         if (auto *SVI = dyn_cast<ShuffleVectorInst>(&I))
@@ -787,7 +830,6 @@ static unsigned getMetadataTypeOrder(const Metadata *MD) {
 void ValueEnumerator::organizeMetadata() {
   assert(MetadataMap.size() == MDs.size() &&
          "Metadata map and vector out of sync");
-
   if (MDs.empty())
     return;
 
@@ -1064,26 +1106,35 @@ void ValueEnumerator::incorporateFunction(const Function &F) {
 
   SmallVector<LocalAsMetadata *, 8> FnLocalMDVector;
   SmallVector<DIArgList *, 8> ArgListMDVector;
+
+  auto AddFnLocalMetadata = [&](Metadata *MD) {
+    if (!MD)
+      return;
+    if (auto *Local = dyn_cast<LocalAsMetadata>(MD)) {
+      // Enumerate metadata after the instructions they might refer to.
+      FnLocalMDVector.push_back(Local);
+    } else if (auto *ArgList = dyn_cast<DIArgList>(MD)) {
+      ArgListMDVector.push_back(ArgList);
+      for (ValueAsMetadata *VMD : ArgList->getArgs()) {
+        if (auto *Local = dyn_cast<LocalAsMetadata>(VMD)) {
+          // Enumerate metadata after the instructions they might refer
+          // to.
+          FnLocalMDVector.push_back(Local);
+        }
+      }
+    }
+  };
+
   // Add all of the instructions.
   for (const BasicBlock &BB : F) {
     for (const Instruction &I : BB) {
       for (const Use &OI : I.operands()) {
-        if (auto *MD = dyn_cast<MetadataAsValue>(&OI)) {
-          if (auto *Local = dyn_cast<LocalAsMetadata>(MD->getMetadata())) {
-            // Enumerate metadata after the instructions they might refer to.
-            FnLocalMDVector.push_back(Local);
-          } else if (auto *ArgList = dyn_cast<DIArgList>(MD->getMetadata())) {
-            ArgListMDVector.push_back(ArgList);
-            for (ValueAsMetadata *VMD : ArgList->getArgs()) {
-              if (auto *Local = dyn_cast<LocalAsMetadata>(VMD)) {
-                // Enumerate metadata after the instructions they might refer
-                // to.
-                FnLocalMDVector.push_back(Local);
-              }
-            }
-          }
-        }
+        if (auto *MD = dyn_cast<MetadataAsValue>(&OI))
+          AddFnLocalMetadata(MD->getMetadata());
       }
+      /// DDD: Add non-instruction function-local metadata uses.
+      for (DPValue &DPV : I.getDbgValueRange())
+        AddFnLocalMetadata(DPV.getRawLocation());
 
       if (!I.getType()->isVoidTy())
         EnumerateValue(&I);
