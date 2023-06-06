@@ -164,7 +164,7 @@ bool llvm::formLCSSAForInstructions(SmallVectorImpl<Instruction *> &Worklist,
       // If we already inserted something for this BB, don't reprocess it.
       if (SSAUpdate.HasValueForBlock(ExitBB))
         continue;
-      Builder.SetInsertPoint(&ExitBB->front());
+      Builder.SetInsertPoint(ExitBB, ExitBB->begin());
       PHINode *PN = Builder.CreatePHI(I->getType(), PredCache.size(ExitBB),
                                       I->getName() + ".lcssa");
       // Get the debug location from the original instruction.
