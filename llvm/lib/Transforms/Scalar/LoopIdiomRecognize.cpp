@@ -2040,7 +2040,8 @@ void LoopIdiomRecognize::transformLoopToCountable(
   auto *LbBr = cast<BranchInst>(Body->getTerminator());
   ICmpInst *LbCond = cast<ICmpInst>(LbBr->getCondition());
 
-  PHINode *TcPhi = PHINode::Create(CountTy, 2, "tcphi", &Body->front());
+  PHINode *TcPhi = PHINode::Create(CountTy, 2, "tcphi");
+  TcPhi->insertBefore(Body->begin());
 
   Builder.SetInsertPoint(LbCond);
   Instruction *TcDec = cast<Instruction>(Builder.CreateSub(
@@ -2146,12 +2147,12 @@ void LoopIdiomRecognize::transformLoopToPopcount(BasicBlock *PreCondBB,
     ICmpInst *LbCond = cast<ICmpInst>(LbBr->getCondition());
     Type *Ty = TripCnt->getType();
 
-    PHINode *TcPhi = PHINode::Create(Ty, 2, "tcphi", &Body->front());
+    PHINode *TcPhi = PHINode::Create(Ty, 2, "tcphi");
+    TcPhi->insertBefore(Body->begin());
 
     Builder.SetInsertPoint(LbCond);
-    Instruction *TcDec = cast<Instruction>(
-        Builder.CreateSub(TcPhi, ConstantInt::get(Ty, 1),
-                          "tcdec", false, true));
+    Instruction *TcDec = cast<Instruction>(Builder.CreateSub(
+        TcPhi, ConstantInt::get(Ty, 1), "tcdec", false, true));
 
     TcPhi->addIncoming(TripCnt, PreHead);
     TcPhi->addIncoming(TcDec, Body);
