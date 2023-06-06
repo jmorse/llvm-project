@@ -1304,7 +1304,7 @@ static void SplitLandingPadPredecessorsImpl(
 
   // The new block unconditionally branches to the old block.
   BranchInst *BI1 = BranchInst::Create(OrigBB, NewBB1);
-  BI1->setDebugLoc(OrigBB->getFirstNonPHI()->getDebugLoc());
+  BI1->setDebugLoc(OrigBB->getFirstNonPHIOrDbg()->getDebugLoc());
 
   // Move the edges from Preds to point to NewBB1 instead of OrigBB.
   for (BasicBlock *Pred : Preds) {
@@ -1345,7 +1345,7 @@ static void SplitLandingPadPredecessorsImpl(
 
     // The new block unconditionally branches to the old block.
     BranchInst *BI2 = BranchInst::Create(OrigBB, NewBB2);
-    BI2->setDebugLoc(OrigBB->getFirstNonPHI()->getDebugLoc());
+    BI2->setDebugLoc(OrigBB->getFirstNonPHIOrDbg()->getDebugLoc());
 
     // Move the remaining edges from OrigBB to point to NewBB2.
     for (BasicBlock *NewBB2Pred : NewBB2Preds)
@@ -1479,6 +1479,7 @@ SplitBlockAndInsertIfThenImpl(Value *Cond, Instruction *SplitBefore,
   SmallVector<DominatorTree::UpdateType, 8> Updates;
   BasicBlock *Head = SplitBefore->getParent();
   BasicBlock *Tail = Head->splitBasicBlock(SplitBefore->getIterator());
+  DebugLoc DbgLoc = SplitBefore->getStableDebugLoc();
   if (DTU) {
     SmallPtrSet<BasicBlock *, 8> UniqueSuccessorsOfHead;
     Updates.push_back({DominatorTree::Insert, Head, Tail});
@@ -1502,7 +1503,7 @@ SplitBlockAndInsertIfThenImpl(Value *Cond, Instruction *SplitBefore,
       if (DTU)
         Updates.push_back({DominatorTree::Insert, ThenBlock, Tail});
     }
-    CheckTerm->setDebugLoc(SplitBefore->getDebugLoc());
+    CheckTerm->setDebugLoc(DbgLoc);
   } else
     CheckTerm = ThenBlock->getTerminator();
   BranchInst *HeadNewTerm =
@@ -1567,6 +1568,7 @@ void llvm::SplitBlockAndInsertIfThenElse(Value *Cond, Instruction *SplitBefore,
                                          MDNode *BranchWeights,
                                          DomTreeUpdater *DTU) {
   BasicBlock *Head = SplitBefore->getParent();
+  DebugLoc DbgLoc = SplitBefore->getStableDebugLoc();
 
   SmallPtrSet<BasicBlock *, 8> UniqueOrigSuccessors;
   if (DTU)
@@ -1578,9 +1580,9 @@ void llvm::SplitBlockAndInsertIfThenElse(Value *Cond, Instruction *SplitBefore,
   BasicBlock *ThenBlock = BasicBlock::Create(C, "", Head->getParent(), Tail);
   BasicBlock *ElseBlock = BasicBlock::Create(C, "", Head->getParent(), Tail);
   *ThenTerm = BranchInst::Create(Tail, ThenBlock);
-  (*ThenTerm)->setDebugLoc(SplitBefore->getDebugLoc());
+  (*ThenTerm)->setDebugLoc(DbgLoc);
   *ElseTerm = BranchInst::Create(Tail, ElseBlock);
-  (*ElseTerm)->setDebugLoc(SplitBefore->getDebugLoc());
+  (*ElseTerm)->setDebugLoc(DbgLoc);
   BranchInst *HeadNewTerm =
     BranchInst::Create(/*ifTrue*/ThenBlock, /*ifFalse*/ElseBlock, Cond);
   HeadNewTerm->setMetadata(LLVMContext::MD_prof, BranchWeights);
