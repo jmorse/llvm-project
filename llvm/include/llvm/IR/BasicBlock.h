@@ -19,6 +19,7 @@
 #include "llvm/ADT/ilist_node.h"
 #include "llvm/ADT/iterator.h"
 #include "llvm/ADT/iterator_range.h"
+#include "llvm/IR/DebugProgramInstruction.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/SymbolTableListTraits.h"
 #include "llvm/IR/Value.h"
@@ -55,7 +56,16 @@ class ValueSymbolTable;
 class BasicBlock final : public Value, // Basic blocks are data objects also
                          public ilist_node_with_parent<BasicBlock, Function> {
 public:
-  using InstListType = SymbolTableList<Instruction>;
+  using InstListType = SymbolTableList<Instruction, ilist_iterator_bits<true>>;
+  /// Storage for "trailing" debug-info. It is possible for a block to be
+  /// completely empty yet still contain debug-info, such as when manipulating
+  /// the terminator in a block with no other instructions. In these transient
+  /// scenarios, debug-info must be stored somewhere temporarily before the
+  /// block returns to a cannonical form when the terminator is re-inserted.
+  DPMarker TrailingDPValues;
+  /// Flag recording whether or not this block stores debug-info in the form
+  /// of intrinsic instructions (false) or non-instruction records (true).
+  bool IsNewDbgInfoFormat;
 
 private:
   friend class BlockAddress;
@@ -64,6 +74,59 @@ private:
   InstListType InstList;
   Function *Parent;
 
+public:
+  /// Attach a DPMarker to the given instruction. Enables the storage of any
+  /// debug-info at this position in the program.
+  DPMarker *createMarker(Instruction *I);
+
+  /// Convert variable location debugging information stored in dbg.value
+  /// intrinsics into DPMarker / DPValue records. Deletes all dbg.values in
+  /// the process and sets IsNewDbgInfoFormat = true. Only takes effect if
+  /// the UseNewDbgInfoFormat LLVM command line option is given.
+  void convertToNewDbgValues();
+
+  /// Convert variable location debugging information stored in DPMarkers and
+  /// DPValues into the dbg.value intrinsic representation. Sets
+  /// IsNewDbgInfoFormat = false.
+  void convertFromNewDbgValues();
+
+  /// Set the value of the IsNewDbgInfoFormat flag.
+  void setIsNewDbgInfoFormat(bool NewFlag);
+
+  /// Validate any DPMarkers / DPValues attached to instructions in this block,
+  /// and block-level stored data too (TrailingDPValues).
+  /// \p Assert Should this method fire an assertion if a problem is found?
+  /// \p Msg Should this method print a message to errs() if a problem is found?
+  /// \returns True if a problem is found.
+  bool validateDbgValues(bool Assert = true, bool Msg = false);
+
+  void dumpDbgValues() const;
+
+  /// Return the DPMarker for the position given by \p It, so that DPValues can
+  /// be inserted there. This will either be nullptr if not present, a DPMarker,
+  /// or TrailingDPValues if It is end().
+  DPMarker *getMarker(InstListType::iterator It);
+
+  /// Return the DPMarker for the position that comes after \p I. \see
+  /// BasicBlock::getMarker, this can be nullptr, a DPMarker, or
+  /// TrailingDPValues if there is no next instruction.
+  DPMarker *getNextMarker(Instruction *I);
+
+  /// Insert a DPValue into a block at the position given by \p I.
+  void insertDPValueAfter(DPValue *DPV, Instruction *I);
+
+  /// Insert a DPValue into a block at the position given by \p Here.
+  void insertDPValueBefore(DPValue *DPV, InstListType::iterator Here);
+
+  /// Eject any debug-info trailing at the end of a block. DPValues can
+  /// transiently be located "off the end" of a block if the blocks terminator
+  /// is temporarily removed. Once a terminator is re-inserted this method will
+  /// move such DPValues back to the right place (ahead of the terminator).
+  void flushTerminatorDbgValues();
+
+  void undoInstrRemoval(Instruction *I, DPValue::self_iterator Pos);
+
+private:
   void setParent(Function *parent);
 
   /// Constructor.
@@ -91,11 +154,25 @@ public:
 
   // These functions and classes need access to the instruction list.
   friend void Instruction::removeFromParent();
-  friend iplist<Instruction>::iterator Instruction::eraseFromParent();
+  friend BasicBlock::iterator Instruction::eraseFromParent();
   friend BasicBlock::iterator Instruction::insertInto(BasicBlock *BB,
                                                       BasicBlock::iterator It);
-  friend class llvm::SymbolTableListTraits<llvm::Instruction>;
-  friend class llvm::ilist_node_with_parent<llvm::Instruction, llvm::BasicBlock>;
+  friend class llvm::SymbolTableListTraits<llvm::Instruction,
+                                           ilist_iterator_bits<true>>;
+  friend class llvm::ilist_node_with_parent<llvm::Instruction, llvm::BasicBlock,
+                                            ilist_iterator_bits<true>>;
+
+  // Friendly methods that need to access us for the maintenence of
+  // debug-info attachments.
+  friend void Instruction::insertBefore(BasicBlock::iterator InsertPos);
+  friend void Instruction::insertAfter(Instruction *InsertPos);
+  friend void Instruction::insertBefore(BasicBlock &BB,
+                                        InstListType::iterator InsertPos);
+  friend void Instruction::moveBefore1(BasicBlock &BB, InstListType::iterator I,
+                                       bool Preserve);
+  friend iterator_range<DPValue::self_iterator> Instruction::cloneDebugInfoFrom(
+      const Instruction *From, std::optional<DPValue::self_iterator> FromHere,
+      bool InsertAtHead);
 
   /// Creates a new BasicBlock.
   ///
@@ -320,8 +397,19 @@ public:
   //===--------------------------------------------------------------------===//
   /// Instruction iterator methods
   ///
-  inline iterator                begin()       { return InstList.begin(); }
-  inline const_iterator          begin() const { return InstList.begin(); }
+  inline iterator begin() {
+    iterator It = InstList.begin();
+    // Set the head-inclusive bit to indicate that this iterator includes
+    // any debug-info at the start of the block. This is a no-op unless the
+    // appropriate CMake flag is set.
+    It.setHeadBit(true);
+    return It;
+  }
+  inline const_iterator begin() const {
+    const_iterator It = InstList.begin();
+    It.setHeadBit(true);
+    return It;
+  }
   inline iterator                end  ()       { return InstList.end();   }
   inline const_iterator          end  () const { return InstList.end();   }
 
@@ -396,6 +484,21 @@ private:
   static InstListType BasicBlock::*getSublistAccess(Instruction *) {
     return &BasicBlock::InstList;
   }
+
+  /// Dedicated function for splicing debug-info: when we have an empty
+  /// splice (i.e. zero instructions), the caller may still intend any
+  /// debug-info in between the two "positions" to be spliced.
+  void spliceDebugInfoEmptyBlock(BasicBlock::iterator ToIt, BasicBlock *FromBB,
+                                 BasicBlock::iterator FromBeginIt,
+                                 BasicBlock::iterator FromEndIt);
+
+  /// Perform any debug-info specific maintenence for the given splice
+  /// activity. In the DPValue debug-info representation, debug-info is not
+  /// in instructions, and so it does not automatically move from one block
+  /// to another.
+  void spliceDebugInfo(BasicBlock::iterator ToIt, BasicBlock *FromBB,
+                       BasicBlock::iterator FromBeginIt,
+                       BasicBlock::iterator FromEndIt);
 
 public:
   /// Returns a pointer to the symbol table if one exists.

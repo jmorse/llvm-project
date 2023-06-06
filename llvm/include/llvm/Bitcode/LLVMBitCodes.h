@@ -617,6 +617,9 @@ enum FunctionCodes {
                                   //             operation, align, vol,
                                   //             ordering, synchscope]
   FUNC_CODE_BLOCKADDR_USERS = 60, // BLOCKADDR_USERS: [value...]
+
+  FUNC_CODE_DEBUG_VAR_LOC =
+      61, // DPVALUE: [values, expression, variable, line, col, scope, ia]
 };
 
 enum UseListCodes {

@@ -1809,7 +1809,7 @@ Address CodeGenFunction::recoverAddrOfEscapedLocal(CodeGenFunction &ParentCGF,
                                                    Address ParentVar,
                                                    llvm::Value *ParentFP) {
   llvm::CallInst *RecoverCall = nullptr;
-  CGBuilderTy Builder(*this, AllocaInsertPt);
+  CGBuilderTy Builder(*this, &*AllocaInsertPt);
   if (auto *ParentAlloca = dyn_cast<llvm::AllocaInst>(ParentVar.getPointer())) {
     // Mark the variable escaped if nobody else referenced it and compute the
     // localescape index.
@@ -1835,7 +1835,7 @@ Address CodeGenFunction::recoverAddrOfEscapedLocal(CodeGenFunction &ParentCGF,
            "expected alloca or localrecover in parent LocalDeclMap");
     RecoverCall = cast<llvm::CallInst>(ParentRecover->clone());
     RecoverCall->setArgOperand(1, ParentFP);
-    RecoverCall->insertBefore(AllocaInsertPt);
+    RecoverCall->insertBefore(&*AllocaInsertPt);
   }
 
   // Bitcast the variable, rename it, and insert it in the local decl map.

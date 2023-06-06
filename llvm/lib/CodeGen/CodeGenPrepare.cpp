@@ -449,7 +449,6 @@ private:
   bool optimizeExtractElementInst(Instruction *Inst);
   bool dupRetToEnableTailCallOpts(BasicBlock *BB, ModifyDT &ModifiedDT);
   bool fixupDbgValue(Instruction *I);
-  bool placeDbgValues(Function &F);
   bool placePseudoProbes(Function &F);
   bool canFormExtLd(const SmallVectorImpl<Instruction *> &MovedExts,
                     LoadInst *&LI, Instruction *&Inst, bool HasPromoted);
@@ -697,7 +696,6 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
 
   // Do this last to clean up use-before-def scenarios introduced by other
   // preparatory transforms.
-  EverMadeChange |= placeDbgValues(F);
   EverMadeChange |= placePseudoProbes(F);
 
 #ifndef NDEBUG
@@ -1178,7 +1176,7 @@ simplifyRelocatesOffABase(GCRelocateInst *RelocatedBase,
   // right before found relocation. We consider only relocation in the same
   // basic block as relocation of base. Relocations from other basic block will
   // be skipped by optimization and we do not care about them.
-  for (auto R = RelocatedBase->getParent()->getFirstInsertionPt();
+  for (auto R = RelocatedBase->getParent()->getFirstNonPHIOrDbg()->getIterator();
        &*R != RelocatedBase; ++R)
     if (auto *RI = dyn_cast<GCRelocateInst>(R))
       if (RI->getStatepoint() == RelocatedBase->getStatepoint())
@@ -1353,7 +1351,7 @@ static bool SinkCast(CastInst *CI) {
     CastInst *&InsertedCast = InsertedCasts[UserBB];
 
     if (!InsertedCast) {
-      BasicBlock::iterator InsertPt = UserBB->getFirstInsertionPt();
+      BasicBlock::iterator InsertPt = UserBB->getFirstNonPHIOrDbg()->getIterator();
       assert(InsertPt != UserBB->end());
       InsertedCast = CastInst::Create(CI->getOpcode(), CI->getOperand(0),
                                       CI->getType(), "", &*InsertPt);
@@ -1724,7 +1722,7 @@ static bool sinkCmpExpression(CmpInst *Cmp, const TargetLowering &TLI) {
     CmpInst *&InsertedCmp = InsertedCmps[UserBB];
 
     if (!InsertedCmp) {
-      BasicBlock::iterator InsertPt = UserBB->getFirstInsertionPt();
+      BasicBlock::iterator InsertPt = UserBB->getFirstNonPHIOrDbg()->getIterator();
       assert(InsertPt != UserBB->end());
       InsertedCmp = CmpInst::Create(Cmp->getOpcode(), Cmp->getPredicate(),
                                     Cmp->getOperand(0), Cmp->getOperand(1), "",
@@ -1992,7 +1990,7 @@ SinkShiftAndTruncate(BinaryOperator *ShiftI, Instruction *User, ConstantInt *CI,
     CastInst *&InsertedTrunc = InsertedTruncs[TruncUserBB];
 
     if (!InsertedShift && !InsertedTrunc) {
-      BasicBlock::iterator InsertPt = TruncUserBB->getFirstInsertionPt();
+      BasicBlock::iterator InsertPt = TruncUserBB->getFirstNonPHIOrDbg()->getIterator();
       assert(InsertPt != TruncUserBB->end());
       // Sink the shift
       if (ShiftI->getOpcode() == Instruction::AShr)
@@ -2004,12 +2002,15 @@ SinkShiftAndTruncate(BinaryOperator *ShiftI, Instruction *User, ConstantInt *CI,
       InsertedShift->setDebugLoc(ShiftI->getDebugLoc());
 
       // Sink the trunc
-      BasicBlock::iterator TruncInsertPt = TruncUserBB->getFirstInsertionPt();
+      BasicBlock::iterator TruncInsertPt = TruncUserBB->getFirstNonPHIOrDbg()->getIterator();
       TruncInsertPt++;
+      // It will go ahead of any debug-info.
+      TruncInsertPt.setHeadBit(true);
       assert(TruncInsertPt != TruncUserBB->end());
 
       InsertedTrunc = CastInst::Create(TruncI->getOpcode(), InsertedShift,
-                                       TruncI->getType(), "", &*TruncInsertPt);
+                                       TruncI->getType(), "");
+      InsertedTrunc->insertBefore(*TruncUserBB, TruncInsertPt);
       InsertedTrunc->setDebugLoc(TruncI->getDebugLoc());
 
       MadeChange = true;
@@ -2093,7 +2094,7 @@ static bool OptimizeExtractBits(BinaryOperator *ShiftI, ConstantInt *CI,
     BinaryOperator *&InsertedShift = InsertedShifts[UserBB];
 
     if (!InsertedShift) {
-      BasicBlock::iterator InsertPt = UserBB->getFirstInsertionPt();
+      BasicBlock::iterator InsertPt = UserBB->getFirstNonPHIOrDbg()->getIterator();
       assert(InsertPt != UserBB->end());
 
       if (ShiftI->getOpcode() == Instruction::AShr)
@@ -2173,7 +2174,9 @@ static bool despeculateCountZeros(IntrinsicInst *CountZeros,
   // Create another block after the count zero intrinsic. A PHI will be added
   // in this block to select the result of the intrinsic or the bit-width
   // constant if the input to the intrinsic is zero.
-  BasicBlock::iterator SplitPt = ++(BasicBlock::iterator(CountZeros));
+  BasicBlock::iterator SplitPt = std::next(BasicBlock::iterator(CountZeros));
+  // Any debug-info after CountZeros should not be included.
+  SplitPt.setHeadBit(true);
   BasicBlock *EndBlock = CallBlock->splitBasicBlock(SplitPt, "cond.end");
   if (IsHugeFunc)
     FreshBBs.insert(EndBlock);
@@ -2195,7 +2198,7 @@ static bool despeculateCountZeros(IntrinsicInst *CountZeros,
 
   // Create a PHI in the end block to select either the output of the intrinsic
   // or the bit width of the operand.
-  Builder.SetInsertPoint(&EndBlock->front());
+  Builder.SetInsertPoint(EndBlock, EndBlock->begin());
   PHINode *PN = Builder.CreatePHI(Ty, 2, "ctz");
   replaceAllUsesWith(CountZeros, PN, FreshBBs, IsHugeFunc);
   Value *BitWidth = Builder.getInt(APInt(SizeInBits, SizeInBits));
@@ -2471,7 +2474,7 @@ bool CodeGenPrepare::dupRetToEnableTailCallOpts(BasicBlock *BB,
 
   // Make sure there are no instructions between the first instruction
   // and return.
-  const Instruction *BI = BB->getFirstNonPHI();
+  const Instruction *BI = BB->getFirstNonPHIOrDbg();
   // Skip over debug and the bitcast.
   while (isa<DbgInfoIntrinsic>(BI) || BI == BCI || BI == EVI ||
          isa<PseudoProbeInst>(BI) || isLifetimeEndOrBitCastFor(BI))
@@ -2760,6 +2763,7 @@ class TypePromotionTransaction {
       Instruction *PrevInst;
       BasicBlock *BB;
     } Point;
+    DPValue::self_iterator beforeDPValue;
 
     /// Remember whether or not the instruction had a previous instruction.
     bool HasPrevInstruction;
@@ -2767,12 +2771,20 @@ class TypePromotionTransaction {
   public:
     /// Record the position of \p Inst.
     InsertionHandler(Instruction *Inst) {
-      BasicBlock::iterator It = Inst->getIterator();
-      HasPrevInstruction = (It != (Inst->getParent()->begin()));
-      if (HasPrevInstruction)
-        Point.PrevInst = &*--It;
-      else
-        Point.BB = Inst->getParent();
+      HasPrevInstruction = (Inst != &*(Inst->getParent()->begin()));
+      BasicBlock *BB = Inst->getParent();
+      // We should only ever be selecting the position of an instruction, not
+      // the position at the start of a block / DPValue run.
+      beforeDPValue = BB->TrailingDPValues.StoredDPValues.end();
+      if (DPMarker *DPM = BB->getNextMarker(Inst))
+        if (!DPM->StoredDPValues.empty())
+          beforeDPValue = DPM->StoredDPValues.begin();
+
+      if (HasPrevInstruction) {
+        Point.PrevInst = &*std::prev(Inst->getIterator());
+      } else {
+        Point.BB = BB;
+      }
     }
 
     /// Insert \p Inst at the recorded position.
@@ -2780,14 +2792,17 @@ class TypePromotionTransaction {
       if (HasPrevInstruction) {
         if (Inst->getParent())
           Inst->removeFromParent();
-        Inst->insertAfter(Point.PrevInst);
+        Inst->insertAfter(&*Point.PrevInst);
       } else {
-        Instruction *Position = &*Point.BB->getFirstInsertionPt();
+        BasicBlock::iterator Position = Point.BB->getFirstInsertionPt();
+
         if (Inst->getParent())
-          Inst->moveBefore(Position);
+          Inst->moveBefore(*Point.BB, Position);
         else
-          Inst->insertBefore(Position);
+          Inst->insertBefore(*Point.BB, Position);
       }
+
+      Inst->getParent()->undoInstrRemoval(Inst, beforeDPValue);
     }
   };
 
@@ -2813,6 +2828,7 @@ class TypePromotionTransaction {
   };
 
   /// Set the operand of an instruction with a new value.
+  // XXX jmorse -- what about for dbg.values?
   class OperandSetter : public TypePromotionAction {
     /// Original operand of the instruction.
     Value *Origin;
@@ -2990,6 +3006,7 @@ class TypePromotionTransaction {
     SmallVector<InstructionAndIdx, 4> OriginalUses;
     /// Keep track of the debug users.
     SmallVector<DbgValueInst *, 1> DbgValues;
+    SmallVector<DPValue *, 1> DPValues;
 
     /// Keep track of the new value so that we can undo it by replacing
     /// instances of the new value with the original value.
@@ -3010,7 +3027,7 @@ class TypePromotionTransaction {
       }
       // Record the debug uses separately. They are not in the instruction's
       // use list, but they are replaced by RAUW.
-      findDbgValues(DbgValues, Inst);
+      findDbgValues(DbgValues, Inst, &DPValues);
 
       // Now, we can replace the uses.
       Inst->replaceAllUsesWith(New);
@@ -3027,6 +3044,8 @@ class TypePromotionTransaction {
       // correctness and utility of debug value instructions.
       for (auto *DVI : DbgValues)
         DVI->replaceVariableLocationOp(New, Inst);
+      for (auto *DPV : DPValues)
+        DPV->replaceVariableLocationOp(New, Inst);
     }
   };
 
@@ -6099,18 +6118,18 @@ bool CodeGenPrepare::splitLargeGEPOffsets() {
           // inserted close to it.
           NewBaseInsertBB = BaseI->getParent();
           if (isa<PHINode>(BaseI))
-            NewBaseInsertPt = NewBaseInsertBB->getFirstInsertionPt();
+            NewBaseInsertPt = NewBaseInsertBB->getFirstNonPHIOrDbg()->getIterator();
           else if (InvokeInst *Invoke = dyn_cast<InvokeInst>(BaseI)) {
             NewBaseInsertBB =
                 SplitEdge(NewBaseInsertBB, Invoke->getNormalDest());
-            NewBaseInsertPt = NewBaseInsertBB->getFirstInsertionPt();
+            NewBaseInsertPt = NewBaseInsertBB->getFirstNonPHIOrDbg()->getIterator();
           } else
             NewBaseInsertPt = std::next(BaseI->getIterator());
         } else {
           // If the current base is an argument or global value, the new base
           // will be inserted to the entry block.
           NewBaseInsertBB = &BaseGEP->getFunction()->getEntryBlock();
-          NewBaseInsertPt = NewBaseInsertBB->getFirstInsertionPt();
+          NewBaseInsertPt = NewBaseInsertBB->getFirstNonPHIOrDbg()->getIterator();
         }
         IRBuilder<> NewBaseBuilder(NewBaseInsertBB, NewBaseInsertPt);
         // Create a new base.
@@ -6543,7 +6562,7 @@ bool CodeGenPrepare::optimizeExtUses(Instruction *I) {
     Instruction *&InsertedTrunc = InsertedTruncs[UserBB];
 
     if (!InsertedTrunc) {
-      BasicBlock::iterator InsertPt = UserBB->getFirstInsertionPt();
+      BasicBlock::iterator InsertPt = UserBB->getFirstNonPHIOrDbg()->getIterator();
       assert(InsertPt != UserBB->end());
       InsertedTrunc = new TruncInst(I, Src->getType(), "", &*InsertPt);
       InsertedInsts.insert(InsertedTrunc);
@@ -6710,7 +6729,7 @@ bool CodeGenPrepare::optimizeLoadExt(LoadInst *Load) {
       !TLI->isLoadExtLegal(ISD::ZEXTLOAD, LoadResultVT, TruncVT))
     return false;
 
-  IRBuilder<> Builder(Load->getNextNode());
+  IRBuilder<> Builder(Load->getNextNonDebugInstruction());
   auto *NewAnd = cast<Instruction>(
       Builder.CreateAnd(Load, ConstantInt::get(Ctx, DemandBits)));
   // Mark this instruction as "inserted by CGP", so that other
@@ -6957,7 +6976,9 @@ bool CodeGenPrepare::optimizeSelectInst(SelectInst *SI) {
 
   // First, we split the block containing the select into 2 blocks.
   BasicBlock *StartBlock = SI->getParent();
-  BasicBlock::iterator SplitPt = ++(BasicBlock::iterator(LastSI));
+  BasicBlock::iterator SplitPt = std::next(BasicBlock::iterator(LastSI));
+  // We should split before any debug-info.
+  SplitPt.setHeadBit(true);
   BasicBlock *EndBlock = StartBlock->splitBasicBlock(SplitPt, "select.end");
   if (IsHugeFunc)
     FreshBBs.insert(EndBlock);
@@ -7045,7 +7066,8 @@ bool CodeGenPrepare::optimizeSelectInst(SelectInst *SI) {
   // to get the PHI operand.
   for (SelectInst *SI : llvm::reverse(ASI)) {
     // The select itself is replaced with a PHI Node.
-    PHINode *PN = PHINode::Create(SI->getType(), 2, "", &EndBlock->front());
+    PHINode *PN = PHINode::Create(SI->getType(), 2, "");
+    PN->insertBefore(EndBlock->begin());
     PN->takeName(SI);
     PN->addIncoming(getTrueOrFalseValue(SI, true, INS), TrueBlock);
     PN->addIncoming(getTrueOrFalseValue(SI, false, INS), FalseBlock);
@@ -8297,6 +8319,10 @@ bool CodeGenPrepare::optimizeBlock(BasicBlock &BB, ModifyDT &ModifiedDT) {
 // Some CGP optimizations may move or alter what's computed in a block. Check
 // whether a dbg.value intrinsic could be pointed at a more appropriate operand.
 bool CodeGenPrepare::fixupDbgValue(Instruction *I) {
+// jmorse: we would need to instrument this for DPValues if CGP becomes
+// a pass where things are inhaled. Because we're taking shortcuts right now,
+// don't re-point dbg.values at locally sunk address computations.
+return false;
   assert(isa<DbgValueInst>(I));
   DbgValueInst &DVI = *cast<DbgValueInst>(I);
 
@@ -8320,71 +8346,6 @@ bool CodeGenPrepare::fixupDbgValue(Instruction *I) {
   return AnyChange;
 }
 
-// A llvm.dbg.value may be using a value before its definition, due to
-// optimizations in this pass and others. Scan for such dbg.values, and rescue
-// them by moving the dbg.value to immediately after the value definition.
-// FIXME: Ideally this should never be necessary, and this has the potential
-// to re-order dbg.value intrinsics.
-bool CodeGenPrepare::placeDbgValues(Function &F) {
-  bool MadeChange = false;
-  DominatorTree DT(F);
-
-  for (BasicBlock &BB : F) {
-    for (Instruction &Insn : llvm::make_early_inc_range(BB)) {
-      DbgValueInst *DVI = dyn_cast<DbgValueInst>(&Insn);
-      if (!DVI)
-        continue;
-
-      SmallVector<Instruction *, 4> VIs;
-      for (Value *V : DVI->getValues())
-        if (Instruction *VI = dyn_cast_or_null<Instruction>(V))
-          VIs.push_back(VI);
-
-      // This DVI may depend on multiple instructions, complicating any
-      // potential sink. This block takes the defensive approach, opting to
-      // "undef" the DVI if it has more than one instruction and any of them do
-      // not dominate DVI.
-      for (Instruction *VI : VIs) {
-        if (VI->isTerminator())
-          continue;
-
-        // If VI is a phi in a block with an EHPad terminator, we can't insert
-        // after it.
-        if (isa<PHINode>(VI) && VI->getParent()->getTerminator()->isEHPad())
-          continue;
-
-        // If the defining instruction dominates the dbg.value, we do not need
-        // to move the dbg.value.
-        if (DT.dominates(VI, DVI))
-          continue;
-
-        // If we depend on multiple instructions and any of them doesn't
-        // dominate this DVI, we probably can't salvage it: moving it to
-        // after any of the instructions could cause us to lose the others.
-        if (VIs.size() > 1) {
-          LLVM_DEBUG(
-              dbgs()
-              << "Unable to find valid location for Debug Value, undefing:\n"
-              << *DVI);
-          DVI->setKillLocation();
-          break;
-        }
-
-        LLVM_DEBUG(dbgs() << "Moving Debug Value before :\n"
-                          << *DVI << ' ' << *VI);
-        DVI->removeFromParent();
-        if (isa<PHINode>(VI))
-          DVI->insertBefore(&*VI->getParent()->getFirstInsertionPt());
-        else
-          DVI->insertAfter(VI);
-        MadeChange = true;
-        ++NumDbgValueMoved;
-      }
-    }
-  }
-  return MadeChange;
-}
-
 // Group scattered pseudo probes in a block to favor SelectionDAG. Scattered
 // probes can be chained dependencies of other regular DAG nodes and block DAG
 // combine optimizations.
@@ -8392,7 +8353,7 @@ bool CodeGenPrepare::placePseudoProbes(Function &F) {
   bool MadeChange = false;
   for (auto &Block : F) {
     // Move the rest probes to the beginning of the block.
-    auto FirstInst = Block.getFirstInsertionPt();
+    auto FirstInst = Block.getFirstNonPHIOrDbg()->getIterator();
     while (FirstInst != Block.end() && FirstInst->isDebugOrPseudoInst())
       ++FirstInst;
     BasicBlock::iterator I(FirstInst);
