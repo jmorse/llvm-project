@@ -10580,7 +10580,7 @@ Value *BoUpSLP::vectorizeTree(
         Builder.SetInsertPoint(I->getParent(),
                                I->getParent()->getFirstInsertionPt());
       else
-        Builder.SetInsertPoint(&*++BasicBlock::iterator(I));
+        Builder.SetInsertPoint(I->getNextNonDebugInstruction());
     }
     auto BundleWidth = VectorizableTree[0]->Scalars.size();
     auto *MinTy = IntegerType::get(F->getContext(), MinBWs[ScalarRoot].first);
@@ -10682,7 +10682,7 @@ Value *BoUpSLP::vectorizeTree(
                                  PHI->getParent()->getFirstInsertionPt());
         else
           Builder.SetInsertPoint(VecI->getParent(),
-                                 std::next(VecI->getIterator()));
+                                 VecI->getNextNonDebugInstruction()->getIterator());
       } else {
         Builder.SetInsertPoint(&F->getEntryBlock(), F->getEntryBlock().begin());
       }
