@@ -160,7 +160,8 @@ bool llvm::formLCSSAForInstructions(SmallVectorImpl<Instruction *> &Worklist,
       if (SSAUpdate.HasValueForBlock(ExitBB))
         continue;
       PHINode *PN = PHINode::Create(I->getType(), PredCache.size(ExitBB),
-                                    I->getName() + ".lcssa", &ExitBB->front());
+                                    I->getName() + ".lcssa");
+      PN->insertBefore(*ExitBB, ExitBB->begin());
       if (InsertedPHIs)
         InsertedPHIs->push_back(PN);
       // Get the debug location from the original instruction.
