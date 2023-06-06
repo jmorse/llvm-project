@@ -80,6 +80,27 @@ static cl::opt<unsigned> NonGlobalValueMaxNameSize(
     "non-global-value-max-name-size", cl::Hidden, cl::init(1024),
     cl::desc("Maximum size for the name of non-global values."));
 
+void Function::inhaleDbgValues() {
+  IsInhaled = true;
+  for (auto &BB : *this) {
+    BB.inhaleDbgValues();
+  }
+}
+
+void Function::exhaleDbgValues() {
+  IsInhaled = false;
+  for (auto &BB : *this) {
+    BB.exhaleDbgValues();
+  }
+}
+
+void Function::setInhaled(bool NewInhaled) {
+  if (NewInhaled && !IsInhaled)
+    inhaleDbgValues();
+  else if (!NewInhaled && IsInhaled)
+    exhaleDbgValues();
+}
+
 //===----------------------------------------------------------------------===//
 // Argument Implementation
 //===----------------------------------------------------------------------===//
@@ -401,7 +422,7 @@ Function::Function(FunctionType *Ty, LinkageTypes Linkage, unsigned AddrSpace,
     : GlobalObject(Ty, Value::FunctionVal,
                    OperandTraits<Function>::op_begin(this), 0, Linkage, name,
                    computeAddrSpace(AddrSpace, ParentModule)),
-      NumArgs(Ty->getNumParams()) {
+      NumArgs(Ty->getNumParams()), IsInhaled(false) {
   assert(FunctionType::isValidReturnType(getReturnType()) &&
          "invalid return type");
   setGlobalObjectSubClassData(0);

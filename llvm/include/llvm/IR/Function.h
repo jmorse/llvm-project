@@ -102,9 +102,14 @@ private:
   /// needs it.  The hasLazyArguments predicate returns true if the arg list
   /// hasn't been set up yet.
 public:
+  bool IsInhaled;
   bool hasLazyArguments() const {
     return getSubclassDataFromValue() & (1<<0);
   }
+
+  void inhaleDbgValues();
+  void exhaleDbgValues();
+  void setInhaled(bool NewInhaled);
 
 private:
   void CheckLazyArguments() const {
@@ -685,6 +690,7 @@ public:
   /// Insert \p BB in the basic block list at \p Position. \Returns an iterator
   /// to the newly inserted BB.
   Function::iterator insert(Function::iterator Position, BasicBlock *BB) {
+    BB->setInhaled(IsInhaled);
     return BasicBlocks.insert(Position, BB);
   }
 

@@ -19,10 +19,15 @@
 using namespace llvm;
 
 PreservedAnalyses BitcodeWriterPass::run(Module &M, ModuleAnalysisManager &AM) {
+  // DDD: emit bitcode using the dbg.value representation of debug-info.
+  bool IsInhaled = M.IsInhaled;
+  M.exhaleDbgValues();
   const ModuleSummaryIndex *Index =
       EmitSummaryIndex ? &(AM.getResult<ModuleSummaryIndexAnalysis>(M))
                        : nullptr;
   WriteBitcodeToFile(M, OS, ShouldPreserveUseListOrder, Index, EmitModuleHash);
+  if (IsInhaled)
+    M.inhaleDbgValues();
   return PreservedAnalyses::all();
 }
 
@@ -54,8 +59,11 @@ namespace {
           EmitSummaryIndex
               ? &(getAnalysis<ModuleSummaryIndexWrapperPass>().getIndex())
               : nullptr;
+      // DDD: emit bitcode using the dbg.value representation of debug-info.
+      M.exhaleDbgValues();
       WriteBitcodeToFile(M, OS, ShouldPreserveUseListOrder, Index,
                          EmitModuleHash);
+      M.inhaleDbgValues();
       return false;
     }
     void getAnalysisUsage(AnalysisUsage &AU) const override {

@@ -39,6 +39,8 @@ public:
         ShouldPreserveUseListOrder(ShouldPreserveUseListOrder) {}
 
   bool runOnModule(Module &M) override {
+    // To ease understanding, exhale when printing so we can read dbg.values.
+    M.exhaleDbgValues();
     if (llvm::isFunctionInPrintList("*")) {
       if (!Banner.empty())
         OS << Banner << "\n";
@@ -55,6 +57,7 @@ public:
         }
       }
     }
+    M.inhaleDbgValues();
     return false;
   }
 
@@ -77,6 +80,9 @@ public:
 
   // This pass just prints a banner followed by the function as it's processed.
   bool runOnFunction(Function &F) override {
+    bool Inhaled = F.IsInhaled;
+    // To ease understanding, exhale when printing so we can read dbg.values.
+    F.exhaleDbgValues();
     if (isFunctionInPrintList(F.getName())) {
       if (forcePrintModuleIR())
         OS << Banner << " (function: " << F.getName() << ")\n"
@@ -84,6 +90,8 @@ public:
       else
         OS << Banner << '\n' << static_cast<Value &>(F);
     }
+    if (Inhaled)
+      F.inhaleDbgValues();
     return false;
   }
 

@@ -903,7 +903,7 @@ static Value *NegateValue(Value *V, Instruction *BI,
       if (!InsertPt)
         continue;
     } else {
-      InsertPt = &*TheNeg->getFunction()->getEntryBlock().begin();
+      InsertPt = &*TheNeg->getFunction()->getEntryBlock().getFirstNonPHIOrDbg(); // XXX jmorse
     }
 
     TheNeg->moveBefore(InsertPt);

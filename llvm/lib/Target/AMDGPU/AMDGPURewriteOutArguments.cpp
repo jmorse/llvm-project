@@ -330,6 +330,8 @@ bool AMDGPURewriteOutArguments::runOnFunction(Function &F) {
   NewFunc->removeRetAttrs(RetAttrs);
   // TODO: How to preserve metadata?
 
+  NewFunc->setInhaled(F.IsInhaled);
+
   // Move the body of the function into the new rewritten function, and replace
   // this function with a stub.
   NewFunc->splice(NewFunc->begin(), &F);

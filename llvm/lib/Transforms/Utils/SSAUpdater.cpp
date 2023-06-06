@@ -156,8 +156,9 @@ Value *SSAUpdater::GetValueInMiddleOfBlock(BasicBlock *BB) {
   }
 
   // Ok, we have no way out, insert a new one now.
-  PHINode *InsertedPHI = PHINode::Create(ProtoType, PredValues.size(),
-                                         ProtoName, &BB->front());
+  PHINode *InsertedPHI =
+      PHINode::Create(ProtoType, PredValues.size(), ProtoName);
+  InsertedPHI->insertBefore(BB->begin());
 
   // Fill in all the predecessors of the PHI.
   for (const auto &PredValue : PredValues)
@@ -173,7 +174,7 @@ Value *SSAUpdater::GetValueInMiddleOfBlock(BasicBlock *BB) {
 
   // Set the DebugLoc of the inserted PHI, if available.
   DebugLoc DL;
-  if (const Instruction *I = BB->getFirstNonPHI())
+  if (const Instruction *I = BB->getFirstNonPHIOrDbg())
       DL = I->getDebugLoc();
   InsertedPHI->setDebugLoc(DL);
 
@@ -198,12 +199,14 @@ void SSAUpdater::RewriteUse(Use &U) {
 
 void SSAUpdater::UpdateDebugValues(Instruction *I) {
   SmallVector<DbgValueInst *, 4> DbgValues;
-  llvm::findDbgValues(DbgValues, I);
+  SmallVector<DPValue *, 4> DPValues;
+  llvm::findDbgValues(DbgValues, DPValues, I);
   for (auto &DbgValue : DbgValues) {
     if (DbgValue->getParent() == I->getParent())
       continue;
     UpdateDebugValue(I, DbgValue);
   }
+  assert(DPValues.empty()); // XXX unimplemented while rebasing
 }
 
 void SSAUpdater::UpdateDebugValues(Instruction *I,
@@ -295,8 +298,9 @@ public:
   /// Reserve space for the operands but do not fill them in yet.
   static Value *CreateEmptyPHI(BasicBlock *BB, unsigned NumPreds,
                                SSAUpdater *Updater) {
-    PHINode *PHI = PHINode::Create(Updater->ProtoType, NumPreds,
-                                   Updater->ProtoName, &BB->front());
+    PHINode *PHI =
+        PHINode::Create(Updater->ProtoType, NumPreds, Updater->ProtoName);
+    PHI->insertBefore(BB->begin());
     return PHI;
   }
 

@@ -2770,7 +2770,7 @@ private:
       assert(DL.typeSizeEqualsStoreSize(LI.getType()) &&
              "Non-byte-multiple bit width");
       // Move the insertion point just past the load so that we can refer to it.
-      IRB.SetInsertPoint(&*std::next(BasicBlock::iterator(&LI)));
+      IRB.SetInsertPoint(LI.getNextNonDebugInstruction());
       // Create a placeholder value with the same type as LI to use as the
       // basis for the new value. This allows us to replace the uses of LI with
       // the computed value, and then replace the placeholder with LI, leaving
@@ -3435,7 +3435,8 @@ private:
     // dominate the PHI.
     IRBuilderBase::InsertPointGuard Guard(IRB);
     if (isa<PHINode>(OldPtr))
-      IRB.SetInsertPoint(&*OldPtr->getParent()->getFirstInsertionPt());
+      IRB.SetInsertPoint(OldPtr->getParent(),
+                         OldPtr->getParent()->getFirstInsertionPt());
     else
       IRB.SetInsertPoint(OldPtr);
     IRB.SetCurrentDebugLocation(OldPtr->getDebugLoc());
@@ -3824,7 +3825,8 @@ private:
 
     SmallVector<Value *, 4> Index(GEPI.indices());
     bool IsInBounds = GEPI.isInBounds();
-    IRB.SetInsertPoint(GEPI.getParent()->getFirstNonPHI());
+    IRB.SetInsertPoint(GEPI.getParent(),
+                       GEPI.getParent()->getFirstInsertionPt());
     PHINode *NewPN = IRB.CreatePHI(GEPI.getType(), PHI->getNumIncomingValues(),
                                    PHI->getName() + ".sroa.phi");
     for (unsigned I = 0, E = PHI->getNumIncomingValues(); I != E; ++I) {
@@ -3836,7 +3838,7 @@ private:
       } else {
         Instruction *In = cast<Instruction>(PHI->getIncomingValue(I));
 
-        IRB.SetInsertPoint(In->getParent(), std::next(In->getIterator()));
+        IRB.SetInsertPoint(In->getParent(), In->getNextNonDebugInstruction()->getIterator());
         Type *Ty = GEPI.getSourceElementType();
         NewVal = IRB.CreateGEP(Ty, In, Index, In->getName() + ".sroa.gep",
                                IsInBounds);

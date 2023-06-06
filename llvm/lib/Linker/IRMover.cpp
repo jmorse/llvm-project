@@ -1135,6 +1135,7 @@ Error IRLinker::linkFunctionBody(Function &Dst, Function &Src) {
     Dst.setPrologueData(Src.getPrologueData());
   if (Src.hasPersonalityFn())
     Dst.setPersonalityFn(Src.getPersonalityFn());
+  assert(Src.IsInhaled == Dst.IsInhaled);
 
   // Copy over the metadata attachments without remapping.
   Dst.copyMetadata(&Src, 0);
