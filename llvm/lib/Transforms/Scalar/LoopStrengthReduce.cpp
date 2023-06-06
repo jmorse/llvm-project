@@ -5376,7 +5376,7 @@ BasicBlock::iterator LSRInstance::AdjustInsertPositionForExpand(
   // IP consistent across expansions and allows the previously inserted
   // instructions to be reused by subsequent expansion.
   while (Rewriter.isInsertedInstruction(&*IP) && IP != LowestIP)
-    ++IP;
+    IP = IP->getNextNonDebugInstruction()->getIterator();;
 
   return IP;
 }
