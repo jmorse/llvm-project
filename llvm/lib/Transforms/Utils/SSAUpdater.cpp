@@ -174,7 +174,7 @@ Value *SSAUpdater::GetValueInMiddleOfBlock(BasicBlock *BB) {
 
   // Set the DebugLoc of the inserted PHI, if available.
   DebugLoc DL;
-  if (const Instruction *I = BB->getFirstNonPHI())
+  if (const Instruction *I = BB->getFirstNonPHIOrDbg())
       DL = I->getDebugLoc();
   InsertedPHI->setDebugLoc(DL);
 
