@@ -326,7 +326,7 @@ SetVector<Instruction *> ConstantHoistingPass::findConstantInsertionPoint(
     BBs.insert(MatInsertPt->getParent());
 
   if (BBs.count(Entry)) {
-    InsertPts.insert(&Entry->front());
+    InsertPts.insert(Entry->getFirstNonPHIOrDbg());
     return InsertPts;
   }
 
@@ -343,13 +343,13 @@ SetVector<Instruction *> ConstantHoistingPass::findConstantInsertionPoint(
     BB2 = BBs.pop_back_val();
     BB = DT->findNearestCommonDominator(BB1, BB2);
     if (BB == Entry) {
-      InsertPts.insert(&Entry->front());
+      InsertPts.insert(Entry->getFirstNonPHIOrDbg());
       return InsertPts;
     }
     BBs.insert(BB);
   }
   assert((BBs.size() == 1) && "Expected only one element.");
-  Instruction &FirstInst = (*BBs.begin())->front();
+  Instruction &FirstInst = *(*BBs.begin())->getFirstNonPHIOrDbg();
   InsertPts.insert(findMatInsertPt(&FirstInst));
   return InsertPts;
 }
