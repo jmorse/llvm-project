@@ -332,8 +332,12 @@ SetVector<Instruction *> ConstantHoistingPass::findConstantInsertionPoint(
 
   if (BFI) {
     findBestInsertionSet(*DT, *BFI, Entry, BBs);
-    for (BasicBlock *BB : BBs)
-      InsertPts.insert(&*BB->getFirstInsertionPt());
+    for (BasicBlock *BB : BBs) {
+      BasicBlock::iterator InsertPt = BB->begin();
+      for (; isa<PHINode>(InsertPt) || InsertPt->isEHPad() || isa<DbgInfoIntrinsic>(InsertPt); ++InsertPt)
+        ;
+      InsertPts.insert(&*InsertPt);
+    }
     return InsertPts;
   }
 

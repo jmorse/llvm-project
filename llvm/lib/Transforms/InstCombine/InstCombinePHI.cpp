@@ -280,7 +280,7 @@ bool InstCombinerImpl::foldIntegerTypedPHI(PHINode &PN) {
                                             IncomingVal->getName() + ".ptr");
       if (auto *IncomingI = dyn_cast<Instruction>(IncomingVal)) {
         BasicBlock::iterator InsertPos(IncomingI);
-        InsertPos++;
+        InsertPos = InsertPos->getNextNonDebugInstruction()->getIterator();
         BasicBlock *BB = IncomingI->getParent();
         if (isa<PHINode>(IncomingI))
           InsertPos = BB->getFirstInsertionPt();
