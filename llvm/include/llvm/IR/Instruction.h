@@ -136,15 +136,24 @@ public:
   /// Unlink this instruction from its current basic block and insert it into
   /// the basic block that MovePos lives in, right before MovePos.
   void moveBefore(Instruction *MovePos);
+  void moveBeforePreserving(Instruction *MovePos) {
+    moveBefore(MovePos);
+  }
 
   /// Unlink this instruction and insert into BB before I.
   ///
   /// \pre I is a valid iterator into BB.
   void moveBefore(BasicBlock &BB, SymbolTableList<Instruction>::iterator I);
+  void moveBeforePreserving(BasicBlock &BB, SymbolTableList<Instruction>::iterator I) {
+    moveBefore(BB, I);
+  }
 
   /// Unlink this instruction from its current basic block and insert it into
   /// the basic block that MovePos lives in, right after MovePos.
   void moveAfter(Instruction *MovePos);
+  void moveAfterPreserving(Instruction *MovePos) {
+    moveAfter(MovePos);
+  }
 
   /// Given an instruction Other in the same basic block as this instruction,
   /// return true if this instruction comes before Other. In this worst case,
