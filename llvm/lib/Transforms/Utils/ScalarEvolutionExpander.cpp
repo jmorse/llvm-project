@@ -98,10 +98,14 @@ Value *SCEVExpander::ReuseOrCreateCast(Value *V, Type *Ty,
 BasicBlock::iterator
 SCEVExpander::findInsertPointAfter(Instruction *I,
                                    Instruction *MustDominate) const {
-  BasicBlock::iterator IP = ++I->getIterator();
+  BasicBlock::iterator IP = std::next(I->getIterator());
+  if (IP != I->getParent()->end())
+    IP = skipDebugIntrinsics(IP);
+
   if (auto *II = dyn_cast<InvokeInst>(I))
     IP = II->getNormalDest()->begin();
 
+  IP = skipDebugIntrinsics(IP);
   while (isa<PHINode>(IP))
     ++IP;
 
@@ -119,6 +123,7 @@ SCEVExpander::findInsertPointAfter(Instruction *I,
   while (isInsertedInstruction(&*IP) && &*IP != MustDominate)
     ++IP;
 
+  IP = skipDebugIntrinsics(IP);
   return IP;
 }
 
@@ -144,10 +149,10 @@ SCEVExpander::GetOptimalInsertionPointForCastOf(Value *V) const {
   // so let's plop this cast into the function's entry block.
   assert(isa<Constant>(V) &&
          "Expected the cast argument to be a global/constant");
-  return Builder.GetInsertBlock()
+  return skipDebugIntrinsics(Builder.GetInsertBlock()
       ->getParent()
       ->getEntryBlock()
-      .getFirstInsertionPt();
+      .getFirstInsertionPt());
 }
 
 /// InsertNoopCastOfTo - Insert a cast of V to the specified type,
