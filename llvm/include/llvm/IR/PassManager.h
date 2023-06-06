@@ -58,7 +58,16 @@
 #include <utility>
 #include <vector>
 
+extern bool DDDInhaleDbgValues;
+
 namespace llvm {
+
+template <class IRUnitT> inline bool shouldInhale(IRUnitT &IR) { return false; }
+template <> inline bool shouldInhale(Module &IR) { return !IR.IsInhaled && DDDInhaleDbgValues; }
+template <class IRUnitT> inline void doInhale(IRUnitT &IR) {}
+template <> inline void doInhale(Module &IR) { IR.inhaleDbgValues(); }
+template <class IRUnitT> inline void doExhale(IRUnitT &IR) {}
+template <> inline void doExhale(Module &IR) { IR.exhaleDbgValues(); }
 
 /// A special type used by analysis passes to provide an address that
 /// identifies that particular analysis pass type.
@@ -507,6 +516,10 @@ public:
         detail::getAnalysisResult<PassInstrumentationAnalysis>(
             AM, IR, std::tuple<ExtraArgTs...>(ExtraArgs...));
 
+    bool ShouldInhale = shouldInhale(IR);
+    if (ShouldInhale)
+      doInhale(IR);
+
     for (auto &Pass : Passes) {
       // Check the PassInstrumentation's BeforePass callbacks before running the
       // pass, skip its execution completely if asked to (callback returns
@@ -528,6 +541,9 @@ public:
       // preserved set for this pass manager.
       PA.intersect(std::move(PassPA));
     }
+
+    if (ShouldInhale)
+      doExhale(IR);
 
     // Invalidation was handled after each pass in the above loop for the
     // current unit of IR. Therefore, the remaining analysis results in the

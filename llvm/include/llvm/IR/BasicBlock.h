@@ -19,6 +19,7 @@
 #include "llvm/ADT/ilist_node.h"
 #include "llvm/ADT/iterator.h"
 #include "llvm/ADT/iterator_range.h"
+#include "llvm/IR/DebugProgramInstruction.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/SymbolTableListTraits.h"
 #include "llvm/IR/Value.h"
@@ -63,6 +64,32 @@ private:
 
   InstListType InstList;
   Function *Parent;
+  Function *MarkerFn;
+
+public:
+  using DbgProgramListType = simple_ilist<DPValue>;
+  using DIIterator = DbgProgramListType::iterator;
+  DPMarker LolDbgValuesOffEnd;
+  bool IsInhaled;
+  DPMarker *createMarker(Instruction *I);
+
+  void inhaleDbgValues();
+  void exhaleDbgValues();
+  void setInhaled(bool NewInhaled);
+  void validateDbgValues();
+
+  void dumpDbgValues() const;
+
+  DPMarker *getNextMarker(Instruction *I); // The _next_ marker, either LolDbgValuesOffEnd or the actual marker
+  DPMarker *getMarker(InstListType::iterator It); // either LolDbgValuesOffEnd or the actual marker
+
+  void insertDPValueAfter(DPValue *DPV, Instruction *I);
+  void insertDPValueBefore(DPValue *DPV, InstListType::iterator Here);
+
+  iterator_range<DIIterator> getDanglingDbgValues();
+  void flushTerminatorDbgValues();
+
+private:
 
   void setParent(Function *parent);
 
@@ -96,6 +123,14 @@ public:
                                                       BasicBlock::iterator It);
   friend class llvm::SymbolTableListTraits<llvm::Instruction>;
   friend class llvm::ilist_node_with_parent<llvm::Instruction, llvm::BasicBlock>;
+  // added for DDD,
+  friend void Instruction::insertBefore(BasicBlock::iterator InsertPos);
+  friend void Instruction::insertAfter(Instruction *InsertPos);
+  friend void Instruction::insertDebugAfter(Instruction *Where);
+  friend void Instruction::insertBefore(BasicBlock &BB, SymbolTableList<Instruction>::iterator InsertPos);
+  friend void Instruction::moveBefore1(BasicBlock &BB, SymbolTableList<Instruction>::iterator I, bool Preserve);
+  friend void Instruction::insertDebugBefore(BasicBlock *BB, BasicBlock::iterator InsertPos);
+  friend DIIterator Instruction::cloneDebugInfoFrom(const Instruction *From, bool InsertAtHead, std::optional<DIIterator> FromHere);
 
   /// Creates a new BasicBlock.
   ///
@@ -264,6 +299,8 @@ public:
   ///
   /// \pre \a getParent() is \c nullptr.
   void insertInto(Function *Parent, BasicBlock *InsertBefore = nullptr);
+  void insertInto(Function *Parent,
+                  SymbolTableList<BasicBlock>::iterator InsertBefore);
 
   /// Return the predecessor of this block if it has a single predecessor
   /// block. Otherwise return a null pointer.
@@ -320,8 +357,16 @@ public:
   //===--------------------------------------------------------------------===//
   /// Instruction iterator methods
   ///
-  inline iterator                begin()       { return InstList.begin(); }
-  inline const_iterator          begin() const { return InstList.begin(); }
+  inline iterator                begin()       {
+    iterator It = InstList.begin();
+    It.setHeadBit(true);
+    return It;
+  }
+  inline const_iterator          begin() const {
+    const_iterator It = InstList.begin();
+    It.setHeadBit(true);
+    return It;
+  }
   inline iterator                end  ()       { return InstList.end();   }
   inline const_iterator          end  () const { return InstList.end();   }
 
@@ -567,6 +612,12 @@ public:
   /// each ordering to ensure that transforms have the same algorithmic
   /// complexity when asserts are enabled as when they are disabled.
   void validateInstrOrdering() const;
+
+  // Copy the range [First, Last) from Src to this block before Dest, including any debug values
+  // * InsertAtHead: Make [first,Last) happen before any DbgValues attached to Dest.
+  // * ReadFromHead: Copy DbgValues that are attached to "first" as well.
+  void blockSplice(iterator Dest, BasicBlock *Src, iterator First, iterator Last);
+  void blockSplice(iterator Dest, BasicBlock *Src);
 
 private:
 #if defined(_AIX) && (!defined(__GNUC__) || defined(__clang__))

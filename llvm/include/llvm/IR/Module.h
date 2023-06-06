@@ -213,6 +213,20 @@ private:
 /// @name Constructors
 /// @{
 public:
+  bool IsInhaled;
+  void inhaleDbgValues() {
+    for (auto &F : *this) {
+      F.inhaleDbgValues();
+    }
+    IsInhaled = true;
+  }
+  void exhaleDbgValues() {
+    for (auto &F : *this) {
+      F.exhaleDbgValues();
+    }
+    IsInhaled = false;
+  }
+
   /// The Module constructor. Note that there is no default constructor. You
   /// must provide a name for the module upon construction.
   explicit Module(StringRef ModuleID, LLVMContext& C);

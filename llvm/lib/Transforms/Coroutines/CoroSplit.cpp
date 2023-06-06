@@ -202,8 +202,7 @@ static bool replaceCoroEndAsync(AnyCoroEndInst *End) {
   assert(MustTailCallFuncBlock && "Must have a single predecessor block");
   auto It = MustTailCallFuncBlock->getTerminator()->getIterator();
   auto *MustTailCall = cast<CallInst>(&*std::prev(It));
-  CoroEndBlock->splice(End->getIterator(), MustTailCallFuncBlock,
-                       MustTailCall->getIterator());
+  MustTailCall->moveBefore(End);
 
   // Insert the return instruction.
   Builder.SetInsertPoint(End);
@@ -447,7 +446,8 @@ static void createResumeEntryBlock(Function &F, coro::Shape &Shape) {
     Switch->addCase(IndexVal, ResumeBB);
 
     cast<BranchInst>(SuspendBB->getTerminator())->setSuccessor(0, LandingBB);
-    auto *PN = PHINode::Create(Builder.getInt8Ty(), 2, "", &LandingBB->front());
+    auto *PN = PHINode::Create(Builder.getInt8Ty(), 2, "");
+    PN->insertBefore(LandingBB->begin());
     S->replaceAllUsesWith(PN);
     PN->addIncoming(Builder.getInt8(-1), SuspendBB);
     PN->addIncoming(S, ResumeBB);
