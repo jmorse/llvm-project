@@ -254,6 +254,19 @@ bool llvm::formLCSSAForInstructions(SmallVectorImpl<Instruction *> &Worklist,
       if (V)
         DVI->replaceVariableLocationOp(I, V);
     }
+    for (auto DPV : DPValues) {
+      // DDD: copy-paste of block above.
+      BasicBlock *UserBB = DPV->getMarker()->getParent();
+      if (InstBB == UserBB || L->contains(UserBB))
+        continue;
+      // We currently only handle debug values residing in blocks that were
+      // traversed while rewriting the uses. If we inserted just a single PHI,
+      // we will handle all relevant debug values.
+      Value *V = AddedPHIs.size() == 1 ? AddedPHIs[0]
+                                       : SSAUpdate.FindValueForBlock(UserBB);
+      if (V)
+        DPV->replaceVariableLocationOp(I, V);
+    }
 
     // SSAUpdater might have inserted phi-nodes inside other loops. We'll need
     // to post-process them to keep LCSSA form.

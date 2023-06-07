@@ -206,6 +206,7 @@ void SSAUpdater::UpdateDebugValues(Instruction *I) {
       continue;
     UpdateDebugValue(I, DbgValue);
   }
+  assert(DPValues.empty()); // XXX unimplemented while rebasing
 }
 
 void SSAUpdater::UpdateDebugValues(Instruction *I,
