@@ -1493,7 +1493,8 @@ void CodeExtractor::calculateNewCallTerminatorWeights(
 static void eraseDebugIntrinsicsWithNonLocalRefs(Function &F) {
   for (Instruction &I : instructions(F)) {
     SmallVector<DbgVariableIntrinsic *, 4> DbgUsers;
-    findDbgUsers(DbgUsers, &I);
+    SmallVector<DPValue *, 4> DPValues;
+    findDbgUsers(DbgUsers, DPValues, &I);
     for (DbgVariableIntrinsic *DVI : DbgUsers)
       if (DVI->getFunction() != &F)
         DVI->eraseFromParent();

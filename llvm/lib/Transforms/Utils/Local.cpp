@@ -613,7 +613,8 @@ void llvm::RecursivelyDeleteTriviallyDeadInstructions(
 
 bool llvm::replaceDbgUsesWithUndef(Instruction *I) {
   SmallVector<DbgVariableIntrinsic *, 1> DbgUsers;
-  findDbgUsers(DbgUsers, I);
+  SmallVector<DPValue *, 1> DPValues;
+  findDbgUsers(DbgUsers, DPValues, I);
   for (auto *DII : DbgUsers)
     DII->setKillLocation();
   return !DbgUsers.empty();
@@ -1473,7 +1474,8 @@ static bool PhiHasDebugValue(DILocalVariable *DIVar,
   // is removed by LowerDbgDeclare(), we need to make sure that we are
   // not inserting the same dbg.value intrinsic over and over.
   SmallVector<DbgValueInst *, 1> DbgValues;
-  findDbgValues(DbgValues, APN);
+  SmallVector<DPValue *, 1> DPValues;
+  findDbgValues(DbgValues, DPValues, APN);
   for (auto *DVI : DbgValues) {
     assert(is_contained(DVI->getValues(), APN));
     if ((DVI->getVariable() == DIVar) && (DVI->getExpression() == DIExpr))
@@ -1821,7 +1823,8 @@ void llvm::replaceDbgValueForAlloca(AllocaInst *AI, Value *NewAllocaAddress,
 /// If not possible mark undef.
 void llvm::salvageDebugInfo(Instruction &I) {
   SmallVector<DbgVariableIntrinsic *, 1> DbgUsers;
-  findDbgUsers(DbgUsers, &I);
+  SmallVector<DPValue *, 1> DPValues;
+  findDbgUsers(DbgUsers, DPValues, &I);
   salvageDebugInfoForDbgValues(I, DbgUsers);
 }
 
@@ -2086,7 +2089,8 @@ static bool rewriteDebugUsers(
     function_ref<DbgValReplacement(DbgVariableIntrinsic &DII)> RewriteExpr) {
   // Find debug users of From.
   SmallVector<DbgVariableIntrinsic *, 1> Users;
-  findDbgUsers(Users, &From);
+  SmallVector<DPValue *, 1> DPValues;
+  findDbgUsers(Users, DPValues, &From);
   if (Users.empty())
     return false;
 
@@ -2959,7 +2963,8 @@ void llvm::copyRangeMetadata(const DataLayout &DL, const LoadInst &OldLI,
 
 void llvm::dropDebugUsers(Instruction &I) {
   SmallVector<DbgVariableIntrinsic *, 1> DbgUsers;
-  findDbgUsers(DbgUsers, &I);
+  SmallVector<DPValue *, 1> DPValues;
+  findDbgUsers(DbgUsers, DPValues, &I);
   for (auto *DII : DbgUsers)
     DII->eraseFromParent();
 }

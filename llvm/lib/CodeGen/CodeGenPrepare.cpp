@@ -3004,6 +3004,8 @@ class TypePromotionTransaction {
     SmallVector<InstructionAndIdx, 4> OriginalUses;
     /// Keep track of the debug users.
     SmallVector<DbgValueInst *, 1> DbgValues;
+    // Dummy container for collecing DPValues, currently unused.
+    SmallVector<DPValue *, 1> DPValues;
 
     /// Keep track of the new value so that we can undo it by replacing
     /// instances of the new value with the original value.
@@ -3024,7 +3026,8 @@ class TypePromotionTransaction {
       }
       // Record the debug uses separately. They are not in the instruction's
       // use list, but they are replaced by RAUW.
-      findDbgValues(DbgValues, Inst);
+      findDbgValues(DbgValues, DPValues, Inst);
+      assert(DPValues.empty());
 
       // Now, we can replace the uses.
       Inst->replaceAllUsesWith(New);

@@ -238,7 +238,8 @@ bool llvm::formLCSSAForInstructions(SmallVectorImpl<Instruction *> &Worklist,
     }
 
     SmallVector<DbgValueInst *, 4> DbgValues;
-    llvm::findDbgValues(DbgValues, I);
+    SmallVector<DPValue *, 4> DPValues;
+    llvm::findDbgValues(DbgValues, DPValues, I);
 
     // Update pre-existing debug value uses that reside outside the loop.
     for (auto *DVI : DbgValues) {

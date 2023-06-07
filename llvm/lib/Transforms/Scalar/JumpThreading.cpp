@@ -1954,6 +1954,7 @@ void JumpThreadingPass::updateSSA(
   SSAUpdater SSAUpdate;
   SmallVector<Use *, 16> UsesToRename;
   SmallVector<DbgValueInst *, 4> DbgValues;
+  SmallVector<DPValue *, 4> DPValues;
 
   for (Instruction &I : *BB) {
     // Scan all uses of this instruction to see if it is used outside of its
@@ -1970,7 +1971,7 @@ void JumpThreadingPass::updateSSA(
     }
 
     // Find debug values outside of the block
-    findDbgValues(DbgValues, &I);
+    findDbgValues(DbgValues, DPValues, &I);
     DbgValues.erase(remove_if(DbgValues,
                               [&](const DbgValueInst *DbgVal) {
                                 return DbgVal->getParent() == BB;

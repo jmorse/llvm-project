@@ -225,7 +225,8 @@ struct AllocaInfo {
       }
     }
     DbgUserVec AllDbgUsers;
-    findDbgUsers(AllDbgUsers, AI);
+    SmallVector<DPValue *, 4> DPValues;
+    findDbgUsers(AllDbgUsers, DPValues, AI);
     std::copy_if(AllDbgUsers.begin(), AllDbgUsers.end(),
                  std::back_inserter(DbgUsers), [](DbgVariableIntrinsic *DII) {
                    return !isa<DbgAssignIntrinsic>(DII);

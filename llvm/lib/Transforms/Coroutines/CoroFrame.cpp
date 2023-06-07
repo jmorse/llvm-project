@@ -1943,7 +1943,8 @@ static void insertSpills(const FrameDataInfo &FrameData, coro::Shape &Shape) {
     G->setName(Alloca->getName() + Twine(".reload.addr"));
 
     SmallVector<DbgVariableIntrinsic *, 4> DIs;
-    findDbgUsers(DIs, Alloca);
+    SmallVector<DPValue *, 4> DPValues;
+    findDbgUsers(DIs, DPValues, Alloca);
     for (auto *DVI : DIs)
       DVI->replaceUsesOfWith(Alloca, G);
 
@@ -3094,7 +3095,8 @@ void coro::buildCoroutineFrame(
   for (auto &Iter : FrameData.Spills) {
     auto *V = Iter.first;
     SmallVector<DbgValueInst *, 16> DVIs;
-    findDbgValues(DVIs, V);
+    SmallVector<DPValue *, 16> DPValues;
+    findDbgValues(DVIs, DPValues, V);
     for (DbgValueInst *DVI : DVIs)
       if (Checker.isDefinitionAcrossSuspend(*V, DVI))
         FrameData.Spills[V].push_back(DVI);

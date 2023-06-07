@@ -2484,9 +2484,10 @@ Instruction *InstCombinerImpl::visitAllocSite(Instruction &MI) {
   // If we are removing an alloca with a dbg.declare, insert dbg.value calls
   // before each store.
   SmallVector<DbgVariableIntrinsic *, 8> DVIs;
+  SmallVector<DPValue *, 8> DPValues;
   std::unique_ptr<DIBuilder> DIB;
   if (isa<AllocaInst>(MI)) {
-    findDbgUsers(DVIs, &MI);
+    findDbgUsers(DVIs, DPValues, &MI);
     DIB.reset(new DIBuilder(*MI.getModule(), /*AllowUnresolved=*/false));
   }
 
@@ -3781,7 +3782,8 @@ static bool TryToSinkInstruction(Instruction *I, BasicBlock *DestBlock,
   // mark the location undef: we know it was supposed to receive a new location
   // here, but that computation has been sunk.
   SmallVector<DbgVariableIntrinsic *, 2> DbgUsers;
-  findDbgUsers(DbgUsers, I);
+  SmallVector<DPValue *, 2> DPValues;
+  findDbgUsers(DbgUsers, DPValues, I);
   // Process the sinking DbgUsers in reverse order, as we only want to clone the
   // last appearing debug intrinsic for each given variable.
   SmallVector<DbgVariableIntrinsic *, 2> DbgUsersToSink;
