@@ -430,6 +430,10 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
         break;
     }
 
+    // jmorse: don't de-duplicate debug instructions, it's non-functional and
+    // un-necessary work + differences at this stage.
+    DbgIntrinsics.clear();
+
     // Remember the local noalias scope declarations in the header. After the
     // rotation, they must be duplicated and the scope must be cloned. This
     // avoids unwanted interaction across iterations.
@@ -438,6 +442,10 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
       if (auto *Decl = dyn_cast<NoAliasScopeDeclInst>(&I))
         NoAliasDeclInstructions.push_back(Decl);
 
+    Module *M = OrigHeader->getModule();
+
+    // Track the next DPValue to move.
+    std::optional<BasicBlock::DIIterator> NextDbgInst = std::nullopt;
     while (I != E) {
       Instruction *Inst = &*I++;
 
@@ -450,13 +458,21 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
       if (L->hasLoopInvariantOperands(Inst) && !Inst->mayReadFromMemory() &&
           !Inst->mayWriteToMemory() && !Inst->isTerminator() &&
           !isa<DbgInfoIntrinsic>(Inst) && !isa<AllocaInst>(Inst)) {
+
+        auto DbgValueRange = LoopEntryBranch->cloneDebugInfoFrom(Inst);
+        // Remap any new instructions,
+        if (LoopEntryBranch->getParent()->IsInhaled)
+          RemapDPValueRange(M, DbgValueRange, ValueMap, RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
+
+        NextDbgInst = I->getDbgValueRange().begin();
         Inst->moveBefore(LoopEntryBranch);
+
         ++NumInstrsHoisted;
         continue;
       }
 
       // Otherwise, create a duplicate of the instruction.
-      Instruction *C = Inst->clone();
+      Instruction *C = Inst->cloneMaybeDbg();
       ++NumInstrsDuplicated;
 
       // Eagerly remap the operands of the instruction.
@@ -464,11 +480,23 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
                        RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
 
       // Avoid inserting the same intrinsic twice.
+      // DDD: this is effectively disabled for comparisons purpose.
       if (auto *DII = dyn_cast<DbgVariableIntrinsic>(C))
         if (DbgIntrinsics.count(makeHash(DII))) {
           C->deleteValue();
           continue;
         }
+
+      // Hax: insert, cloen, remove. Could be done better in the future by being
+      // able to clone to a specific position.
+      if (LoopEntryBranch->getParent()->IsInhaled) {
+        C->insertBefore(LoopEntryBranch);
+
+        auto DbgValueRange = C->cloneDebugInfoFrom(Inst, NextDbgInst);
+        NextDbgInst = None;
+        RemapDPValueRange(M, DbgValueRange, ValueMap, RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
+        C->removeFromParent();
+      }
 
       // With the operands remapped, see if the instruction constant folds or is
       // otherwise simplifyable.  This commonly occurs because the entry from PHI
