@@ -320,8 +320,16 @@ public:
   //===--------------------------------------------------------------------===//
   /// Instruction iterator methods
   ///
-  inline iterator                begin()       { return InstList.begin(); }
-  inline const_iterator          begin() const { return InstList.begin(); }
+  inline iterator                begin()       {
+    iterator It = InstList.begin();
+    It.setHeadBit(true);
+    return It;
+  }
+  inline const_iterator          begin() const {
+    const_iterator It = InstList.begin();
+    It.setHeadBit(true);
+    return It;
+  }
   inline iterator                end  ()       { return InstList.end();   }
   inline const_iterator          end  () const { return InstList.end();   }
 

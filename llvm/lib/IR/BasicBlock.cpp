@@ -258,6 +258,9 @@ BasicBlock::const_iterator BasicBlock::getFirstInsertionPt() const {
 
   const_iterator InsertPt = FirstNonPHI->getIterator();
   if (InsertPt->isEHPad()) ++InsertPt;
+  // Signal to users of this iterator that it's supposed to come "before" any
+  // debug-info at the start of the block.
+  InsertPt.setHeadBit(true);
   return InsertPt;
 }
 
