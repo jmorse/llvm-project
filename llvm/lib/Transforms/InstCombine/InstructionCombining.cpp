@@ -3892,14 +3892,22 @@ bool InstCombinerImpl::tryToSinkInstruction(Instruction *I,
   // mark the location undef: we know it was supposed to receive a new location
   // here, but that computation has been sunk.
   SmallVector<DbgVariableIntrinsic *, 2> DbgUsers;
-  findDbgUsers(DbgUsers, I);
+  SmallVector<DPValue *, 2> DPValues;
+  findDbgUsers(DbgUsers, I, &DPValues);
 
   // For all debug values in the destination block, the sunk instruction
   // will still be available, so they do not need to be dropped.
   SmallVector<DbgVariableIntrinsic *, 2> DbgUsersToSalvage;
+  SmallVector<DPValue *, 2> DPValuesToSalvage;
   for (auto &DbgUser : DbgUsers)
     if (DbgUser->getParent() != DestBlock)
       DbgUsersToSalvage.push_back(DbgUser);
+  for (auto &DPV : DPValues)
+    if (DPV->getParent() != DestBlock)
+      DPValuesToSalvage.push_back(DbgUser);
+  // XXX XXX XXX -- does any of this actually ever fire during the sinking?
+  // Also, this is a scenario where we should try to kill off avoidance of
+  // use-before-free.
 
   // Process the sinking DbgUsersToSalvage in reverse order, as we only want
   // to clone the last appearing debug intrinsic for each given variable.
@@ -3940,7 +3948,7 @@ bool InstCombinerImpl::tryToSinkInstruction(Instruction *I,
 
   // Perform salvaging without the clones, then sink the clones.
   if (!DIIClones.empty()) {
-    salvageDebugInfoForDbgValues(*I, DbgUsersToSalvage);
+    salvageDebugInfoForDbgValues(*I, DbgUsersToSalvage, DPValuesToSalvage);
     // The clones are in reverse order of original appearance, reverse again to
     // maintain the original order.
     for (auto &DIIClone : llvm::reverse(DIIClones)) {
