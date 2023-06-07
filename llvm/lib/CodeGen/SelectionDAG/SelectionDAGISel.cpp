@@ -689,6 +689,8 @@ void SelectionDAGISel::SelectBasicBlock(BasicBlock::const_iterator Begin,
   for (BasicBlock::const_iterator I = Begin; I != End && !SDB->HasTailCall; ++I) {
     if (!ElidedArgCopyInstrs.count(&*I))
       SDB->visit(*I);
+    else
+      SDB->visitDbgInfo(*I);
   }
 
   // Make sure the root of the DAG is up-to-date.
