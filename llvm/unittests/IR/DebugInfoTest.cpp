@@ -730,4 +730,169 @@ TEST(AssignmentTrackingTest, InstrMethods) {
   }
 }
 
+// Test some very straight-forward operations on DPValues -- these are
+// dbg.values that have been converted to a non-instruction format.
+TEST(MetadataTest, ConvertDbgToDPValue) {
+  LLVMContext C;
+  std::unique_ptr<Module> M = parseIR(C, R"(
+    define i16 @f(i16 %a) !dbg !6 {
+      call void @llvm.dbg.value(metadata i16 %a, metadata !9, metadata !DIExpression()), !dbg !11
+      %b = add i16 %a, 1, !dbg !11
+      call void @llvm.dbg.value(metadata i16 %b, metadata !9, metadata !DIExpression()), !dbg !11
+      ret i16 0, !dbg !11
+
+    exit:
+      %c = add i16 %b, 1, !dbg !11
+      ret i16 0, !dbg !11
+    }
+    declare void @llvm.dbg.value(metadata, metadata, metadata) #0
+    attributes #0 = { nounwind readnone speculatable willreturn }
+
+    !llvm.dbg.cu = !{!0}
+    !llvm.module.flags = !{!5}
+
+    !0 = distinct !DICompileUnit(language: DW_LANG_C, file: !1, producer: "debugify", isOptimized: true, runtimeVersion: 0, emissionKind: FullDebug, enums: !2)
+    !1 = !DIFile(filename: "t.ll", directory: "/")
+    !2 = !{}
+    !5 = !{i32 2, !"Debug Info Version", i32 3}
+    !6 = distinct !DISubprogram(name: "foo", linkageName: "foo", scope: null, file: !1, line: 1, type: !7, scopeLine: 1, spFlags: DISPFlagDefinition | DISPFlagOptimized, unit: !0, retainedNodes: !8)
+    !7 = !DISubroutineType(types: !2)
+    !8 = !{!9}
+    !9 = !DILocalVariable(name: "1", scope: !6, file: !1, line: 1, type: !10)
+    !10 = !DIBasicType(name: "ty16", size: 16, encoding: DW_ATE_unsigned)
+    !11 = !DILocation(line: 1, column: 1, scope: !6)
+)");
+
+  // Find the first dbg.value,
+  Instruction &I = *M->getFunction("f")->getEntryBlock().getFirstNonPHI();
+  const DILocalVariable *Var = nullptr;
+  const DIExpression *Expr = nullptr;
+  const DILocation *Loc = nullptr;
+  const Metadata *MLoc = nullptr;
+  DPValue *DPV1 = nullptr;
+  {
+    DbgValueInst *DPI = dyn_cast<DbgValueInst>(&I);
+    ASSERT_TRUE(DPI);
+    Var = DPI->getVariable();
+    Expr = DPI->getExpression();
+    Loc = DPI->getDebugLoc().get();
+    MLoc = DPI->getRawLocation();
+
+    // Test the creation of a DPValue and it's conversion back to a dbg.value.
+    DPV1 = new DPValue(DPI);
+    EXPECT_EQ(DPV1->getVariable(), Var);
+    EXPECT_EQ(DPV1->getExpression(), Expr);
+    EXPECT_EQ(DPV1->getDebugLoc().get(), Loc);
+    EXPECT_EQ(DPV1->getRawLocation(), MLoc);
+
+    // Erase dbg.value,
+    DPI->eraseFromParent();
+    // Re-create from DPV1, inserting at front.
+    DPV1->createDebugIntrinsic(&*M,
+                               &M->getFunction("f")->getEntryBlock().front());
+
+    Instruction *NewDPI = &M->getFunction("f")->getEntryBlock().front();
+    DbgValueInst *DPI2 = dyn_cast<DbgValueInst>(NewDPI);
+    ASSERT_TRUE(DPI2);
+    EXPECT_EQ(DPI2->getVariable(), Var);
+    EXPECT_EQ(DPI2->getExpression(), Expr);
+    EXPECT_EQ(DPI2->getDebugLoc().get(), Loc);
+    EXPECT_EQ(DPI2->getRawLocation(), MLoc);
+  }
+
+  // Fetch the second dbg.value, convert it to a DPValue,
+  BasicBlock::iterator It = M->getFunction("f")->getEntryBlock().begin();
+  It = std::next(std::next(It));
+  DbgValueInst *DPI3 = dyn_cast<DbgValueInst>(It);
+  ASSERT_TRUE(DPI3);
+  DPValue *DPV2 = new DPValue(DPI3);
+
+  // These dbg.values are supposed to refer to different values.
+  EXPECT_NE(DPV1->getRawLocation(), DPV2->getRawLocation());
+
+  // Try manipulating DPValues and markers in the exit block.
+  BasicBlock *ExitBlock = &*std::next(M->getFunction("f")->getEntryBlock().getIterator());
+  Instruction *FirstInst = &ExitBlock->front();
+  Instruction *RetInst = &*std::next(FirstInst->getIterator());
+
+  // Set-up DPMarkers in this block.
+  FirstInst->DbgMarker = new DPMarker();
+  FirstInst->DbgMarker->MarkedInstr = FirstInst;
+  RetInst->DbgMarker = new DPMarker();
+  RetInst->DbgMarker->MarkedInstr = RetInst;
+
+  // Insert DPValues into markers, order should come out DPV2, DPV1.
+  FirstInst->DbgMarker->insertDPValue(DPV1, false);
+  FirstInst->DbgMarker->insertDPValue(DPV2, true);
+  unsigned int ItCount = 0;
+  for (DPValue &Item : FirstInst->DbgMarker->getDbgValueRange()) {
+    EXPECT_TRUE((&Item == DPV2 && ItCount == 0) ||
+              (&Item == DPV1 && ItCount == 1));
+    EXPECT_EQ(Item.getMarker(), FirstInst->DbgMarker);
+    ++ItCount;
+  }
+
+  // Clone them onto the second marker -- should allocate new DPVs.
+  RetInst->DbgMarker->cloneDebugInfoFrom(FirstInst->DbgMarker, std::nullopt, false);
+  EXPECT_EQ(RetInst->DbgMarker->StoredDPValues.size(), 2);
+  ItCount = 0;
+  // Check these things store the same information; but that they're not the same
+  // objects.
+  for (DPValue &Item : RetInst->DbgMarker->getDbgValueRange()) {
+    EXPECT_TRUE((Item.getRawLocation() == DPV2->getRawLocation() && ItCount == 0) ||
+                (Item.getRawLocation() == DPV1->getRawLocation() && ItCount == 1));
+    
+    EXPECT_EQ(Item.getMarker(), RetInst->DbgMarker);
+    EXPECT_NE(&Item, DPV1);
+    EXPECT_NE(&Item, DPV2);
+    ++ItCount;
+  }
+
+  RetInst->DbgMarker->dropDPValues();
+  EXPECT_EQ(RetInst->DbgMarker->StoredDPValues.size(), 0);
+
+  // Try cloning one single DPValue.
+  auto DIIt = std::next(FirstInst->DbgMarker->getDbgValueRange().begin());
+  RetInst->DbgMarker->cloneDebugInfoFrom(FirstInst->DbgMarker, DIIt, false);
+  EXPECT_EQ(RetInst->DbgMarker->StoredDPValues.size(), 1);
+  // The second DPValue should have been cloned; it should have the same values
+  // as DPV1.
+  EXPECT_EQ(RetInst->DbgMarker->StoredDPValues.begin()->getRawLocation(),
+            DPV1->getRawLocation());
+  // We should be able to drop individual DPValues.
+  RetInst->DbgMarker->dropOneDPValue(&*RetInst->DbgMarker->StoredDPValues.begin());
+
+  // "Aborb" a DPMarker: this means pretend that the instruction it's attached
+  // to is disappearing so it needs to be transferred into "this" marker.
+  RetInst->DbgMarker->absorbDebugValues(*FirstInst->DbgMarker, true);
+  EXPECT_EQ(RetInst->DbgMarker->StoredDPValues.size(), 2);
+  // Should be the DPV1 and DPV2 objects.
+  ItCount = 0;
+  for (DPValue &Item : RetInst->DbgMarker->getDbgValueRange()) {
+    EXPECT_TRUE((&Item == DPV2 && ItCount == 0) ||
+              (&Item == DPV1 && ItCount == 1));
+    EXPECT_EQ(Item.getMarker(), RetInst->DbgMarker);
+    ++ItCount;
+  }
+
+  // Finally -- there are two DPValues left over. If we remove evrything in the
+  // basic block, then they should sink down into the "TrailingDPValues"
+  // container for dangling debug-info. Future facilities will restore them
+  // back when a terminator is inserted.
+  FirstInst->DbgMarker->removeMarker();
+  FirstInst->eraseFromParent();
+  RetInst->DbgMarker->removeMarker();
+  RetInst->eraseFromParent();
+
+  EXPECT_EQ(ExitBlock->TrailingDPValues.StoredDPValues.size(), 2);
+  // Test again that it's those two DPValues, DPV1 and DPV2.
+  ItCount = 0;
+  for (DPValue &Item : ExitBlock->TrailingDPValues.getDbgValueRange()) {
+    EXPECT_TRUE((&Item == DPV2 && ItCount == 0) ||
+              (&Item == DPV1 && ItCount == 1));
+    EXPECT_EQ(Item.getMarker(), &ExitBlock->TrailingDPValues);
+    ++ItCount;
+  }
+}
+
 } // end namespace
