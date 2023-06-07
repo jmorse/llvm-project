@@ -6861,7 +6861,10 @@ static bool ReduceLoopStrength(Loop *L, IVUsers &IU, ScalarEvolution &SE,
   // meet the salvageable criteria and store their DIExpression and SCEVs.
   SmallVector<std::unique_ptr<DVIRecoveryRec>, 2> SalvageableDVIRecords;
   SmallSet<AssertingVH<DbgValueInst>, 2> DVIHandles;
-  DbgGatherSalvagableDVI(L, SE, SalvageableDVIRecords, DVIHandles);
+// XXX jmorse: intrinsinc storage is kind of inherent to this facility. It could
+// be re-implemented with DPValues, however, that won't shed any light on the
+// API behaviours we want to expose.
+//  DbgGatherSalvagableDVI(L, SE, SalvageableDVIRecords, DVIHandles);
 
   bool Changed = false;
   std::unique_ptr<MemorySSAUpdater> MSSAU;
