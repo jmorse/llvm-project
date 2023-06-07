@@ -449,7 +449,6 @@ private:
   bool optimizeExtractElementInst(Instruction *Inst);
   bool dupRetToEnableTailCallOpts(BasicBlock *BB, ModifyDT &ModifiedDT);
   bool fixupDbgValue(Instruction *I);
-  bool placeDbgValues(Function &F);
   bool placePseudoProbes(Function &F);
   bool canFormExtLd(const SmallVectorImpl<Instruction *> &MovedExts,
                     LoadInst *&LI, Instruction *&Inst, bool HasPromoted);
@@ -708,7 +707,6 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
 
   // Do this last to clean up use-before-def scenarios introduced by other
   // preparatory transforms.
-  EverMadeChange |= placeDbgValues(F);
   EverMadeChange |= placePseudoProbes(F);
 
 #ifndef NDEBUG
@@ -3004,7 +3002,6 @@ class TypePromotionTransaction {
     SmallVector<InstructionAndIdx, 4> OriginalUses;
     /// Keep track of the debug users.
     SmallVector<DbgValueInst *, 1> DbgValues;
-    // Dummy container for collecing DPValues, currently unused.
     SmallVector<DPValue *, 1> DPValues;
 
     /// Keep track of the new value so that we can undo it by replacing
@@ -3027,7 +3024,6 @@ class TypePromotionTransaction {
       // Record the debug uses separately. They are not in the instruction's
       // use list, but they are replaced by RAUW.
       findDbgValues(DbgValues, DPValues, Inst);
-      assert(DPValues.empty());
 
       // Now, we can replace the uses.
       Inst->replaceAllUsesWith(New);
@@ -3044,6 +3040,8 @@ class TypePromotionTransaction {
       // correctness and utility of debug value instructions.
       for (auto *DVI : DbgValues)
         DVI->replaceVariableLocationOp(New, Inst);
+      for (auto *DPV : DPValues)
+        DPV->replaceVariableLocationOp(New, Inst);
     }
   };
 
@@ -8315,6 +8313,10 @@ bool CodeGenPrepare::optimizeBlock(BasicBlock &BB, ModifyDT &ModifiedDT) {
 // Some CGP optimizations may move or alter what's computed in a block. Check
 // whether a dbg.value intrinsic could be pointed at a more appropriate operand.
 bool CodeGenPrepare::fixupDbgValue(Instruction *I) {
+// jmorse: we would need to instrument this for DPValues if CGP becomes
+// a pass where things are inhaled. Because we're taking shortcuts right now,
+// don't re-point dbg.values at locally sunk address computations.
+return false;
   assert(isa<DbgValueInst>(I));
   DbgValueInst &DVI = *cast<DbgValueInst>(I);
 
@@ -8336,71 +8338,6 @@ bool CodeGenPrepare::fixupDbgValue(Instruction *I) {
     }
   }
   return AnyChange;
-}
-
-// A llvm.dbg.value may be using a value before its definition, due to
-// optimizations in this pass and others. Scan for such dbg.values, and rescue
-// them by moving the dbg.value to immediately after the value definition.
-// FIXME: Ideally this should never be necessary, and this has the potential
-// to re-order dbg.value intrinsics.
-bool CodeGenPrepare::placeDbgValues(Function &F) {
-  bool MadeChange = false;
-  DominatorTree DT(F);
-
-  for (BasicBlock &BB : F) {
-    for (Instruction &Insn : llvm::make_early_inc_range(BB)) {
-      DbgValueInst *DVI = dyn_cast<DbgValueInst>(&Insn);
-      if (!DVI)
-        continue;
-
-      SmallVector<Instruction *, 4> VIs;
-      for (Value *V : DVI->getValues())
-        if (Instruction *VI = dyn_cast_or_null<Instruction>(V))
-          VIs.push_back(VI);
-
-      // This DVI may depend on multiple instructions, complicating any
-      // potential sink. This block takes the defensive approach, opting to
-      // "undef" the DVI if it has more than one instruction and any of them do
-      // not dominate DVI.
-      for (Instruction *VI : VIs) {
-        if (VI->isTerminator())
-          continue;
-
-        // If VI is a phi in a block with an EHPad terminator, we can't insert
-        // after it.
-        if (isa<PHINode>(VI) && VI->getParent()->getTerminator()->isEHPad())
-          continue;
-
-        // If the defining instruction dominates the dbg.value, we do not need
-        // to move the dbg.value.
-        if (DT.dominates(VI, DVI))
-          continue;
-
-        // If we depend on multiple instructions and any of them doesn't
-        // dominate this DVI, we probably can't salvage it: moving it to
-        // after any of the instructions could cause us to lose the others.
-        if (VIs.size() > 1) {
-          LLVM_DEBUG(
-              dbgs()
-              << "Unable to find valid location for Debug Value, undefing:\n"
-              << *DVI);
-          DVI->setKillLocation();
-          break;
-        }
-
-        LLVM_DEBUG(dbgs() << "Moving Debug Value before :\n"
-                          << *DVI << ' ' << *VI);
-        DVI->removeFromParent();
-        if (isa<PHINode>(VI))
-          DVI->insertBefore(&*VI->getParent()->getFirstInsertionPt());
-        else
-          DVI->insertAfter(VI);
-        MadeChange = true;
-        ++NumDbgValueMoved;
-      }
-    }
-  }
-  return MadeChange;
 }
 
 // Group scattered pseudo probes in a block to favor SelectionDAG. Scattered
