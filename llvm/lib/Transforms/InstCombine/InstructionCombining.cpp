@@ -3823,7 +3823,7 @@ static bool TryToSinkInstruction(Instruction *I, BasicBlock *DestBlock,
 
   // Perform salvaging without the clones, then sink the clones.
   if (!DIIClones.empty()) {
-    salvageDebugInfoForDbgValues(*I, DbgUsers);
+    salvageDebugInfoForDbgValues(*I, DbgUsers, DPValues);
     // The clones are in reverse order of original appearance, reverse again to
     // maintain the original order.
     for (auto &DIIClone : llvm::reverse(DIIClones)) {
