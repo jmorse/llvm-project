@@ -56,10 +56,11 @@ BasicBlock *llvm::CloneBasicBlock(const BasicBlock *BB, ValueToValueMapTy &VMap,
     if (DIFinder && TheModule)
       DIFinder->processInstruction(*TheModule, I);
 
-    Instruction *NewInst = I.clone();
+    Instruction *NewInst = I.cloneMaybeDbg();
     if (I.hasName())
       NewInst->setName(I.getName() + NameSuffix);
-    NewInst->insertInto(NewBB, NewBB->end());
+    NewInst->insertBefore(*NewBB, NewBB->end());
+    NewInst->cloneDebugInfoFrom(&I);
     VMap[&I] = NewInst; // Add instruction map to value.
 
     if (isa<CallInst>(I) && !I.isDebugOrPseudoInst()) {
@@ -454,7 +455,8 @@ PruningFunctionCloner::cloneInstruction(BasicBlock::const_iterator II) {
     }
   }
   if (!NewInst)
-    NewInst = II->clone();
+    NewInst = II->cloneMaybeDbg();
+
   return NewInst;
 }
 
@@ -475,6 +477,7 @@ void PruningFunctionCloner::CloneBlock(
   if (BB->hasName())
     NewBB->setName(BB->getName() + NameSuffix);
   NewBB->IsInhaled = BB->IsInhaled;
+  Module *M = const_cast<Module*>(BB->getModule());
 
   // It is only legal to clone a function if a block address within that
   // function is never referenced outside of the function.  Given that, we
@@ -527,6 +530,14 @@ void PruningFunctionCloner::CloneBlock(
             V = MappedV;
 
         if (!NewInst->mayHaveSideEffects()) {
+          // lolhacks, insert so that we can clone debug-info to the end of
+          // the block. Could do with a helper for that in the future.
+          if (NewBB->IsInhaled) {
+            NewInst->insertBefore(*NewBB, NewBB->end());
+            auto DbgValueRange = NewInst->cloneDebugInfoFrom(&*II);
+            RemapDPValueRange(M, DbgValueRange, VMap, (ModuleLevelChanges ? RF_None : RF_NoModuleLevelChanges) | RF_None);
+            NewInst->removeFromParent();
+          }
           VMap[&*II] = V;
           NewInst->deleteValue();
           continue;
@@ -536,12 +547,17 @@ void PruningFunctionCloner::CloneBlock(
 
     if (II->hasName())
       NewInst->setName(II->getName() + NameSuffix);
-    VMap[&*II] = NewInst; // Add instruction map to value.
     NewInst->insertInto(NewBB, NewBB->end());
     if (isa<CallInst>(II) && !II->isDebugOrPseudoInst()) {
       hasCalls = true;
       hasMemProfMetadata |= II->hasMetadata(LLVMContext::MD_memprof);
     }
+
+    if (NewBB->IsInhaled && II->DbgMarker) {
+      auto DbgValueRange = NewInst->cloneDebugInfoFrom(&*II);
+      RemapDPValueRange(M, DbgValueRange, VMap, (ModuleLevelChanges ? RF_None : RF_NoModuleLevelChanges) | RF_None);
+    }
+    VMap[&*II] = NewInst; // Add instruction map to value.
 
     if (CodeInfo) {
       CodeInfo->OrigVMap[&*II] = NewInst;
@@ -600,6 +616,12 @@ void PruningFunctionCloner::CloneBlock(
     if (OldTI->hasName())
       NewInst->setName(OldTI->getName() + NameSuffix);
     NewInst->insertInto(NewBB, NewBB->end());
+
+    if (NewBB->IsInhaled) {
+      auto DbgValueRange = NewInst->cloneDebugInfoFrom(OldTI);
+      RemapDPValueRange(M, DbgValueRange, VMap, (ModuleLevelChanges ? RF_None : RF_NoModuleLevelChanges) | RF_None);
+    }
+
     VMap[OldTI] = NewInst; // Add instruction map to value.
 
     if (CodeInfo) {
@@ -611,6 +633,16 @@ void PruningFunctionCloner::CloneBlock(
 
     // Recursively clone any reachable successor blocks.
     append_range(ToClone, successors(BB->getTerminator()));
+  } else {
+    // If we didn't create a new terminator, clone DPValues from the old
+    // terminator onto the new terminator.
+    Instruction *NewInst = NewBB->getTerminator();
+    assert(NewInst);
+
+    if (NewBB->IsInhaled) {
+      auto DbgValueRange = NewInst->cloneDebugInfoFrom(OldTI);
+      RemapDPValueRange(M, DbgValueRange, VMap, (ModuleLevelChanges ? RF_None : RF_NoModuleLevelChanges) | RF_None);
+    }
   }
 
   if (CodeInfo) {
@@ -942,10 +974,17 @@ void llvm::CloneAndPruneFunctionInto(
 void llvm::remapInstructionsInBlocks(ArrayRef<BasicBlock *> Blocks,
                                      ValueToValueMapTy &VMap) {
   // Rewrite the code to refer to itself.
-  for (auto *BB : Blocks)
-    for (auto &Inst : *BB)
+  for (auto *BB : Blocks) {
+    Module *M = BB->getModule();
+    for (auto &Inst : *BB) {
+      for (DPValue &DbgValue : Inst.getDbgValueRange()) {
+        RemapDPValue(M, &DbgValue, VMap,
+                         RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
+      }
       RemapInstruction(&Inst, VMap,
                        RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
+    }
+  }
 }
 
 /// Clones a loop \p OrigLoop.  Returns the loop and the blocks in \p
@@ -1066,9 +1105,11 @@ BasicBlock *llvm::DuplicateInstructionsInSplitBetween(
   // Stop once we see the terminator too. This covers the case where BB's
   // terminator gets replaced and StopAt == BB's terminator.
   for (; StopAt != &*BI && BB->getTerminator() != &*BI; ++BI) {
-    Instruction *New = BI->clone();
+    Instruction *New = BI->cloneMaybeDbg();
     New->setName(BI->getName());
     New->insertBefore(NewTerm);
+    New->cloneDebugInfoFrom(&*BI);
+    // XXX jmorse -- this isn't going to look through VAMs, so don't remap.
     ValueMapping[&*BI] = New;
 
     // Remap operands to patch up intra-block references.

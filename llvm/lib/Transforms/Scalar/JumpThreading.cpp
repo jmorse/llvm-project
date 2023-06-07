@@ -412,6 +412,10 @@ static bool replaceFoldableUses(Instruction *Cond, Value *ToVal,
   if (Cond->getParent() == KnownAtEndOfBB)
     Changed |= replaceNonLocalUsesWith(Cond, ToVal);
   for (Instruction &I : reverse(*KnownAtEndOfBB)) {
+    for (DPValue &DPV : I.getDbgValueRange()) {
+      DPV.replaceVariableLocationOp(Cond, ToVal, true);
+    }
+
     // Reached the Cond whose uses we are trying to replace, so there are no
     // more uses.
     if (&I == Cond)
@@ -2038,6 +2042,8 @@ JumpThreadingPass::cloneInstructions(BasicBlock::iterator BI,
     return true;
   };
 
+  BasicBlock *RangeBB = BI->getParent();
+
   // Clone the phi nodes of the source basic block into NewBB.  The resulting
   // phi nodes are trivial since NewBB only has one predecessor, but SSAUpdater
   // might need to rewrite the operand of the cloned phi.
@@ -2056,15 +2062,24 @@ JumpThreadingPass::cloneInstructions(BasicBlock::iterator BI,
   identifyNoAliasScopesToClone(BI, BE, NoAliasScopes);
   cloneNoAliasScopes(NoAliasScopes, ClonedScopes, "thread", Context);
 
+  auto CloneDbgInfoPls = [&](Instruction *NewInst, Instruction *From) {
+    NewInst->cloneDebugInfoFrom(From);
+    // XXX -- by all rights, this should then remap the operands to the new
+    // path through the function. Normal jump-threading doesn't, so don't here.
+  };
+
   // Clone the non-phi instructions of the source basic block into NewBB,
   // keeping track of the mapping and using it to remap operands in the cloned
   // instructions.
   for (; BI != BE; ++BI) {
-    Instruction *New = BI->clone();
+    Instruction *New = nullptr;
+    New = BI->cloneMaybeDbg();
     New->setName(BI->getName());
     New->insertInto(NewBB, NewBB->end());
     ValueMapping[&*BI] = New;
     adaptNoAliasScopes(New, ClonedScopes, Context);
+
+    CloneDbgInfoPls(New, &*BI);
 
     if (RetargetDbgValueIfPossible(New))
       continue;
@@ -2076,6 +2091,16 @@ JumpThreadingPass::cloneInstructions(BasicBlock::iterator BI,
         if (I != ValueMapping.end())
           New->setOperand(i, I->second);
       }
+  }
+
+  // There may be dbg.values on the terminator, clone directly from marker
+  // to marker as there isn't an instruction there.
+  if (BE != RangeBB->end()) {
+    // Dump them at the end.
+    DPMarker *Marker = RangeBB->getMarker(BE);
+    DPMarker *EndMarker = NewBB->getMarker(NewBB->end());
+    if (Marker && EndMarker)
+      EndMarker->cloneDebugInfoFrom(Marker, None);
   }
 
   return ValueMapping;
@@ -2644,7 +2669,15 @@ bool JumpThreadingPass::duplicateCondBranchOnPHIIntoPred(
   // Clone the non-phi instructions of BB into PredBB, keeping track of the
   // mapping and using it to remap operands in the cloned instructions.
   for (; BI != BB->end(); ++BI) {
-    Instruction *New = BI->clone();
+    Instruction *New = BI->cloneMaybeDbg();
+
+    // Insert and remove to ensure the dbg.values go in the right place!
+    if (!isa<DbgValueInst>(New)) {
+      New->insertBefore(OldPredBranch);
+      New->cloneDebugInfoFrom(&*BI);
+      // XXX another scenario where we should remap in the future.
+      New->removeFromParent();
+    }
 
     // Remap operands to patch up intra-block references.
     for (unsigned i = 0, e = New->getNumOperands(); i != e; ++i)

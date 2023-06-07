@@ -1100,12 +1100,17 @@ static void CloneInstructionsIntoPredecessorBlockAndUpdateSSAUses(
   // Note that there may be multiple predecessor blocks, so we cannot move
   // bonus instructions to a predecessor block.
   for (Instruction &BonusInst : *BB) {
-    if (isa<DbgInfoIntrinsic>(BonusInst) || BonusInst.isTerminator())
+    // jmorse: remove really special handling of dbg.value that dates to
+    // d715ec82b4ad12c598dd9e2329bdad9b887f397f . It never really needed to be
+    // that special -- we could just clone things as they came up. Do that now
+    // and remap dbg.values (and DPValues) in order, to avoid having to jump
+    // through lots of re-ordering hoops in the callers.
+    if (BonusInst.isTerminator())
       continue;
 
-    Instruction *NewBonusInst = BonusInst.clone();
+    Instruction *NewBonusInst = BonusInst.cloneMaybeDbg();
 
-    if (PTI->getDebugLoc() != NewBonusInst->getDebugLoc()) {
+    if (!isa<DbgInfoIntrinsic>(BonusInst) && PTI->getDebugLoc() != NewBonusInst->getDebugLoc()) {
       // Unless the instruction has the same !dbg location as the original
       // branch, drop it. When we fold the bonus instructions we want to make
       // sure we reset their debug locations in order to avoid stepping on
@@ -1115,7 +1120,6 @@ static void CloneInstructionsIntoPredecessorBlockAndUpdateSSAUses(
 
     RemapInstruction(NewBonusInst, VMap,
                      RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
-    VMap[&BonusInst] = NewBonusInst;
 
     // If we speculated an instruction, we need to drop any metadata that may
     // result in undefined behavior, as the metadata might have been valid
@@ -1125,8 +1129,17 @@ static void CloneInstructionsIntoPredecessorBlockAndUpdateSSAUses(
     NewBonusInst->dropUBImplyingAttrsAndMetadata();
 
     NewBonusInst->insertInto(PredBlock, PTI->getIterator());
+    NewBonusInst->cloneDebugInfoFrom(&BonusInst); // remapped by caller
+
+    for (DPValue &DPV : NewBonusInst->getDbgValueRange())
+      RemapDPValue(NewBonusInst->getModule(), &DPV, VMap, RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
+
+    if (isa<DbgInfoIntrinsic>(BonusInst))
+      continue;
+
     NewBonusInst->takeName(&BonusInst);
     BonusInst.setName(NewBonusInst->getName() + ".old");
+    VMap[&BonusInst] = NewBonusInst;
 
     // Update (liveout) uses of bonus instructions,
     // now that the bonus instruction has been cloned into predecessor.
@@ -3208,13 +3221,16 @@ FoldCondBranchOnValueKnownInPredecessorImpl(BranchInst *BI, DomTreeUpdater *DTU,
     BasicBlock::iterator InsertPt = EdgeBB->getFirstInsertionPt();
     DenseMap<Value *, Value *> TranslateMap; // Track translated values.
     TranslateMap[Cond] = CB;
+    // DDD: track instructions that we optimise away while folding, so that we
+    // can copy DPValues from them later.
+    SmallVector<Instruction *> StuffToCloneFrom;
     for (BasicBlock::iterator BBI = BB->begin(); &*BBI != BI; ++BBI) {
       if (PHINode *PN = dyn_cast<PHINode>(BBI)) {
         TranslateMap[PN] = PN->getIncomingValueForBlock(EdgeBB);
         continue;
       }
       // Clone the instruction.
-      Instruction *N = BBI->clone();
+      Instruction *N = BBI->cloneMaybeDbg();
       if (BBI->hasName())
         N->setName(BBI->getName() + ".c");
 
@@ -3230,6 +3246,7 @@ FoldCondBranchOnValueKnownInPredecessorImpl(BranchInst *BI, DomTreeUpdater *DTU,
         if (!BBI->use_empty())
           TranslateMap[&*BBI] = V;
         if (!N->mayHaveSideEffects()) {
+          StuffToCloneFrom.push_back(&*BBI);
           N->deleteValue(); // Instruction folded away, don't need actual inst
           N = nullptr;
         }
@@ -3241,12 +3258,29 @@ FoldCondBranchOnValueKnownInPredecessorImpl(BranchInst *BI, DomTreeUpdater *DTU,
         // Insert the new instruction into its new home.
         N->insertInto(EdgeBB, InsertPt);
 
+        for (Instruction *PrevInst : StuffToCloneFrom)
+          N->cloneDebugInfoFrom(PrevInst);
+        StuffToCloneFrom.clear();
+
+        N->cloneDebugInfoFrom(&*BBI);
+
         // Register the new instruction with the assumption cache if necessary.
         if (auto *Assume = dyn_cast<AssumeInst>(N))
           if (AC)
             AC->registerAssumption(Assume);
       }
     }
+
+    // jmorse -- we need to copy across dbg.values too, including those attached
+    // to instructions that got optimised away.
+    // XXX -- these previously had InsertAtHead flags passed to cloneDebugInfoFrom.
+    // I feel that we should have a better way of expressing this in the optimisation,
+    // and shouldn't be passing flags in, so removed from now. Re-visit if it turns
+    // out that this makes a difference.
+    for (Instruction *PrevInst : StuffToCloneFrom)
+      InsertPt->cloneDebugInfoFrom(PrevInst);
+    StuffToCloneFrom.clear();
+    InsertPt->cloneDebugInfoFrom(BI);
 
     BB->removePredecessor(EdgeBB);
     BranchInst *EdgeBI = cast<BranchInst>(EdgeBB->getTerminator());
@@ -3652,21 +3686,20 @@ static bool performBranchToCommonDestFolding(BranchInst *BI, BranchInst *PBI,
   ValueToValueMapTy VMap; // maps original values to cloned values
   CloneInstructionsIntoPredecessorBlockAndUpdateSSAUses(BB, PredBlock, VMap);
 
+  Module *M = BB->getModule();
+
+  if (PredBlock->IsInhaled) {
+    PredBlock->getTerminator()->cloneDebugInfoFrom(BB->getTerminator());
+    for (DPValue &DPV : PredBlock->getTerminator()->getDbgValueRange()) {
+      RemapDPValue(M, &DPV, VMap, RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
+    }
+  }
+
   // Now that the Cond was cloned into the predecessor basic block,
   // or/and the two conditions together.
   Value *BICond = VMap[BI->getCondition()];
   PBI->setCondition(
       createLogicalOp(Builder, Opc, PBI->getCondition(), BICond, "or.cond"));
-
-  // Copy any debug value intrinsics into the end of PredBlock.
-  for (Instruction &I : *BB) {
-    if (isa<DbgInfoIntrinsic>(I)) {
-      Instruction *NewI = I.clone();
-      RemapInstruction(NewI, VMap,
-                       RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
-      NewI->insertBefore(PBI);
-    }
-  }
 
   ++NumFoldBranchToCommonDest;
   return true;
