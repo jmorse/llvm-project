@@ -32,6 +32,7 @@ namespace llvm {
 class DbgDeclareInst;
 class DbgValueInst;
 class DbgVariableIntrinsic;
+class DPValue;
 class Instruction;
 class Module;
 
@@ -40,10 +41,12 @@ class Module;
 TinyPtrVector<DbgDeclareInst *> FindDbgDeclareUses(Value *V);
 
 /// Finds the llvm.dbg.value intrinsics describing a value.
-void findDbgValues(SmallVectorImpl<DbgValueInst *> &DbgValues, Value *V);
+void findDbgValues(SmallVectorImpl<DbgValueInst *> &DbgValues,
+                   Value *V, SmallVectorImpl<DPValue *> *DPValues = nullptr);
 
 /// Finds the debug info intrinsics describing a value.
-void findDbgUsers(SmallVectorImpl<DbgVariableIntrinsic *> &DbgInsts, Value *V);
+void findDbgUsers(SmallVectorImpl<DbgVariableIntrinsic *> &DbgInsts,
+                  Value *V, SmallVectorImpl<DPValue *> *DPValues = nullptr);
 
 /// Find subprogram that is enclosing this scope.
 DISubprogram *getDISubprogram(const MDNode *Scope);
