@@ -3034,6 +3034,9 @@ bool SimplifyCFGOpt::SpeculativelyExecuteBB(BranchInst *BI, BasicBlock *ThenBB,
   }
 
   // Hoist the instructions.
+  // jmorse: drop DPValues, in dbg.value mode this is done at end of this block.
+  for (auto &It : make_range(ThenBB->begin(), ThenBB->end()))
+    It.dropDbgValues();
   BB->splice(BI->getIterator(), ThenBB, ThenBB->begin(),
              std::prev(ThenBB->end()));
 
@@ -5090,6 +5093,13 @@ bool SimplifyCFGOpt::simplifyUnreachable(UnreachableInst *UI) {
 
   bool Changed = false;
 
+  // Flush dbg-values if they're dangling. Unreachable is a terminator.
+  BB->flushTerminatorDbgValues();
+
+  // dbg.values on the unreachable inst itself should be deleted, as below we
+  // delete everything past the final executable instruction.
+  UI->dropDbgValues();
+
   // If there are any instructions immediately before the unreachable that can
   // be removed, do so.
   while (UI->getIterator() != BB->begin()) {
@@ -5105,6 +5115,9 @@ bool SimplifyCFGOpt::simplifyUnreachable(UnreachableInst *UI) {
     // of subtle reasoning. If this inst is an EH, all the predecessors of this
     // block will be the unwind edges of Invoke/CatchSwitch/CleanupReturn,
     // and we can therefore guarantee this block will be erased.
+
+    // If we're deleting this, we're deleting any subsequent dbg.values.
+    BBI->dropDbgValues();
 
     // Delete this instruction (any uses are guaranteed to be dead)
     BBI->replaceAllUsesWith(PoisonValue::get(BBI->getType()));

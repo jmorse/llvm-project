@@ -1647,11 +1647,12 @@ static void fixupLineNumbers(Function *Fn, Function::iterator FI,
         if (isa<DbgInfoIntrinsic>(BI)) {
           BI = BI->eraseFromParent();
           continue;
+        } else {
+          BI->dropDbgValues();
         }
         ++BI;
       }
     }
-
   }
 }
 
