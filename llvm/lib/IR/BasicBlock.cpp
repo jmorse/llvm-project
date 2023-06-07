@@ -20,11 +20,125 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Type.h"
+#include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
 
 #define DEBUG_TYPE "ir"
 STATISTIC(NumInstrRenumberings, "Number of renumberings across all blocks");
+
+cl::opt<bool> DDDInhaleDbgValues("experimental-debuginfo-iterators",
+                  cl::desc("Enable communicating debuginfo positions through iterators, eliminating intrinsics"),
+                  cl::init(false));
+
+
+DPMarker *BasicBlock::createMarker(Instruction *I) {
+  assert(IsInhaled && "Tried to create a marker in a non-inhaled block!");
+  assert(I->DbgMarker == nullptr &&
+         "Tried to create marker for instuction that already has one!");
+  DPMarker *Marker = new DPMarker();
+  Marker->MarkedInstr = I;
+  I->DbgMarker = Marker;
+  return Marker;
+}
+
+void BasicBlock::inhaleDbgValues() {
+  if (!DDDInhaleDbgValues)
+    return;
+
+  IsInhaled = true;
+  SmallVector<DPValue *, 4> DPVals;
+  for (Instruction &I : make_early_inc_range(InstList)) {
+    assert(!I.DbgMarker && "DbgMarker already set on inhalation");
+    if (DbgValueInst *DVI = dyn_cast<DbgValueInst>(&I)) {
+      DPValue *Value = new DPValue(DVI);
+      DPVals.push_back(Value);
+      DVI->eraseFromParent();
+      continue;
+    }
+    // Create the marker function that notes this Instruction's position in the DebugValueList.
+    createMarker(&I);
+    DPMarker *Marker = I.DbgMarker;
+
+    for (DPValue *DPV : DPVals) {
+      Marker->insertDPValue(DPV, false);
+      DPV->setMarker(Marker);
+    }
+    DPVals.clear();
+  }
+}
+
+void BasicBlock::exhaleDbgValues() {
+  invalidateOrders();
+  IsInhaled = false;
+  InstListType::iterator InsertPoint = InstList.begin();
+  for (auto &Inst : *this) {
+    if (!Inst.DbgMarker)
+      continue;
+
+    DPMarker &Marker = *Inst.DbgMarker;
+    for (DPValue &DPV : Marker.getDbgValueRange()) {
+      InstList.insert(Inst.getIterator(), DPV.createDebugIntrinsic(getModule(), nullptr));
+    }
+
+    Marker.eraseFromParent();
+  };
+
+  // Assume no danglers?
+  assert(TrailingDPValues.StoredDPValues.empty());
+
+  for (auto &I : *this)
+    assert(!I.DbgMarker);
+}
+
+void BasicBlock::validateDbgValues() {
+  // Only validate if we have a debug program.
+  if (!IsInhaled)
+    return;
+
+  // Match every DebugProgramMarker to every Instruction and vice versa, and
+  // verify that there are no invalid DebugProgramValues.
+  for (auto BlockInstructionIt = begin(); BlockInstructionIt != end(); ++BlockInstructionIt) {
+    if (!BlockInstructionIt->DbgMarker)
+      continue;
+
+    // Validate DebugProgramMarkers.
+    DPMarker *CurrentDebugMarker = BlockInstructionIt->DbgMarker;
+
+    // If this is a marker, it should match the instruction and vice versa.
+    assert(CurrentDebugMarker->MarkedInstr == &*BlockInstructionIt &&
+           "Debug Marker points to incorrect instruction?");
+
+    // Now validate any DPValues in the marker.
+    for (DPValue &DPV : CurrentDebugMarker->getDbgValueRange()) {
+      // Validate DebugProgramValues.
+      assert(DPV.getMarker() == CurrentDebugMarker && "Not pointing at correct next marker!");
+
+      // Verify that no DbgValues appear prior to PHIs.
+      assert(!isa<PHINode>(BlockInstructionIt) &&
+             "DebugProgramValues must not appear before PHI nodes in a block!");
+    }
+  }
+}
+
+void BasicBlock::setInhaled(bool NewInhaled) {
+  if (NewInhaled && !IsInhaled)
+    inhaleDbgValues();
+  else if (!NewInhaled && IsInhaled)
+    exhaleDbgValues();
+}
+
+#ifndef NDEBUG
+void BasicBlock::dumpDbgValues() const {
+  for (auto &Inst : *this) {
+    if (!Inst.DbgMarker)
+      continue;
+
+    dbgs() << "@ " << Inst.DbgMarker << " ";
+    Inst.DbgMarker->dump();
+  };
+}
+#endif
 
 ValueSymbolTable *BasicBlock::getValueSymbolTable() {
   if (Function *F = getParent())
@@ -56,16 +170,24 @@ BasicBlock::BasicBlock(LLVMContext &C, const Twine &Name, Function *NewParent,
            "Cannot insert block before another block with no function!");
 
   setName(Name);
+  if (NewParent)
+    setInhaled(NewParent->IsInhaled);
 }
 
 void BasicBlock::insertInto(Function *NewParent, BasicBlock *InsertBefore) {
   assert(NewParent && "Expected a parent");
   assert(!Parent && "Already has a parent");
 
+  setInhaled(NewParent->IsInhaled);
+
   if (InsertBefore)
     NewParent->insert(InsertBefore->getIterator(), this);
   else
     NewParent->insert(NewParent->end(), this);
+  if (NewParent->IsInhaled && !IsInhaled)
+    inhaleDbgValues();
+  else if (!NewParent->IsInhaled && IsInhaled)
+    exhaleDbgValues();
 }
 
 BasicBlock::~BasicBlock() {
@@ -91,6 +213,11 @@ BasicBlock::~BasicBlock() {
 
   assert(getParent() == nullptr && "BasicBlock still linked into the program!");
   dropAllReferences();
+  for (auto &Inst : *this) {
+    if (!Inst.DbgMarker)
+      continue;
+    Inst.DbgMarker->eraseFromParent();
+  }
   InstList.clear();
 }
 

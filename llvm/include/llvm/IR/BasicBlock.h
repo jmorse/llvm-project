@@ -70,6 +70,14 @@ public:
   using DIIterator = DbgProgramListType::iterator;
   DPMarker TrailingDPValues;
   bool IsInhaled;
+  DPMarker *createMarker(Instruction *I);
+
+  void inhaleDbgValues();
+  void exhaleDbgValues();
+  void setInhaled(bool NewInhaled);
+  void validateDbgValues();
+
+  void dumpDbgValues() const;
 
 private:
 

@@ -192,6 +192,7 @@ doPromotion(Function *F, FunctionAnalysisManager &FAM,
                                   F->getName());
   NF->copyAttributesFrom(F);
   NF->copyMetadata(F, 0);
+  NF->setInhaled(F->IsInhaled);
 
   // The new function will have the !dbg metadata copied from the original
   // function. The original function may not be deleted, and dbg metadata need

@@ -80,6 +80,27 @@ static cl::opt<unsigned> NonGlobalValueMaxNameSize(
     "non-global-value-max-name-size", cl::Hidden, cl::init(1024),
     cl::desc("Maximum size for the name of non-global values."));
 
+void Function::inhaleDbgValues() {
+  IsInhaled = true;
+  for (auto &BB : *this) {
+    BB.inhaleDbgValues();
+  }
+}
+
+void Function::exhaleDbgValues() {
+  IsInhaled = false;
+  for (auto &BB : *this) {
+    BB.exhaleDbgValues();
+  }
+}
+
+void Function::setInhaled(bool NewInhaled) {
+  if (NewInhaled && !IsInhaled)
+    inhaleDbgValues();
+  else if (!NewInhaled && IsInhaled)
+    exhaleDbgValues();
+}
+
 //===----------------------------------------------------------------------===//
 // Argument Implementation
 //===----------------------------------------------------------------------===//

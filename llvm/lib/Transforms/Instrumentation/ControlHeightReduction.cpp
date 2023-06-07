@@ -1775,6 +1775,7 @@ void CHR::cloneScopeBlocks(CHRScope *Scope,
                                             // sub-Scopes.
       assert(BB != PreEntryBlock && "Don't copy the preetntry block");
       BasicBlock *NewBB = CloneBasicBlock(BB, VMap, ".nonchr", &F);
+      NewBB->setInhaled(F.IsInhaled);
       NewBlocks.push_back(NewBB);
       VMap[BB] = NewBB;
     }

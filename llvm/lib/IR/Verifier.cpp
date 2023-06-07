@@ -2888,6 +2888,10 @@ void Verifier::visitBasicBlock(BasicBlock &BB) {
   {
     Check(I.getParent() == &BB, "Instruction has bogus parent pointer!");
   }
+
+  // Confirm that no issues arise from the debug program.
+  if (BB.IsInhaled)
+    BB.validateDbgValues();
 }
 
 void Verifier::visitTerminator(Instruction &I) {

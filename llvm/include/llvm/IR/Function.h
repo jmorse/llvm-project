@@ -107,6 +107,8 @@ public:
     return getSubclassDataFromValue() & (1<<0);
   }
 
+  void inhaleDbgValues();
+  void exhaleDbgValues();
   void setInhaled(bool NewInhaled);
 
 private:
@@ -688,6 +690,7 @@ public:
   /// Insert \p BB in the basic block list at \p Position. \Returns an iterator
   /// to the newly inserted BB.
   Function::iterator insert(Function::iterator Position, BasicBlock *BB) {
+    BB->setInhaled(IsInhaled);
     return BasicBlocks.insert(Position, BB);
   }
 
