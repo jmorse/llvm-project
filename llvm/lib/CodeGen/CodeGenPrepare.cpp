@@ -499,6 +499,17 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
   if (skipFunction(F))
     return false;
 
+  // DDD: we instrumented most of CodeGenPrepare, but then ran into difficulties
+  // with the "transactions" it performs: some instructions are removed from
+  // blocks, and then re-inserted if the transaction is rolled back. That's
+  // going to require seeking through lists of DPValues and re-inserting markers
+  // at the correct position afterwards, which is pretty hairy. Rather than
+  // solve that right now, allow this pass to run in dbg.value mode. We don't
+  // think this presents a difficulty to the instruction APIs in the general
+  // case.
+  bool Inhaled = F.IsInhaled;
+  F.exhaleDbgValues();
+
   DL = &F.getParent()->getDataLayout();
 
   bool EverMadeChange = false;
@@ -704,6 +715,9 @@ bool CodeGenPrepare::runOnFunction(Function &F) {
   if (VerifyBFIUpdates)
     verifyBFIUpdates(F);
 #endif
+
+  if (Inhaled)
+    F.inhaleDbgValues();
 
   return EverMadeChange;
 }

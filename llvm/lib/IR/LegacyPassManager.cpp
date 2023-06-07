@@ -31,6 +31,7 @@
 
 using namespace llvm;
 
+extern cl::opt<bool> DDDInhaleDbgValues;
 // See PassManagers.h for Pass Manager infrastructure overview.
 
 //===----------------------------------------------------------------------===//
@@ -527,6 +528,11 @@ bool PassManagerImpl::run(Module &M) {
   dumpArguments();
   dumpPasses();
 
+  // The CodeGen pipeline still runs in the legacy pass manager; inhale for the
+  // duration to gain coverage of codegen-only passes.
+  if (DDDInhaleDbgValues)
+    M.inhaleDbgValues();
+
   for (ImmutablePass *ImPass : getImmutablePasses())
     Changed |= ImPass->doInitialization(M);
 
@@ -538,6 +544,8 @@ bool PassManagerImpl::run(Module &M) {
 
   for (ImmutablePass *ImPass : getImmutablePasses())
     Changed |= ImPass->doFinalization(M);
+
+  M.exhaleDbgValues();
 
   return Changed;
 }

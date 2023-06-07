@@ -960,11 +960,19 @@ void MIRFormatter::printIRValue(raw_ostream &OS, const Value &V,
 }
 
 void llvm::printMIR(raw_ostream &OS, const Module &M) {
+  // DDD: for debugging purposes, return to dbg.value format for printing, and
+  // then re-inhale afterwards.
+  const_cast<Module&>(M).exhaleDbgValues();
   yaml::Output Out(OS);
   Out << const_cast<Module &>(M);
+  const_cast<Module&>(M).inhaleDbgValues();
 }
 
 void llvm::printMIR(raw_ostream &OS, const MachineFunction &MF) {
+  // DDD: for debugging purposes, return to dbg.value format for printing, and
+  // then re-inhale afterwards.
+  const_cast<Function&>(MF.getFunction()).exhaleDbgValues();
   MIRPrinter Printer(OS);
   Printer.print(MF);
+  const_cast<Function&>(MF.getFunction()).inhaleDbgValues();
 }
