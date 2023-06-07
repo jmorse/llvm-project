@@ -159,7 +159,8 @@ static void RewriteUsesOfClonedInstructions(BasicBlock *OrigHeader,
     // Replace MetadataAsValue(ValueAsMetadata(OrigHeaderVal)) uses in debug
     // intrinsics.
     SmallVector<DbgValueInst *, 1> DbgValues;
-    llvm::findDbgValues(DbgValues, OrigHeaderVal);
+    SmallVector<DPValue *, 1> DPValues;
+    llvm::findDbgValues(DbgValues, OrigHeaderVal, &DPValues);
     for (auto &DbgValue : DbgValues) {
       // The original users in the OrigHeader are already using the original
       // definitions.
@@ -179,6 +180,29 @@ static void RewriteUsesOfClonedInstructions(BasicBlock *OrigHeader,
       else
         NewVal = UndefValue::get(OrigHeaderVal->getType());
       DbgValue->replaceVariableLocationOp(OrigHeaderVal, NewVal);
+    }
+
+    // RemoveDIs: duplicate implementation for non-instruction debug-info
+    // storage in DPValues.
+    for (DPValue *DPV : DPValues) {
+      // The original users in the OrigHeader are already using the original
+      // definitions.
+      BasicBlock *UserBB = DPV->getMarker()->getParent();
+      if (UserBB == OrigHeader)
+        continue;
+
+      // Users in the OrigPreHeader need to use the value to which the
+      // original definitions are mapped and anything else can be handled by
+      // the SSAUpdater. To avoid adding PHINodes, check if the value is
+      // available in UserBB, if not substitute undef.
+      Value *NewVal;
+      if (UserBB == OrigPreheader)
+        NewVal = OrigPreHeaderVal;
+      else if (SSA.HasValueForBlock(UserBB))
+        NewVal = SSA.GetValueInMiddleOfBlock(UserBB);
+      else
+        NewVal = UndefValue::get(OrigHeaderVal->getType());
+      DPV->replaceVariableLocationOp(OrigHeaderVal, NewVal);
     }
   }
 }
