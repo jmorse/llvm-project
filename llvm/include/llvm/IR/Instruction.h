@@ -51,6 +51,14 @@ class Instruction : public User,
 
 public:
   DPMarker *DbgMarker = nullptr;
+  void insertDebugBefore(Instruction *InsertPos);
+  void insertDebugBefore(BasicBlock *BB, SymbolTableList<Instruction>::iterator InsertPos);
+  iterator_range<simple_ilist<DPValue>::iterator> cloneDebugInfoFrom(const Instruction *From, std::optional<simple_ilist<DPValue>::iterator> from_here = std::nullopt);
+  iterator_range<simple_ilist<DPValue>::iterator> getDbgValueRange() const;
+  bool hasDbgValues() const;
+  void dropDbgValues();
+  void dropOneDbgValue(DPValue *I);
+  void handleMarkerRemoval();
 
 protected:
   // The 15 first bits of `Value::SubclassData` are available for subclasses of
@@ -128,13 +136,12 @@ public:
   /// Insert an unlinked instruction into a basic block immediately before
   /// the specified instruction.
   void insertBefore(Instruction *InsertPos);
-  void insertBefore(SymbolTableList<Instruction>::iterator InsertPos) {
-    insertBefore(&*InsertPos);
-  }
+  void insertBefore(SymbolTableList<Instruction>::iterator InsertPos);
 
   /// Insert an unlinked instruction into a basic block immediately after the
   /// specified instruction.
   void insertAfter(Instruction *InsertPos);
+  void insertDebugAfter(Instruction *InsertPos);
 
   /// Inserts an unlinked instruction into \p ParentBB at position \p It and
   /// returns the iterator of the inserted instruction.
@@ -142,31 +149,32 @@ public:
   insertInto(BasicBlock *ParentBB, SymbolTableList<Instruction>::iterator It);
 
   void insertBefore(BasicBlock &BB,
-                    SymbolTableList<Instruction>::iterator InsertPos) {
-    insertInto(&BB, InsertPos);
-  }
+                    SymbolTableList<Instruction>::iterator InsertPos);
 
   /// Unlink this instruction from its current basic block and insert it into
   /// the basic block that MovePos lives in, right before MovePos.
+  // DDD: Use two flavours of move before, "breaking" signals that the control
+  // flow order of instructions is being broken (aka you're hoisting/sinking),
+  // while "preserving" means you're copying a block from one place to another.
+  // Debug-info should not move for the former, should for the latter.
   void moveBefore(Instruction *MovePos);
-  void moveBeforePreserving(Instruction *MovePos) {
-    moveBefore(MovePos);
-  }
+  void moveBeforePreserving(Instruction *MovePos);
 
   /// Unlink this instruction and insert into BB before I.
   ///
   /// \pre I is a valid iterator into BB.
+private:
+  // DDD: all other moves implemented with this method.
+  void moveBefore1(BasicBlock &BB, SymbolTableList<Instruction>::iterator I, bool Preserve);
+public:
   void moveBefore(BasicBlock &BB, SymbolTableList<Instruction>::iterator I);
-  void moveBeforePreserving(BasicBlock &BB, SymbolTableList<Instruction>::iterator I) {
-    moveBefore(BB, I);
-  }
+  void moveBeforePreserving(BasicBlock &BB, SymbolTableList<Instruction>::iterator I);
 
   /// Unlink this instruction from its current basic block and insert it into
   /// the basic block that MovePos lives in, right after MovePos.
+  // DDD: see comment on moveBefore etc.
   void moveAfter(Instruction *MovePos);
-  void moveAfterPreserving(Instruction *MovePos) {
-    moveAfter(MovePos);
-  }
+  void moveAfterPreserving(Instruction *MovePos);
 
   /// Given an instruction Other in the same basic block as this instruction,
   /// return true if this instruction comes before Other. In this worst case,
@@ -766,7 +774,13 @@ public:
   ///   * The instruction has no parent
   ///   * The instruction has no name
   ///
-  Instruction *clone() const;
+  // DDD: Add an assert flag to detect scenarios where dbg.values get cloned. If
+  // they do then we want a runtime signal that the adjacent code needs to
+  // perform debug-info maintenence.
+  Instruction *clone(bool shouldassert=true) const;
+  Instruction *cloneMaybeDbg() const {
+    return clone(false);
+  }
 
   /// Return true if the specified instruction is exactly identical to the
   /// current one. This means that all operands match and any extra information

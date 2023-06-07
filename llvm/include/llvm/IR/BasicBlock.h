@@ -79,6 +79,15 @@ public:
 
   void dumpDbgValues() const;
 
+  DPMarker *getNextMarker(Instruction *I); // The _next_ marker, either TrailingDPValues or the actual marker
+  DPMarker *getMarker(InstListType::iterator It); // either TrailingDPValues or the actual marker
+
+  void insertDPValueAfter(DPValue *DPV, Instruction *I);
+  void insertDPValueBefore(DPValue *DPV, InstListType::iterator Here);
+
+  iterator_range<DIIterator> getDanglingDbgValues();
+  void flushTerminatorDbgValues();
+
 private:
 
   void setParent(Function *parent);
@@ -113,6 +122,14 @@ public:
                                                       BasicBlock::iterator It);
   friend class llvm::SymbolTableListTraits<llvm::Instruction>;
   friend class llvm::ilist_node_with_parent<llvm::Instruction, llvm::BasicBlock>;
+  // added for DDD,
+  friend void Instruction::insertBefore(BasicBlock::iterator InsertPos);
+  friend void Instruction::insertAfter(Instruction *InsertPos);
+  friend void Instruction::insertDebugAfter(Instruction *Where);
+  friend void Instruction::insertBefore(BasicBlock &BB, SymbolTableList<Instruction>::iterator InsertPos);
+  friend void Instruction::moveBefore1(BasicBlock &BB, SymbolTableList<Instruction>::iterator I, bool Preserve);
+  friend void Instruction::insertDebugBefore(BasicBlock *BB, BasicBlock::iterator InsertPos);
+  friend iterator_range<DIIterator> Instruction::cloneDebugInfoFrom(const Instruction *From, std::optional<DIIterator> FromHere);
 
   /// Creates a new BasicBlock.
   ///
@@ -281,6 +298,8 @@ public:
   ///
   /// \pre \a getParent() is \c nullptr.
   void insertInto(Function *Parent, BasicBlock *InsertBefore = nullptr);
+  void insertInto(Function *Parent,
+                  SymbolTableList<BasicBlock>::iterator InsertBefore);
 
   /// Return the predecessor of this block if it has a single predecessor
   /// block. Otherwise return a null pointer.
@@ -592,6 +611,12 @@ public:
   /// each ordering to ensure that transforms have the same algorithmic
   /// complexity when asserts are enabled as when they are disabled.
   void validateInstrOrdering() const;
+
+  // Copy the range [First, Last) from Src to this block before Dest, including any debug values
+  // * InsertAtHead: Make [first,Last) happen before any DbgValues attached to Dest.
+  // * ReadFromHead: Copy DbgValues that are attached to "first" as well.
+  void blockSplice(iterator Dest, BasicBlock *Src, iterator First, iterator Last);
+  void blockSplice(iterator Dest, BasicBlock *Src);
 
 private:
 #if defined(_AIX) && (!defined(__GNUC__) || defined(__clang__))

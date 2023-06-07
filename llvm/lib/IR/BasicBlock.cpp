@@ -16,6 +16,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/LLVMContext.h"
@@ -188,6 +189,15 @@ void BasicBlock::insertInto(Function *NewParent, BasicBlock *InsertBefore) {
     inhaleDbgValues();
   else if (!NewParent->IsInhaled && IsInhaled)
     exhaleDbgValues();
+}
+
+void BasicBlock::insertInto(Function *NewParent,
+                            Function::iterator InsertBefore) {
+  assert(NewParent && "Expected a parent");
+  assert(!Parent && "Already has a parent");
+
+  setInhaled(NewParent->IsInhaled);
+  NewParent->insert(InsertBefore, this);
 }
 
 BasicBlock::~BasicBlock() {
@@ -688,6 +698,150 @@ void BasicBlock::renumberInstructions() {
   setBasicBlockBits(Bits);
 
   NumInstrRenumberings++;
+}
+
+// XXX this is unused?
+auto BasicBlock::getDanglingDbgValues() -> iterator_range<DIIterator> {
+  // Return the range of DPValues and other items that are hanging around at
+  // the end of the block, past any terminator. This is a non-cannonical form.
+  return TrailingDPValues.getDbgValueRange();
+}
+
+void BasicBlock::flushTerminatorDbgValues() {
+  // If we juggle the terminators in a block, any DPValues will sink and "fall
+  // off the end", existing after any terminator that gets inserted. Where
+  // normally if we inserted a terminator at the end of a block, it would come
+  // after any dbg.values. To get out of this unfortunate form, whenever we
+  // insert a terminator, check whether there's anything dangling at the end
+  // and move those DPValues in front of the terminator.
+
+  if (!IsInhaled)
+    return;
+
+  Instruction *Term = getTerminator();
+  if (!Term)
+    return;
+  
+  // Are there any dangling DPValues?
+  if (TrailingDPValues.StoredDPValues.empty())
+    return;
+
+  // We might have already been at the end anyway... walk backwards through
+  // any DPValues resetting the marker.
+  Term->DbgMarker->absorbDebugValues(TrailingDPValues, false);
+}
+
+void BasicBlock::blockSplice(iterator Dest, BasicBlock *Src, iterator First, iterator Last) {
+  // Find out where to _place_ these dbg.values; if InsertAtHead is specified,
+  // this will be at the start of Dest's debug value range, otherwise this is
+  // just Dest's marker.
+  bool InsertAtHead = Dest.getHeadBit();
+  bool ReadFromHead = First.getHeadBit();
+  // Use this flag to signal the abnormal case, where we don't want to copy the
+  // DPValues ahead of the "Last" position. 
+  bool ReadFromTail = !Last.getTailBit();
+
+  // Lots of horrible special casing for empty transfers: the dbg.values between
+  // two positions could be spliced in dbg.value mode.
+  if (First == Last) {
+    if (!IsInhaled)
+      return;
+    if (!Src->empty()) {
+      // Non-empty block. Are we copying from the head?
+      if (!Src->empty() && First == Src->begin() && ReadFromHead) {
+        Dest->DbgMarker->absorbDebugValues(*First->DbgMarker, InsertAtHead);
+        return;
+      }
+    } else {
+      // Oh dear; dbg.values in an empty block. Move them over too.
+      assert(Dest != end() && "What about dangling off end DPValues?");
+      DPMarker *M = Dest->DbgMarker; 
+      M->absorbDebugValues(Src->TrailingDPValues, InsertAtHead);
+      return;
+    }
+  }
+
+  assert(Src->IsInhaled == IsInhaled);
+
+  // Debug stuff -- remove marker from Dest.
+  DPMarker *DestMarker = nullptr;
+  if (IsInhaled && Dest != end()) {
+    DestMarker = getMarker(Dest);
+    DestMarker->removeFromParent();
+    createMarker(&*Dest);
+  }
+
+  // If we're moving the tail range of DPValues, re-set their marker to the tail of the new block.
+  if (IsInhaled && ReadFromTail) {
+    DPMarker *OntoDest = getMarker(Dest);
+    DPMarker *FromLast = Src->getMarker(Last);
+    OntoDest->absorbDebugValues(*FromLast, true);
+  }
+
+  // If we're _not_ reading from head, move their markers onto Last.
+  if (IsInhaled && !ReadFromHead) {
+    DPMarker *OntoLast = Src->getMarker(Last);
+    DPMarker *FromFirst = Src->getMarker(First);
+    OntoLast->absorbDebugValues(*FromFirst, true); // Always insert at head of it.
+  }
+
+  // Finally, re-apply DPMarker information at head or tail.
+  if (DestMarker) {
+    if (InsertAtHead) {
+      // We put instrs and debug-info ahead of these DPValues, insert at tail of Dest.
+      DPMarker *NewDestMarker = getMarker(Dest);
+      NewDestMarker->absorbDebugValues(*DestMarker, false);
+    } else {
+      // We inserted immediately before Dest, so dbg.values will go on the _front_ of First.
+      DPMarker *FirstMarker = getMarker(First);
+      FirstMarker->absorbDebugValues(*DestMarker, true);
+    }
+    DestMarker->eraseFromParent();
+  } else if (IsInhaled) {
+    // We inserted ahead of end(), or not:
+    if (InsertAtHead) {
+      // Leave dangling DPValues where they are,
+    } else {
+      // Dangling DPValues go ahead of First now.
+      DPMarker *FirstMarker = getMarker(First);
+      FirstMarker->absorbDebugValues(TrailingDPValues, true);
+    }
+  }
+
+  // And move the instructions.
+  getInstList().splice(Dest, Src->getInstList(), First, Last);
+
+  flushTerminatorDbgValues();
+}
+
+void BasicBlock::blockSplice(iterator Dest, BasicBlock *Src) {
+  blockSplice(Dest, Src, Src->begin(), Src->end());
+}
+
+void BasicBlock::insertDPValueAfter(DPValue *DPV, Instruction *I) {
+  assert(IsInhaled);
+  assert(I->getParent() == this);
+
+  iterator NextIt = std::next(I->getIterator());
+  DPMarker *NextMarker = (NextIt == end()) ? &TrailingDPValues : NextIt->DbgMarker;
+  NextMarker->insertDPValue(DPV, true);
+}
+
+void BasicBlock::insertDPValueBefore(DPValue *DPV, InstListType::iterator Where) {
+  // Assume that we don't insertBefore BasicBlock::end().
+  assert(Where->getParent() == this);
+  bool InsertAtHead = Where.getHeadBit();
+  Where->DbgMarker->insertDPValue(DPV, InsertAtHead);
+}
+
+DPMarker *BasicBlock::getNextMarker(Instruction *I) { // The _next_ marker, either TrailingDPValues or the actual marker
+  return getMarker(std::next(I->getIterator()));
+}
+
+DPMarker *BasicBlock::getMarker(InstListType::iterator It) { // either TrailingDPValues or the actual marker
+  if (It == end())
+    return &TrailingDPValues;
+  return It->DbgMarker;
 }
 
 #ifndef NDEBUG

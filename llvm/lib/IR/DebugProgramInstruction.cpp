@@ -186,7 +186,7 @@ DbgVariableIntrinsic *DPValue::createDebugIntrinsic(Module *M, Instruction *Inse
   DbgVariableIntrinsic *DVI = cast<DbgVariableIntrinsic>(CallInst::Create(IntrinsicFn->getFunctionType(), IntrinsicFn, Args));
   DVI->setDebugLoc(getDebugLoc());
   if (InsertBefore)
-    DVI->insertBefore(InsertBefore);
+    DVI->insertDebugBefore(InsertBefore);
   return DVI;
 }
 
@@ -269,13 +269,7 @@ void DPMarker::removeMarker() {
 
   // Need to update the attached DPValues to point at the next one. LEave as
   // nullptr if we're going to dangle off the end.
-  // Get next marker: to be refactored in future patch,
-  BasicBlock::iterator NextInst = std::next(Owner->getIterator());
-  DPMarker *NextMarker;
-  if (NextInst == Owner->getParent()->end())
-    NextMarker = &Owner->getParent()->TrailingDPValues;
-  else
-    NextMarker = NextInst->DbgMarker;
+  DPMarker *NextMarker = Owner->getParent()->getNextMarker(Owner);
   NextMarker->absorbDebugValues(*this, true);
 
   eraseFromParent();
@@ -337,7 +331,7 @@ iterator_range<simple_ilist<DPValue>::iterator> DPMarker::cloneDebugInfoFrom(DPM
   if (!First)
     return {StoredDPValues.end(), StoredDPValues.end()};
 
-  return First->getIterator();
+  return {First->getIterator(), StoredDPValues.end()};
 }
 
 } // end namespace llvm
