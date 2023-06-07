@@ -19,6 +19,7 @@
 #include "llvm/ADT/ilist_node.h"
 #include "llvm/ADT/iterator.h"
 #include "llvm/ADT/iterator_range.h"
+#include "llvm/IR/DebugProgramInstruction.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/SymbolTableListTraits.h"
 #include "llvm/IR/Value.h"
@@ -63,6 +64,14 @@ private:
 
   InstListType InstList;
   Function *Parent;
+
+public:
+  using DbgProgramListType = simple_ilist<DPValue>;
+  using DIIterator = DbgProgramListType::iterator;
+  DPMarker TrailingDPValues;
+  bool IsInhaled;
+
+private:
 
   void setParent(Function *parent);
 

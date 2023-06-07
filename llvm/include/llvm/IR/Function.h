@@ -102,9 +102,12 @@ private:
   /// needs it.  The hasLazyArguments predicate returns true if the arg list
   /// hasn't been set up yet.
 public:
+  bool IsInhaled;
   bool hasLazyArguments() const {
     return getSubclassDataFromValue() & (1<<0);
   }
+
+  void setInhaled(bool NewInhaled);
 
 private:
   void CheckLazyArguments() const {

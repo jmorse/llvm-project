@@ -213,6 +213,8 @@ private:
 /// @name Constructors
 /// @{
 public:
+  bool IsInhaled;
+
   /// The Module constructor. Note that there is no default constructor. You
   /// must provide a name for the module upon construction.
   explicit Module(StringRef ModuleID, LLVMContext& C);

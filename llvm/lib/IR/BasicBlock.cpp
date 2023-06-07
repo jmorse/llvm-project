@@ -48,6 +48,7 @@ BasicBlock::BasicBlock(LLVMContext &C, const Twine &Name, Function *NewParent,
                        BasicBlock *InsertBefore)
   : Value(Type::getLabelTy(C), Value::BasicBlockVal), Parent(nullptr) {
 
+  IsInhaled = false;
   if (NewParent)
     insertInto(NewParent, InsertBefore);
   else
