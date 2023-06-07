@@ -101,9 +101,11 @@ public:
   void processInstruction(const Module &M, const Instruction &I);
 
   /// Process DbgVariableIntrinsic.
-  void processVariable(const Module &M, const DbgVariableIntrinsic &DVI);
+  void processVariable(const Module &M, const DILocalVariable *DVI);
   /// Process debug info location.
   void processLocation(const Module &M, const DILocation *Loc);
+  // Process a DPValue, much like a DbgVariableIntrinsic.
+  void processDPValue(const Module &M, const DPValue &DPV);
 
   /// Process subprogram.
   void processSubprogram(DISubprogram *SP);
