@@ -31,6 +31,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/DebugProgramInstruction.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstrTypes.h"
@@ -172,6 +173,7 @@ public:
 
 struct AllocaInfo {
   using DbgUserVec = SmallVector<DbgVariableIntrinsic *, 1>;
+  using DPUserVec = SmallVector<DPValue *, 1>;
 
   SmallVector<BasicBlock *, 32> DefiningBlocks;
   SmallVector<BasicBlock *, 32> UsingBlocks;
@@ -182,6 +184,7 @@ struct AllocaInfo {
 
   /// Debug users of the alloca - does not include dbg.assign intrinsics.
   DbgUserVec DbgUsers;
+  DPUserVec DPUsers;
   /// Helper to update assignment tracking debug info.
   AssignmentTrackingInfo AssignmentTracking;
 
@@ -192,6 +195,7 @@ struct AllocaInfo {
     OnlyBlock = nullptr;
     OnlyUsedInOneBlock = true;
     DbgUsers.clear();
+    DPUsers.clear();
     AssignmentTracking.clear();
   }
 
@@ -225,7 +229,7 @@ struct AllocaInfo {
       }
     }
     DbgUserVec AllDbgUsers;
-    findDbgUsers(AllDbgUsers, AI);
+    findDbgUsers(AllDbgUsers, AI, &DPUsers);
     std::copy_if(AllDbgUsers.begin(), AllDbgUsers.end(),
                  std::back_inserter(DbgUsers), [](DbgVariableIntrinsic *DII) {
                    return !isa<DbgAssignIntrinsic>(DII);
@@ -329,6 +333,7 @@ struct PromoteMem2Reg {
   /// describes it, if any, so that we can convert it to a dbg.value
   /// intrinsic if the alloca gets promoted.
   SmallVector<AllocaInfo::DbgUserVec, 8> AllocaDbgUsers;
+  SmallVector<AllocaInfo::DPUserVec, 8> AllocaDPUsers;
 
   /// For each alloca, keep an instance of a helper class that gives us an easy
   /// way to update assignment tracking debug info if the alloca is promoted.
@@ -534,6 +539,18 @@ static bool rewriteSingleStoreAlloca(
     }
   }
 
+  // Duplicate implementation for non-instr storage of debug-info in
+  // DPValue objects.
+  for (DPValue *DPV : Info.DPUsers) {
+    if (DPV->isAddressOfVariable()) {
+      DIBuilder DIB(*AI->getModule(), /*AllowUnresolved*/ false);
+      ConvertDebugDeclareToDebugValue(DPV, Info.OnlyStore, DIB);
+      DPV->eraseFromParent();
+    } else if (DPV->getExpression()->startsWithDeref()) {
+      DPV->eraseFromParent();
+    }
+  }
+
   // Remove dbg.assigns linked to the alloca as these are now redundant.
   at::deleteAssignmentMarkers(AI);
 
@@ -635,6 +652,12 @@ static bool promoteSingleBlockAlloca(
         ConvertDebugDeclareToDebugValue(DII, SI, DIB);
       }
     }
+    for (DPValue *DPV : Info.DPUsers) {
+      if (DPV->isAddressOfVariable()) {
+        DIBuilder DIB(*AI->getModule(), /*AllowUnresolved*/ false);
+        ConvertDebugDeclareToDebugValue(DPV, SI, DIB);
+      }
+    }
     SI->eraseFromParent();
     LBI.deleteValue(SI);
   }
@@ -644,9 +667,18 @@ static bool promoteSingleBlockAlloca(
   AI->eraseFromParent();
 
   // The alloca's debuginfo can be removed as well.
-  for (DbgVariableIntrinsic *DII : Info.DbgUsers)
-    if (DII->isAddressOfVariable() || DII->getExpression()->startsWithDeref())
+  for (DbgVariableIntrinsic *DII : Info.DbgUsers) {
+    if (DII->isAddressOfVariable())
       DII->eraseFromParent();
+    else if ( DII->getExpression()->startsWithDeref())
+      DII->setKillLocation();
+  }
+  for (DPValue *DPV : Info.DPUsers) {
+    if (DPV->isAddressOfVariable())
+      DPV->eraseFromParent();
+    else if ( DPV->getExpression()->startsWithDeref())
+      DPV->setKillLocation();
+  }
 
   ++NumLocalPromoted;
   return true;
@@ -657,6 +689,7 @@ void PromoteMem2Reg::run() {
 
   AllocaDbgUsers.resize(Allocas.size());
   AllocaATInfo.resize(Allocas.size());
+  AllocaDPUsers.resize(Allocas.size());
 
   AllocaInfo Info;
   LargeBlockInfo LBI;
@@ -720,6 +753,8 @@ void PromoteMem2Reg::run() {
       AllocaDbgUsers[AllocaNum] = Info.DbgUsers;
     if (!Info.AssignmentTracking.empty())
       AllocaATInfo[AllocaNum] = Info.AssignmentTracking;
+    if (!Info.DPUsers.empty())
+      AllocaDPUsers[AllocaNum] = Info.DPUsers;
 
     // Keep the reverse mapping of the 'Allocas' array for the rename pass.
     AllocaLookup[Allocas[AllocaNum]] = AllocaNum;
@@ -796,9 +831,20 @@ void PromoteMem2Reg::run() {
 
   // Remove alloca's dbg.declare intrinsics from the function.
   for (auto &DbgUsers : AllocaDbgUsers) {
-    for (auto *DII : DbgUsers)
-      if (DII->isAddressOfVariable() || DII->getExpression()->startsWithDeref())
+    for (auto *DII : DbgUsers) {
+      if (DII->isAddressOfVariable())
         DII->eraseFromParent();
+      else if (DII->getExpression()->startsWithDeref())
+        DII->setKillLocation();
+    }
+  }
+  for (auto &DPUsers : AllocaDPUsers) {
+    for (auto *DPV : DPUsers) {
+      if (DPV->isAddressOfVariable())
+        DPV->eraseFromParent();
+      else if (DPV->getExpression()->startsWithDeref())
+        DPV->setKillLocation();
+    }
   }
 
   // Loop over all of the PHI nodes and see if there are any that we can get
@@ -1044,6 +1090,9 @@ NextIteration:
         for (DbgVariableIntrinsic *DII : AllocaDbgUsers[AllocaNo])
           if (DII->isAddressOfVariable())
             ConvertDebugDeclareToDebugValue(DII, APN, DIB);
+        for (DPValue *DPV : AllocaDPUsers[AllocaNo])
+          if (DPV->isAddressOfVariable())
+            ConvertDebugDeclareToDebugValue(DPV, APN, DIB);
 
         // Get the next phi node.
         ++PNI;
@@ -1101,6 +1150,9 @@ NextIteration:
       for (DbgVariableIntrinsic *DII : AllocaDbgUsers[ai->second])
         if (DII->isAddressOfVariable())
           ConvertDebugDeclareToDebugValue(DII, SI, DIB);
+      for (DPValue *DPV : AllocaDPUsers[ai->second])
+        if (DPV->isAddressOfVariable())
+          ConvertDebugDeclareToDebugValue(DPV, SI, DIB);
       SI->eraseFromParent();
     }
   }

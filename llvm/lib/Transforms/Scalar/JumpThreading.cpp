@@ -1956,6 +1956,7 @@ void JumpThreadingPass::updateSSA(
   SSAUpdater SSAUpdate;
   SmallVector<Use *, 16> UsesToRename;
   SmallVector<DbgValueInst *, 4> DbgValues;
+  SmallVector<DPValue *, 4> DPValues;
 
   for (Instruction &I : *BB) {
     // Scan all uses of this instruction to see if it is used outside of its
@@ -1972,15 +1973,20 @@ void JumpThreadingPass::updateSSA(
     }
 
     // Find debug values outside of the block
-    findDbgValues(DbgValues, &I);
+    findDbgValues(DbgValues, &I, &DPValues);
     DbgValues.erase(remove_if(DbgValues,
                               [&](const DbgValueInst *DbgVal) {
                                 return DbgVal->getParent() == BB;
                               }),
                     DbgValues.end());
+    DPValues.erase(remove_if(DPValues,
+                              [&](const DPValue *DPVal) {
+                                return DPVal->getParent() == BB;
+                              }),
+                    DPValues.end());
 
     // If there are no uses outside the block, we're done with this instruction.
-    if (UsesToRename.empty() && DbgValues.empty())
+    if (UsesToRename.empty() && DbgValues.empty() && DPValues.empty())
       continue;
     LLVM_DEBUG(dbgs() << "JT: Renaming non-local uses of: " << I << "\n");
 
