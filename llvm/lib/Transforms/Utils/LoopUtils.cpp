@@ -604,6 +604,7 @@ void llvm::deleteDeadLoop(Loop *L, DominatorTree *DT, ScalarEvolution *SE,
   // Use a map to unique and a vector to guarantee deterministic ordering.
   llvm::SmallDenseSet<DebugVariable, 4> DeadDebugSet;
   llvm::SmallVector<DbgVariableIntrinsic *, 4> DeadDebugInst;
+  llvm::SmallVector<DPValue *, 4> DeadDPValues;
 
   if (ExitBlock) {
     // Given LCSSA form is satisfied, we should not have users of instructions
@@ -628,6 +629,21 @@ void llvm::deleteDeadLoop(Loop *L, DominatorTree *DT, ScalarEvolution *SE,
                    "Unexpected user in reachable block");
           U.set(Poison);
         }
+
+        // DDD: do the same as below for DPValues.
+        if (Block->IsNewDbgInfoFormat) {
+          for (DPValue &DPV : llvm::make_early_inc_range(I.getDbgValueRange())) {
+            auto Key =
+                DeadDebugSet.find(DebugVariable(DPV.getVariable(), DPV.getExpression(), nullptr));
+            if (Key != DeadDebugSet.end())
+              continue;
+            // Unlinks, however, this approach is really awkward.
+            DPV.removeFromParent();
+            DeadDebugSet.insert(DebugVariable(DPV.getVariable(), DPV.getExpression(), nullptr));
+            DeadDPValues.push_back(&DPV);
+          }
+        }
+
         auto *DVI = dyn_cast<DbgVariableIntrinsic>(&I);
         if (!DVI)
           continue;
@@ -642,12 +658,34 @@ void llvm::deleteDeadLoop(Loop *L, DominatorTree *DT, ScalarEvolution *SE,
     // be be replaced with undef. Loop invariant values will still be available.
     // Move dbg.values out the loop so that earlier location ranges are still
     // terminated and loop invariant assignments are preserved.
-    Instruction *InsertDbgValueBefore = ExitBlock->getFirstNonPHI();
-    assert(InsertDbgValueBefore &&
+    DIBuilder DIB(*ExitBlock->getModule());
+    BasicBlock::iterator InsertDbgValueBefore = ExitBlock->getFirstInsertionPt();
+    assert(InsertDbgValueBefore != ExitBlock->end() &&
            "There should be a non-PHI instruction in exit block, else these "
            "instructions will have no parent.");
-    for (auto *DVI : DeadDebugInst)
-      DVI->moveBefore(InsertDbgValueBefore);
+// XXX rebase 2023-09-11, this now just clones the intrinsic and inserts
+// at the insert point on main, on the assumption that other code is going
+// to clean up the lifetime of the dead loop values. Mangle this?
+    for (auto *DVI : DeadDebugInst) {
+// XXX XXX XXX jmorse rebasing -- need to replate int32 with kill location.
+      DIB.insertDbgValueIntrinsic(UndefValue::get(Builder.getInt32Ty()),
+                                  DVI->getVariable(), DVI->getExpression(),
+                                  DVI->getDebugLoc(), &*InsertDbgValueBefore);
+    }
+
+    // DDD: above block moves dbg.declares, this moves DPValues/dbg.values:
+    if (ExitBlock->IsNewDbgInfoFormat) {
+      // Insert in reverse order: because the head-bit is set on the position
+      // iterator, we would insert in the opposite order to normal instruction
+      // insertion.
+      for (DPValue *DPV : llvm::reverse(DeadDPValues)) {
+        // Debug intrinsic will be created, then immediately converted to a
+        // DPValue on insertion. Inefficient, but correct.
+// XXX XXX XXX jmorse rebasing, use kill location instead.
+        DPV->handleChangedLocation(ValueAsMetadata::get(UndefValue::get(Builder.getInt32Ty())));
+        ExitBlock->insertDPValueBefore(DPV, InsertDbgValueBefore);
+      }
+    }
   }
 
   // Remove the block from the reference counting scheme, so that we can
