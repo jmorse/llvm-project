@@ -1663,7 +1663,7 @@ bool SimplifyCFGOpt::HoistThenElseCodeToIf(BranchInst *BI,
     }
   }
 
-  return Changed;
+  return true;
 
 HoistTerminator:
   // It may not be possible to hoist an invoke.

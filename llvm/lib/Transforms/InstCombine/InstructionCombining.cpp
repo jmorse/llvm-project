@@ -3949,13 +3949,11 @@ bool InstCombinerImpl::run() {
         // Are we replace a PHI with something that isn't a PHI, or vice versa?
         if (isa<PHINode>(Result) != isa<PHINode>(I)) {
           // We need to fix up the insertion point.
-          if (isa<PHINode>(I)) // PHI -> Non-PHI
-            InsertPos = InstParent->getFirstInsertionPt();
-          else // Non-PHI -> PHI
-            InsertPos = InstParent->getFirstNonPHI()->getIterator();
+          InsertPos = InstParent->getFirstInsertionPt();
+          // XXX jmorse -- logic removed here looked redundant.
         }
 
-        Result->insertInto(InstParent, InsertPos);
+        Result->insertBefore(*InstParent, InsertPos);
 
         // Push the new instruction and any users onto the worklist.
         Worklist.pushUsersToWorkList(*Result);
