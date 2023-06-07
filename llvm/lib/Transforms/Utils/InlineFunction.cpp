@@ -1602,42 +1602,63 @@ static void fixupLineNumbers(Function *Fn, Function::iterator FI,
   // the call site location instead.
   bool NoInlineLineTables = Fn->hasFnAttribute("no-inline-line-tables");
 
+  // DDD: We need to update the inlined-at locations of inlined debug
+  // intrinsics, and update any DPValues in exactly the same way. So the
+  // logic below is copied and then updated for DPValues in another lambda.
+  auto UpdateInst = [&](Instruction &I) {
+    // Loop metadata needs to be updated so that the start and end locs
+    // reference inlined-at locations.
+    auto updateLoopInfoLoc = [&Ctx, &InlinedAtNode,
+                              &IANodes](Metadata *MD) -> Metadata * {
+      if (auto *Loc = dyn_cast_or_null<DILocation>(MD))
+        return inlineDebugLoc(Loc, InlinedAtNode, Ctx, IANodes).get();
+      return MD;
+    };
+    updateLoopMetadataDebugLocations(I, updateLoopInfoLoc);
+
+    if (!NoInlineLineTables)
+      if (DebugLoc DL = I.getDebugLoc()) {
+        DebugLoc IDL =
+            inlineDebugLoc(DL, InlinedAtNode, I.getContext(), IANodes);
+        I.setDebugLoc(IDL);
+        return;
+      }
+
+    if (CalleeHasDebugInfo && !NoInlineLineTables)
+      return;
+
+    // If the inlined instruction has no line number, or if inline info
+    // is not being generated, make it look as if it originates from the call
+    // location. This is important for ((__always_inline, __nodebug__))
+    // functions which must use caller location for all instructions in their
+    // function body.
+
+    // Don't update static allocas, as they may get moved later.
+    if (auto *AI = dyn_cast<AllocaInst>(&I))
+      if (allocaWouldBeStaticInEntry(AI))
+        return;
+
+    I.setDebugLoc(TheCallDL);
+  };
+  auto UpdateDPV = [&](DPValue *DPV) {
+    assert(DPV->getDebugLoc() && "Debug Value must have debug loc");
+    if (NoInlineLineTables) {
+      DPV->setDebugLoc(TheCallDL);
+      return;
+    }
+    DebugLoc DL = DPV->getDebugLoc();
+    DebugLoc IDL =
+        inlineDebugLoc(DL, InlinedAtNode, DPV->getMarker()->getParent()->getContext(), IANodes);
+    DPV->setDebugLoc(IDL);
+  };
+
   for (; FI != Fn->end(); ++FI) {
     for (BasicBlock::iterator BI = FI->begin(), BE = FI->end();
          BI != BE; ++BI) {
-      // Loop metadata needs to be updated so that the start and end locs
-      // reference inlined-at locations.
-      auto updateLoopInfoLoc = [&Ctx, &InlinedAtNode,
-                                &IANodes](Metadata *MD) -> Metadata * {
-        if (auto *Loc = dyn_cast_or_null<DILocation>(MD))
-          return inlineDebugLoc(Loc, InlinedAtNode, Ctx, IANodes).get();
-        return MD;
-      };
-      updateLoopMetadataDebugLocations(*BI, updateLoopInfoLoc);
-
-      if (!NoInlineLineTables)
-        if (DebugLoc DL = BI->getDebugLoc()) {
-          DebugLoc IDL =
-              inlineDebugLoc(DL, InlinedAtNode, BI->getContext(), IANodes);
-          BI->setDebugLoc(IDL);
-          continue;
-        }
-
-      if (CalleeHasDebugInfo && !NoInlineLineTables)
-        continue;
-
-      // If the inlined instruction has no line number, or if inline info
-      // is not being generated, make it look as if it originates from the call
-      // location. This is important for ((__always_inline, __nodebug__))
-      // functions which must use caller location for all instructions in their
-      // function body.
-
-      // Don't update static allocas, as they may get moved later.
-      if (auto *AI = dyn_cast<AllocaInst>(BI))
-        if (allocaWouldBeStaticInEntry(AI))
-          continue;
-
-      BI->setDebugLoc(TheCallDL);
+      UpdateInst(*BI);
+      for (DPValue &DPV : BI->getDbgValueRange()) {
+        UpdateDPV(&DPV);
+      }
     }
 
     // Remove debug info intrinsics if we're not keeping inline info.
@@ -2297,6 +2318,7 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
       // Transfer all of the allocas over in a block.  Using splice means
       // that the instructions aren't removed from the symbol table, then
       // reinserted.
+      I.setTailBit(true);
       Caller->getEntryBlock().splice(InsertPoint, &*FirstNewBlock,
                                      AI->getIterator(), I);
     }
