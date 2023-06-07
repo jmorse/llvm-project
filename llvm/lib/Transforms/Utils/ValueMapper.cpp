@@ -31,6 +31,7 @@
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/Type.h"
@@ -1177,6 +1178,30 @@ MDNode *ValueMapper::mapMDNode(const MDNode &N) {
 
 void ValueMapper::remapInstruction(Instruction &I) {
   FlushingMapper(pImpl)->remapInstruction(&I);
+}
+
+void ValueMapper::remapDPValue(Module *M, DPValue &V) {
+  SmallVector<Value *, 4> Vals, NewVals;
+  for (Value *Val: V.location_ops())
+    Vals.push_back(Val);
+  for (Value *Val : Vals)
+    NewVals.push_back(mapValue(*Val));
+
+  if (Vals == NewVals)
+    return;
+
+  // Otherwise, do some replacement.
+  if (llvm::any_of(NewVals, [&](Value *V) { return V == nullptr;})) {
+    V.setUndef();
+  } else {for (unsigned int I = 0; I < Vals.size(); ++I)
+    V.replaceVariableLocationOp(I, NewVals[I]);
+  }
+}
+
+void ValueMapper::remapDPValueRange(Module *M, iterator_range<BasicBlock::DIIterator> Range) {
+  for (DPValue &DPV : Range) {
+    remapDPValue(M, DPV);
+  }
 }
 
 void ValueMapper::remapFunction(Function &F) {
