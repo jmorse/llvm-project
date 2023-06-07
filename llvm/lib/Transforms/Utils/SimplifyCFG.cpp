@@ -1665,7 +1665,7 @@ bool SimplifyCFGOpt::HoistThenElseCodeToIf(BranchInst *BI, bool EqTermsOnly) {
     }
   }
 
-  return Changed;
+  return true;
 
 HoistTerminator:
   // It may not be possible to hoist an invoke.
