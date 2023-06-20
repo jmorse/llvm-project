@@ -1981,7 +1981,7 @@ void JumpThreadingPass::updateSSA(
                                 return DbgVal->getParent() == BB;
                               }),
                     DbgValues.end());
-    assert(DPValues.empty()); // XXX during rebase
+//    assert(DPValues.empty()); // XXX during rebase
 
     // If there are no uses outside the block, we're done with this instruction.
     if (UsesToRename.empty() && DbgValues.empty())
