@@ -274,7 +274,7 @@ bool Instruction::comesBefore(const Instruction *Other) const {
   return Order < Other->Order;
 }
 
-Instruction *Instruction::getInsertionPointAfterDef() {
+std::optional<BasicBlock::iterator> Instruction::getInsertionPointAfterDef() {
   assert(!getType()->isVoidTy() && "Instruction must define result");
   BasicBlock *InsertBB;
   BasicBlock::iterator InsertPt;
@@ -287,18 +287,19 @@ Instruction *Instruction::getInsertionPointAfterDef() {
   } else if (isa<CallBrInst>(this)) {
     // Def is available in multiple successors, there's no single dominating
     // insertion point.
-    return nullptr;
+    return std::nullopt;
   } else {
     assert(!isTerminator() && "Only invoke/callbr terminators return value");
     InsertBB = getParent();
     InsertPt = std::next(getIterator());
+    InsertPt.setHeadBit(true);
   }
 
   // catchswitch blocks don't have any legal insertion point (because they
   // are both an exception pad and a terminator).
   if (InsertPt == InsertBB->end())
-    return nullptr;
-  return &*InsertPt;
+    return std::nullopt;
+  return InsertPt;
 }
 
 bool Instruction::isOnlyUserOfAnyOperand() {

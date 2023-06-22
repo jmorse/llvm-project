@@ -2914,7 +2914,7 @@ void coro::salvageDebugInfo(
     // probably do dbg.declares differently.
     BasicBlock::iterator InsertPt;
     if (auto *I = dyn_cast<Instruction>(Storage)) {
-      InsertPt = I->getInsertionPointAfterDef()->getIterator();
+      InsertPt = *I->getInsertionPointAfterDef();
       DVI->moveBefore(*InsertPt->getParent(), InsertPt);
     } else if (isa<Argument>(Storage)) {
       InsertPt = F->getEntryBlock().begin();
