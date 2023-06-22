@@ -1620,14 +1620,16 @@ bool SimplifyCFGOpt::HoistThenElseCodeToIf(BranchInst *BI, bool EqTermsOnly) {
         // The debug location is an integral part of a debug info intrinsic
         // and can't be separated from it or replaced.  Instead of attempting
         // to merge locations, simply hoist both copies of the intrinsic.
+#if 0
         I1->moveBeforePreserving(BI);
         I2->moveBeforePreserving(BI);
         Changed = true;
+#endif
       } else {
         // For a normal instruction, we just move one to right before the
         // branch, then replace all uses of the other with the first.  Finally,
         // we remove the now redundant second instruction.
-        I1->moveBeforePreserving(BI);
+        I1->moveBefore(BI);
         if (!I2->use_empty())
           I2->replaceAllUsesWith(I1);
         I1->andIRFlags(I2);
@@ -1638,8 +1640,8 @@ bool SimplifyCFGOpt::HoistThenElseCodeToIf(BranchInst *BI, bool EqTermsOnly) {
         I1->applyMergedLocation(I1->getDebugLoc(), I2->getDebugLoc());
 
         I2->eraseFromParent();
+        Changed = true;
       }
-      Changed = true;
       ++NumHoistCommonInstrs;
     } else {
       if (NumSkipped >= HoistCommonSkipLimit)
@@ -1665,7 +1667,7 @@ bool SimplifyCFGOpt::HoistThenElseCodeToIf(BranchInst *BI, bool EqTermsOnly) {
     }
   }
 
-  return true;
+  return Changed;
 
 HoistTerminator:
   // It may not be possible to hoist an invoke.
