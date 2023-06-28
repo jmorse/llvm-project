@@ -617,6 +617,8 @@ Value *IRLinker::materialize(Value *V, bool ForIndirectSymbol) {
   if (auto *F = dyn_cast<Function>(New)) {
     if (!F->isDeclaration())
       return New;
+    Function *OldFunc = cast<Function>(V);
+    F->IsNewDbgInfoFormat = OldFunc->IsNewDbgInfoFormat;
   } else if (auto *V = dyn_cast<GlobalVariable>(New)) {
     if (V->hasInitializer() || V->hasAppendingLinkage())
       return New;
@@ -1135,6 +1137,7 @@ Error IRLinker::linkFunctionBody(Function &Dst, Function &Src) {
     Dst.setPrologueData(Src.getPrologueData());
   if (Src.hasPersonalityFn())
     Dst.setPersonalityFn(Src.getPersonalityFn());
+  assert(Src.IsNewDbgInfoFormat == Dst.IsNewDbgInfoFormat);
 
   // Copy over the metadata attachments without remapping.
   Dst.copyMetadata(&Src, 0);
@@ -1544,6 +1547,8 @@ Error IRLinker::run() {
   if (SrcM->getMaterializer())
     if (Error Err = SrcM->getMaterializer()->materializeMetadata())
       return Err;
+
+  DstM.IsNewDbgInfoFormat = SrcM->IsNewDbgInfoFormat;
 
   // Inherit the target data from the source module if the destination module
   // doesn't have one already.

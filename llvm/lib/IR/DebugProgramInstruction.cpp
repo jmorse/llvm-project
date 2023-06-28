@@ -261,12 +261,12 @@ void DPMarker::removeMarker() {
   // instruction. If there isn't a next instruction, put them on the
   // "trailing" list.
   // (This logic gets refactored in a future patch, needed to break some
-  //  dependencies here, and the TrailingDPValues facility only turns
-  //  up in the next patch).
+  //  dependencies here).
   BasicBlock::iterator NextInst = std::next(Owner->getIterator());
   DPMarker *NextMarker;
   if (NextInst == Owner->getParent()->end()) {
-    llvm_unreachable("Unimplemented trailing DPValue bit of RemoveDIs");
+    NextMarker = new DPMarker();
+    Owner->getParent()->setTrailingDPValues(NextMarker);
   } else {
     NextMarker = NextInst->DbgMarker;
   }

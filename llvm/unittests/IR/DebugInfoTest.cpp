@@ -23,6 +23,8 @@
 
 using namespace llvm;
 
+extern cl::opt<bool> UseNewDbgInfoFormat;
+
 static std::unique_ptr<Module> parseIR(LLVMContext &C, const char *IR) {
   SMDiagnostic Err;
   std::unique_ptr<Module> Mod = parseAssemblyString(IR, Err, C);
@@ -816,10 +818,9 @@ TEST(MetadataTest, ConvertDbgToDPValue) {
   Instruction *RetInst = &*std::next(FirstInst->getIterator());
 
   // Set-up DPMarkers in this block.
-  FirstInst->DbgMarker = new DPMarker();
-  FirstInst->DbgMarker->MarkedInstr = FirstInst;
-  RetInst->DbgMarker = new DPMarker();
-  RetInst->DbgMarker->MarkedInstr = RetInst;
+  ExitBlock->IsNewDbgInfoFormat = true;
+  ExitBlock->createMarker(FirstInst);
+  ExitBlock->createMarker(RetInst);
 
   // Insert DPValues into markers, order should come out DPV2, DPV1.
   FirstInst->DbgMarker->insertDPValue(DPV1, false);
@@ -884,15 +885,154 @@ TEST(MetadataTest, ConvertDbgToDPValue) {
   RetInst->DbgMarker->removeMarker();
   RetInst->eraseFromParent();
 
-  EXPECT_EQ(ExitBlock->TrailingDPValues.StoredDPValues.size(), 2);
+  DPMarker *EndMarker = ExitBlock->getTrailingDPValues();
+  ASSERT_NE(EndMarker, nullptr);
+  EXPECT_EQ(EndMarker->StoredDPValues.size(), 2);
   // Test again that it's those two DPValues, DPV1 and DPV2.
   ItCount = 0;
-  for (DPValue &Item : ExitBlock->TrailingDPValues.getDbgValueRange()) {
+  for (DPValue &Item : EndMarker->getDbgValueRange()) {
     EXPECT_TRUE((&Item == DPV2 && ItCount == 0) ||
               (&Item == DPV1 && ItCount == 1));
-    EXPECT_EQ(Item.getMarker(), &ExitBlock->TrailingDPValues);
+    EXPECT_EQ(Item.getMarker(), EndMarker);
     ++ItCount;
   }
+
+  // Those trailing DPValues would dangle and cause an assertion failure if
+  // they lived until the end of the LLVMContext,
+  ExitBlock->deleteTrailingDPValues();
+}
+
+TEST(MetadataTest, DPValueConversionRoutines) {
+  LLVMContext C;
+
+  // For the purpose of this test, set and un-set the command line option
+  // corresponding to UseNewDbgInfoFormat.
+  UseNewDbgInfoFormat = true;
+
+  std::unique_ptr<Module> M = parseIR(C, R"(
+    define i16 @f(i16 %a) !dbg !6 {
+      call void @llvm.dbg.value(metadata i16 %a, metadata !9, metadata !DIExpression()), !dbg !11
+      %b = add i16 %a, 1, !dbg !11
+      call void @llvm.dbg.value(metadata i16 %b, metadata !9, metadata !DIExpression()), !dbg !11
+      ret i16 0, !dbg !11
+
+    exit:
+      %c = add i16 %b, 1, !dbg !11
+      ret i16 0, !dbg !11
+    }
+    declare void @llvm.dbg.value(metadata, metadata, metadata) #0
+    attributes #0 = { nounwind readnone speculatable willreturn }
+
+    !llvm.dbg.cu = !{!0}
+    !llvm.module.flags = !{!5}
+
+    !0 = distinct !DICompileUnit(language: DW_LANG_C, file: !1, producer: "debugify", isOptimized: true, runtimeVersion: 0, emissionKind: FullDebug, enums: !2)
+    !1 = !DIFile(filename: "t.ll", directory: "/")
+    !2 = !{}
+    !5 = !{i32 2, !"Debug Info Version", i32 3}
+    !6 = distinct !DISubprogram(name: "foo", linkageName: "foo", scope: null, file: !1, line: 1, type: !7, scopeLine: 1, spFlags: DISPFlagDefinition | DISPFlagOptimized, unit: !0, retainedNodes: !8)
+    !7 = !DISubroutineType(types: !2)
+    !8 = !{!9}
+    !9 = !DILocalVariable(name: "1", scope: !6, file: !1, line: 1, type: !10)
+    !10 = !DIBasicType(name: "ty16", size: 16, encoding: DW_ATE_unsigned)
+    !11 = !DILocation(line: 1, column: 1, scope: !6)
+)");
+
+  // Check that the conversion routines and utilities between dbg.value
+  // debug-info format and DPValues works.
+  Function *F = M->getFunction("f");
+  BasicBlock *BB1 = &F->getEntryBlock();
+  // First instruction should be a dbg.value.
+  EXPECT_TRUE(isa<DbgValueInst>(BB1->front()));
+  EXPECT_FALSE(BB1->IsNewDbgInfoFormat);
+  // Validating the block for DPValues / DPMarkers shouldn't fail -- there's
+  // no data stored right now.
+  EXPECT_FALSE(BB1->validateDbgValues(false, false));
+
+  // Function and module should be marked as not having the new format too.
+  EXPECT_FALSE(F->IsNewDbgInfoFormat);
+  EXPECT_FALSE(M->IsNewDbgInfoFormat);
+
+  // Now convert.
+  M->convertToNewDbgValues();
+  EXPECT_TRUE(M->IsNewDbgInfoFormat);
+  EXPECT_TRUE(F->IsNewDbgInfoFormat);
+  EXPECT_TRUE(BB1->IsNewDbgInfoFormat);
+
+  // There should now be no dbg.value instructions!
+  // Ensure the first instruction exists, the test all of them.
+  EXPECT_FALSE(isa<DbgValueInst>(BB1->front()));
+  for (auto &BB : *F)
+    for (auto &I : BB)
+      EXPECT_FALSE(isa<DbgValueInst>(I));
+
+  // There should be a DPMarker on each of the two instructions in the entry
+  // block, each containing one DPValue.
+  EXPECT_EQ(BB1->size(), 2);
+  Instruction *FirstInst = &BB1->front();
+  Instruction *SecondInst = FirstInst->getNextNode();
+  ASSERT_TRUE(FirstInst->DbgMarker);
+  ASSERT_TRUE(SecondInst->DbgMarker);
+  EXPECT_NE(FirstInst->DbgMarker, SecondInst->DbgMarker);
+  EXPECT_EQ(FirstInst, FirstInst->DbgMarker->MarkedInstr);
+  EXPECT_EQ(SecondInst, SecondInst->DbgMarker->MarkedInstr);
+
+  EXPECT_EQ(FirstInst->DbgMarker->StoredDPValues.size(), 1);
+  DPValue *DPV1 = &*FirstInst->DbgMarker->getDbgValueRange().begin();
+  EXPECT_EQ(DPV1->getMarker(), FirstInst->DbgMarker);
+  // Should point at %a, an argument.
+  EXPECT_TRUE(isa<Argument>(DPV1->getVariableLocationOp(0)));
+
+  EXPECT_EQ(SecondInst->DbgMarker->StoredDPValues.size(), 1);
+  DPValue *DPV2 = &*SecondInst->DbgMarker->getDbgValueRange().begin();
+  EXPECT_EQ(DPV2->getMarker(), SecondInst->DbgMarker);
+  // Should point at FirstInst.
+  EXPECT_EQ(DPV2->getVariableLocationOp(0), FirstInst);
+
+  // There should be no DPValues / DPMarkers in the second block, but it should
+  // be marked as being in the new format.
+  BasicBlock *BB2 = BB1->getNextNode();
+  EXPECT_TRUE(BB2->IsNewDbgInfoFormat);
+  for (auto &Inst : *BB2)
+    // Either there should be no marker, or it should be empty.
+    EXPECT_TRUE(!Inst.DbgMarker || Inst.DbgMarker->StoredDPValues.empty());
+
+  // Validating the first block should continue to not be a problem,
+  EXPECT_FALSE(BB1->validateDbgValues(false, false));
+  // But if we were to break something, it should be able to fire. Don't attempt
+  // to comprehensively test the validator, it's a smoke-test rather than a
+  // "proper" verification pass.
+  DPV1->setMarker(nullptr);
+  // A marker pointing the wrong way should be an error.
+  EXPECT_TRUE(BB1->validateDbgValues(false, false));
+  DPV1->setMarker(FirstInst->DbgMarker);
+
+  DILocalVariable *DLV1 = DPV1->getVariable();
+  DIExpression *Expr1 = DPV1->getExpression();
+  DILocalVariable *DLV2 = DPV2->getVariable();
+  DIExpression *Expr2 = DPV2->getExpression();
+
+  // Convert everything back to the "old" format and ensure it's right.
+  M->convertFromNewDbgValues();
+  EXPECT_FALSE(M->IsNewDbgInfoFormat);
+  EXPECT_FALSE(F->IsNewDbgInfoFormat);
+  EXPECT_FALSE(BB1->IsNewDbgInfoFormat);
+
+  EXPECT_EQ(BB1->size(), 4);
+  ASSERT_TRUE(isa<DbgValueInst>(BB1->front()));
+  DbgValueInst *DVI1 = cast<DbgValueInst>(&BB1->front());
+  // These dbg.values should still point at the same places.
+  EXPECT_TRUE(isa<Argument>(DVI1->getVariableLocationOp(0)));
+  DbgValueInst *DVI2 = cast<DbgValueInst>(DVI1->getNextNode()->getNextNode());
+  EXPECT_EQ(DVI2->getVariableLocationOp(0), FirstInst);
+
+  // Check a few fields too,
+  EXPECT_EQ(DVI1->getVariable(), DLV1);
+  EXPECT_EQ(DVI1->getExpression(), Expr1);
+  EXPECT_EQ(DVI2->getVariable(), DLV2);
+  EXPECT_EQ(DVI2->getExpression(), Expr2);
+
+  UseNewDbgInfoFormat = false;
 }
 
 } // end namespace
