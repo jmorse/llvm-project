@@ -2736,6 +2736,7 @@ void Attributor::createShallowWrapper(Function &F) {
   Function *Wrapper =
       Function::Create(FnTy, F.getLinkage(), F.getAddressSpace(), F.getName());
   F.setName(""); // set the inside function anonymous
+  Wrapper->setIsNewDbgInfoFormat(F.IsNewDbgInfoFormat);
   M.getFunctionList().insert(F.getIterator(), Wrapper);
 
   F.setLinkage(GlobalValue::InternalLinkage);
@@ -2809,6 +2810,7 @@ bool Attributor::internalizeFunctions(SmallPtrSetImpl<Function *> &FnSet,
     Function *Copied =
         Function::Create(FnTy, F->getLinkage(), F->getAddressSpace(),
                          F->getName() + ".internalized");
+    Copied->setIsNewDbgInfoFormat(F->IsNewDbgInfoFormat);
     ValueToValueMapTy VMap;
     auto *NewFArgIt = Copied->arg_begin();
     for (auto &Arg : F->args()) {
@@ -3030,6 +3032,7 @@ ChangeStatus Attributor::rewriteFunctionSignatures(
     // Create the new function body and insert it into the module.
     Function *NewFn = Function::Create(NewFnTy, OldFn->getLinkage(),
                                        OldFn->getAddressSpace(), "");
+    NewFn->setIsNewDbgInfoFormat(OldFn->IsNewDbgInfoFormat);
     Functions.insert(NewFn);
     OldFn->getParent()->getFunctionList().insert(OldFn->getIterator(), NewFn);
     NewFn->takeName(OldFn);

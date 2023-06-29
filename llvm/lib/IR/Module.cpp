@@ -153,6 +153,7 @@ FunctionCallee Module::getOrInsertFunction(StringRef Name, FunctionType *Ty,
     if (!New->isIntrinsic())       // Intrinsics get attrs set on construction
       New->setAttributes(AttributeList);
     FunctionList.push_back(New);
+    New->setIsNewDbgInfoFormat(IsNewDbgInfoFormat);
     return {Ty, New}; // Return the new prototype.
   }
 
