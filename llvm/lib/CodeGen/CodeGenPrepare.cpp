@@ -1748,11 +1748,11 @@ static bool sinkCmpExpression(CmpInst *Cmp, const TargetLowering &TLI) {
     CmpInst *&InsertedCmp = InsertedCmps[UserBB];
 
     if (!InsertedCmp) {
-      BasicBlock::iterator InsertPt = UserBB->getFirstNonPHIOrDbg()->getIterator();
+      BasicBlock::iterator InsertPt = UserBB->getFirstInsertionPt();
       assert(InsertPt != UserBB->end());
       InsertedCmp = CmpInst::Create(Cmp->getOpcode(), Cmp->getPredicate(),
-                                    Cmp->getOperand(0), Cmp->getOperand(1), "",
-                                    &*InsertPt);
+                                    Cmp->getOperand(0), Cmp->getOperand(1), "");
+      InsertedCmp->insertBefore(*UserBB, InsertPt);
       // Propagate the debug info.
       InsertedCmp->setDebugLoc(Cmp->getDebugLoc());
     }
@@ -2064,10 +2064,13 @@ SinkShiftAndTruncate(BinaryOperator *ShiftI, Instruction *User, ConstantInt *CI,
       // Sink the trunc
       BasicBlock::iterator TruncInsertPt = TruncUserBB->getFirstNonPHIOrDbg()->getIterator();
       TruncInsertPt++;
+      // It will go ahead of any debug-info.
+      TruncInsertPt.setHeadBit(true);
       assert(TruncInsertPt != TruncUserBB->end());
 
       InsertedTrunc = CastInst::Create(TruncI->getOpcode(), InsertedShift,
-                                       TruncI->getType(), "", &*TruncInsertPt);
+                                       TruncI->getType(), "");
+      InsertedTrunc->insertBefore(*TruncUserBB, TruncInsertPt);
       InsertedTrunc->setDebugLoc(TruncI->getDebugLoc());
 
       MadeChange = true;
@@ -2232,7 +2235,9 @@ static bool despeculateCountZeros(IntrinsicInst *CountZeros,
   // Create another block after the count zero intrinsic. A PHI will be added
   // in this block to select the result of the intrinsic or the bit-width
   // constant if the input to the intrinsic is zero.
-  BasicBlock::iterator SplitPt = ++(BasicBlock::iterator(CountZeros));
+  BasicBlock::iterator SplitPt = std::next(BasicBlock::iterator(CountZeros));
+  // Any debug-info after CountZeros should not be included.
+  SplitPt.setHeadBit(true);
   BasicBlock *EndBlock = CallBlock->splitBasicBlock(SplitPt, "cond.end");
   if (IsHugeFunc)
     FreshBBs.insert(EndBlock);
@@ -2828,6 +2833,7 @@ class TypePromotionTransaction {
       Instruction *PrevInst;
       BasicBlock *BB;
     } Point;
+    std::optional<DPValue::self_iterator> beforeDPValue;
 
     /// Remember whether or not the instruction had a previous instruction.
     bool HasPrevInstruction;
@@ -2835,12 +2841,20 @@ class TypePromotionTransaction {
   public:
     /// Record the position of \p Inst.
     InsertionHandler(Instruction *Inst) {
-      BasicBlock::iterator It = Inst->getIterator();
-      HasPrevInstruction = (It != (Inst->getParent()->begin()));
-      if (HasPrevInstruction)
-        Point.PrevInst = &*--It;
-      else
-        Point.BB = Inst->getParent();
+      HasPrevInstruction = (Inst != &*(Inst->getParent()->begin()));
+      BasicBlock *BB = Inst->getParent();
+      // We should only ever be selecting the position of an instruction, not
+      // the position at the start of a block / DPValue run.
+      beforeDPValue = std::nullopt;
+      if (DPMarker *DPM = BB->getNextMarker(Inst))
+        if (!DPM->StoredDPValues.empty())
+          beforeDPValue = DPM->StoredDPValues.begin();
+
+      if (HasPrevInstruction) {
+        Point.PrevInst = &*std::prev(Inst->getIterator());
+      } else {
+        Point.BB = BB;
+      }
     }
 
     /// Insert \p Inst at the recorded position.
@@ -2848,14 +2862,17 @@ class TypePromotionTransaction {
       if (HasPrevInstruction) {
         if (Inst->getParent())
           Inst->removeFromParent();
-        Inst->insertAfter(Point.PrevInst);
+        Inst->insertAfter(&*Point.PrevInst);
       } else {
-        Instruction *Position = Point.BB->getFirstNonPHIOrDbg();
+        BasicBlock::iterator Position = Point.BB->getFirstInsertionPt();
+
         if (Inst->getParent())
-          Inst->moveBefore(Position);
+          Inst->moveBefore(*Point.BB, Position);
         else
-          Inst->insertBefore(Position);
+          Inst->insertBefore(*Point.BB, Position);
       }
+
+      Inst->getParent()->undoInstrRemoval(Inst, beforeDPValue);
     }
   };
 
@@ -2881,6 +2898,7 @@ class TypePromotionTransaction {
   };
 
   /// Set the operand of an instruction with a new value.
+  // XXX jmorse -- what about for dbg.values?
   class OperandSetter : public TypePromotionAction {
     /// Original operand of the instruction.
     Value *Origin;
@@ -6765,7 +6783,7 @@ bool CodeGenPrepare::optimizeLoadExt(LoadInst *Load) {
       !TLI->isLoadExtLegal(ISD::ZEXTLOAD, LoadResultVT, TruncVT))
     return false;
 
-  IRBuilder<> Builder(Load->getNextNode());
+  IRBuilder<> Builder(Load->getNextNonDebugInstruction());
   auto *NewAnd = cast<Instruction>(
       Builder.CreateAnd(Load, ConstantInt::get(Ctx, DemandBits)));
   // Mark this instruction as "inserted by CGP", so that other
@@ -7021,7 +7039,9 @@ bool CodeGenPrepare::optimizeSelectInst(SelectInst *SI) {
   // Split the select block, according to how many (if any) values go on each
   // side.
   BasicBlock *StartBlock = SI->getParent();
-  BasicBlock::iterator SplitPt = ++(BasicBlock::iterator(LastSI));
+  BasicBlock::iterator SplitPt = std::next(BasicBlock::iterator(LastSI));
+  // We should split before any debug-info.
+  SplitPt.setHeadBit(true);
 
   IRBuilder<> IB(SI);
   auto *CondFr = IB.CreateFreeze(SI->getCondition(), SI->getName() + ".frozen");
@@ -7033,18 +7053,18 @@ bool CodeGenPrepare::optimizeSelectInst(SelectInst *SI) {
   BranchInst *FalseBranch = nullptr;
   if (TrueInstrs.size() == 0) {
     FalseBranch = cast<BranchInst>(SplitBlockAndInsertIfElse(
-        CondFr, &*SplitPt, false, nullptr, nullptr, LI));
+        CondFr, SplitPt, false, nullptr, nullptr, LI));
     FalseBlock = FalseBranch->getParent();
     EndBlock = cast<BasicBlock>(FalseBranch->getOperand(0));
   } else if (FalseInstrs.size() == 0) {
     TrueBranch = cast<BranchInst>(SplitBlockAndInsertIfThen(
-        CondFr, &*SplitPt, false, nullptr, nullptr, LI));
+        CondFr, SplitPt, false, nullptr, nullptr, LI));
     TrueBlock = TrueBranch->getParent();
     EndBlock = cast<BasicBlock>(TrueBranch->getOperand(0));
   } else {
     Instruction *ThenTerm = nullptr;
     Instruction *ElseTerm = nullptr;
-    SplitBlockAndInsertIfThenElse(CondFr, &*SplitPt, &ThenTerm, &ElseTerm,
+    SplitBlockAndInsertIfThenElse(CondFr, SplitPt, &ThenTerm, &ElseTerm,
                                   nullptr, nullptr, LI);
     TrueBranch = cast<BranchInst>(ThenTerm);
     FalseBranch = cast<BranchInst>(ElseTerm);
