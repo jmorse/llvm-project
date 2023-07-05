@@ -138,6 +138,8 @@ public:
   /// move such DPValues back to the right place (ahead of the terminator).
   void flushTerminatorDbgValues();
 
+  void undoInstrRemoval(Instruction *I, std::optional<DPValue::self_iterator> Pos);
+
 private:
   void setParent(Function *parent);
 
