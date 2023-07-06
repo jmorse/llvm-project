@@ -394,17 +394,18 @@ public:
   ///
   /// Also adds the new instruction to the worklist and returns \p New so that
   /// it is suitable for use as the return from the visitation patterns.
-  Instruction *InsertNewInstBefore(Instruction *New, BasicBlock::iterator Old) {
+  Instruction *InsertNewInstBefore(Instruction *New, Instruction &Old) {
     assert(New && !New->getParent() &&
            "New instruction already inserted into a basic block!");
-    New->insertBefore(Old); // Insert inst
+    BasicBlock *BB = Old.getParent();
+    New->insertInto(BB, Old.getIterator()); // Insert inst
     Worklist.add(New);
     return New;
   }
 
   /// Same as InsertNewInstBefore, but also sets the debug loc.
-  Instruction *InsertNewInstWith(Instruction *New, BasicBlock::iterator Old) {
-    New->setDebugLoc(Old->getDebugLoc());
+  Instruction *InsertNewInstWith(Instruction *New, Instruction &Old) {
+    New->setDebugLoc(Old.getDebugLoc());
     return InsertNewInstBefore(New, Old);
   }
 

@@ -4739,7 +4739,7 @@ void SwitchInstProfUpdateWrapper::addCase(
            "num of prof branch_weights must accord with num of successors");
 }
 
-Instruction::InstListType::iterator
+SymbolTableList<Instruction>::iterator
 SwitchInstProfUpdateWrapper::eraseFromParent() {
   // Instruction is erased. Mark as unchanged to not touch it in the destructor.
   Changed = false;

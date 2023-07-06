@@ -61,13 +61,6 @@ static bool runImpl(Function &F, const SimplifyQuery &SQ) {
               DeadInstsInBB.push_back(&I);
           }
         }
-
-        // jmorse: also try to knobble any meaningless dbg.values.
-        for (DPValue &DPV : make_early_inc_range(I.getDbgValueRange())) {
-          // Try to emulate `isInstructionTriviallyDead` here for DPValue.
-          if (DPV.getVariableLocationOp(0) == nullptr)
-            I.dropOneDbgValue(&DPV);
-        }
       }
       RecursivelyDeleteTriviallyDeadInstructions(DeadInstsInBB, SQ.TLI);
     }

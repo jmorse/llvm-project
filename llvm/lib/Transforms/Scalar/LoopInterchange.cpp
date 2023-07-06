@@ -1375,7 +1375,7 @@ bool LoopInterchangeTransform::transform() {
     for (Instruction &I :
          make_early_inc_range(make_range(InnerLoopPreHeader->begin(),
                                          std::prev(InnerLoopPreHeader->end()))))
-      I.moveBeforePreserving(OuterLoopHeader->getTerminator());
+      I.moveBefore(OuterLoopHeader->getTerminator());
   }
 
   Transformed |= adjustLoopLinks();

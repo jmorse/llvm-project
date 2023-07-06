@@ -1041,7 +1041,7 @@ void PartialInlinerImpl::FunctionCloner::normalizeReturnBlock() const {
   ClonedOI->ReturnBlock = ClonedOI->ReturnBlock->splitBasicBlock(
       ClonedOI->ReturnBlock->getFirstNonPHI()->getIterator());
   BasicBlock::iterator I = PreReturn->begin();
-  BasicBlock::iterator Ins = ClonedOI->ReturnBlock->begin();
+  Instruction *Ins = &ClonedOI->ReturnBlock->front();
   SmallVector<Instruction *, 4> DeadPhis;
   while (I != PreReturn->end()) {
     PHINode *OldPhi = dyn_cast<PHINode>(I);
@@ -1049,10 +1049,9 @@ void PartialInlinerImpl::FunctionCloner::normalizeReturnBlock() const {
       break;
 
     PHINode *RetPhi =
-        PHINode::Create(OldPhi->getType(), NumPredsFromEntries + 1, "");
-    RetPhi->insertBefore(Ins);
+        PHINode::Create(OldPhi->getType(), NumPredsFromEntries + 1, "", Ins);
     OldPhi->replaceAllUsesWith(RetPhi);
-    Ins = ClonedOI->ReturnBlock->getFirstInsertionPt();
+    Ins = ClonedOI->ReturnBlock->getFirstNonPHI();
 
     RetPhi->addIncoming(&*I, PreReturn);
     for (BasicBlock *E : ClonedOI->ReturnBlockPreds) {

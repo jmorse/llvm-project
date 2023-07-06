@@ -29,7 +29,6 @@
 namespace llvm {
 
 class BasicBlock;
-class DPMarker;
 class FastMathFlags;
 class MDNode;
 class Module;
@@ -40,58 +39,13 @@ template <> struct ilist_alloc_traits<Instruction> {
 };
 
 class Instruction : public User,
-                    public ilist_node_with_parent<Instruction, BasicBlock,
-                                                  ilist_iterator_bits<true>> {
-public:
-  using InstListType = SymbolTableList<Instruction, ilist_iterator_bits<true>>;
-private:
+                    public ilist_node_with_parent<Instruction, BasicBlock> {
   BasicBlock *Parent;
   DebugLoc DbgLoc;                         // 'dbg' Metadata cache.
 
   /// Relative order of this instruction in its parent basic block. Used for
   /// O(1) local dominance checks between instructions.
   mutable unsigned Order = 0;
-
-public:
-  /// Optional marker recording the position for debugging information that
-  /// "happens" immediately before this instruction. Null unless there is
-  /// debugging information present.
-  DPMarker *DbgMarker = nullptr;
-
-  /// Clone any debug-info attached to \p From onto this instruction. Used to
-  /// copy debugging information from one block to another, when copying entire
-  /// blocks. \see DebugProgramInstruction.h , because the ordering of DPValues
-  /// is still important, fine grain control of which instructions are moved and
-  /// where they go is necessary.
-  /// \p From The instruction to clone debug-info from.
-  /// \p from_here Optional iterator to limit DPValues cloned to be a range from
-  ///    from_here to end().
-  /// \p InsertAtHead Whether the cloned DPValues should be placed at the end
-  ///    or the beginning of existing DPValues attached to this.
-  /// \returns A range over the newly cloned DPValues.
-  iterator_range<simple_ilist<DPValue>::iterator> cloneDebugInfoFrom(
-      const Instruction *From,
-      std::optional<simple_ilist<DPValue>::iterator> from_here = std::nullopt,
-      bool InsertAtHead = false);
-
-  /// Return a range over the DPValues attached to this instruction.
-  iterator_range<simple_ilist<DPValue>::iterator> getDbgValueRange() const;
-
-  /// Returns true if any DPValues are attached to this instruction.
-  bool hasDbgValues() const;
-
-  /// Erase any DPValues attached to this instruction.
-  void dropDbgValues();
-
-  /// Erase a single DPValue \p I that is attached to this instruction.
-  void dropOneDbgValue(DPValue *I);
-
-  /// Handle the debug-info implications of this instruction being removed. Any
-  /// attached DPValues need to "fall" down onto the next instruction.
-  void handleMarkerRemoval();
-
-  /// Transfer any DPValues on the position \p It onto this instruction.
-  void adoptDbgValues(BasicBlock *BB, InstListType::iterator It);
 
 protected:
   // The 15 first bits of `Value::SubclassData` are available for subclasses of
@@ -164,12 +118,11 @@ public:
   /// This method unlinks 'this' from the containing basic block and deletes it.
   ///
   /// \returns an iterator pointing to the element after the erased one
-  InstListType::iterator eraseFromParent();
+  SymbolTableList<Instruction>::iterator eraseFromParent();
 
   /// Insert an unlinked instruction into a basic block immediately before
   /// the specified instruction.
   void insertBefore(Instruction *InsertPos);
-  void insertBefore(InstListType::iterator InsertPos);
 
   /// Insert an unlinked instruction into a basic block immediately after the
   /// specified instruction.
@@ -177,32 +130,21 @@ public:
 
   /// Inserts an unlinked instruction into \p ParentBB at position \p It and
   /// returns the iterator of the inserted instruction.
-  InstListType::iterator insertInto(BasicBlock *ParentBB,
-                                    InstListType::iterator It);
-
-  void insertBefore(BasicBlock &BB, InstListType::iterator InsertPos);
+  SymbolTableList<Instruction>::iterator
+  insertInto(BasicBlock *ParentBB, SymbolTableList<Instruction>::iterator It);
 
   /// Unlink this instruction from its current basic block and insert it into
   /// the basic block that MovePos lives in, right before MovePos.
   void moveBefore(Instruction *MovePos);
-  void moveBeforePreserving(Instruction *MovePos);
 
-private:
-  /// RemoveDIs project: all other moves implemented with this method,
-  /// centralising debug-info updates into one place.
-  void moveBefore1(BasicBlock &BB, InstListType::iterator I, bool Preserve);
-
-public:
   /// Unlink this instruction and insert into BB before I.
   ///
   /// \pre I is a valid iterator into BB.
-  void moveBefore(BasicBlock &BB, InstListType::iterator I);
-  void moveBeforePreserving(BasicBlock &BB, InstListType::iterator I);
+  void moveBefore(BasicBlock &BB, SymbolTableList<Instruction>::iterator I);
 
   /// Unlink this instruction from its current basic block and insert it into
   /// the basic block that MovePos lives in, right after MovePos.
   void moveAfter(Instruction *MovePos);
-  void moveAfterPreserving(Instruction *MovePos);
 
   /// Given an instruction Other in the same basic block as this instruction,
   /// return true if this instruction comes before Other. In this worst case,
@@ -216,7 +158,7 @@ public:
   /// of cases, e.g. phi nodes or terminators that return values. This function
   /// may return null if the insertion after the definition is not possible,
   /// e.g. due to a catchswitch terminator.
-  std::optional<SymbolTableList<Instruction, ilist_iterator_bits<true>>::iterator> getInsertionPointAfterDef();
+  Instruction *getInsertionPointAfterDef();
 
   //===--------------------------------------------------------------------===//
   // Subclass classification.
@@ -414,10 +356,6 @@ public:
 
   /// Return the debug location for this node as a DebugLoc.
   const DebugLoc &getDebugLoc() const { return DbgLoc; }
-
-  /// Fetch the debug location for this node, unless this is a debug intrinsic,
-  /// in which case fetch the debug location of the next non-debug node.
-  const DebugLoc &getStableDebugLoc() const;
 
   /// Set or clear the nuw flag on this instruction, which must be an operator
   /// which supports this flag. See LangRef.html for the meaning of this flag.
@@ -923,7 +861,7 @@ public:
   };
 
 private:
-  friend class SymbolTableListTraits<Instruction, ilist_iterator_bits<true>>;
+  friend class SymbolTableListTraits<Instruction>;
   friend class BasicBlock; // For renumbering.
 
   // Shadow Value::setValueSubclassData with a private forwarding method so that

@@ -540,7 +540,7 @@ bool InstCombinerImpl::SimplifyAssociativeOrCommutative(BinaryOperator &I) {
           Flags &= Op1->getFastMathFlags();
           NewBO->setFastMathFlags(Flags);
         }
-        InsertNewInstWith(NewBO, I.getIterator());
+        InsertNewInstWith(NewBO, I);
         NewBO->takeName(Op1);
         replaceOperand(I, 0, NewBO);
         replaceOperand(I, 1, CRes);
@@ -1058,7 +1058,7 @@ static Value *foldOperationIntoSelectOperand(Instruction &I, SelectInst *SI,
                                              Value *NewOp, InstCombiner &IC) {
   Instruction *Clone = I.clone();
   Clone->replaceUsesOfWith(SI, NewOp);
-  IC.InsertNewInstBefore(Clone, SI->getIterator());
+  IC.InsertNewInstBefore(Clone, *SI);
   return Clone;
 }
 
@@ -1192,7 +1192,7 @@ Instruction *InstCombinerImpl::foldOpIntoPhi(Instruction &I, PHINode *PN) {
 
   // Okay, we can do the transformation: create the new PHI node.
   PHINode *NewPN = PHINode::Create(I.getType(), PN->getNumIncomingValues());
-  InsertNewInstBefore(NewPN, PN->getIterator());
+  InsertNewInstBefore(NewPN, *PN);
   NewPN->takeName(PN);
 
   // If we are going to have to insert a new computation, do so right before the
@@ -1206,7 +1206,7 @@ Instruction *InstCombinerImpl::foldOpIntoPhi(Instruction &I, PHINode *PN) {
       else
         U = U->DoPHITranslation(PN->getParent(), NonSimplifiedBB);
     }
-    InsertNewInstBefore(Clone, NonSimplifiedBB->getTerminator()->getIterator());
+    InsertNewInstBefore(Clone, *NonSimplifiedBB->getTerminator());
   }
 
   for (unsigned i = 0; i != NumPHIValues; ++i) {
@@ -2255,7 +2255,7 @@ Instruction *InstCombinerImpl::visitGetElementPtrInst(GetElementPtrInst &GEP) {
       NewGEP->setOperand(DI, NewPN);
     }
 
-    NewGEP->insertBefore(*GEP.getParent(), GEP.getParent()->getFirstInsertionPt());
+    NewGEP->insertInto(GEP.getParent(), GEP.getParent()->getFirstInsertionPt());
     return replaceOperand(GEP, 0, NewGEP);
   }
 
@@ -2484,10 +2484,9 @@ Instruction *InstCombinerImpl::visitAllocSite(Instruction &MI) {
   // If we are removing an alloca with a dbg.declare, insert dbg.value calls
   // before each store.
   SmallVector<DbgVariableIntrinsic *, 8> DVIs;
-  SmallVector<DPValue *, 8> DPVs;
   std::unique_ptr<DIBuilder> DIB;
   if (isa<AllocaInst>(MI)) {
-    findDbgUsers(DVIs, &MI, &DPVs);
+    findDbgUsers(DVIs, &MI);
     DIB.reset(new DIBuilder(*MI.getModule(), /*AllowUnresolved=*/false));
   }
 
@@ -2524,9 +2523,6 @@ Instruction *InstCombinerImpl::visitAllocSite(Instruction &MI) {
         for (auto *DVI : DVIs)
           if (DVI->isAddressOfVariable())
             ConvertDebugDeclareToDebugValue(DVI, SI, *DIB);
-        for (auto *DPV : DPVs)
-          if (DPV->isAddressOfVariable())
-            ConvertDebugDeclareToDebugValue(DPV, SI, *DIB);
       } else {
         // Casts, GEP, or anything else: we're about to delete this instruction,
         // so it can not have any valid uses.
@@ -2565,14 +2561,9 @@ Instruction *InstCombinerImpl::visitAllocSite(Instruction &MI) {
     // If there is a dead store to `%a` in @trivially_inlinable_no_op, the
     // "arg0" dbg.value may be stale after the call. However, failing to remove
     // the DW_OP_deref dbg.value causes large gaps in location coverage.
-// jmorse -- set undef, don't delete.
     for (auto *DVI : DVIs)
       if (DVI->isAddressOfVariable() || DVI->getExpression()->startsWithDeref())
-        DVI->setKillLocation();
-    for (auto *DPV : DPVs)
-      if (DPV->isAddressOfVariable() || DPV->getExpression()->startsWithDeref())
-        DPV->setUndef();
-
+        DVI->eraseFromParent();
 
     return eraseInstFromFunction(MI);
   }
@@ -2651,7 +2642,7 @@ static Instruction *tryToMoveFreeBeforeNullTest(CallInst &FI,
   for (Instruction &Instr : llvm::make_early_inc_range(*FreeInstrBB)) {
     if (&Instr == FreeInstrBBTerminator)
       break;
-    Instr.moveBeforePreserving(TI);
+    Instr.moveBefore(TI);
   }
   assert(FreeInstrBB->size() == 1 &&
          "Only the branch instruction should remain");
@@ -3569,27 +3560,23 @@ bool InstCombinerImpl::freezeOtherUses(FreezeInst &FI) {
   // *all* uses if the operand is an invoke/callbr and the use is in a phi on
   // the normal/default destination. This is why the domination check in the
   // replacement below is still necessary.
-  BasicBlock::iterator MoveBefore;
+  Instruction *MoveBefore;
   if (isa<Argument>(Op)) {
     MoveBefore =
-        FI.getFunction()->getEntryBlock().getFirstNonPHIOrDbgOrAlloca();
+        &*FI.getFunction()->getEntryBlock().getFirstNonPHIOrDbgOrAlloca();
   } else {
-    auto MoveBeforeOpt = cast<Instruction>(Op)->getInsertionPointAfterDef();
-    if (!MoveBeforeOpt)
+    MoveBefore = cast<Instruction>(Op)->getInsertionPointAfterDef();
+    if (!MoveBefore)
       return false;
-    MoveBefore = *MoveBeforeOpt;
   }
 
   bool Changed = false;
-  if ((&FI != &*MoveBefore && !isa<DbgInfoIntrinsic>(MoveBefore)) || (isa<DbgInfoIntrinsic>(MoveBefore) && &FI != &*MoveBefore->getNextNonDebugInstruction())) {
-    FI.moveBefore(*MoveBefore->getParent(), MoveBefore);
+  if (&FI != MoveBefore) {
+    FI.moveBefore(MoveBefore);
     Changed = true;
   }
 
   Op->replaceUsesWithIf(&FI, [&](Use &U) -> bool {
-    // DDD: dbg.values shouldn't appear on the use list. Let's be sure of that
-    // by asserting.
-    assert(!isa<DbgValueInst>(&U));
     bool Dominates = DT.dominates(&FI, U);
     Changed |= Dominates;
     return Dominates;
@@ -3785,17 +3772,64 @@ static bool TryToSinkInstruction(Instruction *I, BasicBlock *DestBlock,
   /// the new position.
 
   BasicBlock::iterator InsertPos = DestBlock->getFirstInsertionPt();
-  I->moveBefore(*DestBlock, InsertPos);
+  I->moveBefore(&*InsertPos);
   ++NumSunkInst;
 
   // Also sink all related debug uses from the source basic block. Otherwise we
-  // get debug use before the def.
-  // jmorse: IMHO we've moved into a world where debug use-before-defs are
-  // actually well defined in the context of debug-info, and would very much
-  // like to get rid of this behaviour. With that in mind, allow both dbg.values
-  // and DPValues to use-before-def by not trying to sink them here. This also
-  // eliminates the -- apparently only -- place in LLVM where such sinking
-  // occurs.
+  // get debug use before the def. Attempt to salvage debug uses first, to
+  // maximise the range variables have location for. If we cannot salvage, then
+  // mark the location undef: we know it was supposed to receive a new location
+  // here, but that computation has been sunk.
+  SmallVector<DbgVariableIntrinsic *, 2> DbgUsers;
+  findDbgUsers(DbgUsers, I);
+  // Process the sinking DbgUsers in reverse order, as we only want to clone the
+  // last appearing debug intrinsic for each given variable.
+  SmallVector<DbgVariableIntrinsic *, 2> DbgUsersToSink;
+  for (DbgVariableIntrinsic *DVI : DbgUsers)
+    if (DVI->getParent() == SrcBlock)
+      DbgUsersToSink.push_back(DVI);
+  llvm::sort(DbgUsersToSink,
+             [](auto *A, auto *B) { return B->comesBefore(A); });
+
+  SmallVector<DbgVariableIntrinsic *, 2> DIIClones;
+  SmallSet<DebugVariable, 4> SunkVariables;
+  for (auto *User : DbgUsersToSink) {
+    // A dbg.declare instruction should not be cloned, since there can only be
+    // one per variable fragment. It should be left in the original place
+    // because the sunk instruction is not an alloca (otherwise we could not be
+    // here).
+    if (isa<DbgDeclareInst>(User))
+      continue;
+
+    DebugVariable DbgUserVariable =
+        DebugVariable(User->getVariable(), User->getExpression(),
+                      User->getDebugLoc()->getInlinedAt());
+
+    if (!SunkVariables.insert(DbgUserVariable).second)
+      continue;
+
+    // Leave dbg.assign intrinsics in their original positions and there should
+    // be no need to insert a clone.
+    if (isa<DbgAssignIntrinsic>(User))
+      continue;
+
+    DIIClones.emplace_back(cast<DbgVariableIntrinsic>(User->clone()));
+    if (isa<DbgDeclareInst>(User) && isa<CastInst>(I))
+      DIIClones.back()->replaceVariableLocationOp(I, I->getOperand(0));
+    LLVM_DEBUG(dbgs() << "CLONE: " << *DIIClones.back() << '\n');
+  }
+
+  // Perform salvaging without the clones, then sink the clones.
+  if (!DIIClones.empty()) {
+    salvageDebugInfoForDbgValues(*I, DbgUsers);
+    // The clones are in reverse order of original appearance, reverse again to
+    // maintain the original order.
+    for (auto &DIIClone : llvm::reverse(DIIClones)) {
+      DIIClone->insertBefore(&*InsertPos);
+      LLVM_DEBUG(dbgs() << "SINK: " << *DIIClone << '\n');
+    }
+  }
+
   return true;
 }
 
@@ -3950,11 +3984,13 @@ bool InstCombinerImpl::run() {
         // Are we replace a PHI with something that isn't a PHI, or vice versa?
         if (isa<PHINode>(Result) != isa<PHINode>(I)) {
           // We need to fix up the insertion point.
-          InsertPos = InstParent->getFirstInsertionPt();
-          // XXX jmorse -- logic removed here looked redundant.
+          if (isa<PHINode>(I)) // PHI -> Non-PHI
+            InsertPos = InstParent->getFirstInsertionPt();
+          else // Non-PHI -> PHI
+            InsertPos = InstParent->getFirstNonPHI()->getIterator();
         }
 
-        Result->insertBefore(*InstParent, InsertPos);
+        Result->insertInto(InstParent, InsertPos);
 
         // Push the new instruction and any users onto the worklist.
         Worklist.pushUsersToWorkList(*Result);

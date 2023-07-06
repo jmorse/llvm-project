@@ -693,16 +693,15 @@ TEST(Local, FindDbgUsers) {
   Value *Arg = Fun.getArg(0);
 
   SmallVector<DbgVariableIntrinsic *> Users;
-  SmallVector<DPValue *> DPUsers; // XXX test on merge.
   // Arg (%a) is used twice by a single dbg.assign. Check findDbgUsers returns
   // only 1 pointer to it rather than 2.
-  findDbgUsers(Users, DPUsers, Arg);
+  findDbgUsers(Users, Arg);
   EXPECT_EQ(Users.size(), 1u);
 
   SmallVector<DbgValueInst *> Vals;
   // Arg (%a) is used twice by a single dbg.assign. Check findDbgValues returns
   // only 1 pointer to it rather than 2.
-  findDbgValues(Vals, DPUsers, Arg);
+  findDbgValues(Vals, Arg);
   EXPECT_EQ(Vals.size(), 1u);
 }
 
@@ -808,8 +807,7 @@ TEST(Local, ReplaceAllDbgUsesWith) {
   EXPECT_TRUE(replaceAllDbgUsesWith(D, C, C, DT));
 
   SmallVector<DbgVariableIntrinsic *, 2> CDbgVals;
-  SmallVector<DPValue *, 2> DPUsers;
-  findDbgUsers(CDbgVals, DPUsers, &C);
+  findDbgUsers(CDbgVals, &C);
   EXPECT_EQ(2U, CDbgVals.size());
   EXPECT_TRUE(all_of(CDbgVals, [](DbgVariableIntrinsic *DII) {
     return isa<DbgDeclareInst>(DII);
@@ -818,7 +816,7 @@ TEST(Local, ReplaceAllDbgUsesWith) {
   EXPECT_TRUE(replaceAllDbgUsesWith(C, D, D, DT));
 
   SmallVector<DbgVariableIntrinsic *, 2> DDbgVals;
-  findDbgUsers(DDbgVals, DPUsers, &D);
+  findDbgUsers(DDbgVals, &D);
   EXPECT_EQ(2U, DDbgVals.size());
   EXPECT_TRUE(all_of(DDbgVals, [](DbgVariableIntrinsic *DII) {
     return isa<DbgDeclareInst>(DII);
@@ -839,7 +837,7 @@ TEST(Local, ReplaceAllDbgUsesWith) {
   EXPECT_TRUE(FDbgVal->isKillLocation());
 
   SmallVector<DbgValueInst *, 1> FDbgVals;
-  findDbgValues(FDbgVals, DPUsers, &F_);
+  findDbgValues(FDbgVals, &F_);
   EXPECT_EQ(0U, FDbgVals.size());
 
   // Simulate i32 -> i64 conversion to test sign-extension. Here are some
@@ -851,7 +849,7 @@ TEST(Local, ReplaceAllDbgUsesWith) {
   EXPECT_TRUE(replaceAllDbgUsesWith(B, A, A, DT));
 
   SmallVector<DbgValueInst *, 8> ADbgVals;
-  findDbgValues(ADbgVals, DPUsers, &A);
+  findDbgValues(ADbgVals, &A);
   EXPECT_EQ(6U, ADbgVals.size());
 
   // Check that %a has a dbg.value with a DIExpression matching \p Ops.
@@ -1137,69 +1135,3 @@ TEST(Local, CanReplaceOperandWithVariable) {
 
   BB0->dropAllReferences();
 }
-
-TEST(Local, ReplaceDPValue) {
-  LLVMContext C;
-
-  // Test that RAUW also replaces the operands of DPValue objects, i.e.
-  // non-instruction stored debugging information.
-  std::unique_ptr<Module> M = parseIR(C,
-                                      R"(
-      declare void @llvm.dbg.value(metadata, metadata, metadata)
-      define void @f(i32 %a) !dbg !8 {
-      entry:
-        %foo = add i32 %a, 1, !dbg !13
-        %bar = add i32 %foo, 0, !dbg !13
-        call void @llvm.dbg.value(metadata i32 %bar, metadata !11, metadata !DIExpression()), !dbg !13
-        ret void, !dbg !14
-      }
-      !llvm.dbg.cu = !{!0}
-      !llvm.module.flags = !{!3, !4}
-      !0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "clang version 6.0.0", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, enums: !2)
-      !1 = !DIFile(filename: "t2.c", directory: "foo")
-      !2 = !{}
-      !3 = !{i32 2, !"Dwarf Version", i32 4}
-      !4 = !{i32 2, !"Debug Info Version", i32 3}
-      !8 = distinct !DISubprogram(name: "f", scope: !1, file: !1, line: 1, type: !9, isLocal: false, isDefinition: true, scopeLine: 1, isOptimized: false, unit: !0, retainedNodes: !2)
-      !9 = !DISubroutineType(types: !10)
-      !10 = !{null}
-      !11 = !DILocalVariable(name: "x", scope: !8, file: !1, line: 2, type: !12)
-      !12 = !DIBasicType(name: "int", size: 32, encoding: DW_ATE_signed)
-      !13 = !DILocation(line: 2, column: 7, scope: !8)
-      !14 = !DILocation(line: 3, column: 1, scope: !8)
-      )");
-  auto *GV = M->getNamedValue("f");
-  ASSERT_TRUE(GV);
-  auto *F = dyn_cast<Function>(GV);
-  ASSERT_TRUE(F);
-  BasicBlock::iterator It = F->front().begin();
-  Instruction *FooInst = &*It;
-  It = std::next(It);
-  Instruction *BarInst = &*It;
-  It = std::next(It);
-  DbgValueInst *DVI = dyn_cast<DbgValueInst>(It);
-  ASSERT_TRUE(DVI);
-  It = std::next(It);
-  Instruction *RetInst = &*It;
-
-  // Convert DVI into a DPValue.
-  RetInst->DbgMarker = new DPMarker();
-  RetInst->DbgMarker->MarkedInstr = RetInst;
-  DPValue *DPV = new DPValue(DVI);
-  RetInst->DbgMarker->insertDPValue(DPV, false);
-  // ... and erase the dbg.value.
-  DVI->eraseFromParent();
-
-  // DPV should originally refer to %bar,
-  EXPECT_EQ(DPV->getVariableLocationOp(0), BarInst);
-
-  // Now try to replace the computation of %bar with %foo -- this should cause
-  // the DPValue's to have it's operand updated beneath it.
-  BarInst->replaceAllUsesWith(FooInst);
-  // Check DPV now points at %foo.
-  EXPECT_EQ(DPV->getVariableLocationOp(0), FooInst);
-
-  // Teardown.
-  RetInst->DbgMarker->eraseFromParent();
-}
-

@@ -1473,13 +1473,12 @@ private:
 
     for (Instruction *I : HoistInsts) {
       assert(I->getParent() == FC1.Preheader);
-      I->moveBefore(*FC0.Preheader,
-                    FC0.Preheader->getTerminator()->getIterator());
+      I->moveBefore(FC0.Preheader->getTerminator());
     }
     // insert instructions in reverse order to maintain dominance relationship
     for (Instruction *I : reverse(SinkInsts)) {
       assert(I->getParent() == FC1.Preheader);
-      I->moveBefore(*FC1.ExitBlock, FC1.ExitBlock->getFirstInsertionPt());
+      I->moveBefore(&*FC1.ExitBlock->getFirstInsertionPt());
     }
   }
 
@@ -1672,7 +1671,7 @@ private:
     // exiting the first and jumping to the header of the second does not break
     // the SSA property of the phis originally in the first loop. See also the
     // comment above.
-    BasicBlock::iterator L1HeaderIP = FC1.Header->begin();
+    Instruction *L1HeaderIP = &FC1.Header->front();
     for (PHINode *LCPHI : OriginalFC0PHIs) {
       int L1LatchBBIdx = LCPHI->getBasicBlockIndex(FC1.Latch);
       assert(L1LatchBBIdx >= 0 &&
@@ -1680,9 +1679,8 @@ private:
 
       Value *LCV = LCPHI->getIncomingValue(L1LatchBBIdx);
 
-      PHINode *L1HeaderPHI =
-          PHINode::Create(LCV->getType(), 2, LCPHI->getName() + ".afterFC0");
-      L1HeaderPHI->insertBefore(L1HeaderIP);
+      PHINode *L1HeaderPHI = PHINode::Create(
+          LCV->getType(), 2, LCPHI->getName() + ".afterFC0", L1HeaderIP);
       L1HeaderPHI->addIncoming(LCV, FC0.Latch);
       L1HeaderPHI->addIncoming(UndefValue::get(LCV->getType()),
                                FC0.ExitingBlock);
@@ -1955,7 +1953,7 @@ private:
     // exiting the first and jumping to the header of the second does not break
     // the SSA property of the phis originally in the first loop. See also the
     // comment above.
-    BasicBlock::iterator L1HeaderIP = FC1.Header->begin();
+    Instruction *L1HeaderIP = &FC1.Header->front();
     for (PHINode *LCPHI : OriginalFC0PHIs) {
       int L1LatchBBIdx = LCPHI->getBasicBlockIndex(FC1.Latch);
       assert(L1LatchBBIdx >= 0 &&
@@ -1963,9 +1961,8 @@ private:
 
       Value *LCV = LCPHI->getIncomingValue(L1LatchBBIdx);
 
-      PHINode *L1HeaderPHI =
-          PHINode::Create(LCV->getType(), 2, LCPHI->getName() + ".afterFC0");
-      L1HeaderPHI->insertBefore(L1HeaderIP);
+      PHINode *L1HeaderPHI = PHINode::Create(
+          LCV->getType(), 2, LCPHI->getName() + ".afterFC0", L1HeaderIP);
       L1HeaderPHI->addIncoming(LCV, FC0.Latch);
       L1HeaderPHI->addIncoming(UndefValue::get(LCV->getType()),
                                FC0.ExitingBlock);

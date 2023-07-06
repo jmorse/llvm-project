@@ -897,17 +897,16 @@ static Value *NegateValue(Value *V, Instruction *BI,
         TheNeg->getParent()->getParent() != BI->getParent()->getParent())
       continue;
 
-    BasicBlock::iterator InsertPt;
+    Instruction *InsertPt;
     if (Instruction *InstInput = dyn_cast<Instruction>(V)) {
-      auto InsertPtOpt = InstInput->getInsertionPointAfterDef();
-      if (!InsertPtOpt)
+      InsertPt = InstInput->getInsertionPointAfterDef();
+      if (!InsertPt)
         continue;
-      InsertPt = *InsertPtOpt;
     } else {
-      InsertPt = TheNeg->getFunction()->getEntryBlock().getFirstNonPHIOrDbg()->getIterator(); // XXX jmorse
+      InsertPt = &*TheNeg->getFunction()->getEntryBlock().begin();
     }
 
-    TheNeg->moveBefore(*InsertPt->getParent(), InsertPt);
+    TheNeg->moveBefore(InsertPt);
     if (TheNeg->getOpcode() == Instruction::Sub) {
       TheNeg->setHasNoUnsignedWrap(false);
       TheNeg->setHasNoSignedWrap(false);

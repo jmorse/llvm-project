@@ -544,14 +544,6 @@ ADCEChanged AggressiveDeadCodeElimination::removeDeadInstructions() {
   // value of the function, and may therefore be deleted safely.
   // NOTE: We reuse the Worklist vector here for memory efficiency.
   for (Instruction &I : llvm::reverse(instructions(F))) {
-    // If inhaled, check for any dbg.values attached to this instruction, and
-    // drop any for scopes that aren't alive, like the rest of this loop does.
-    for (DPValue &DPV : make_early_inc_range(I.getDbgValueRange())) {
-      if (AliveScopes.count(DPV.getDebugLoc()->getScope()))
-        continue;
-      I.dropOneDbgValue(&DPV);
-    }
-
     // Check if the instruction is alive.
     if (isLive(&I))
       continue;

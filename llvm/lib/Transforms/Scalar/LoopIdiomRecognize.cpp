@@ -1886,7 +1886,7 @@ bool LoopIdiomRecognize::recognizePopcount() {
     return false;
 
   BasicBlock *LoopBody = *(CurLoop->block_begin());
-  if (LoopBody->sizeWithoutDebug() >= 20) {
+  if (LoopBody->size() >= 20) {
     // The loop is too big, bail out.
     return false;
   }
@@ -2040,8 +2040,7 @@ void LoopIdiomRecognize::transformLoopToCountable(
   auto *LbBr = cast<BranchInst>(Body->getTerminator());
   ICmpInst *LbCond = cast<ICmpInst>(LbBr->getCondition());
 
-  PHINode *TcPhi = PHINode::Create(CountTy, 2, "tcphi");
-  TcPhi->insertBefore(Body->begin());
+  PHINode *TcPhi = PHINode::Create(CountTy, 2, "tcphi", &Body->front());
 
   Builder.SetInsertPoint(LbCond);
   Instruction *TcDec = cast<Instruction>(Builder.CreateSub(
@@ -2147,12 +2146,12 @@ void LoopIdiomRecognize::transformLoopToPopcount(BasicBlock *PreCondBB,
     ICmpInst *LbCond = cast<ICmpInst>(LbBr->getCondition());
     Type *Ty = TripCnt->getType();
 
-    PHINode *TcPhi = PHINode::Create(Ty, 2, "tcphi");
-    TcPhi->insertBefore(Body->begin());
+    PHINode *TcPhi = PHINode::Create(Ty, 2, "tcphi", &Body->front());
 
     Builder.SetInsertPoint(LbCond);
-    Instruction *TcDec = cast<Instruction>(Builder.CreateSub(
-        TcPhi, ConstantInt::get(Ty, 1), "tcdec", false, true));
+    Instruction *TcDec = cast<Instruction>(
+        Builder.CreateSub(TcPhi, ConstantInt::get(Ty, 1),
+                          "tcdec", false, true));
 
     TcPhi->addIncoming(TripCnt, PreHead);
     TcPhi->addIncoming(TcDec, Body);
@@ -2490,7 +2489,7 @@ bool LoopIdiomRecognize::recognizeShiftUntilBitTest() {
   // Step 4: Rewrite the loop into a countable form, with canonical IV.
 
   // The new canonical induction variable.
-  Builder.SetInsertPoint(LoopHeaderBB, LoopHeaderBB->begin());
+  Builder.SetInsertPoint(&LoopHeaderBB->front());
   auto *IV = Builder.CreatePHI(Ty, 2, CurLoop->getName() + ".iv");
 
   // The induction itself.
@@ -2814,11 +2813,11 @@ bool LoopIdiomRecognize::recognizeShiftUntilZero() {
   // Step 3: Rewrite the loop into a countable form, with canonical IV.
 
   // The new canonical induction variable.
-  Builder.SetInsertPoint(LoopHeaderBB, LoopHeaderBB->begin());
+  Builder.SetInsertPoint(&LoopHeaderBB->front());
   auto *CIV = Builder.CreatePHI(Ty, 2, CurLoop->getName() + ".iv");
 
   // The induction itself.
-  Builder.SetInsertPoint(LoopHeaderBB, LoopHeaderBB->getFirstInsertionPt());
+  Builder.SetInsertPoint(LoopHeaderBB->getFirstNonPHI());
   auto *CIVNext =
       Builder.CreateAdd(CIV, ConstantInt::get(Ty, 1), CIV->getName() + ".next",
                         /*HasNUW=*/true, /*HasNSW=*/Bitwidth != 2);

@@ -105,8 +105,8 @@ static void ConnectProlog(Loop *L, Value *BECount, unsigned Count,
       // PrologLatch. When supporting multiple-exiting block loops, we can have
       // two or more blocks that have the LatchExit as the target in the
       // original loop.
-      PHINode *NewPN = PHINode::Create(PN.getType(), 2, PN.getName() + ".unr");
-      NewPN->insertBefore(PrologExit->getFirstInsertionPt());
+      PHINode *NewPN = PHINode::Create(PN.getType(), 2, PN.getName() + ".unr",
+                                       PrologExit->getFirstNonPHI());
       // Adding a value to the new PHI node from the original loop preheader.
       // This is the value that skips all the prolog code.
       if (L->contains(&PN)) {
@@ -269,8 +269,8 @@ static void ConnectEpilog(Loop *L, Value *ModVal, BasicBlock *NewExit,
     for (PHINode &PN : Succ->phis()) {
       // Add new PHI nodes to the loop exit block and update epilog
       // PHIs with the new PHI values.
-      PHINode *NewPN = PHINode::Create(PN.getType(), 2, PN.getName() + ".unr");
-      NewPN->insertBefore(NewExit->getFirstInsertionPt());
+      PHINode *NewPN = PHINode::Create(PN.getType(), 2, PN.getName() + ".unr",
+                                       NewExit->getFirstNonPHI());
       // Adding a value to the new PHI node from the unrolling loop preheader.
       NewPN->addIncoming(PN.getIncomingValueForBlock(NewPreHeader), PreHeader);
       // Adding a value to the new PHI node from the unrolling loop latch.
@@ -363,13 +363,12 @@ CloneLoopBlocks(Loop *L, Value *NewIter, const bool UseEpilogRemainder,
       BasicBlock *FirstLoopBB = cast<BasicBlock>(VMap[Header]);
       BranchInst *LatchBR = cast<BranchInst>(NewBB->getTerminator());
       IRBuilder<> Builder(LatchBR);
-      PHINode *NewIdx =
-          PHINode::Create(NewIter->getType(), 2, suffix + ".iter");
-      NewIdx->insertBefore(FirstLoopBB->getFirstInsertionPt());
+      PHINode *NewIdx = PHINode::Create(NewIter->getType(), 2,
+                                        suffix + ".iter",
+                                        FirstLoopBB->getFirstNonPHI());
       auto *Zero = ConstantInt::get(NewIdx->getType(), 0);
       auto *One = ConstantInt::get(NewIdx->getType(), 1);
-      Value *IdxNext =
-          Builder.CreateAdd(NewIdx, One, NewIdx->getName() + ".next");
+      Value *IdxNext = Builder.CreateAdd(NewIdx, One, NewIdx->getName() + ".next");
       Value *IdxCmp = Builder.CreateICmpNE(IdxNext, NewIter, NewIdx->getName() + ".cmp");
       Builder.CreateCondBr(IdxCmp, FirstLoopBB, InsertBot);
       NewIdx->addIncoming(Zero, InsertTop);
@@ -894,14 +893,9 @@ bool llvm::UnrollRuntimeLoopRemainder(
   // Rewrite the cloned instruction operands to use the values created when the
   // clone is created.
   for (BasicBlock *BB : NewBlocks) {
-    Module *M = BB->getModule();
     for (Instruction &I : *BB) {
       RemapInstruction(&I, VMap,
                        RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
-      for (DPValue &DPV : I.getDbgValueRange()) {
-        RemapDPValue(M, &DPV, VMap,
-                     RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
-      }
     }
   }
 
@@ -918,8 +912,8 @@ bool llvm::UnrollRuntimeLoopRemainder(
     IRBuilder<> B2(NewPreHeader->getTerminator());
     Value *TestVal = B2.CreateSub(TripCount, ModVal, "unroll_iter");
     BranchInst *LatchBR = cast<BranchInst>(Latch->getTerminator());
-    PHINode *NewIdx = PHINode::Create(TestVal->getType(), 2, "niter");
-    NewIdx->insertBefore(Header->getFirstInsertionPt());
+    PHINode *NewIdx = PHINode::Create(TestVal->getType(), 2, "niter",
+                                      Header->getFirstNonPHI());
     B2.SetInsertPoint(LatchBR);
     auto *Zero = ConstantInt::get(NewIdx->getType(), 0);
     auto *One = ConstantInt::get(NewIdx->getType(), 1);

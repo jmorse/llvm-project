@@ -288,8 +288,7 @@ class AMDGPULowerModuleLDS : public ModulePass {
 
     LLVMContext &Ctx = Func->getContext();
 
-    BasicBlock *EntryBlock = &Func->getEntryBlock();
-    Builder.SetInsertPoint(EntryBlock, EntryBlock->getFirstInsertionPt());
+    Builder.SetInsertPoint(Func->getEntryBlock().getFirstNonPHI());
 
     FunctionType *FTy = FunctionType::get(Type::getVoidTy(Ctx), {});
 

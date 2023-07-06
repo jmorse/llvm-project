@@ -3842,7 +3842,7 @@ bool InstCombinerImpl::sinkNotIntoLogicalOp(Instruction &I) {
       NotOp = ConstantExpr::getNot(C);
     } else {
       Builder.SetInsertPoint(
-          *cast<Instruction>(*Op)->getInsertionPointAfterDef());
+          &*cast<Instruction>(*Op)->getInsertionPointAfterDef());
       NotOp = Builder.CreateNot(*Op, (*Op)->getName() + ".not");
       (*Op)->replaceUsesWithIf(
           NotOp, [NotOp](Use &U) { return U.getUser() != NotOp; });
@@ -3851,7 +3851,7 @@ bool InstCombinerImpl::sinkNotIntoLogicalOp(Instruction &I) {
     *Op = NotOp;
   }
 
-  Builder.SetInsertPoint(*I.getInsertionPointAfterDef());
+  Builder.SetInsertPoint(I.getInsertionPointAfterDef());
   Value *NewLogicOp;
   if (IsBinaryOp)
     NewLogicOp = Builder.CreateBinOp(NewOpc, Op0, Op1, I.getName() + ".not");
@@ -3910,7 +3910,7 @@ bool InstCombinerImpl::sinkNotIntoOtherHandOfLogicalOp(Instruction &I) {
     *OpToInvert = ConstantExpr::getNot(C);
   } else {
     Builder.SetInsertPoint(
-        *cast<Instruction>(*OpToInvert)->getInsertionPointAfterDef());
+        &*cast<Instruction>(*OpToInvert)->getInsertionPointAfterDef());
     Value *NotOpToInvert =
         Builder.CreateNot(*OpToInvert, (*OpToInvert)->getName() + ".not");
     (*OpToInvert)->replaceUsesWithIf(NotOpToInvert, [NotOpToInvert](Use &U) {
@@ -3920,7 +3920,7 @@ bool InstCombinerImpl::sinkNotIntoOtherHandOfLogicalOp(Instruction &I) {
     *OpToInvert = NotOpToInvert;
   }
 
-  Builder.SetInsertPoint(*I.getInsertionPointAfterDef());
+  Builder.SetInsertPoint(&*I.getInsertionPointAfterDef());
   Value *NewBinOp;
   if (IsBinaryOp)
     NewBinOp = Builder.CreateBinOp(NewOpc, Op0, Op1, I.getName() + ".not");

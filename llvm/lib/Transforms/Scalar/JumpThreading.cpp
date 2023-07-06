@@ -412,10 +412,6 @@ static bool replaceFoldableUses(Instruction *Cond, Value *ToVal,
   if (Cond->getParent() == KnownAtEndOfBB)
     Changed |= replaceNonLocalUsesWith(Cond, ToVal);
   for (Instruction &I : reverse(*KnownAtEndOfBB)) {
-    for (DPValue &DPV : I.getDbgValueRange()) {
-      DPV.replaceVariableLocationOp(Cond, ToVal, true);
-    }
-
     // Reached the Cond whose uses we are trying to replace, so there are no
     // more uses.
     if (&I == Cond)
@@ -1436,8 +1432,8 @@ bool JumpThreadingPass::simplifyPartiallyRedundantLoad(LoadInst *LoadI) {
 
   // Create a PHI node at the start of the block for the PRE'd load value.
   pred_iterator PB = pred_begin(LoadBB), PE = pred_end(LoadBB);
-  PHINode *PN = PHINode::Create(LoadI->getType(), std::distance(PB, PE), "");
-  PN->insertBefore(LoadBB->begin());
+  PHINode *PN = PHINode::Create(LoadI->getType(), std::distance(PB, PE), "",
+                                &LoadBB->front());
   PN->takeName(LoadI);
   PN->setDebugLoc(LoadI->getDebugLoc());
 
@@ -1958,7 +1954,6 @@ void JumpThreadingPass::updateSSA(
   SSAUpdater SSAUpdate;
   SmallVector<Use *, 16> UsesToRename;
   SmallVector<DbgValueInst *, 4> DbgValues;
-  SmallVector<DPValue *, 4> DPValues;
 
   for (Instruction &I : *BB) {
     // Scan all uses of this instruction to see if it is used outside of its
@@ -1975,20 +1970,15 @@ void JumpThreadingPass::updateSSA(
     }
 
     // Find debug values outside of the block
-    findDbgValues(DbgValues, &I, &DPValues);
+    findDbgValues(DbgValues, &I);
     DbgValues.erase(remove_if(DbgValues,
                               [&](const DbgValueInst *DbgVal) {
                                 return DbgVal->getParent() == BB;
                               }),
                     DbgValues.end());
-    DPValues.erase(remove_if(DPValues,
-                              [&](const DPValue *DPVal) {
-                                return DPVal->getParent() == BB;
-                              }),
-                    DPValues.end());
 
     // If there are no uses outside the block, we're done with this instruction.
-    if (UsesToRename.empty() && DbgValues.empty() && DPValues.empty())
+    if (UsesToRename.empty() && DbgValues.empty())
       continue;
     LLVM_DEBUG(dbgs() << "JT: Renaming non-local uses of: " << I << "\n");
 
@@ -2001,11 +1991,9 @@ void JumpThreadingPass::updateSSA(
 
     while (!UsesToRename.empty())
       SSAUpdate.RewriteUse(*UsesToRename.pop_back_val());
-    if (!DbgValues.empty() || !DPValues.empty()) {
+    if (!DbgValues.empty()) {
       SSAUpdate.UpdateDebugValues(&I, DbgValues);
-      SSAUpdate.UpdateDebugValues(&I, DPValues);
       DbgValues.clear();
-      DPValues.clear();
     }
 
     LLVM_DEBUG(dbgs() << "\n");
@@ -2048,8 +2036,6 @@ JumpThreadingPass::cloneInstructions(BasicBlock::iterator BI,
     return true;
   };
 
-  BasicBlock *RangeBB = BI->getParent();
-
   // Clone the phi nodes of the source basic block into NewBB.  The resulting
   // phi nodes are trivial since NewBB only has one predecessor, but SSAUpdater
   // might need to rewrite the operand of the cloned phi.
@@ -2068,24 +2054,15 @@ JumpThreadingPass::cloneInstructions(BasicBlock::iterator BI,
   identifyNoAliasScopesToClone(BI, BE, NoAliasScopes);
   cloneNoAliasScopes(NoAliasScopes, ClonedScopes, "thread", Context);
 
-  auto CloneDbgInfoPls = [&](Instruction *NewInst, Instruction *From) {
-    NewInst->cloneDebugInfoFrom(From);
-    // XXX -- by all rights, this should then remap the operands to the new
-    // path through the function. Normal jump-threading doesn't, so don't here.
-  };
-
   // Clone the non-phi instructions of the source basic block into NewBB,
   // keeping track of the mapping and using it to remap operands in the cloned
   // instructions.
   for (; BI != BE; ++BI) {
-    Instruction *New = nullptr;
-    New = BI->clone();
+    Instruction *New = BI->clone();
     New->setName(BI->getName());
     New->insertInto(NewBB, NewBB->end());
     ValueMapping[&*BI] = New;
     adaptNoAliasScopes(New, ClonedScopes, Context);
-
-    CloneDbgInfoPls(New, &*BI);
 
     if (RetargetDbgValueIfPossible(New))
       continue;
@@ -2097,16 +2074,6 @@ JumpThreadingPass::cloneInstructions(BasicBlock::iterator BI,
         if (I != ValueMapping.end())
           New->setOperand(i, I->second);
       }
-  }
-
-  // There may be dbg.values on the terminator, clone directly from marker
-  // to marker as there isn't an instruction there.
-  if (BE != RangeBB->end()) {
-    // Dump them at the end.
-    DPMarker *Marker = RangeBB->getMarker(BE);
-    DPMarker *EndMarker = NewBB->getMarker(NewBB->end());
-    if (Marker && EndMarker)
-      EndMarker->cloneDebugInfoFrom(Marker, None);
   }
 
   return ValueMapping;
@@ -2695,7 +2662,6 @@ bool JumpThreadingPass::duplicateCondBranchOnPHIIntoPred(
       if (!New->mayHaveSideEffects()) {
         New->deleteValue();
         New = nullptr;
-        OldPredBranch->cloneDebugInfoFrom(&*BI, std::nullopt, true);
       }
     } else {
       ValueMapping[&*BI] = New;
@@ -2704,8 +2670,6 @@ bool JumpThreadingPass::duplicateCondBranchOnPHIIntoPred(
       // Otherwise, insert the new instruction into the block.
       New->setName(BI->getName());
       New->insertInto(PredBB, OldPredBranch->getIterator());
-      // XXX another scenario where we should remap in the future.
-      New->cloneDebugInfoFrom(&*BI);
       // Update Dominance from simplified New instruction operands.
       for (unsigned i = 0, e = New->getNumOperands(); i != e; ++i)
         if (BasicBlock *SuccBB = dyn_cast<BasicBlock>(New->getOperand(i)))

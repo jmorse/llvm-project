@@ -1785,7 +1785,7 @@ static bool
 hasOnlyColdCalls(Function &F,
                  function_ref<BlockFrequencyInfo &(Function &)> GetBFI) {
   for (BasicBlock &BB : F) {
-    for (Instruction &I : BB.instructionsWithoutDebug()) {
+    for (Instruction &I : BB) {
       if (CallInst *CI = dyn_cast<CallInst>(&I)) {
         // Skip over isline asm instructions since they aren't function calls.
         if (CI->isInlineAsm())

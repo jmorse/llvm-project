@@ -1279,13 +1279,6 @@ bool EarlyCSE::processNode(DomTreeNode *Node) {
       continue;
     }
 
-    // jmorse: also try to knobble any meaningless dbg.values.
-    for (DPValue &DPV : make_early_inc_range(Inst.getDbgValueRange())) {
-      // Try to emulate `isInstructionTriviallyDead` here for DPValue.
-      if (DPV.getVariableLocationOp(0) == nullptr)
-        Inst.dropOneDbgValue(&DPV);
-    }
-
     // Skip assume intrinsics, they don't really have side effects (although
     // they're marked as such to ensure preservation of control dependencies),
     // and this pass will not bother with its removal. However, we should mark

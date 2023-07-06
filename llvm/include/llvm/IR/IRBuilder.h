@@ -188,7 +188,7 @@ public:
     BB = I->getParent();
     InsertPt = I->getIterator();
     assert(InsertPt != BB->end() && "Can't read debug loc from end()");
-    SetCurrentDebugLocation(I->getStableDebugLoc());
+    SetCurrentDebugLocation(I->getDebugLoc());
   }
 
   /// This specifies that created instructions should be inserted at the
@@ -197,15 +197,7 @@ public:
     BB = TheBB;
     InsertPt = IP;
     if (IP != TheBB->end())
-      SetCurrentDebugLocation(IP->getStableDebugLoc());
-  }
-
-  /// This specifies that created instructions should be inserted at
-  /// the specified point, but also requires that \p IP is dereferencable.
-  void SetInsertPoint(BasicBlock::iterator IP) {
-    BB = IP->getParent();
-    InsertPt = IP;
-    SetCurrentDebugLocation(IP->getStableDebugLoc());
+      SetCurrentDebugLocation(IP->getDebugLoc());
   }
 
   /// This specifies that created instructions should inserted at the beginning
