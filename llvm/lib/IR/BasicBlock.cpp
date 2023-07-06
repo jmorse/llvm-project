@@ -30,7 +30,7 @@ STATISTIC(NumInstrRenumberings, "Number of renumberings across all blocks");
 
 cl::opt<bool> UseNewDbgInfoFormat("experimental-debuginfo-iterators",
                   cl::desc("Enable communicating debuginfo positions through iterators, eliminating intrinsics"),
-                  cl::init(true));
+                  cl::init(false));
 
 bool DDDDirectBC /*set default value in cl::init() below*/;
 cl::opt<bool, true> WriteDDDDirectToBC("ddd-to-bc", cl::Hidden,
