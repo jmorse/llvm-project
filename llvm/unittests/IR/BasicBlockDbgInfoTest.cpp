@@ -236,7 +236,7 @@ TEST(BasicBlockDbgInfoTest, HeadBitOperations) {
   // If we move "c" to the start of the block, just normally, then the DPValues
   // should fall down to "d".
   CInst->moveBefore(BB, BeginIt2);
-  EXPECT_TRUE(CInst->DbgMarker->StoredDPValues.empty());
+  EXPECT_TRUE(!CInst->DbgMarker || CInst->DbgMarker->StoredDPValues.empty());
   ASSERT_TRUE(DInst->DbgMarker);
   EXPECT_FALSE(DInst->DbgMarker->StoredDPValues.empty());
 
@@ -257,7 +257,7 @@ TEST(BasicBlockDbgInfoTest, HeadBitOperations) {
   // If we move "C" to the beginning of the block, it should go before the
   // DPValues. They'll stay on "D".
   CInst->moveBefore(BB, BB.begin());
-  EXPECT_TRUE(CInst->DbgMarker->StoredDPValues.empty());
+  EXPECT_TRUE(!CInst->DbgMarker || CInst->DbgMarker->StoredDPValues.empty());
   EXPECT_FALSE(DInst->DbgMarker->StoredDPValues.empty());
   EXPECT_EQ(&*BB.begin(), CInst);
   EXPECT_EQ(CInst->getNextNode(), DInst);
@@ -274,7 +274,7 @@ TEST(BasicBlockDbgInfoTest, HeadBitOperations) {
   // run of dbg.values and the next instruction.
   CInst->moveBefore(BB, DInst->getIterator());
   // CInst gains the DPValues.
-  EXPECT_TRUE(DInst->DbgMarker->StoredDPValues.empty());
+  EXPECT_TRUE(!DInst->DbgMarker || DInst->DbgMarker->StoredDPValues.empty());
   EXPECT_FALSE(CInst->DbgMarker->StoredDPValues.empty());
   EXPECT_EQ(&*BB.begin(), CInst);
 

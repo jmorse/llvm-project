@@ -1551,6 +1551,7 @@ static void insertDbgValueOrDPValue(DIBuilder &Builder, Value *DV, DILocalVariab
     // DPValue directly instead of a dbg.value intrinsic.
     ValueAsMetadata *DVAM = ValueAsMetadata::get(DV);
     DPValue *DV = new DPValue(DVAM, DIVar, DIExpr, NewLoc.get());
+    Instr->getParent()->createMarker(&*std::next(Instr));
     Instr->getParent()->insertDPValueBefore(DV, Instr);
   }
 }
@@ -1564,6 +1565,7 @@ static void insertDbgValueOrDPValueAfter(DIBuilder &Builder, Value *DV, DILocalV
     // DPValue directly instead of a dbg.value intrinsic.
     ValueAsMetadata *DVAM = ValueAsMetadata::get(DV);
     DPValue *DV = new DPValue(DVAM, DIVar, DIExpr, NewLoc.get());
+    Instr->getParent()->createMarker(&*std::next(Instr));
     Instr->getParent()->insertDPValueAfter(DV, &*Instr);
   }
 }
@@ -1669,6 +1671,7 @@ void llvm::ConvertDebugDeclareToDebugValue(DPValue *DPV,
     DV = UndefValue::get(DV->getType());
     ValueAsMetadata *DVAM = ValueAsMetadata::get(DV);
     DPValue *NewDPV = new DPValue(DVAM, DIVar, DIExpr, NewLoc.get());
+    SI->getParent()->createMarker(SI);
     SI->getParent()->insertDPValueBefore(NewDPV, SI->getIterator());
     return;
   }
@@ -1677,6 +1680,7 @@ void llvm::ConvertDebugDeclareToDebugValue(DPValue *DPV,
   // Create a DPValue directly and insert.
   ValueAsMetadata *DVAM = ValueAsMetadata::get(DV);
   DPValue *NewDPV = new DPValue(DVAM, DIVar, DIExpr, NewLoc.get());
+  SI->getParent()->createMarker(SI);
   SI->getParent()->insertDPValueBefore(NewDPV, SI->getIterator());
 }
 
@@ -1739,6 +1743,7 @@ void llvm::ConvertDebugDeclareToDebugValue(DPValue *DPV,
   // Create a DPValue directly and insert.
   ValueAsMetadata *LIVAM = ValueAsMetadata::get(LI);
   DPValue *DV = new DPValue(LIVAM, DIVar, DIExpr, NewLoc.get());
+  LI->getParent()->createMarker(&*std::next(LI->getIterator()));
   LI->getParent()->insertDPValueAfter(DV, LI);
 }
 
@@ -1918,6 +1923,7 @@ static void insertDebugValuesForPHIsDDD(BasicBlock *BB,
     auto InsertionPt = Parent->getFirstInsertionPt();
     assert(InsertionPt != Parent->end() && "Ill-formed basic block");
 
+    InsertionPt->getParent()->createMarker(&*InsertionPt);
     InsertionPt->DbgMarker->insertDPValue(NewDbgII, true);
   }
 }
