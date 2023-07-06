@@ -120,7 +120,7 @@ static cl::opt<bool> VerifyNoAliasScopeDomination(
     "verify-noalias-scope-decl-dom", cl::Hidden, cl::init(false),
     cl::desc("Ensure that llvm.experimental.noalias.scope.decl for identical "
              "scopes are not dominating"));
-
+extern bool DDDDirectBC;
 namespace llvm {
 
 struct VerifierSupport {
@@ -2887,6 +2887,23 @@ void Verifier::visitBasicBlock(BasicBlock &BB) {
   for (auto &I : BB)
   {
     Check(I.getParent() == &BB, "Instruction has bogus parent pointer!");
+  }
+
+  // Check(BB.IsNewDbgInfoFormat || !DDDDirectBC, "BB should be inhaled in bc mode " +
+  // BB.getName() + " in " + BB.getParent()->getName());
+  Check(BB.IsNewDbgInfoFormat == BB.getParent()->IsNewDbgInfoFormat,
+        "BB inahledness should match parent " + BB.getName() + " in " +
+            BB.getParent()->getName());
+  Check(BB.getParent()->IsNewDbgInfoFormat == BB.getParent()->getParent()->IsNewDbgInfoFormat,
+        "FN inahledness should match parent" + BB.getName() + " in " +
+            BB.getParent()->getName());
+
+  // Confirm that no issues arise from the debug program.
+  if (BB.IsNewDbgInfoFormat) {
+    // Configure the validate function to not fire assertions, instead print
+    // errors and return true if there's a problem.
+    bool RetVal = BB.validateDbgValues(false, true);
+    Check(!RetVal, "Invalid configuration of new-debug-info data found");
   }
 }
 

@@ -154,7 +154,8 @@ static void RewriteUsesOfClonedInstructions(BasicBlock *OrigHeader,
     // Replace MetadataAsValue(ValueAsMetadata(OrigHeaderVal)) uses in debug
     // intrinsics.
     SmallVector<DbgValueInst *, 1> DbgValues;
-    llvm::findDbgValues(DbgValues, OrigHeaderVal);
+    SmallVector<DPValue *, 1> DPValues;
+    llvm::findDbgValues(DbgValues, OrigHeaderVal, &DPValues);
     for (auto &DbgValue : DbgValues) {
       // The original users in the OrigHeader are already using the original
       // definitions.
@@ -174,6 +175,27 @@ static void RewriteUsesOfClonedInstructions(BasicBlock *OrigHeader,
       else
         NewVal = UndefValue::get(OrigHeaderVal->getType());
       DbgValue->replaceVariableLocationOp(OrigHeaderVal, NewVal);
+    }
+    // DDD: duplicate dbg.value implementation for DPValues.
+    for (auto *DPValue : DPValues) {
+      // The original users in the OrigHeader are already using the original
+      // definitions.
+      BasicBlock *UserBB = DPValue->getMarker()->getParent();
+      if (UserBB == OrigHeader)
+        continue;
+
+      // Users in the OrigPreHeader need to use the value to which the
+      // original definitions are mapped and anything else can be handled by
+      // the SSAUpdater. To avoid adding PHINodes, check if the value is
+      // available in UserBB, if not substitute undef.
+      Value *NewVal;
+      if (UserBB == OrigPreheader)
+        NewVal = OrigPreHeaderVal;
+      else if (SSA.HasValueForBlock(UserBB))
+        NewVal = SSA.GetValueInMiddleOfBlock(UserBB);
+      else
+        NewVal = UndefValue::get(OrigHeaderVal->getType());
+      DPValue->replaceVariableLocationOp(OrigHeaderVal, NewVal);
     }
   }
 }
@@ -408,6 +430,10 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
         break;
     }
 
+    // jmorse: don't de-duplicate debug instructions, it's non-functional and
+    // un-necessary work + differences at this stage.
+    DbgIntrinsics.clear();
+
     // Remember the local noalias scope declarations in the header. After the
     // rotation, they must be duplicated and the scope must be cloned. This
     // avoids unwanted interaction across iterations.
@@ -416,6 +442,10 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
       if (auto *Decl = dyn_cast<NoAliasScopeDeclInst>(&I))
         NoAliasDeclInstructions.push_back(Decl);
 
+    Module *M = OrigHeader->getModule();
+
+    // Track the next DPValue to move.
+    std::optional<DPValue::self_iterator> NextDbgInst = std::nullopt;
     while (I != E) {
       Instruction *Inst = &*I++;
 
@@ -428,7 +458,16 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
       if (L->hasLoopInvariantOperands(Inst) && !Inst->mayReadFromMemory() &&
           !Inst->mayWriteToMemory() && !Inst->isTerminator() &&
           !isa<DbgInfoIntrinsic>(Inst) && !isa<AllocaInst>(Inst)) {
+
+        auto DbgValueRange = LoopEntryBranch->cloneDebugInfoFrom(Inst);
+        // Remap any new instructions,
+        if (LoopEntryBranch->getParent()->IsNewDbgInfoFormat)
+          RemapDPValueRange(M, DbgValueRange, ValueMap, RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
+
+        if (I->hasDbgValues())
+          NextDbgInst = I->getDbgValueRange().begin();
         Inst->moveBefore(LoopEntryBranch);
+
         ++NumInstrsHoisted;
         continue;
       }
@@ -437,11 +476,18 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
       Instruction *C = Inst->clone();
       ++NumInstrsDuplicated;
 
+      if (LoopEntryBranch->getParent()->IsNewDbgInfoFormat) {
+        auto Range = LoopEntryBranch->cloneDebugInfoFrom(Inst, NextDbgInst);
+        RemapDPValueRange(M, Range, ValueMap, RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
+        NextDbgInst = None;
+      }
+
       // Eagerly remap the operands of the instruction.
       RemapInstruction(C, ValueMap,
                        RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
 
       // Avoid inserting the same intrinsic twice.
+      // DDD: this is effectively disabled for comparisons purpose.
       if (auto *DII = dyn_cast<DbgVariableIntrinsic>(C))
         if (DbgIntrinsics.count(makeHash(DII))) {
           C->deleteValue();
@@ -500,7 +546,7 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
       // as U1'' and U1' scopes will not be compatible wrt to the local restrict
 
       // Clone the llvm.experimental.noalias.decl again for the NewHeader.
-      Instruction *NewHeaderInsertionPoint = &(*NewHeader->getFirstNonPHI());
+      Instruction *NewHeaderInsertionPoint = &(*NewHeader->getFirstNonPHIOrDbg());
       for (NoAliasScopeDeclInst *NAD : NoAliasDeclInstructions) {
         LLVM_DEBUG(dbgs() << "  Cloning llvm.experimental.noalias.scope.decl:"
                           << *NAD << "\n");

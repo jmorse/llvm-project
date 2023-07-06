@@ -31,6 +31,7 @@
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/Type.h"
@@ -145,6 +146,7 @@ public:
   Value *mapValue(const Value *V);
   void remapInstruction(Instruction *I);
   void remapFunction(Function &F);
+  void remapDPValue(DPValue &DPV);
 
   Constant *mapConstant(const Constant *C) {
     return cast_or_null<Constant>(mapValue(C));
@@ -533,6 +535,34 @@ Value *Mapper::mapValue(const Value *V) {
     return getVM()[V] = Constant::getNullValue(NewTy);
   assert(isa<ConstantPointerNull>(C));
   return getVM()[V] = ConstantPointerNull::get(cast<PointerType>(NewTy));
+}
+
+void Mapper::remapDPValue(DPValue &V) {
+  auto *MappedVar = mapMetadata(V.getVariable());
+  auto *MappedDILoc = mapMetadata(V.getDebugLoc());
+  V.setVariable(cast<DILocalVariable>(MappedVar));
+  V.setDebugLoc(DebugLoc(cast<DILocation>(MappedDILoc)));
+
+  SmallVector<Value *, 4> Vals, NewVals;
+  for (Value *Val: V.location_ops())
+    Vals.push_back(Val);
+  for (Value *Val : Vals)
+    NewVals.push_back(mapValue(Val));
+
+  if (Vals == NewVals)
+    return;
+
+  bool IgnoreMissingLocals = Flags & RF_IgnoreMissingLocals;
+
+  // Otherwise, do some replacement.
+  if (!IgnoreMissingLocals &&
+      llvm::any_of(NewVals, [&](Value *V) { return V == nullptr;})) {
+    V.setUndef();
+  } else {
+    for (unsigned int I = 0; I < Vals.size(); ++I)
+      if (NewVals[I] || !IgnoreMissingLocals)
+        V.replaceVariableLocationOp(I, NewVals[I]);
+  }
 }
 
 Value *Mapper::mapBlockAddress(const BlockAddress &BA) {
@@ -999,6 +1029,10 @@ void Mapper::remapGlobalObjectMetadata(GlobalObject &GO) {
 }
 
 void Mapper::remapFunction(Function &F) {
+  // bool DoInhale = F.IsInhaled;
+  //  if (DoInhale)
+  //  F.exhaleDbgValues();
+
   // Remap the operands.
   for (Use &Op : F.operands())
     if (Op)
@@ -1013,9 +1047,37 @@ void Mapper::remapFunction(Function &F) {
       A.mutateType(TypeMapper->remapType(A.getType()));
 
   // Remap the instructions.
-  for (BasicBlock &BB : F)
-    for (Instruction &I : BB)
+  for (BasicBlock &BB : F) {
+    for (Instruction &I : BB) {
       remapInstruction(&I);
+#if 0
+      // XXX -- why can't we just do this instead of inhale/exhale?
+      if (I.DbgMarker) {
+        auto DbgValueRange = I.DbgMarker->getDbgValueRange();
+        RemapDPValueRange(F.getParent(), DbgValueRange, getVM(), Flags);
+      }
+    }
+    RemapDPValueRange(F.getParent(),
+     BB.LolDbgValuesOffEnd.getDbgValueRange(),
+                      getVM(), Flags);
+#elif 1
+      for (DPValue &DPV : I.getDbgValueRange()) {
+        MetadataAsValue *MAV =
+            MetadataAsValue::get(F.getContext(), DPV.getRawLocation());
+        if (MetadataAsValue *NewMAV =
+                cast_or_null<MetadataAsValue>(mapValue(MAV)))
+          DPV.setRawLocation(NewMAV->getMetadata());
+        DPV.setVariable(cast<DILocalVariable>(mapMetadata(DPV.getVariable())));
+        DPV.setExpression(cast<DIExpression>(mapMetadata(DPV.getExpression())));
+      }
+    }
+#else
+    }
+#endif
+  }
+
+  // if (DoInhale)
+  // F.inhaleDbgValues();
 }
 
 void Mapper::mapAppendingVariable(GlobalVariable &GV, Constant *InitPrefix,
@@ -1177,6 +1239,16 @@ MDNode *ValueMapper::mapMDNode(const MDNode &N) {
 
 void ValueMapper::remapInstruction(Instruction &I) {
   FlushingMapper(pImpl)->remapInstruction(&I);
+}
+
+void ValueMapper::remapDPValue(Module *M, DPValue &V) {
+  FlushingMapper(pImpl)->remapDPValue(V);
+}
+
+void ValueMapper::remapDPValueRange(Module *M, iterator_range<DPValue::self_iterator> Range) {
+  for (DPValue &DPV : Range) {
+    remapDPValue(M, DPV);
+  }
 }
 
 void ValueMapper::remapFunction(Function &F) {

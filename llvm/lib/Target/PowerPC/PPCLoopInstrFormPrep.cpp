@@ -707,8 +707,8 @@ PPCLoopInstrFormPrep::rewriteForBase(Loop *L, const SCEVAddRecExpr *BasePtrSCEV,
   BasicBlock *LoopPredecessor = L->getLoopPredecessor();
 
   PHINode *NewPHI = PHINode::Create(I8PtrTy, HeaderLoopPredCount,
-                                    getInstrName(BaseMemI, PHINodeNameSuffix),
-                                    Header->getFirstNonPHI());
+                                    getInstrName(BaseMemI, PHINodeNameSuffix));
+  NewPHI->insertBefore(Header->getFirstInsertionPt());
 
   Value *BasePtrStart = SCEVE.expandCodeFor(BasePtrStartSCEV, I8PtrTy,
                                             LoopPredecessor->getTerminator());

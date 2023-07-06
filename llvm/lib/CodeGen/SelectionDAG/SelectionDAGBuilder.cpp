@@ -1132,12 +1132,7 @@ SDValue SelectionDAGBuilder::getControlRoot() {
   return updateRoot(PendingExports);
 }
 
-void SelectionDAGBuilder::visit(const Instruction &I) {
-  // Set up outgoing PHI node register values before emitting the terminator.
-  if (I.isTerminator()) {
-    HandlePHINodesInSuccessorBlocks(I.getParent());
-  }
-
+void SelectionDAGBuilder::visitDbgInfo(const Instruction &I) {
   // Add SDDbgValue nodes for any var locs here. Do so before updating
   // SDNodeOrder, as this mapping is {Inst -> Locs BEFORE Inst}.
   if (FunctionVarLocs const *FnVarLocs = DAG.getFunctionVarLocs()) {
@@ -1149,9 +1144,44 @@ void SelectionDAGBuilder::visit(const Instruction &I) {
       dropDanglingDebugInfo(Var, It->Expr);
       SmallVector<Value *> Values(It->Values.location_ops());
       if (!handleDebugValue(Values, Var, It->Expr, It->DL, SDNodeOrder,
-                            It->Values.hasArgList()))
-        addDanglingDebugInfo(It, SDNodeOrder);
+                            It->Values.hasArgList())) {
+        SmallVector<Value *, 4> Vals;
+        for (Value *V : It->Values.location_ops())
+          Vals.push_back(V);
+        addDanglingDebugInfo(Vals, FnVarLocs->getDILocalVariable(It->VariableID), It->Expr, Vals.size() > 1, It->DL, SDNodeOrder);
+      }
     }
+  }
+
+  for (DPValue &DPV : I.getDbgValueRange()) {
+    DILocalVariable *Variable = DPV.getVariable();
+    DIExpression *Expression = DPV.getExpression();
+    dropDanglingDebugInfo(Variable, Expression);
+
+    SmallVector<Value *, 4> Values(DPV.location_ops());
+    if (Values.empty())
+      continue;
+
+    if (llvm::is_contained(Values, nullptr))
+      continue;
+
+    bool IsVariadic = DPV.hasArgList();
+    if (!handleDebugValue(Values, Variable, Expression, DPV.getDebugLoc(),
+                          SDNodeOrder, IsVariadic)) {
+      addDanglingDebugInfo(Values, Variable, Expression, IsVariadic, DPV.getDebugLoc(), SDNodeOrder);
+    }
+  }
+}
+
+void SelectionDAGBuilder::visit(const Instruction &I) {
+  // XXX jmorse -- we can get debug-info differences if the PHI nodes of
+  // successors are touched, as it loads more accessible SDNodes in. Probably
+  // not that interesting.
+  visitDbgInfo(I);
+
+  // Set up outgoing PHI node register values before emitting the terminator.
+  if (I.isTerminator()) {
+    HandlePHINodesInSuccessorBlocks(I.getParent());
   }
 
   // Increase the SDNodeOrder if dealing with a non-debug instruction.
@@ -1212,14 +1242,14 @@ void SelectionDAGBuilder::visit(unsigned Opcode, const User &I) {
 static bool handleDanglingVariadicDebugInfo(SelectionDAG &DAG,
                                             DILocalVariable *Variable,
                                             DebugLoc DL, unsigned Order,
-                                            RawLocationWrapper Values,
+                                            SmallVectorImpl<Value*> &Values,
                                             DIExpression *Expression) {
-  if (!Values.hasArgList())
+  if (Values.size() <= 1)
     return false;
   // For variadic dbg_values we will now insert an undef.
   // FIXME: We can potentially recover these!
   SmallVector<SDDbgOperand, 2> Locs;
-  for (const Value *V : Values.location_ops()) {
+  for (const Value *V : Values) {
     auto *Undef = UndefValue::get(V->getType());
     Locs.push_back(SDDbgOperand::fromConst(Undef));
   }
@@ -1230,40 +1260,21 @@ static bool handleDanglingVariadicDebugInfo(SelectionDAG &DAG,
   return true;
 }
 
-void SelectionDAGBuilder::addDanglingDebugInfo(const VarLocInfo *VarLoc,
-                                               unsigned Order) {
+void SelectionDAGBuilder::addDanglingDebugInfo(SmallVectorImpl<Value *> &Values,
+                                               DILocalVariable *Var, DIExpression *Expr, bool IsVariadic,
+                                               DebugLoc DL, unsigned Order) {
   if (!handleDanglingVariadicDebugInfo(
-          DAG,
-          const_cast<DILocalVariable *>(DAG.getFunctionVarLocs()
-                                            ->getVariable(VarLoc->VariableID)
-                                            .getVariable()),
-          VarLoc->DL, Order, VarLoc->Values, VarLoc->Expr)) {
-    DanglingDebugInfoMap[VarLoc->Values.getVariableLocationOp(0)].emplace_back(
-        VarLoc, Order);
-  }
-}
-
-void SelectionDAGBuilder::addDanglingDebugInfo(const DbgValueInst *DI,
-                                               unsigned Order) {
-  // We treat variadic dbg_values differently at this stage.
-  if (!handleDanglingVariadicDebugInfo(
-          DAG, DI->getVariable(), DI->getDebugLoc(), Order,
-          DI->getWrappedLocation(), DI->getExpression())) {
-    // TODO: Dangling debug info will eventually either be resolved or produce
-    // an Undef DBG_VALUE. However in the resolution case, a gap may appear
-    // between the original dbg.value location and its resolved DBG_VALUE,
-    // which we should ideally fill with an extra Undef DBG_VALUE.
-    assert(DI->getNumVariableLocationOps() == 1 &&
-           "DbgValueInst without an ArgList should have a single location "
-           "operand.");
-    DanglingDebugInfoMap[DI->getValue(0)].emplace_back(DI, Order);
+          DAG, Var, DL, Order, Values, Expr)) {
+    if (Values.size() == 1)
+      DanglingDebugInfoMap[Values[0]].emplace_back(Var, Expr, DL, Order);
+    // else: drop variadics.
   }
 }
 
 void SelectionDAGBuilder::dropDanglingDebugInfo(const DILocalVariable *Variable,
                                                 const DIExpression *Expr) {
   auto isMatchingDbgValue = [&](DanglingDebugInfo &DDI) {
-    DIVariable *DanglingVariable = DDI.getVariable(DAG.getFunctionVarLocs());
+    DIVariable *DanglingVariable = DDI.getVariable();
     DIExpression *DanglingExpr = DDI.getExpression();
     if (DanglingVariable == Variable && Expr->fragmentsOverlap(DanglingExpr)) {
       LLVM_DEBUG(dbgs() << "Dropping dangling debug info for " << printDDI(DDI)
@@ -1280,7 +1291,7 @@ void SelectionDAGBuilder::dropDanglingDebugInfo(const DILocalVariable *Variable,
     // whether it can be salvaged.
     for (auto &DDI : DDIV)
       if (isMatchingDbgValue(DDI))
-        salvageUnresolvedDbgValue(DDI);
+        salvageUnresolvedDbgValue(const_cast<Value*>(DDIMI.first), DDI);
 
     erase_if(DDIV, isMatchingDbgValue);
   }
@@ -1299,7 +1310,7 @@ void SelectionDAGBuilder::resolveDanglingDebugInfo(const Value *V,
     DebugLoc DL = DDI.getDebugLoc();
     unsigned ValSDNodeOrder = Val.getNode()->getIROrder();
     unsigned DbgSDNodeOrder = DDI.getSDNodeOrder();
-    DILocalVariable *Variable = DDI.getVariable(DAG.getFunctionVarLocs());
+    DILocalVariable *Variable = DDI.getVariable();
     DIExpression *Expr = DDI.getExpression();
     assert(Variable->isValidLocationForIntrinsic(DL) &&
            "Expected inlined-at fields to agree");
@@ -1340,14 +1351,13 @@ void SelectionDAGBuilder::resolveDanglingDebugInfo(const Value *V,
   DDIV.clear();
 }
 
-void SelectionDAGBuilder::salvageUnresolvedDbgValue(DanglingDebugInfo &DDI) {
+void SelectionDAGBuilder::salvageUnresolvedDbgValue(Value *V, DanglingDebugInfo &DDI) {
   // TODO: For the variadic implementation, instead of only checking the fail
   // state of `handleDebugValue`, we need know specifically which values were
   // invalid, so that we attempt to salvage only those values when processing
   // a DIArgList.
-  Value *V = DDI.getVariableLocationOp(0);
   Value *OrigV = V;
-  DILocalVariable *Var = DDI.getVariable(DAG.getFunctionVarLocs());
+  DILocalVariable *Var = DDI.getVariable();
   DIExpression *Expr = DDI.getExpression();
   DebugLoc DL = DDI.getDebugLoc();
   unsigned SDOrder = DDI.getSDNodeOrder();
@@ -1541,7 +1551,7 @@ void SelectionDAGBuilder::resolveOrClearDbgInfo() {
   // Try to fixup any remaining dangling debug info -- and drop it if we can't.
   for (auto &Pair : DanglingDebugInfoMap)
     for (auto &DDI : Pair.second)
-      salvageUnresolvedDbgValue(DDI);
+      salvageUnresolvedDbgValue(const_cast<Value*>(Pair.first), DDI);
   clearDanglingDebugInfo();
 }
 
@@ -6236,7 +6246,7 @@ void SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I,
     bool IsVariadic = DI.hasArgList();
     if (!handleDebugValue(Values, Variable, Expression, DI.getDebugLoc(),
                           SDNodeOrder, IsVariadic))
-      addDanglingDebugInfo(&DI, SDNodeOrder);
+      addDanglingDebugInfo(Values, Variable, Expression, IsVariadic, DI.getDebugLoc(), SDNodeOrder);
     return;
   }
 
