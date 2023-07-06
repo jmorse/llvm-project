@@ -40,8 +40,8 @@ cl::opt<bool, true> WriteDDDDirectToBC("ddd-to-bc", cl::Hidden,
 
 DPMarker *BasicBlock::createMarker(Instruction *I) {
   assert(IsNewDbgInfoFormat && "Tried to create a marker in a non new debug-info block!");
-  assert(I->DbgMarker == nullptr &&
-         "Tried to create marker for instuction that already has one!");
+  if (I->DbgMarker)
+    return I->DbgMarker;
   DPMarker *Marker = new DPMarker();
   Marker->MarkedInstr = I;
   I->DbgMarker = Marker;
@@ -69,8 +69,10 @@ void BasicBlock::convertToNewDbgValues() {
       continue;
     }
 
-    // Create a marker to store DPValues in. Technically we don't need to store
-    // one marker per instruction, but that's a future optimisation.
+    if (DPVals.empty())
+      continue;
+
+    // Create a marker to store DPValues in.
     createMarker(&I);
     DPMarker *Marker = I.DbgMarker;
 
@@ -742,6 +744,7 @@ void BasicBlock::flushTerminatorDbgValues() {
     return;
 
   // Transfer DPValues from the trailing position onto the terminator.
+  createMarker(Term);
   Term->DbgMarker->absorbDebugValues(TrailingDPValues, false);
 }
 
@@ -779,7 +782,10 @@ void BasicBlock::spliceDebugInfoEmptyBlock(BasicBlock::iterator Dest,
   if (Src->empty()) {
     assert(Dest != end() &&
            "Transferring trailing DPValues to another trailing position");
-    DPMarker *M = Dest->DbgMarker;
+    if (Src->TrailingDPValues.StoredDPValues.empty())
+      return;
+
+    DPMarker *M = createMarker(&*Dest);
     M->absorbDebugValues(Src->TrailingDPValues, InsertAtHead);
     return;
   }
@@ -787,8 +793,10 @@ void BasicBlock::spliceDebugInfoEmptyBlock(BasicBlock::iterator Dest,
   // There are instructions in this block; if the First iterator was
   // with begin() / getFirstInsertionPt() then the caller intended debug-info
   // at the start of the block to be transferred.
-  if (!Src->empty() && First == Src->begin() && ReadFromHead)
+  if (!Src->empty() && First == Src->begin() && ReadFromHead && First->DbgMarker) {
+    createMarker(&*Dest);
     Dest->DbgMarker->absorbDebugValues(*First->DbgMarker, InsertAtHead);
+  }
 
   return;
 }
@@ -865,11 +873,14 @@ void BasicBlock::spliceDebugInfo(BasicBlock::iterator Dest, BasicBlock *Src,
 
    */
 
+  // XXX -- we could reduce DPMarker allocations here.
+
   // Detach the marker at Dest -- this lets us move the "====" DPValues around.
   DPMarker *DestMarker = nullptr;
   if (Dest != end()) {
     DestMarker = getMarker(Dest);
-    DestMarker->removeFromParent();
+    if (DestMarker)
+      DestMarker->removeFromParent();
     createMarker(&*Dest);
   }
 
@@ -878,7 +889,8 @@ void BasicBlock::spliceDebugInfo(BasicBlock::iterator Dest, BasicBlock *Src,
   if (ReadFromTail) {
     DPMarker *OntoDest = getMarker(Dest);
     DPMarker *FromLast = Src->getMarker(Last);
-    OntoDest->absorbDebugValues(*FromLast, true);
+    if (FromLast)
+      OntoDest->absorbDebugValues(*FromLast, true);
   }
 
   // If we're _not_ reading from the head of First, i.e. the "++++" DPValues,
@@ -887,8 +899,9 @@ void BasicBlock::spliceDebugInfo(BasicBlock::iterator Dest, BasicBlock *Src,
   if (!ReadFromHead) {
     DPMarker *OntoLast = Src->getMarker(Last);
     DPMarker *FromFirst = Src->getMarker(First);
-    OntoLast->absorbDebugValues(*FromFirst,
-                                true); // Always insert at head of it.
+    if (FromFirst)
+      OntoLast->absorbDebugValues(*FromFirst,
+                                  true); // Always insert at head of it.
   }
 
   // Finally, do something with the "====" DPValues we detached.
@@ -902,7 +915,8 @@ void BasicBlock::spliceDebugInfo(BasicBlock::iterator Dest, BasicBlock *Src,
       // Insert them right at the start of the range we moved, ahead of First
       // and the "++++" DPValues.
       DPMarker *FirstMarker = getMarker(First);
-      FirstMarker->absorbDebugValues(*DestMarker, true);
+      if (FirstMarker)
+        FirstMarker->absorbDebugValues(*DestMarker, true);
     }
     DestMarker->eraseFromParent();
   } else if (Dest == end() && !InsertAtHead) {
@@ -911,7 +925,8 @@ void BasicBlock::spliceDebugInfo(BasicBlock::iterator Dest, BasicBlock *Src,
     // any trailing debug-info at the end of the block would "normally" have
     // been pushed in front of "First". Move it there now.
     DPMarker *FirstMarker = getMarker(First);
-    FirstMarker->absorbDebugValues(TrailingDPValues, true);
+    if (FirstMarker)
+      FirstMarker->absorbDebugValues(TrailingDPValues, true);
   }
 }
 

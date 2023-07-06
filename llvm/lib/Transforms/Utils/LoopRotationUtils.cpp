@@ -464,7 +464,8 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
         if (LoopEntryBranch->getParent()->IsNewDbgInfoFormat)
           RemapDPValueRange(M, DbgValueRange, ValueMap, RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
 
-        NextDbgInst = I->getDbgValueRange().begin();
+        if (I->hasDbgValues())
+          NextDbgInst = I->getDbgValueRange().begin();
         Inst->moveBefore(LoopEntryBranch);
 
         ++NumInstrsHoisted;

@@ -683,6 +683,7 @@ void llvm::deleteDeadLoop(Loop *L, DominatorTree *DT, ScalarEvolution *SE,
         // DPValue on insertion. Inefficient, but correct.
 // XXX XXX XXX jmorse rebasing, use kill location instead.
         DPV->handleChangedLocation(ValueAsMetadata::get(UndefValue::get(Builder.getInt32Ty())));
+        ExitBlock->createMarker(&*InsertDbgValueBefore);
         ExitBlock->insertDPValueBefore(DPV, InsertDbgValueBefore);
       }
     }

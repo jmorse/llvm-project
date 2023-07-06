@@ -256,8 +256,18 @@ void DPMarker::removeMarker() {
   // The attached DPValues need to be preserved; attach them to the next
   // instruction. If there isn't a next instruction, put them on the
   // "trailing" list.
+  // If there are no DPValues on the next instruction, then let them adopt
+  // "this" marker.
   DPMarker *NextMarker = Owner->getParent()->getNextMarker(Owner);
-  NextMarker->absorbDebugValues(*this, true);
+  if (NextMarker && !NextMarker->StoredDPValues.empty()) {
+    NextMarker->absorbDebugValues(*this, true);
+  } else if (NextMarker == &Owner->getParent()->TrailingDPValues) {
+    NextMarker->absorbDebugValues(*this, true);
+  } else {
+    // Actually, there's a next instruction, with no marker, which can adopt us.
+    std::next(Owner->getIterator())->adoptDbgValues(Owner->getParent(), Owner->getIterator());
+    return;
+  }
 
   eraseFromParent();
   Owner->DbgMarker = nullptr;

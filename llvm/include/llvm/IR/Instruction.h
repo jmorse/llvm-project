@@ -90,6 +90,9 @@ public:
   /// attached DPValues need to "fall" down onto the next instruction.
   void handleMarkerRemoval();
 
+  /// Transfer any DPValues on the position \p It onto this instruction.
+  void adoptDbgValues(BasicBlock *BB, InstListType::iterator It);
+
 protected:
   // The 15 first bits of `Value::SubclassData` are available for subclasses of
   // `Instruction` to use.

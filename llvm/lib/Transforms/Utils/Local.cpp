@@ -1588,6 +1588,7 @@ void llvm::ConvertDebugDeclareToDebugValue(DbgVariableIntrinsic *DII,
       // Create a DPValue directly and insert.
       ValueAsMetadata *DVAM = ValueAsMetadata::get(DV);
       DPValue *DV = new DPValue(DVAM, DIVar, DIExpr, NewLoc.get());
+      SI->getParent()->createMarker(SI);
       SI->getParent()->insertDPValueBefore(DV, SI->getIterator());
     }
 
@@ -1609,6 +1610,7 @@ void llvm::ConvertDebugDeclareToDebugValue(DbgVariableIntrinsic *DII,
     // Create a DPValue directly and insert.
     ValueAsMetadata *DVAM = ValueAsMetadata::get(DV);
     DPValue *DV = new DPValue(DVAM, DIVar, DIExpr, NewLoc.get());
+    SI->getParent()->createMarker(SI);
     SI->getParent()->insertDPValueBefore(DV, SI->getIterator());
   }
 }
@@ -1654,6 +1656,7 @@ void llvm::ConvertDebugDeclareToDebugValue(DbgVariableIntrinsic *DII,
     // Create a DPValue directly and insert.
     ValueAsMetadata *LIVAM = ValueAsMetadata::get(LI);
     DPValue *DV = new DPValue(LIVAM, DIVar, DIExpr, NewLoc.get());
+    LI->getParent()->createMarker(&*std::next(LI->getIterator()));
     LI->getParent()->insertDPValueAfter(DV, LI);
   }
 }
@@ -1679,6 +1682,7 @@ void llvm::ConvertDebugDeclareToDebugValue(DPValue *DPV,
     DV = UndefValue::get(DV->getType());
     ValueAsMetadata *DVAM = ValueAsMetadata::get(DV);
     DPValue *NewDPV = new DPValue(DVAM, DIVar, DIExpr, NewLoc.get());
+    SI->getParent()->createMarker(SI);
     SI->getParent()->insertDPValueBefore(NewDPV, SI->getIterator());
     return;
   }
@@ -1687,6 +1691,7 @@ void llvm::ConvertDebugDeclareToDebugValue(DPValue *DPV,
   // Create a DPValue directly and insert.
   ValueAsMetadata *DVAM = ValueAsMetadata::get(DV);
   DPValue *NewDPV = new DPValue(DVAM, DIVar, DIExpr, NewLoc.get());
+  SI->getParent()->createMarker(SI);
   SI->getParent()->insertDPValueBefore(NewDPV, SI->getIterator());
 }
 
@@ -1732,6 +1737,7 @@ void llvm::ConvertDebugDeclareToDebugValue(DbgVariableIntrinsic *DII,
       DPValue *DV = new DPValue(APNVAM, DIVar, DIExpr, NewLoc.get());
       // Clear head-bit as we're skipping debug instrs above,
       InsertionPt.setHeadBit(false);
+      InsertionPt->getParent()->createMarker(&*InsertionPt);
       InsertionPt->getParent()->insertDPValueBefore(DV, InsertionPt);
     }
   }
@@ -1763,6 +1769,7 @@ void llvm::ConvertDebugDeclareToDebugValue(DPValue *DPV,
   // Create a DPValue directly and insert.
   ValueAsMetadata *LIVAM = ValueAsMetadata::get(LI);
   DPValue *DV = new DPValue(LIVAM, DIVar, DIExpr, NewLoc.get());
+  LI->getParent()->createMarker(&*std::next(LI->getIterator()));
   LI->getParent()->insertDPValueAfter(DV, LI);
 }
 
@@ -1816,6 +1823,7 @@ void llvm::ConvertDebugDeclareToDebugValue(DPValue *DPV,
       DPValue *DV = new DPValue(APNVAM, DIVar, DIExpr, NewLoc.get());
       // Clear head-bit as we're skipping debug instrs above,
       InsertionPt.setHeadBit(false);
+      InsertionPt->getParent()->createMarker(&*InsertionPt);
       InsertionPt->getParent()->insertDPValueBefore(DV, InsertionPt);
     }
   }
@@ -1884,6 +1892,7 @@ bool llvm::LowerDbgDeclare(Function &F) {
               // Create a DPValue directly and insert.
               ValueAsMetadata *AIVAM = ValueAsMetadata::get(AI);
               DPValue *DV = new DPValue(AIVAM, DDI->getVariable(), DerefExpr, NewLoc.get());
+              CI->getParent()->createMarker(CI);
               CI->getParent()->insertDPValueBefore(DV, CI->getIterator());
             }
           }
@@ -1965,6 +1974,7 @@ static void insertDebugValuesForPHIsDDD(BasicBlock *BB,
     auto InsertionPt = Parent->getFirstInsertionPt();
     assert(InsertionPt != Parent->end() && "Ill-formed basic block");
 
+    InsertionPt->getParent()->createMarker(&*InsertionPt);
     InsertionPt->DbgMarker->insertDPValue(NewDbgII, true);
   }
 }

@@ -117,8 +117,6 @@ void Instruction::insertAfter(Instruction *InsertPos) {
 
   // No need to manually update DPValues: if we insert after an instruction
   // position, then we can never have any DPValues on "this".
-  if (DestParent->IsNewDbgInfoFormat)
-    DestParent->createMarker(this);
 }
 
 BasicBlock::iterator Instruction::insertInto(BasicBlock *ParentBB,
@@ -132,6 +130,22 @@ BasicBlock::iterator Instruction::insertInto(BasicBlock *ParentBB,
 
 extern cl::opt<bool> UseNewDbgInfoFormat;
 
+void Instruction::adoptDbgValues(BasicBlock *BB, BasicBlock::iterator It) {
+  DPMarker *SrcMarker = BB->getMarker(It);
+  if (!SrcMarker || SrcMarker->StoredDPValues.empty())
+    return;
+
+  if (It != BB->end()) {
+    // Optimisation: adopt the other instructions marker.
+    DbgMarker = SrcMarker;
+    DbgMarker->MarkedInstr = this;
+    It->DbgMarker = nullptr;
+  } else {
+    BB->createMarker(this);
+    DbgMarker->absorbDebugValues(*SrcMarker, false);
+  }
+}
+
 void Instruction::insertBefore(BasicBlock &BB,
                                InstListType::iterator InsertPos) {
   assert(!DbgMarker);
@@ -141,15 +155,14 @@ void Instruction::insertBefore(BasicBlock &BB,
   if (!BB.IsNewDbgInfoFormat)
     return;
 
-  BB.createMarker(this);
 
   // We've inserted "this": if InsertAtHead is set then it comes before any
   // DPValues attached to InsertPos. But if it's not set, then any DPValues
   // should now come before "this".
   bool InsertAtHead = InsertPos.getHeadBit();
-  if (!InsertAtHead) {
-    DPMarker *SrcMarker = BB.getMarker(InsertPos);
-    DbgMarker->absorbDebugValues(*SrcMarker, false);
+  DPMarker *SrcMarker = BB.getMarker(InsertPos);
+  if (!InsertAtHead && SrcMarker && !SrcMarker->StoredDPValues.empty()) {
+    adoptDbgValues(&BB, InsertPos);
   }
 
   // If we're inserting a terminator, check if we need to flush out
@@ -212,14 +225,10 @@ void Instruction::moveBefore1(BasicBlock &BB, InstListType::iterator I,
   BB.getInstList().splice(I, getParent()->getInstList(), getIterator());
 
   if (BB.IsNewDbgInfoFormat && !Preserve) {
-    if (!DbgMarker)
-      BB.createMarker(this);
-    DPMarker *NextMarker = getParent()->getNextMarker(this);
-
     // If we're inserting at point I, and not in front of the DPValues attached
     // there, then we should absorb the DPValues attached to I.
     if (!InsertAtHead)
-      DbgMarker->absorbDebugValues(*NextMarker, false);
+      adoptDbgValues(getParent(), std::next(getIterator()));
   }
 
   if (isTerminator())
@@ -230,7 +239,7 @@ iterator_range<DPValue::self_iterator>
 Instruction::cloneDebugInfoFrom(const Instruction *From,
                                 std::optional<DPValue::self_iterator> FromHere,
                                 bool InsertAtHead) {
-  if (!From->DbgMarker) {
+  if (!From->hasDbgValues()) {
     auto EndIt = Parent->TrailingDPValues.StoredDPValues.end();
     return {EndIt, EndIt};
   }
@@ -257,7 +266,12 @@ auto Instruction::getDbgValueRange() const
   return DbgMarker->getDbgValueRange();
 }
 
-bool Instruction::hasDbgValues() const { return !getDbgValueRange().empty(); }
+bool Instruction::hasDbgValues() const {
+  if (!DbgMarker)
+    return false;
+
+  return !getDbgValueRange().empty();
+}
 
 void Instruction::dropDbgValues() {
   if (DbgMarker)
