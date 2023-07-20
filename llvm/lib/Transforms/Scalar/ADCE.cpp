@@ -543,6 +543,7 @@ ADCEChanged AggressiveDeadCodeElimination::removeDeadInstructions() {
   // that have no side effects and do not influence the control flow or return
   // value of the function, and may therefore be deleted safely.
   // NOTE: We reuse the Worklist vector here for memory efficiency.
+  bool ChangedDPValues = false;
   for (Instruction &I : llvm::reverse(instructions(F))) {
     // If inhaled, check for any dbg.values attached to this instruction, and
     // drop any for scopes that aren't alive, like the rest of this loop does.
@@ -550,6 +551,7 @@ ADCEChanged AggressiveDeadCodeElimination::removeDeadInstructions() {
       if (AliveScopes.count(DPV.getDebugLoc()->getScope()))
         continue;
       I.dropOneDbgValue(&DPV);
+      ChangedDPValues = true;
     }
 
     // Check if the instruction is alive.
@@ -584,7 +586,7 @@ ADCEChanged AggressiveDeadCodeElimination::removeDeadInstructions() {
     I->eraseFromParent();
   }
 
-  Changed.ChangedAnything = Changed.ChangedControlFlow || !Worklist.empty();
+  Changed.ChangedAnything = Changed.ChangedControlFlow || !Worklist.empty() || ChangedDPValues;
 
   return Changed;
 }
