@@ -3177,10 +3177,13 @@ void InstrRefBasedLDV::buildVLocValueMap(
     // Place PHIs for variable values, using the LLVM IDF calculator.
     // Collect the set of blocks where variables are def'd.
     SmallPtrSet<MachineBasicBlock *, 32> DefBlocks;
+    SmallVector<const DbgValue *, 4> DefValues;
     for (const MachineBasicBlock *ExpMBB : BlocksToExplore) {
       auto &TransferFunc = AllTheVLocs[ExpMBB->getNumber()].Vars;
-      if (TransferFunc.contains(Var))
+      if (auto TFIt = TransferFunc.find(Var); TFIt != TransferFunc.end()) {
         DefBlocks.insert(const_cast<MachineBasicBlock *>(ExpMBB));
+        DefValues.push_back(&TFIt->second);
+      }
     }
 
     SmallVector<MachineBasicBlock *, 32> PHIBlocks;
@@ -3190,6 +3193,14 @@ void InstrRefBasedLDV::buildVLocValueMap(
     if (DefBlocks.size() == 1) {
       placePHIsForSingleVarDefinition(MutBlocksToExplore, *DefBlocks.begin(),
                                       AllTheVLocs, Var, Output);
+      continue;
+    }
+
+    // If all the value definitions are Undef, it's very simple too, just don't
+    // do anything!.
+    if (llvm::all_of(DefValues, [&](const DbgValue *DV) {
+      return DV->Kind == DbgValue::Undef;
+    })) {
       continue;
     }
 
