@@ -3191,6 +3191,9 @@ void InstrRefBasedLDV::buildVLocValueMap(
     // Request the set of PHIs we should insert for this variable. If there's
     // only one value definition, things are very simple.
     if (DefBlocks.size() == 1) {
+      // And if it's undef, don't do anything.
+      if (DefValues[0]->Kind == DbgValue::Undef)
+        continue;
       placePHIsForSingleVarDefinition(MutBlocksToExplore, *DefBlocks.begin(),
                                       AllTheVLocs, Var, Output);
       continue;
