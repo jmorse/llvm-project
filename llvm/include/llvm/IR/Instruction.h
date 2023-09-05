@@ -75,7 +75,19 @@ public:
       bool InsertAtHead = false);
 
   /// Return a range over the DPValues attached to this instruction.
+#ifdef EXPERIMENTAL_DEBUGINFO_ITERATORS
   iterator_range<simple_ilist<DPValue>::iterator> getDbgValueRange() const;
+#else
+  iterator_range<simple_ilist<DPValue>::iterator> getDbgValueRange() const {
+    // If LLVM is built without support for the RemoveDIs project, then replace
+    // this function with an inlineable no-op (return an empty range), causing
+    // much of the RemoveDIs code to be optimised out. This is necessary as a
+    // transition, as otherwise we'll pay the overheads of both debug-intrinsics
+    // and RemoveDI code during that transition.
+    auto EndIt = getParent()->TrailingDPValues.end();
+    return {EndIt, EndIt};
+  }
+#endif
 
   /// Returns true if any DPValues are attached to this instruction.
   bool hasDbgValues() const;
