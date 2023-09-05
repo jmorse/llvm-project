@@ -91,6 +91,7 @@ static void findDbgIntrinsics(SmallVectorImpl<IntrinsicT *> &Result,
           if (EncounteredIntrinsics.insert(DVI).second)
             Result.push_back(DVI);
     }
+#ifdef EXPERIMENTAL_DEBUGINFO_ITERATORS
     if (!DPValues)
       return;
     // Get DPValues that use this as a single value.
@@ -100,12 +101,14 @@ static void findDbgIntrinsics(SmallVectorImpl<IntrinsicT *> &Result,
           DPValues->push_back(DPV);
       }
     }
+#endif
   };
 
   if (auto *L = LocalAsMetadata::getIfExists(V)) {
     AppendUsers(L);
     for (Metadata *AL : L->getAllArgListUsers()) {
       AppendUsers(AL);
+#ifdef EXPERIMENTAL_DEBUGINFO_ITERATORS
       if (!DPValues)
         continue;
       DIArgList *DI = cast<DIArgList>(AL);
@@ -115,6 +118,7 @@ static void findDbgIntrinsics(SmallVectorImpl<IntrinsicT *> &Result,
             if (EncounteredDPValues.insert(DPV).second)
               DPValues->push_back(DPV);
       }
+#endif
     }
   }
 }
