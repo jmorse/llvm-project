@@ -77,7 +77,9 @@ const Function *Instruction::getFunction() const {
 
 void Instruction::removeFromParent() {
   // Perform any debug-info maintenence required.
+#ifdef EXPERIMENTAL_DEBUGINFO_ITERATORS
   handleMarkerRemoval();
+#endif
 
   // Detect dbg.value intrinsics being removed from blocks and being juggled
   // around. This would be very difficult to track for DPValues, so let's
