@@ -84,8 +84,8 @@ public:
     // much of the RemoveDIs code to be optimised out. This is necessary as a
     // transition, as otherwise we'll pay the overheads of both debug-intrinsics
     // and RemoveDI code during that transition.
-    auto EndIt = getParent()->TrailingDPValues.end();
-    return {EndIt, EndIt};
+    simple_ilist<DPValue>::iterator Empty;
+    return {Empty, Empty};
   }
 #endif
 

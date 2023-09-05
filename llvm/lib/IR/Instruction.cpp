@@ -259,6 +259,7 @@ Instruction::cloneDebugInfoFrom(const Instruction *From,
   return DbgMarker->cloneDebugInfoFrom(From->DbgMarker, FromHere, InsertAtHead);
 }
 
+#ifdef EXPERIMENTAL_DEBUGINFO_ITERATORS
 auto Instruction::getDbgValueRange() const
     -> iterator_range<DPValue::self_iterator> {
   BasicBlock *Parent = const_cast<BasicBlock *>(getParent());
@@ -270,6 +271,7 @@ auto Instruction::getDbgValueRange() const
 
   return DbgMarker->getDbgValueRange();
 }
+#endif
 
 bool Instruction::hasDbgValues() const {
   if (!DbgMarker)
