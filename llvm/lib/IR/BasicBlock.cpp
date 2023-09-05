@@ -932,6 +932,7 @@ void BasicBlock::spliceDebugInfo(BasicBlock::iterator Dest, BasicBlock *Src,
 
 void BasicBlock::splice(iterator Dest, BasicBlock *Src, iterator First,
                         iterator Last) {
+#ifdef EXPERIMENTAL_DEBUGINFO_ITERATORS
   assert(Src->IsNewDbgInfoFormat == IsNewDbgInfoFormat);
 
 #ifdef EXPENSIVE_CHECKS
@@ -951,11 +952,14 @@ void BasicBlock::splice(iterator Dest, BasicBlock *Src, iterator First,
   // Handle non-instr debug-info specific juggling.
   if (IsNewDbgInfoFormat)
     spliceDebugInfo(Dest, Src, First, Last);
+#endif
 
   // And move the instructions.
   getInstList().splice(Dest, Src->getInstList(), First, Last);
 
+#ifdef EXPERIMENTAL_DEBUGINFO_ITERATORS
   flushTerminatorDbgValues();
+#endif
 }
 
 void BasicBlock::insertDPValueAfter(DPValue *DPV, Instruction *I) {

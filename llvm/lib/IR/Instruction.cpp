@@ -148,13 +148,13 @@ void Instruction::adoptDbgValues(BasicBlock *BB, BasicBlock::iterator It) {
 
 void Instruction::insertBefore(BasicBlock &BB,
                                InstListType::iterator InsertPos) {
-  assert(!DbgMarker);
 
   BB.getInstList().insert(InsertPos, this);
 
+#ifdef EXPERIMENTAL_DEBUGINFO_ITERATORS
+  assert(!DbgMarker);
   if (!BB.IsNewDbgInfoFormat)
     return;
-
 
   // We've inserted "this": if InsertAtHead is set then it comes before any
   // DPValues attached to InsertPos. But if it's not set, then any DPValues
@@ -169,6 +169,7 @@ void Instruction::insertBefore(BasicBlock &BB,
   // TrailingDPValues.
   if (isTerminator())
     getParent()->flushTerminatorDbgValues();
+#endif
 }
 
 /// Unlink this instruction from its current basic block and insert it into the
@@ -208,6 +209,7 @@ void Instruction::moveBeforePreserving(BasicBlock &BB,
 
 void Instruction::moveBefore1(BasicBlock &BB, InstListType::iterator I,
                               bool Preserve) {
+#ifdef EXPERIMENTAL_DEBUGINFO_ITERATORS
   assert(I == BB.end() || I->getParent() == &BB);
   bool InsertAtHead = I.getHeadBit();
 
@@ -219,11 +221,13 @@ void Instruction::moveBefore1(BasicBlock &BB, InstListType::iterator I,
     if (I != this->getIterator() || (InsertAtHead && hasDbgValues()))
       handleMarkerRemoval();
   }
+#endif
 
   // Move this single instruction. Use the list splice method directly, not
   // the block splicer, which will do more debug-info things.
   BB.getInstList().splice(I, getParent()->getInstList(), getIterator());
 
+#ifdef EXPERIMENTAL_DEBUGINFO_ITERATORS
   if (BB.IsNewDbgInfoFormat && !Preserve) {
     // If we're inserting at point I, and not in front of the DPValues attached
     // there, then we should absorb the DPValues attached to I.
@@ -233,6 +237,7 @@ void Instruction::moveBefore1(BasicBlock &BB, InstListType::iterator I,
 
   if (isTerminator())
     getParent()->flushTerminatorDbgValues();
+#endif
 }
 
 iterator_range<DPValue::self_iterator>
