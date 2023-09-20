@@ -846,6 +846,31 @@ void BasicBlock::spliceDebugInfo(BasicBlock::iterator Dest, BasicBlock *Src,
   // DPValues ahead of the "Last" position.
   bool ReadFromTail = !Last.getTailBit();
 
+  // Do a quick normalisation at the start: if we're inserting at end(), and
+  // not in front of dangling DPValues, then move the DPValues onto "First".
+  // They'll then be moved naturally in the process below.
+  DPMarker *MoreDanglingDPValues = nullptr;
+  DPMarker *OurTrailingDPValues = getTrailingDPValues();
+  if (Dest == end() && !InsertAtHead && OurTrailingDPValues) {
+    if (!ReadFromHead && Src->getMarker(First)) {
+      // Annoying, we need to detach these DPValues that aren't supposed to move.
+      MoreDanglingDPValues = Src->getMarker(First);
+      MoreDanglingDPValues->removeFromParent();
+    }
+
+    if (DPMarker *CurMarker = Src->getMarker(First)) {
+      // Just whack them on the front,
+      assert(ReadFromHead);
+      CurMarker->absorbDebugValues(*OurTrailingDPValues, true);
+    } else {
+      // No current marker, create one and aborb in.
+      CurMarker = Src->createMarker(&*First);
+      CurMarker->absorbDebugValues(*OurTrailingDPValues, false);
+    }
+    deleteTrailingDPValues();
+    ReadFromHead = true;
+  }
+
   /*
     Here's an illustration of what we're about to do. We have two blocks, this
     and Src, and two segments of list. Each instruction is marked by a capital
@@ -948,10 +973,17 @@ void BasicBlock::spliceDebugInfo(BasicBlock::iterator Dest, BasicBlock *Src,
       // Insert them right at the start of the range we moved, ahead of First
       // and the "++++" DPValues.
       DPMarker *FirstMarker = getMarker(First);
-      if (FirstMarker)
+      if (FirstMarker) {
         FirstMarker->absorbDebugValues(*DestMarker, true);
+      } else {
+        // No existing DPValues -> swap this marker in. XXX testing.
+        First->DbgMarker = DestMarker;
+        DestMarker->MarkedInstr = &*First;
+        DestMarker = nullptr;
+      }
     }
-    DestMarker->eraseFromParent();
+    if (DestMarker)
+      DestMarker->eraseFromParent();
   } else if (Dest == end() && !InsertAtHead) {
     // In the rare circumstance where we insert at end(), and we did not
     // generate the iterator with begin() / getFirstInsertionPt(), it means
@@ -963,6 +995,20 @@ void BasicBlock::spliceDebugInfo(BasicBlock::iterator Dest, BasicBlock *Src,
       FirstMarker->absorbDebugValues(*TrailingDPValues, true);
       deleteTrailingDPValues();
     }
+  }
+
+  // Did we secretly leave some more dpvalues hanging around that are not to
+  // be moved from Src, and should end up on Last?
+  if (!MoreDanglingDPValues)
+    return;
+  DPMarker *LastMarker = Src->getMarker(Last);
+  if (!LastMarker) {
+    assert(Last != Src->end());
+    Last->DbgMarker = MoreDanglingDPValues;
+    MoreDanglingDPValues->MarkedInstr = &*Last;
+  } else {
+    LastMarker->absorbDebugValues(*MoreDanglingDPValues, true);
+    MoreDanglingDPValues->eraseFromParent();
   }
 }
 
