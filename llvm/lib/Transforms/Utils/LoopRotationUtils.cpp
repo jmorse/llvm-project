@@ -561,6 +561,9 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
 
         if (I->hasDbgValues())
           NextDbgInst = I->getDbgValueRange().begin();
+        else
+          NextDbgInst = DPValue::self_iterator(nullptr);
+
         Inst->moveBefore(LoopEntryBranch);
 
         ++NumInstrsHoisted;
