@@ -329,8 +329,13 @@ iterator_range<simple_ilist<DPValue>::iterator> DPMarker::cloneDebugInfoFrom(
   // end().
   auto Range =
       make_range(From->StoredDPValues.begin(), From->StoredDPValues.end());
-  if (from_here.has_value())
+  if (from_here.has_value()) {
+    // If the "from_here" thing is set, and there are no dpvalues at that
+    // position, then do nothing!
+    if (*from_here == DPValue::self_iterator(nullptr))
+      return {StoredDPValues.end(), StoredDPValues.end()};
     Range = make_range(*from_here, From->StoredDPValues.end());
+  }
 
   // Clone each DPValue and insert into StoreDPValues; optionally place them at
   // the start or the end of the list.
