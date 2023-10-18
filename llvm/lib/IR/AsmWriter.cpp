@@ -2873,6 +2873,10 @@ void AssemblyWriter::printModule(const Module *M) {
 
   // Output all of the functions.
   for (const Function &F : *M) {
+if (F.getName() == "llvm.dbg.value")
+  continue;
+if (F.getName() == "llvm.assume")
+  continue;
     Out << '\n';
     printFunction(&F);
   }
@@ -2881,10 +2885,12 @@ void AssemblyWriter::printModule(const Module *M) {
   printUseLists(nullptr);
 
   // Output all attribute groups.
+#if 0
   if (!Machine.as_empty()) {
     Out << '\n';
     writeAllAttributeGroups();
   }
+#endif
 
   // Output named metadata.
   if (!M->named_metadata_empty()) Out << '\n';
@@ -3883,8 +3889,10 @@ void AssemblyWriter::printFunction(const Function *F) {
   if (F->getAddressSpace() != 0 || !Mod ||
       Mod->getDataLayout().getProgramAddressSpace() != 0)
     Out << " addrspace(" << F->getAddressSpace() << ")";
+#if 0
   if (Attrs.hasFnAttrs())
     Out << " #" << Machine.getAttributeGroupSlot(Attrs.getFnAttrs());
+#endif
   if (F->hasSection()) {
     Out << " section \"";
     printEscapedString(F->getSection(), Out);
@@ -4084,7 +4092,7 @@ void AssemblyWriter::printInstruction(const Instruction &I) {
   if (const CallInst *CI = dyn_cast<CallInst>(&I)) {
     if (CI->isMustTailCall())
       Out << "musttail ";
-    else if (CI->isTailCall())
+    else if (CI->isTailCall() || isa<DbgValueInst>(CI))
       Out << "tail ";
     else if (CI->isNoTailCall())
       Out << "notail ";

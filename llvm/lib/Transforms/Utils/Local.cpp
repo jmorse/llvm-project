@@ -4098,6 +4098,9 @@ bool llvm::inferAttributesFromOthers(Function &F) {
   // Note: We explicitly check for attributes rather than using cover functions
   // because some of the cover functions include the logic being implemented.
 
+if (F.isIntrinsic())
+  return false;
+
   bool Changed = false;
   // readnone + not convergent implies nosync
   if (!F.hasFnAttribute(Attribute::NoSync) &&
