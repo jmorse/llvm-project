@@ -3912,7 +3912,7 @@ bool InstCombinerImpl::tryToSinkInstruction(Instruction *I,
       DbgUsersToSalvage.push_back(DbgUser);
   for (auto &DPV : DPValues)
     if (DPV->getParent() != DestBlock)
-      DPValuesToSalvage.push_back(DbgUser);
+      DPValuesToSalvage.push_back(DPV);
   // XXX XXX XXX -- does any of this actually ever fire during the sinking?
   // Also, this is a scenario where we should try to kill off avoidance of
   // use-before-free.
@@ -3925,6 +3925,36 @@ bool InstCombinerImpl::tryToSinkInstruction(Instruction *I,
       DbgUsersToSink.push_back(DVI);
   llvm::sort(DbgUsersToSink,
              [](auto *A, auto *B) { return B->comesBefore(A); });
+
+  // Equivalent for DPValues.
+  SmallVector<std::pair<DPValue *, Instruction *>> DPValuesToSink;
+  for (DPValue *DPV : DPValuesToSalvage)
+    if (DPV->getParent() == SrcBlock)
+      DPValuesToSink.push_back({DPV, DPV->getMarker()->MarkedInstr}); // XXX APIs?
+  // Sort DPValues according to their position in the block.
+
+  // XXX how about sub-sections where the instruction is the same; that can happen.
+  // We have an absolute order on DPValues, it's just not connected to the rest of
+  // the Value hierachy.
+  // Find ranges where the instr is the same.
+
+  SmallDenseMap<Instruction *, DenseMap<DPValue*, unsigned>> LocalOrdering;
+
+  using foo = std::pair<DPValue *, Instruction *>;
+  auto Order = [&LocalOrdering](foo &a, foo &b) -> bool{
+    if (a.second != b.second)
+      return b.second->comesBefore(a.second);
+    // Otherwise, there are multiple DPValues using the same Value in one instr,
+    // we need to sort locally.
+    if (!LocalOrdering.count(a.second)) {
+      unsigned int Order = 0;
+      for (DPValue &foo : a.second->getDbgValueRange())
+        LocalOrdering[a.second][&foo] = Order++;
+    }
+
+    return LocalOrdering[a.second][b.first] < LocalOrdering[a.second][a.first];
+  };
+  llvm::sort(DPValuesToSink, Order);
 
   SmallVector<DbgVariableIntrinsic *, 2> DIIClones;
   SmallSet<DebugVariable, 4> SunkVariables;
@@ -3953,15 +3983,39 @@ bool InstCombinerImpl::tryToSinkInstruction(Instruction *I,
       DIIClones.back()->replaceVariableLocationOp(I, I->getOperand(0));
     LLVM_DEBUG(dbgs() << "CLONE: " << *DIIClones.back() << '\n');
   }
+  SmallVector<DPValue *, 2> DPVClones;
+  for (auto [DPV, Instr] : DPValuesToSink) {
+    // Not explored: dbg.declare, dbg.assign representations.
+    DebugVariable DbgUserVariable =
+        DebugVariable(DPV->getVariable(), DPV->getExpression(),
+                      DPV->getDebugLoc()->getInlinedAt());
+
+    if (!SunkVariables.insert(DbgUserVariable).second)
+      continue;
+
+    DPVClones.emplace_back(DPV->clone());
+    LLVM_DEBUG(dbgs() << "CLONE: " << *DPVClones.back() << '\n');
+  }
 
   // Perform salvaging without the clones, then sink the clones.
-  if (!DIIClones.empty()) {
+  if (!DIIClones.empty() || !DPVClones.empty()) {
     salvageDebugInfoForDbgValues(*I, DbgUsersToSalvage, DPValuesToSalvage);
     // The clones are in reverse order of original appearance, reverse again to
     // maintain the original order.
     for (auto &DIIClone : llvm::reverse(DIIClones)) {
       DIIClone->insertBefore(&*InsertPos);
       LLVM_DEBUG(dbgs() << "SINK: " << *DIIClone << '\n');
+    }
+    if (!InsertPos.getHeadBit()) {
+      for (DPValue *DPVClone : llvm::reverse(DPVClones)) {
+        InsertPos->getParent()->insertDPValueBefore(DPVClone, InsertPos);
+        LLVM_DEBUG(dbgs() << "SINK: " << *DPVClone << '\n');
+      }
+    } else {
+      for (DPValue *DPVClone : DPVClones) {
+        InsertPos->getParent()->insertDPValueBefore(DPVClone, InsertPos);
+        LLVM_DEBUG(dbgs() << "SINK: " << *DPVClone << '\n');
+      }
     }
   }
 
