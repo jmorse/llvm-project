@@ -255,11 +255,13 @@ BasicBlock::~BasicBlock() {
 
   assert(getParent() == nullptr && "BasicBlock still linked into the program!");
   dropAllReferences();
+#if 0
   for (auto &Inst : *this) {
     if (!Inst.DbgMarker)
       continue;
     Inst.DbgMarker->eraseFromParent();
   }
+#endif
   InstList.clear();
 }
 
