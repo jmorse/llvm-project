@@ -411,10 +411,10 @@ void ReplaceableMetadataImpl::resolveAllUses(bool ResolveUsers) {
 ReplaceableMetadataImpl *ReplaceableMetadataImpl::getOrCreate(Metadata &MD) {
   if (auto *Ptr = dyn_cast<ValueAsMetadata>(&MD))
     return Ptr;
-  if (auto *N = dyn_cast<MDNode>(&MD))
-    return N->isResolved() ? nullptr : N->Context.getOrCreateReplaceableUses();
   if (auto ArgList = dyn_cast<DIArgList>(&MD))
     return ArgList->Context.getOrCreateReplaceableUses();
+  if (auto *N = dyn_cast<MDNode>(&MD))
+    return N->isResolved() ? nullptr : N->Context.getOrCreateReplaceableUses();
   return nullptr;
 }
 
@@ -432,9 +432,11 @@ ReplaceableMetadataImpl *ReplaceableMetadataImpl::getIfExists(Metadata &MD) {
 bool ReplaceableMetadataImpl::isReplaceable(const Metadata &MD) {
   if (isa<ValueAsMetadata>(&MD))
     return true;
+  if (isa<DIArgList>(&MD))
+    return true;
   if (auto *N = dyn_cast<MDNode>(&MD))
     return !N->isResolved();
-  return isa<DIArgList>(&MD);
+  return false;
 }
 
 static DISubprogram *getLocalFunctionMetadata(Value *V) {
