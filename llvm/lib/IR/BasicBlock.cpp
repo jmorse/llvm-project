@@ -179,10 +179,12 @@ bool BasicBlock::validateDbgValues(bool Assert, bool Msg, raw_ostream *OS) {
 }
 
 void BasicBlock::setIsNewDbgInfoFormat(bool NewFlag) {
+#if 0
   if (NewFlag && !IsNewDbgInfoFormat)
     convertToNewDbgValues();
   else if (!NewFlag && IsNewDbgInfoFormat)
     convertFromNewDbgValues();
+#endif
 }
 
 ValueSymbolTable *BasicBlock::getValueSymbolTable() {
