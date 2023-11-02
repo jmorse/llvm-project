@@ -409,28 +409,32 @@ void ReplaceableMetadataImpl::resolveAllUses(bool ResolveUsers) {
 }
 
 ReplaceableMetadataImpl *ReplaceableMetadataImpl::getOrCreate(Metadata &MD) {
-  if (auto ArgList = dyn_cast<DIArgList>(&MD))
-    return ArgList->Context.getOrCreateReplaceableUses();
+  if (auto *Ptr = dyn_cast<ValueAsMetadata>(&MD))
+    return Ptr;
   if (auto *N = dyn_cast<MDNode>(&MD))
     return N->isResolved() ? nullptr : N->Context.getOrCreateReplaceableUses();
-  return dyn_cast<ValueAsMetadata>(&MD);
+  if (auto ArgList = dyn_cast<DIArgList>(&MD))
+    return ArgList->Context.getOrCreateReplaceableUses();
+  return nullptr;
 }
 
 ReplaceableMetadataImpl *ReplaceableMetadataImpl::getIfExists(Metadata &MD) {
+  if (auto *Ptr = dyn_cast<ValueAsMetadata>(&MD))
+    return Ptr;
   if (auto ArgList = dyn_cast<DIArgList>(&MD)) {
     return ArgList->Context.getOrCreateReplaceableUses();
   }
   if (auto *N = dyn_cast<MDNode>(&MD))
     return N->isResolved() ? nullptr : N->Context.getReplaceableUses();
-  return dyn_cast<ValueAsMetadata>(&MD);
+  return nullptr;
 }
 
 bool ReplaceableMetadataImpl::isReplaceable(const Metadata &MD) {
-  if (isa<DIArgList>(&MD))
+  if (isa<ValueAsMetadata>(&MD))
     return true;
   if (auto *N = dyn_cast<MDNode>(&MD))
     return !N->isResolved();
-  return isa<ValueAsMetadata>(&MD);
+  return isa<DIArgList>(&MD);
 }
 
 static DISubprogram *getLocalFunctionMetadata(Value *V) {
