@@ -221,6 +221,8 @@ SmallVector<Metadata *> ReplaceableMetadataImpl::getAllArgListUsers() {
   SmallVector<std::pair<OwnerTy, uint64_t> *> MDUsersWithID;
   for (auto Pair : UseMap) {
     OwnerTy Owner = Pair.second.first;
+    if (Owner.isNull())
+      continue;
     if (!isa<Metadata *>(Owner))
       continue;
     Metadata *OwnerMD = cast<Metadata *>(Owner);
@@ -353,6 +355,11 @@ void ReplaceableMetadataImpl::replaceAllUsesWith(Metadata *MD) {
       continue;
     }
 
+    if (Owner.is<DebugValueUser *>()) {
+      Owner.get<DebugValueUser *>()->getUser()->handleChangedLocation(MD);
+      continue;
+    }
+
     // There's a Metadata owner -- dispatch.
     Metadata *OwnerMD = cast<Metadata *>(Owner);
     switch (OwnerMD->getMetadataID()) {
@@ -388,7 +395,7 @@ void ReplaceableMetadataImpl::resolveAllUses(bool ResolveUsers) {
     auto Owner = Pair.second.first;
     if (!Owner)
       continue;
-    if (isa<MetadataAsValue *>(Owner))
+    if (!Owner.is<Metadata *>())
       continue;
 
     // Resolve MDNodes that point at this.
@@ -402,18 +409,25 @@ void ReplaceableMetadataImpl::resolveAllUses(bool ResolveUsers) {
 }
 
 ReplaceableMetadataImpl *ReplaceableMetadataImpl::getOrCreate(Metadata &MD) {
+  if (auto ArgList = dyn_cast<DIArgList>(&MD))
+    return ArgList->Context.getOrCreateReplaceableUses();
   if (auto *N = dyn_cast<MDNode>(&MD))
     return N->isResolved() ? nullptr : N->Context.getOrCreateReplaceableUses();
   return dyn_cast<ValueAsMetadata>(&MD);
 }
 
 ReplaceableMetadataImpl *ReplaceableMetadataImpl::getIfExists(Metadata &MD) {
+  if (auto ArgList = dyn_cast<DIArgList>(&MD)) {
+    return ArgList->Context.getOrCreateReplaceableUses();
+  }
   if (auto *N = dyn_cast<MDNode>(&MD))
     return N->isResolved() ? nullptr : N->Context.getReplaceableUses();
   return dyn_cast<ValueAsMetadata>(&MD);
 }
 
 bool ReplaceableMetadataImpl::isReplaceable(const Metadata &MD) {
+  if (isa<DIArgList>(&MD))
+    return true;
   if (auto *N = dyn_cast<MDNode>(&MD))
     return !N->isResolved();
   return isa<ValueAsMetadata>(&MD);
