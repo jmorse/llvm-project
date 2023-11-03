@@ -422,7 +422,7 @@ ReplaceableMetadataImpl *ReplaceableMetadataImpl::getIfExists(Metadata &MD) {
   if (auto *Ptr = dyn_cast<ValueAsMetadata>(&MD))
     return Ptr;
   if (auto ArgList = dyn_cast<DIArgList>(&MD)) {
-    return ArgList->Context.getOrCreateReplaceableUses();
+    return ArgList->Context.getReplaceableUses();
   }
   if (auto *N = dyn_cast<MDNode>(&MD))
     return N->isResolved() ? nullptr : N->Context.getReplaceableUses();
