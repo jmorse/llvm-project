@@ -1551,7 +1551,7 @@ static void insertDbgValueOrDPValue(DIBuilder &Builder, Value *DV, DILocalVariab
     // DPValue directly instead of a dbg.value intrinsic.
     ValueAsMetadata *DVAM = ValueAsMetadata::get(DV);
     DPValue *DV = new DPValue(DVAM, DIVar, DIExpr, NewLoc.get());
-    Instr->getParent()->createMarker(&*std::next(Instr));
+    Instr->getParent()->createMarker(&*Instr);
     Instr->getParent()->insertDPValueBefore(DV, Instr);
   }
 }
@@ -2214,8 +2214,7 @@ void llvm::salvageDebugInfoForDbgValues(
       // currently only valid for stack value expressions.
       // Also do not salvage if the resulting DIArgList would contain an
       // unreasonably large number of values.
-      Value *Undef = UndefValue::get(I.getOperand(0)->getType());
-      DPV->replaceVariableLocationOp(I.getOperand(0), Undef);
+      DPV->setKillLocation();
     }
     LLVM_DEBUG(dbgs() << "SALVAGE: " << DPV << '\n');
     Salvaged = true;

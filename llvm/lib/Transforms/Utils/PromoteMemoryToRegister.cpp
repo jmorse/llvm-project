@@ -830,7 +830,7 @@ void PromoteMem2Reg::run() {
   }
   for (auto &DPUsers : AllocaDPUsers) {
     for (auto *DPV : DPUsers)
-      if (DPV->isAddressOfVariable() || DII->getExpression()->startsWithDeref())
+      if (DPV->isAddressOfVariable() || DPV->getExpression()->startsWithDeref())
         DPV->eraseFromParent();
   }
 
