@@ -411,10 +411,8 @@ void ReplaceableMetadataImpl::resolveAllUses(bool ResolveUsers) {
 ReplaceableMetadataImpl *ReplaceableMetadataImpl::getOrCreate(Metadata &MD) {
   if (auto *Ptr = dyn_cast<ValueAsMetadata>(&MD))
     return Ptr;
-  if (auto ArgList = dyn_cast<DIArgList>(&MD))
-    return ArgList->Context.getOrCreateReplaceableUses();
   if (auto *N = dyn_cast<MDNode>(&MD))
-    return N->isResolved() ? nullptr : N->Context.getOrCreateReplaceableUses();
+    return (!isa<DIArgList>(N) && N->isResolved()) ? nullptr : N->Context.getOrCreateReplaceableUses();
   return nullptr;
 }
 
