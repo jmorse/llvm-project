@@ -232,6 +232,17 @@ fetchAndOrderUses(MapTy &Map, SmallVectorImpl<std::pair<void *, std::pair<Replac
   });
 }
 
+template <class MapTy>
+void
+fetchAndOrderUses(MapTy &Map, SmallVectorImpl<std::pair<void *, std::pair<ReplaceableMetadataImpl::OwnerTy, uint64_t>>> &Uses) {
+  using UseTy = std::pair<void *, std::pair<ReplaceableMetadataImpl::OwnerTy, uint64_t>>;
+  Uses.reserve(Map.size());
+  Uses.append(Map.begin(), Map.end());
+  llvm::sort(Uses, [](const UseTy &L, const UseTy &R) {
+    return L.second.second < R.second.second;
+  });
+}
+
 template <class MapTy, class FilterTy>
 void
 fetchAndOrderUsePtrs(MapTy &Map, SmallVectorImpl<std::pair<ReplaceableMetadataImpl::OwnerTy, uint64_t>*> &Uses, const FilterTy &Filter) {
@@ -247,6 +258,20 @@ fetchAndOrderUsePtrs(MapTy &Map, SmallVectorImpl<std::pair<ReplaceableMetadataIm
   });
   return;
 }
+
+template <class MapTy>
+void
+fetchAndOrderUsePtrs(MapTy &Map, SmallVectorImpl<std::pair<ReplaceableMetadataImpl::OwnerTy, uint64_t>*> &Uses) {
+  using UseTy = std::pair<ReplaceableMetadataImpl::OwnerTy, uint64_t>;
+  Uses.reserve(Map.size());
+  Uses.append(Map.begin(), Map.end());
+  llvm::sort(Uses, [](const UseTy *L, const UseTy *R) {
+    return L->second < R->second;
+  });
+  return;
+}
+
+
 
 SmallVector<Metadata *> ReplaceableMetadataImpl::getAllArgListUsers() {
   SmallVector<std::pair<OwnerTy, uint64_t> *> MDUsersWithID;
@@ -345,7 +370,7 @@ void ReplaceableMetadataImpl::replaceAllUsesWith(Metadata *MD) {
   // Copy out uses since UseMap will get touched below.
   using UseTy = std::pair<void *, std::pair<OwnerTy, uint64_t>>;
   SmallVector<UseTy, 8> Uses;
-  fetchAndOrderUses(UseMap, Uses, [](const UseTy &R) { return true; });
+  fetchAndOrderUses(UseMap, Uses);
   for (const auto &Pair : Uses) {
     // Check that this Ref hasn't disappeared after RAUW (when updating a
     // previous Ref).
@@ -402,11 +427,12 @@ void ReplaceableMetadataImpl::resolveAllUses(bool ResolveUsers) {
   // Copy out uses since UseMap could get touched below.
   using UseTy = std::pair<void *, std::pair<OwnerTy, uint64_t>>;
   SmallVector<UseTy, 8> Uses;
-  fetchAndOrderUses(UseMap, Uses, [](const UseTy &R) { return R.second.first.dyn_cast<Metadata*>(); });
+  fetchAndOrderUses(UseMap, Uses);
   UseMap.clear();
   for (const auto &Pair : Uses) {
     auto Owner = Pair.second.first;
-    assert(Owner.is<Metadata *>());
+    if (!Owner.dyn_cast<Metadata *>())
+      continue;
 
     // Resolve MDNodes that point at this.
     auto *OwnerMD = dyn_cast_if_present<MDNode>(cast<Metadata *>(Owner));
