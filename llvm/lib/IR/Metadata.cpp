@@ -221,33 +221,27 @@ template <class MapTy, class FilterTy>
 void
 fetchAndOrderUses(MapTy &Map, SmallVectorImpl<std::pair<void *, std::pair<ReplaceableMetadataImpl::OwnerTy, uint64_t>>> &Uses, const FilterTy &Filter) {
   using UseTy = std::pair<void *, std::pair<ReplaceableMetadataImpl::OwnerTy, uint64_t>>;
-  Uses.reserve(Map.size());
+//  Uses.reserve(Map.size());
   for (UseTy &Ref : Map) {
     if (!Filter(Ref))
       continue;
     Uses.push_back(Ref);
   }
-  llvm::sort(Uses, [](const UseTy &L, const UseTy &R) {
-    return L.second.second < R.second.second;
-  });
 }
 
 template <class MapTy>
 void
 fetchAndOrderUses(MapTy &Map, SmallVectorImpl<std::pair<void *, std::pair<ReplaceableMetadataImpl::OwnerTy, uint64_t>>> &Uses) {
   using UseTy = std::pair<void *, std::pair<ReplaceableMetadataImpl::OwnerTy, uint64_t>>;
-  Uses.reserve(Map.size());
+//  Uses.reserve(Map.size());
   Uses.append(Map.begin(), Map.end());
-  llvm::sort(Uses, [](const UseTy &L, const UseTy &R) {
-    return L.second.second < R.second.second;
-  });
 }
 
 template <class MapTy, class FilterTy>
 void
 fetchAndOrderUsePtrs(MapTy &Map, SmallVectorImpl<std::pair<ReplaceableMetadataImpl::OwnerTy, uint64_t>*> &Uses, const FilterTy &Filter) {
   using UseTy = std::pair<ReplaceableMetadataImpl::OwnerTy, uint64_t>;
-  Uses.reserve(Map.size());
+//  Uses.reserve(Map.size());
   for (auto &It : Map) {
     if (!Filter(It.second))
       continue;
@@ -263,7 +257,7 @@ template <class MapTy>
 void
 fetchAndOrderUsePtrs(MapTy &Map, SmallVectorImpl<std::pair<ReplaceableMetadataImpl::OwnerTy, uint64_t>*> &Uses) {
   using UseTy = std::pair<ReplaceableMetadataImpl::OwnerTy, uint64_t>;
-  Uses.reserve(Map.size());
+//  Uses.reserve(Map.size());
   Uses.append(Map.begin(), Map.end());
   llvm::sort(Uses, [](const UseTy *L, const UseTy *R) {
     return L->second < R->second;
@@ -371,6 +365,9 @@ void ReplaceableMetadataImpl::replaceAllUsesWith(Metadata *MD) {
   using UseTy = std::pair<void *, std::pair<OwnerTy, uint64_t>>;
   SmallVector<UseTy, 8> Uses;
   fetchAndOrderUses(UseMap, Uses);
+  llvm::sort(Uses, [](const UseTy &L, const UseTy &R) {
+    return L.second.second < R.second.second;
+  });
   for (const auto &Pair : Uses) {
     // Check that this Ref hasn't disappeared after RAUW (when updating a
     // previous Ref).
@@ -428,10 +425,15 @@ void ReplaceableMetadataImpl::resolveAllUses(bool ResolveUsers) {
   using UseTy = std::pair<void *, std::pair<OwnerTy, uint64_t>>;
   SmallVector<UseTy, 8> Uses;
   fetchAndOrderUses(UseMap, Uses);
+  llvm::sort(Uses, [](const UseTy &L, const UseTy &R) {
+    return L.second.second < R.second.second;
+  });
   UseMap.clear();
   for (const auto &Pair : Uses) {
     auto Owner = Pair.second.first;
-    if (!Owner.dyn_cast<Metadata *>())
+    if (!Owner)
+       continue;
+    if (!Owner.is<Metadata *>())
       continue;
 
     // Resolve MDNodes that point at this.
