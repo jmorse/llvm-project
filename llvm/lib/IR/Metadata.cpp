@@ -448,17 +448,22 @@ void ReplaceableMetadataImpl::resolveAllUses(bool ResolveUsers) {
 }
 
 ReplaceableMetadataImpl *ReplaceableMetadataImpl::getOrCreate(Metadata &MD) {
-  if (auto *N = dyn_cast<MDNode>(&MD))
-    return (!isa<DIArgList>(N) && N->isResolved()) ? nullptr : N->Context.getOrCreateReplaceableUses();
+  if (auto *N = dyn_cast<MDNode>(&MD)) {
+    bool shouldresolve = isa<DIArgList>(N) || !N->isResolved();
+    if (shouldresolve)
+      return N->Context.getOrCreateReplaceableUses();
+    return nullptr;
+  }
   return dyn_cast<ValueAsMetadata>(&MD);
 }
 
 ReplaceableMetadataImpl *ReplaceableMetadataImpl::getIfExists(Metadata &MD) {
-  if (auto ArgList = dyn_cast<DIArgList>(&MD)) {
-    return ArgList->Context.getReplaceableUses();
+  if (auto *N = dyn_cast<MDNode>(&MD)) {
+    bool shouldresolve = isa<DIArgList>(N) || !N->isResolved();
+    if (shouldresolve)
+      return N->Context.getReplaceableUses();
+    return nullptr;
   }
-  if (auto *N = dyn_cast<MDNode>(&MD))
-    return N->isResolved() ? nullptr : N->Context.getReplaceableUses();
   return dyn_cast<ValueAsMetadata>(&MD);
 }
 
