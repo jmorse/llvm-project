@@ -247,9 +247,6 @@ fetchAndOrderUsePtrs(MapTy &Map, SmallVectorImpl<std::pair<ReplaceableMetadataIm
       continue;
     Uses.push_back(&It.second);
   }
-  llvm::sort(Uses, [](const UseTy *L, const UseTy *R) {
-    return L->second < R->second;
-  });
   return;
 }
 
@@ -259,20 +256,21 @@ fetchAndOrderUsePtrs(MapTy &Map, SmallVectorImpl<std::pair<ReplaceableMetadataIm
   using UseTy = std::pair<ReplaceableMetadataImpl::OwnerTy, uint64_t>;
 //  Uses.reserve(Map.size());
   Uses.append(Map.begin(), Map.end());
-  llvm::sort(Uses, [](const UseTy *L, const UseTy *R) {
-    return L->second < R->second;
-  });
   return;
 }
 
 
 
 SmallVector<Metadata *> ReplaceableMetadataImpl::getAllArgListUsers() {
+  using UseTy = std::pair<ReplaceableMetadataImpl::OwnerTy, uint64_t>;
   SmallVector<std::pair<OwnerTy, uint64_t> *> MDUsersWithID;
   fetchAndOrderUsePtrs(UseMap, MDUsersWithID, [](const std::pair<OwnerTy, uint64_t> &It) {
       Metadata *OwnerMD = It.first.dyn_cast<Metadata*>();
       return (OwnerMD && OwnerMD->getMetadataID() == Metadata::DIArgListKind);
       });
+  llvm::sort(MDUsersWithID, [](const UseTy *L, const UseTy *R) {
+    return L->second < R->second;
+  });
   SmallVector<Metadata *> MDUsers;
   for (auto *UserWithID : MDUsersWithID)
     MDUsers.push_back(cast<Metadata *>(UserWithID->first));
@@ -280,10 +278,14 @@ SmallVector<Metadata *> ReplaceableMetadataImpl::getAllArgListUsers() {
 }
 
 SmallVector<DPValue *> ReplaceableMetadataImpl::getAllDPValueUsers() {
+  using UseTy = std::pair<ReplaceableMetadataImpl::OwnerTy, uint64_t>;
   SmallVector<std::pair<OwnerTy, uint64_t> *> DPVUsersWithID;
   fetchAndOrderUsePtrs(UseMap, DPVUsersWithID, [](const std::pair<OwnerTy, uint64_t> &It) -> bool{
       return It.first.dyn_cast<DebugValueUser*>();
       });
+  llvm::sort(DPVUsersWithID, [](const UseTy *L, const UseTy *R) {
+    return L->second < R->second;
+  });
   SmallVector<DPValue *> DPVUsers;
   for (auto &UserWithID : DPVUsersWithID)
     DPVUsers.push_back(UserWithID->first.get<DebugValueUser *>()->getUser());
@@ -371,8 +373,7 @@ void ReplaceableMetadataImpl::replaceAllUsesWith(Metadata *MD) {
   for (const auto &Pair : Uses) {
     // Check that this Ref hasn't disappeared after RAUW (when updating a
     // previous Ref).
-    auto UseMapIt = UseMap.find(Pair.first);
-    if (UseMapIt == UseMap.end())
+    if (!UseMap.count(Pair.first))
       continue;
 
     OwnerTy Owner = Pair.second.first;
@@ -382,7 +383,7 @@ void ReplaceableMetadataImpl::replaceAllUsesWith(Metadata *MD) {
       Ref = MD;
       if (MD)
         MetadataTracking::track(Ref);
-      UseMap.erase(UseMapIt);
+      UseMap.erase(Pair.first);
       continue;
     }
 
