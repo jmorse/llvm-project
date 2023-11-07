@@ -451,20 +451,20 @@ ReplaceableMetadataImpl *ReplaceableMetadataImpl::getOrCreate(Metadata &MD) {
   if (auto *Ptr = dyn_cast<ValueAsMetadata>(&MD))
     return Ptr;
   else if (auto *Ptr = dyn_cast<DIArgList>(&MD))
-    Ptr->Context.getOrCreateReplaceableUses();
+    return Ptr->Context.getOrCreateReplaceableUses();
   // Otherwise: it's a MDNode.
-  MDNode *N = cast<MDNode>(&MD);
-  return N->isResolved() ? nullptr : N->Context.getOrCreateReplaceableUses();
+  MDNode *N = dyn_cast<MDNode>(&MD);
+  return (!N || N->isResolved()) ? nullptr : N->Context.getOrCreateReplaceableUses();
 }
 
 ReplaceableMetadataImpl *ReplaceableMetadataImpl::getIfExists(Metadata &MD) {
   if (auto *Ptr = dyn_cast<ValueAsMetadata>(&MD))
     return Ptr;
   else if (auto *Ptr = dyn_cast<DIArgList>(&MD))
-    Ptr->Context.getReplaceableUses();
+    return Ptr->Context.getReplaceableUses();
   // Otherwise: it's a MDNode.
-  MDNode *N = cast<MDNode>(&MD);
-  return N->isResolved() ? nullptr : N->Context.getReplaceableUses();
+  MDNode *N = dyn_cast<MDNode>(&MD);
+  return (!N || N->isResolved()) ? nullptr : N->Context.getReplaceableUses();
 }
 
 bool ReplaceableMetadataImpl::isReplaceable(const Metadata &MD) {
