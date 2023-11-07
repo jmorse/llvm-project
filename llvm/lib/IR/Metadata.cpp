@@ -447,24 +447,46 @@ void ReplaceableMetadataImpl::resolveAllUses(bool ResolveUsers) {
   }
 }
 
+__attribute__((noinline))
+static ReplaceableMetadataImpl *getIfExistsDIArgList(DIArgList *DIA) {
+  return DIA->Context.getReplaceableUses();
+}
+
+__attribute__((noinline))
+static ReplaceableMetadataImpl *getOrCreateDIArgList(DIArgList *DIA) {
+  return DIA->Context.getOrCreateReplaceableUses();
+}
+
 ReplaceableMetadataImpl *ReplaceableMetadataImpl::getOrCreate(Metadata &MD) {
-  if (auto *N = dyn_cast<MDNode>(&MD)) {
-    bool shouldresolve = isa<DIArgList>(N) || !N->isResolved();
-    if (shouldresolve)
-      return N->Context.getOrCreateReplaceableUses();
-    return nullptr;
-  }
-  return dyn_cast<ValueAsMetadata>(&MD);
+  ReplaceableMetadataImpl *Ret = nullptr;
+  bool ShouldResolve = false;
+
+  if (auto *Ptr = dyn_cast<DIArgList>(&MD))
+    return getOrCreateDIArgList(Ptr);
+  else if (auto *Ptr = dyn_cast<ValueAsMetadata>(&MD))
+    Ret = Ptr;
+  else if (auto *N = dyn_cast<MDNode>(&MD))
+    ShouldResolve = !N->isResolved();
+
+  if (ShouldResolve)
+    Ret = static_cast<MDNode&>(MD).Context.getOrCreateReplaceableUses();
+  return Ret;
 }
 
 ReplaceableMetadataImpl *ReplaceableMetadataImpl::getIfExists(Metadata &MD) {
-  if (auto *N = dyn_cast<MDNode>(&MD)) {
-    bool shouldresolve = isa<DIArgList>(N) || !N->isResolved();
-    if (shouldresolve)
-      return N->Context.getReplaceableUses();
-    return nullptr;
-  }
-  return dyn_cast<ValueAsMetadata>(&MD);
+  ReplaceableMetadataImpl *Ret = nullptr;
+  bool ShouldResolve = false;
+
+  if (auto *Ptr = dyn_cast<DIArgList>(&MD))
+    return getIfExistsDIArgList(Ptr);
+  else if (auto *Ptr = dyn_cast<ValueAsMetadata>(&MD))
+    Ret = Ptr;
+  else if (auto *N = dyn_cast<MDNode>(&MD))
+    ShouldResolve = !N->isResolved();
+
+  if (ShouldResolve)
+    Ret = static_cast<MDNode&>(MD).Context.getReplaceableUses();
+  return Ret;
 }
 
 bool ReplaceableMetadataImpl::isReplaceable(const Metadata &MD) {
