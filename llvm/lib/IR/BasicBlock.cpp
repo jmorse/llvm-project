@@ -179,12 +179,10 @@ bool BasicBlock::validateDbgValues(bool Assert, bool Msg, raw_ostream *OS) {
 }
 
 void BasicBlock::setIsNewDbgInfoFormat(bool NewFlag) {
-#if 0
   if (NewFlag && !IsNewDbgInfoFormat)
     convertToNewDbgValues();
   else if (!NewFlag && IsNewDbgInfoFormat)
     convertFromNewDbgValues();
-#endif
 }
 
 ValueSymbolTable *BasicBlock::getValueSymbolTable() {
@@ -257,13 +255,11 @@ BasicBlock::~BasicBlock() {
 
   assert(getParent() == nullptr && "BasicBlock still linked into the program!");
   dropAllReferences();
-#if 0
   for (auto &Inst : *this) {
     if (!Inst.DbgMarker)
       continue;
     Inst.DbgMarker->eraseFromParent();
   }
-#endif
   InstList.clear();
 }
 

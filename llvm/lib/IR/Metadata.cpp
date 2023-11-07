@@ -217,59 +217,20 @@ bool MetadataTracking::isReplaceable(const Metadata &MD) {
   return ReplaceableMetadataImpl::isReplaceable(MD);
 }
 
-template <class MapTy, class FilterTy>
-void
-fetchAndOrderUses(MapTy &Map, SmallVectorImpl<std::pair<void *, std::pair<ReplaceableMetadataImpl::OwnerTy, uint64_t>>> &Uses, const FilterTy &Filter) {
-  using UseTy = std::pair<void *, std::pair<ReplaceableMetadataImpl::OwnerTy, uint64_t>>;
-//  Uses.reserve(Map.size());
-  for (UseTy &Ref : Map) {
-    if (!Filter(Ref))
-      continue;
-    Uses.push_back(Ref);
-  }
-}
-
-template <class MapTy>
-void
-fetchAndOrderUses(MapTy &Map, SmallVectorImpl<std::pair<void *, std::pair<ReplaceableMetadataImpl::OwnerTy, uint64_t>>> &Uses) {
-  using UseTy = std::pair<void *, std::pair<ReplaceableMetadataImpl::OwnerTy, uint64_t>>;
-//  Uses.reserve(Map.size());
-  Uses.append(Map.begin(), Map.end());
-}
-
-template <class MapTy, class FilterTy>
-void
-fetchAndOrderUsePtrs(MapTy &Map, SmallVectorImpl<std::pair<ReplaceableMetadataImpl::OwnerTy, uint64_t>*> &Uses, const FilterTy &Filter) {
-  using UseTy = std::pair<ReplaceableMetadataImpl::OwnerTy, uint64_t>;
-//  Uses.reserve(Map.size());
-  for (auto &It : Map) {
-    if (!Filter(It.second))
-      continue;
-    Uses.push_back(&It.second);
-  }
-  return;
-}
-
-template <class MapTy>
-void
-fetchAndOrderUsePtrs(MapTy &Map, SmallVectorImpl<std::pair<ReplaceableMetadataImpl::OwnerTy, uint64_t>*> &Uses) {
-  using UseTy = std::pair<ReplaceableMetadataImpl::OwnerTy, uint64_t>;
-//  Uses.reserve(Map.size());
-  Uses.append(Map.begin(), Map.end());
-  return;
-}
-
-
-
 SmallVector<Metadata *> ReplaceableMetadataImpl::getAllArgListUsers() {
-  using UseTy = std::pair<ReplaceableMetadataImpl::OwnerTy, uint64_t>;
   SmallVector<std::pair<OwnerTy, uint64_t> *> MDUsersWithID;
-  fetchAndOrderUsePtrs(UseMap, MDUsersWithID, [](const std::pair<OwnerTy, uint64_t> &It) {
-      Metadata *OwnerMD = It.first.dyn_cast<Metadata*>();
-      return (OwnerMD && OwnerMD->getMetadataID() == Metadata::DIArgListKind);
-      });
-  llvm::sort(MDUsersWithID, [](const UseTy *L, const UseTy *R) {
-    return L->second < R->second;
+  for (auto Pair : UseMap) {
+    OwnerTy Owner = Pair.second.first;
+    if (Owner.isNull())
+      continue;
+    if (!isa<Metadata *>(Owner))
+      continue;
+    Metadata *OwnerMD = cast<Metadata *>(Owner);
+    if (OwnerMD->getMetadataID() == Metadata::DIArgListKind)
+      MDUsersWithID.push_back(&UseMap[Pair.first]);
+  }
+  llvm::sort(MDUsersWithID, [](auto UserA, auto UserB) {
+    return UserA->second < UserB->second;
   });
   SmallVector<Metadata *> MDUsers;
   for (auto *UserWithID : MDUsersWithID)
@@ -278,16 +239,20 @@ SmallVector<Metadata *> ReplaceableMetadataImpl::getAllArgListUsers() {
 }
 
 SmallVector<DPValue *> ReplaceableMetadataImpl::getAllDPValueUsers() {
-  using UseTy = std::pair<ReplaceableMetadataImpl::OwnerTy, uint64_t>;
   SmallVector<std::pair<OwnerTy, uint64_t> *> DPVUsersWithID;
-  fetchAndOrderUsePtrs(UseMap, DPVUsersWithID, [](const std::pair<OwnerTy, uint64_t> &It) -> bool{
-      return It.first.dyn_cast<DebugValueUser*>();
-      });
-  llvm::sort(DPVUsersWithID, [](const UseTy *L, const UseTy *R) {
-    return L->second < R->second;
+  for (auto Pair : UseMap) {
+    OwnerTy Owner = Pair.second.first;
+    if (Owner.isNull())
+      continue;
+    if (!Owner.is<DebugValueUser *>())
+      continue;
+    DPVUsersWithID.push_back(&UseMap[Pair.first]);
+  }
+  llvm::sort(DPVUsersWithID, [](auto UserA, auto UserB) {
+    return UserA->second < UserB->second;
   });
   SmallVector<DPValue *> DPVUsers;
-  for (auto &UserWithID : DPVUsersWithID)
+  for (auto UserWithID : DPVUsersWithID)
     DPVUsers.push_back(UserWithID->first.get<DebugValueUser *>()->getUser());
   return DPVUsers;
 }
@@ -357,16 +322,13 @@ void ReplaceableMetadataImpl::SalvageDebugInfo(const Constant &C) {
   }
 }
 
-
-
 void ReplaceableMetadataImpl::replaceAllUsesWith(Metadata *MD) {
   if (UseMap.empty())
     return;
 
   // Copy out uses since UseMap will get touched below.
   using UseTy = std::pair<void *, std::pair<OwnerTy, uint64_t>>;
-  SmallVector<UseTy, 8> Uses;
-  fetchAndOrderUses(UseMap, Uses);
+  SmallVector<UseTy, 8> Uses(UseMap.begin(), UseMap.end());
   llvm::sort(Uses, [](const UseTy &L, const UseTy &R) {
     return L.second.second < R.second.second;
   });
@@ -424,8 +386,7 @@ void ReplaceableMetadataImpl::resolveAllUses(bool ResolveUsers) {
 
   // Copy out uses since UseMap could get touched below.
   using UseTy = std::pair<void *, std::pair<OwnerTy, uint64_t>>;
-  SmallVector<UseTy, 8> Uses;
-  fetchAndOrderUses(UseMap, Uses);
+  SmallVector<UseTy, 8> Uses(UseMap.begin(), UseMap.end());
   llvm::sort(Uses, [](const UseTy &L, const UseTy &R) {
     return L.second.second < R.second.second;
   });
@@ -433,7 +394,7 @@ void ReplaceableMetadataImpl::resolveAllUses(bool ResolveUsers) {
   for (const auto &Pair : Uses) {
     auto Owner = Pair.second.first;
     if (!Owner)
-       continue;
+      continue;
     if (!Owner.is<Metadata *>())
       continue;
 
@@ -448,28 +409,18 @@ void ReplaceableMetadataImpl::resolveAllUses(bool ResolveUsers) {
 }
 
 ReplaceableMetadataImpl *ReplaceableMetadataImpl::getOrCreate(Metadata &MD) {
-  if (auto *N = dyn_cast<MDNode>(&MD)) {
-    bool shouldresolve = /*isa<DIArgList>(N) ||*/ !N->isResolved();
-    if (shouldresolve)
-      return N->Context.getOrCreateReplaceableUses();
-    return nullptr;
-  }
+  if (auto *N = dyn_cast<MDNode>(&MD))
+    return N->isResolved() ? nullptr : N->Context.getOrCreateReplaceableUses();
   return dyn_cast<ValueAsMetadata>(&MD);
 }
 
 ReplaceableMetadataImpl *ReplaceableMetadataImpl::getIfExists(Metadata &MD) {
-  if (auto *N = dyn_cast<MDNode>(&MD)) {
-    bool shouldresolve = /*isa<DIArgList>(N) ||*/ !N->isResolved();
-    if (shouldresolve)
-      return N->Context.getReplaceableUses();
-    return nullptr;
-  }
+  if (auto *N = dyn_cast<MDNode>(&MD))
+    return N->isResolved() ? nullptr : N->Context.getReplaceableUses();
   return dyn_cast<ValueAsMetadata>(&MD);
 }
 
 bool ReplaceableMetadataImpl::isReplaceable(const Metadata &MD) {
-  if (isa<DIArgList>(&MD))
-    return true;
   if (auto *N = dyn_cast<MDNode>(&MD))
     return !N->isResolved();
   return isa<ValueAsMetadata>(&MD);

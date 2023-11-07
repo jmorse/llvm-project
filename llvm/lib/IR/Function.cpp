@@ -96,12 +96,10 @@ void Function::convertFromNewDbgValues() {
 }
 
 void Function::setIsNewDbgInfoFormat(bool NewFlag) {
-#if 0
   if (NewFlag && !IsNewDbgInfoFormat)
     convertToNewDbgValues();
   else if (!NewFlag && IsNewDbgInfoFormat)
     convertFromNewDbgValues();
-#endif
 }
 
 //===----------------------------------------------------------------------===//

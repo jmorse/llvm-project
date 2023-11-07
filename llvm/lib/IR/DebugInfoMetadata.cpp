@@ -2137,16 +2137,6 @@ void DIArgList::handleChangedOperand(void *Ref, Metadata *New) {
   if (Uniq) {
     if (uniquify() != this)
       storeDistinctInContext();
-#if 0
-    MDNode *UniqueArgList = uniquify();
-    if (UniqueArgList != this) {
-      replaceAllUsesWith(UniqueArgList);
-      // Clear this here so we don't try to untrack in the destructor.
-      Args.clear();
-      delete this;
-      return;
-    }
-#endif
   }
   track();
 }
