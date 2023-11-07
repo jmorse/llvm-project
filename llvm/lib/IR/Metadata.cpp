@@ -448,23 +448,23 @@ void ReplaceableMetadataImpl::resolveAllUses(bool ResolveUsers) {
 }
 
 ReplaceableMetadataImpl *ReplaceableMetadataImpl::getOrCreate(Metadata &MD) {
-  if (auto *N = dyn_cast<MDNode>(&MD)) {
-    bool shouldresolve = isa<DIArgList>(N) || !N->isResolved();
-    if (shouldresolve)
-      return N->Context.getOrCreateReplaceableUses();
-    return nullptr;
-  }
-  return dyn_cast<ValueAsMetadata>(&MD);
+  if (auto *Ptr = dyn_cast<ValueAsMetadata>(&MD))
+    return Ptr;
+  else if (auto *Ptr = dyn_cast<DIArgList>(&MD))
+    Ptr->Context.getOrCreateReplaceableUses();
+  // Otherwise: it's a MDNode.
+  MDNode *N = cast<MDNode>(&MD);
+  return N->isResolved() ? nullptr : N->Context.getOrCreateReplaceableUses();
 }
 
 ReplaceableMetadataImpl *ReplaceableMetadataImpl::getIfExists(Metadata &MD) {
-  if (auto *N = dyn_cast<MDNode>(&MD)) {
-    bool shouldresolve = isa<DIArgList>(N) || !N->isResolved();
-    if (shouldresolve)
-      return N->Context.getReplaceableUses();
-    return nullptr;
-  }
-  return dyn_cast<ValueAsMetadata>(&MD);
+  if (auto *Ptr = dyn_cast<ValueAsMetadata>(&MD))
+    return Ptr;
+  else if (auto *Ptr = dyn_cast<DIArgList>(&MD))
+    Ptr->Context.getReplaceableUses();
+  // Otherwise: it's a MDNode.
+  MDNode *N = cast<MDNode>(&MD);
+  return N->isResolved() ? nullptr : N->Context.getReplaceableUses();
 }
 
 bool ReplaceableMetadataImpl::isReplaceable(const Metadata &MD) {
