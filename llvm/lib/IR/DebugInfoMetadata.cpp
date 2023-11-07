@@ -2135,6 +2135,9 @@ void DIArgList::handleChangedOperand(void *Ref, Metadata *New) {
     }
   }
   if (Uniq) {
+    if (uniquify() != this)
+      storeDistinctInContext();
+#if 0
     MDNode *UniqueArgList = uniquify();
     if (UniqueArgList != this) {
       replaceAllUsesWith(UniqueArgList);
@@ -2143,6 +2146,7 @@ void DIArgList::handleChangedOperand(void *Ref, Metadata *New) {
       delete this;
       return;
     }
+#endif
   }
   track();
 }
