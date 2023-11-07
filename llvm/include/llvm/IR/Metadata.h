@@ -365,7 +365,7 @@ class ReplaceableMetadataImpl {
 public:
   using OwnerTy = MetadataTracking::OwnerTy;
 
-public:
+private:
   LLVMContext &Context;
   uint64_t NextIndex = 0;
   SmallDenseMap<void *, std::pair<OwnerTy, uint64_t>, 4> UseMap;
@@ -1038,7 +1038,7 @@ class MDNode : public Metadata {
   friend class ReplaceableMetadataImpl;
   friend class LLVMContextImpl;
   friend class DIArgList;
-public:
+
   /// The header that is coallocated with an MDNode along with its "small"
   /// operands. It is located immediately before the main body of the node.
   /// The operands are in turn located immediately before the header.
