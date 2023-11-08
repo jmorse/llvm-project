@@ -409,18 +409,30 @@ void ReplaceableMetadataImpl::resolveAllUses(bool ResolveUsers) {
 }
 
 ReplaceableMetadataImpl *ReplaceableMetadataImpl::getOrCreate(Metadata &MD) {
+#ifdef EXPERIMENTAL_DEBUGINFO_ITERATORS
+  if (auto *ArgList = dyn_cast<DIArgList>(&MD))
+    return ArgList->Context.getOrCreateReplaceableUses();
+#endif
   if (auto *N = dyn_cast<MDNode>(&MD))
     return N->isResolved() ? nullptr : N->Context.getOrCreateReplaceableUses();
   return dyn_cast<ValueAsMetadata>(&MD);
 }
 
 ReplaceableMetadataImpl *ReplaceableMetadataImpl::getIfExists(Metadata &MD) {
+#ifdef EXPERIMENTAL_DEBUGINFO_ITERATORS
+  if (auto *ArgList = dyn_cast<DIArgList>(&MD))
+    return ArgList->Context.getReplaceableUses();
+#endif
   if (auto *N = dyn_cast<MDNode>(&MD))
     return N->isResolved() ? nullptr : N->Context.getReplaceableUses();
   return dyn_cast<ValueAsMetadata>(&MD);
 }
 
 bool ReplaceableMetadataImpl::isReplaceable(const Metadata &MD) {
+#ifdef EXPERIMENTAL_DEBUGINFO_ITERATORS
+  if (isa<DIArgList>(&MD))
+    return true;
+#endif
   if (auto *N = dyn_cast<MDNode>(&MD))
     return !N->isResolved();
   return isa<ValueAsMetadata>(&MD);

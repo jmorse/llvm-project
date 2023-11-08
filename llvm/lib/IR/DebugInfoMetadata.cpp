@@ -2135,8 +2135,19 @@ void DIArgList::handleChangedOperand(void *Ref, Metadata *New) {
     }
   }
   if (Uniq) {
+#ifdef EXPERIMENTAL_DEBUGINFO_ITERATORS
+    MDNode *UniqueArgList = uniquify();
+    if (UniqueArgList != this) {
+      replaceAllUsesWith(UniqueArgList);
+      // Clear this here so we don't try to untrack in the destructor.
+      Args.clear();
+      delete this;
+      return;
+    }
+#else
     if (uniquify() != this)
       storeDistinctInContext();
+#endif
   }
   track();
 }
