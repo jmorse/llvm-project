@@ -11985,7 +11985,7 @@ Value *BoUpSLP::vectorizeTree(
                                  PHI->getParent()->getFirstNonPHIIt());
         else
           Builder.SetInsertPoint(VecI->getParent(),
-                                 std::next(VecI->getIterator()));
+                                 VecI->getNextNonDebugInstruction()->getIterator());
       } else {
         Builder.SetInsertPoint(&F->getEntryBlock(), F->getEntryBlock().begin());
       }
