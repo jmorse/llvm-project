@@ -3386,7 +3386,7 @@ private:
              ScheduleStart->comesBefore(ScheduleEnd) &&
              "Not a valid scheduling region?");
 
-      for (auto *I = ScheduleStart; I != ScheduleEnd; I = I->getNextNode()) {
+      for (auto *I = ScheduleStart; I != ScheduleEnd; I = I->getNextNonDebugInstruction()) {
         auto *SD = getScheduleData(I);
         if (!SD)
           continue;
@@ -3419,7 +3419,7 @@ private:
     /// Put all instructions into the ReadyList which are ready for scheduling.
     template <typename ReadyListType>
     void initialFillReadyList(ReadyListType &ReadyList) {
-      for (auto *I = ScheduleStart; I != ScheduleEnd; I = I->getNextNode()) {
+      for (auto *I = ScheduleStart; I != ScheduleEnd; I = I->getNextNonDebugInstruction()) {
         doForAllOpcodes(I, [&](ScheduleData *SD) {
           if (SD->isSchedulingEntity() && SD->hasValidDependencies() &&
               SD->isReady()) {
@@ -11963,7 +11963,7 @@ Value *BoUpSLP::vectorizeTree(
                                  PHI->getParent()->getFirstNonPHIIt());
         else
           Builder.SetInsertPoint(VecI->getParent(),
-                                 std::next(VecI->getIterator()));
+                                 VecI->getNextNonDebugInstruction()->getIterator());
       } else {
         Builder.SetInsertPoint(&F->getEntryBlock(), F->getEntryBlock().begin());
       }
@@ -12442,7 +12442,7 @@ BoUpSLP::BlockScheduling::tryScheduleBundle(ArrayRef<Value *> VL, BoUpSLP *SLP,
     // It is seldom that this needs to be done a second time after adding the
     // initial bundle to the region.
     if (ScheduleEnd != OldScheduleEnd) {
-      for (auto *I = ScheduleStart; I != ScheduleEnd; I = I->getNextNode())
+      for (auto *I = ScheduleStart; I != ScheduleEnd; I = I->getNextNonDebugInstruction())
         doForAllOpcodes(I, [](ScheduleData *SD) { SD->clearDependencies(); });
       ReSchedule = true;
     }
@@ -12588,9 +12588,9 @@ bool BoUpSLP::BlockScheduling::extendSchedulingRegion(Value *V,
     return true;
   if (!ScheduleStart) {
     // It's the first instruction in the new region.
-    initScheduleData(I, I->getNextNode(), nullptr, nullptr);
+    initScheduleData(I, I->getNextNonDebugInstruction(), nullptr, nullptr);
     ScheduleStart = I;
-    ScheduleEnd = I->getNextNode();
+    ScheduleEnd = I->getNextNonDebugInstruction();
     if (isOneOf(S, I) != I)
       CheckScheduleForI(I);
     assert(ScheduleEnd && "tried to vectorize a terminator?");
@@ -12642,9 +12642,9 @@ bool BoUpSLP::BlockScheduling::extendSchedulingRegion(Value *V,
          "lower end.");
   assert(I->getParent() == ScheduleEnd->getParent() &&
          "Instruction is in wrong basic block.");
-  initScheduleData(ScheduleEnd, I->getNextNode(), LastLoadStoreInRegion,
+  initScheduleData(ScheduleEnd, I->getNextNonDebugInstruction(), LastLoadStoreInRegion,
                    nullptr);
-  ScheduleEnd = I->getNextNode();
+  ScheduleEnd = I->getNextNonDebugInstruction();
   if (isOneOf(S, I) != I)
     CheckScheduleForI(I);
   assert(ScheduleEnd && "tried to vectorize a terminator?");
@@ -12657,7 +12657,7 @@ void BoUpSLP::BlockScheduling::initScheduleData(Instruction *FromI,
                                                 ScheduleData *PrevLoadStore,
                                                 ScheduleData *NextLoadStore) {
   ScheduleData *CurrentLoadStore = PrevLoadStore;
-  for (Instruction *I = FromI; I != ToI; I = I->getNextNode()) {
+  for (Instruction *I = FromI; I != ToI; I = I->getNextNonDebugInstruction()) {
     // No need to allocate data for non-schedulable instructions.
     if (doesNotNeedToBeScheduled(I))
       continue;
@@ -12757,8 +12757,8 @@ void BoUpSLP::BlockScheduling::calculateDependencies(ScheduleData *SD,
       // block is control dependend on any early exit or non-willreturn call
       // which proceeds it.
       if (!isGuaranteedToTransferExecutionToSuccessor(BundleMember->Inst)) {
-        for (Instruction *I = BundleMember->Inst->getNextNode();
-             I != ScheduleEnd; I = I->getNextNode()) {
+        for (Instruction *I = BundleMember->Inst->getNextNonDebugInstruction();
+             I != ScheduleEnd; I = I->getNextNonDebugInstruction()) {
           if (isSafeToSpeculativelyExecute(I, &*BB->begin(), SLP->AC))
             continue;
 
@@ -12777,8 +12777,8 @@ void BoUpSLP::BlockScheduling::calculateDependencies(ScheduleData *SD,
         // from reordering above a preceeding stackrestore.
         if (match(BundleMember->Inst, m_Intrinsic<Intrinsic::stacksave>()) ||
             match(BundleMember->Inst, m_Intrinsic<Intrinsic::stackrestore>())) {
-          for (Instruction *I = BundleMember->Inst->getNextNode();
-               I != ScheduleEnd; I = I->getNextNode()) {
+          for (Instruction *I = BundleMember->Inst->getNextNonDebugInstruction();
+               I != ScheduleEnd; I = I->getNextNonDebugInstruction()) {
             if (match(I, m_Intrinsic<Intrinsic::stacksave>()) ||
                 match(I, m_Intrinsic<Intrinsic::stackrestore>()))
               // Any allocas past here must be control dependent on I, and I
@@ -12800,8 +12800,8 @@ void BoUpSLP::BlockScheduling::calculateDependencies(ScheduleData *SD,
         // can lead to incorrect code.
         if (isa<AllocaInst>(BundleMember->Inst) ||
             BundleMember->Inst->mayReadOrWriteMemory()) {
-          for (Instruction *I = BundleMember->Inst->getNextNode();
-               I != ScheduleEnd; I = I->getNextNode()) {
+          for (Instruction *I = BundleMember->Inst->getNextNonDebugInstruction();
+               I != ScheduleEnd; I = I->getNextNonDebugInstruction()) {
             if (!match(I, m_Intrinsic<Intrinsic::stacksave>()) &&
                 !match(I, m_Intrinsic<Intrinsic::stackrestore>()))
               continue;
@@ -12885,7 +12885,7 @@ void BoUpSLP::BlockScheduling::calculateDependencies(ScheduleData *SD,
 void BoUpSLP::BlockScheduling::resetSchedule() {
   assert(ScheduleStart &&
          "tried to reset schedule on block which has not been scheduled");
-  for (Instruction *I = ScheduleStart; I != ScheduleEnd; I = I->getNextNode()) {
+  for (Instruction *I = ScheduleStart; I != ScheduleEnd; I = I->getNextNonDebugInstruction()) {
     doForAllOpcodes(I, [&](ScheduleData *SD) {
       assert(isInSchedulingRegion(SD) &&
              "ScheduleData not in scheduling region");
@@ -12925,7 +12925,7 @@ void BoUpSLP::scheduleBlock(BlockScheduling *BS) {
   // and fill the ready-list with initial instructions.
   int Idx = 0;
   for (auto *I = BS->ScheduleStart; I != BS->ScheduleEnd;
-       I = I->getNextNode()) {
+       I = I->getNextNonDebugInstruction()) {
     BS->doForAllOpcodes(I, [this, &Idx, BS](ScheduleData *SD) {
       TreeEntry *SDTE = getTreeEntry(SD->Inst);
       (void)SDTE;
@@ -12953,7 +12953,7 @@ void BoUpSLP::scheduleBlock(BlockScheduling *BS) {
     for (ScheduleData *BundleMember = Picked; BundleMember;
          BundleMember = BundleMember->NextInBundle) {
       Instruction *PickedInst = BundleMember->Inst;
-      if (PickedInst->getNextNode() != LastScheduledInst)
+      if (PickedInst->getNextNonDebugInstruction() != LastScheduledInst)
         PickedInst->moveBefore(LastScheduledInst);
       LastScheduledInst = PickedInst;
     }
@@ -12968,7 +12968,7 @@ void BoUpSLP::scheduleBlock(BlockScheduling *BS) {
 
 #if !defined(NDEBUG) || defined(EXPENSIVE_CHECKS)
   // Check that all schedulable entities got scheduled
-  for (auto *I = BS->ScheduleStart; I != BS->ScheduleEnd; I = I->getNextNode()) {
+  for (auto *I = BS->ScheduleStart; I != BS->ScheduleEnd; I = I->getNextNonDebugInstruction()) {
     BS->doForAllOpcodes(I, [&](ScheduleData *SD) {
       if (SD->isSchedulingEntity() && SD->hasValidDependencies()) {
         assert(SD->IsScheduled && "must be scheduled at this point");

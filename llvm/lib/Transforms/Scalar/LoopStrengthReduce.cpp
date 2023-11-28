@@ -5377,7 +5377,7 @@ BasicBlock::iterator LSRInstance::AdjustInsertPositionForExpand(
   // IP consistent across expansions and allows the previously inserted
   // instructions to be reused by subsequent expansion.
   while (Rewriter.isInsertedInstruction(&*IP) && IP != LowestIP)
-    ++IP;
+    IP = IP->getNextNonDebugInstruction()->getIterator();;
 
   return IP;
 }
@@ -5393,7 +5393,7 @@ Value *LSRInstance::Expand(const LSRUse &LU, const LSRFixup &LF,
   // Determine an input position which will be dominated by the operands and
   // which will dominate the result.
   IP = AdjustInsertPositionForExpand(IP, LF, LU);
-  Rewriter.setInsertPoint(&*IP);
+  Rewriter.setInsertPoint(IP); // jmorse -- first case of needing to remove &*?
 
   // Inform the Rewriter if we have a post-increment use, so that it can
   // perform an advantageous expansion.

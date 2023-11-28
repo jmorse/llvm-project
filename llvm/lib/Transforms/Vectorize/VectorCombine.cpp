@@ -1298,6 +1298,8 @@ bool VectorCombine::scalarizeLoadExtract(Instruction &I) {
     if (LastCheckedInst->comesBefore(UI)) {
       for (Instruction &I :
            make_range(std::next(LI->getIterator()), UI->getIterator())) {
+	if (isa<DbgInfoIntrinsic>(I))
+          continue;
         // Bail out if we reached the check limit or the instruction may write
         // to memory.
         if (NumInstChecked == MaxInstrsToScan || I.mayWriteToMemory())
