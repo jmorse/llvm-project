@@ -1517,6 +1517,10 @@ Value *SCEVExpander::expand(const SCEV *S) {
                 isa<DbgInfoIntrinsic>(&*InsertPt))) {
           InsertPt = std::next(InsertPt);
         }
+
+        // XXX jmorse -- as we're skipping debug info intrinsics, this is no
+        // longer an insert-at-head situation, so the bit should be cleared.
+        InsertPt.setHeadBit(false);
         break;
       }
     }
