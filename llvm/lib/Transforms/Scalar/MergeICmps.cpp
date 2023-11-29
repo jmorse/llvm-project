@@ -51,6 +51,7 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instruction.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
@@ -294,6 +295,17 @@ bool BCECmpBlock::doesOtherWork() const {
   // effects outside of the basic block.
   // Note: The GEPs and/or loads are not necessarily in the same block.
   for (const Instruction &Inst : *BB) {
+    // DDD: there's a noteworthy problem here: we split the blocks apart when we
+    // see debug-info intrinsics, which is wrong. But by chance, the re-formed
+    // blocks happen to be identical to the non-debug-info case. In "inhaled"
+    // mode this doesn't happen (yet), so inhaled mode drops debug-info where
+    // dbg.value does not. This is a scenario where we require more special
+    // casing / handling of debug-info to preserve it in inhaled mode, but
+    // haven't done it yet. To continue narrowing down on identical-binary
+    // production, deliberately ignore debug-info in dbg.value mode so that we
+    // drop it then too.
+    if (isa<DbgInfoIntrinsic>(Inst))
+      continue;
     if (!BlockInsts.count(&Inst))
       return true;
   }
