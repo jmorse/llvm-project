@@ -4060,72 +4060,13 @@ bool InstCombinerImpl::tryToSinkInstruction(Instruction *I,
   ++NumSunkInst;
 
   // Also sink all related debug uses from the source basic block. Otherwise we
-  // get debug use before the def. Attempt to salvage debug uses first, to
-  // maximise the range variables have location for. If we cannot salvage, then
-  // mark the location undef: we know it was supposed to receive a new location
-  // here, but that computation has been sunk.
-  SmallVector<DbgVariableIntrinsic *, 2> DbgUsers;
-  findDbgUsers(DbgUsers, I);
-
-  // For all debug values in the destination block, the sunk instruction
-  // will still be available, so they do not need to be dropped.
-  SmallVector<DbgVariableIntrinsic *, 2> DbgUsersToSalvage;
-  SmallVector<DPValue *, 2> DPValuesToSalvage;
-  for (auto &DbgUser : DbgUsers)
-    if (DbgUser->getParent() != DestBlock)
-      DbgUsersToSalvage.push_back(DbgUser);
-
-  // Process the sinking DbgUsersToSalvage in reverse order, as we only want
-  // to clone the last appearing debug intrinsic for each given variable.
-  SmallVector<DbgVariableIntrinsic *, 2> DbgUsersToSink;
-  for (DbgVariableIntrinsic *DVI : DbgUsersToSalvage)
-    if (DVI->getParent() == SrcBlock)
-      DbgUsersToSink.push_back(DVI);
-  llvm::sort(DbgUsersToSink,
-             [](auto *A, auto *B) { return B->comesBefore(A); });
-
-  SmallVector<DbgVariableIntrinsic *, 2> DIIClones;
-  SmallSet<DebugVariable, 4> SunkVariables;
-  for (auto *User : DbgUsersToSink) {
-    // A dbg.declare instruction should not be cloned, since there can only be
-    // one per variable fragment. It should be left in the original place
-    // because the sunk instruction is not an alloca (otherwise we could not be
-    // here).
-    if (isa<DbgDeclareInst>(User))
-      continue;
-
-    DebugVariable DbgUserVariable =
-        DebugVariable(User->getVariable(), User->getExpression(),
-                      User->getDebugLoc()->getInlinedAt());
-
-    if (!SunkVariables.insert(DbgUserVariable).second)
-      continue;
-
-    // Leave dbg.assign intrinsics in their original positions and there should
-    // be no need to insert a clone.
-    if (isa<DbgAssignIntrinsic>(User))
-      continue;
-
-    DIIClones.emplace_back(cast<DbgVariableIntrinsic>(User->clone()));
-    if (isa<DbgDeclareInst>(User) && isa<CastInst>(I))
-      DIIClones.back()->replaceVariableLocationOp(I, I->getOperand(0));
-    LLVM_DEBUG(dbgs() << "CLONE: " << *DIIClones.back() << '\n');
-  }
-
-  // Perform salvaging without the clones, then sink the clones.
-  if (!DIIClones.empty()) {
-    // RemoveDIs: pass in empty vector of DPValues until we get to instrumenting
-    // this pass.
-    SmallVector<DPValue *, 1> DummyDPValues;
-    salvageDebugInfoForDbgValues(*I, DbgUsersToSalvage, DummyDPValues);
-    // The clones are in reverse order of original appearance, reverse again to
-    // maintain the original order.
-    for (auto &DIIClone : llvm::reverse(DIIClones)) {
-      DIIClone->insertBefore(&*InsertPos);
-      LLVM_DEBUG(dbgs() << "SINK: " << *DIIClone << '\n');
-    }
-  }
-
+  // get debug use before the def.
+  // jmorse: IMHO we've moved into a world where debug use-before-defs are
+  // actually well defined in the context of debug-info, and would very much
+  // like to get rid of this behaviour. With that in mind, allow both dbg.values
+  // and DPValues to use-before-def by not trying to sink them here. This also
+  // eliminates the -- apparently only -- place in LLVM where such sinking
+  // occurs.
   return true;
 }
 
@@ -4280,13 +4221,11 @@ bool InstCombinerImpl::run() {
         // Are we replace a PHI with something that isn't a PHI, or vice versa?
         if (isa<PHINode>(Result) != isa<PHINode>(I)) {
           // We need to fix up the insertion point.
-          if (isa<PHINode>(I)) // PHI -> Non-PHI
-            InsertPos = InstParent->getFirstInsertionPt();
-          else // Non-PHI -> PHI
-            InsertPos = InstParent->getFirstNonPHI()->getIterator();
+          InsertPos = InstParent->getFirstInsertionPt();
+          // XXX jmorse -- logic removed here looked redundant.
         }
 
-        Result->insertInto(InstParent, InsertPos);
+        Result->insertBefore(*InstParent, InsertPos);
 
         // Push the new instruction and any users onto the worklist.
         Worklist.pushUsersToWorkList(*Result);

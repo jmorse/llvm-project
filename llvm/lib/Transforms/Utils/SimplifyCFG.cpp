@@ -1661,12 +1661,14 @@ bool SimplifyCFGOpt::hoistCommonCodeFromSuccessors(BasicBlock *BB,
         // The debug location is an integral part of a debug info intrinsic
         // and can't be separated from it or replaced.  Instead of attempting
         // to merge locations, simply hoist both copies of the intrinsic.
+#if 0
         I1->moveBeforePreserving(TI);
         for (auto &SuccIter : OtherSuccIterRange) {
           auto *I2 = &*SuccIter++;
           assert(isa<DbgInfoIntrinsic>(I2));
           I2->moveBeforePreserving(TI);
         }
+#endif
       } else {
         // For a normal instruction, we just move one to right before the
         // branch, then replace all uses of the other with the first.  Finally,
