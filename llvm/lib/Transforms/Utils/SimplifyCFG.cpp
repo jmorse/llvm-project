@@ -1687,10 +1687,10 @@ bool SimplifyCFGOpt::hoistCommonCodeFromSuccessors(BasicBlock *BB,
           I1->applyMergedLocation(I1->getDebugLoc(), I2->getDebugLoc());
           I2->eraseFromParent();
         }
+        Changed = true;
       }
       if (!Changed)
         NumHoistCommonCode += SuccIterPairs.size();
-      Changed = true;
       NumHoistCommonInstrs += SuccIterPairs.size();
     } else {
       if (NumSkipped >= HoistCommonSkipLimit)
