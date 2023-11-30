@@ -633,12 +633,12 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
 
       if (LoopEntryBranch->getParent()->IsNewDbgInfoFormat) {
         auto Range = C->cloneDebugInfoFrom(Inst, NextDbgInst);
+        RemapDPValueRange(M, Range, ValueMap,
+                          RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
         // Erase anything we've seen before.
         for (DPValue &DPV : make_early_inc_range(Range))
           if (DbgIntrinsics.count(makeHashDPV(DPV)))
             DPV.eraseFromParent();
-        RemapDPValueRange(M, Range, ValueMap,
-                          RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
         NextDbgInst = std::nullopt;
       }
 
