@@ -250,7 +250,8 @@ SmallVector<DPValue *> ReplaceableMetadataImpl::getAllDPValueUsers() {
     DPVUsersWithID.push_back(&UseMap[Pair.first]);
   }
   llvm::sort(DPVUsersWithID, [](auto UserA, auto UserB) {
-    return UserA->second < UserB->second;
+// XXX jmorse -- flipped
+    return UserA->second > UserB->second;
   });
   SmallVector<DPValue *> DPVUsers;
   for (auto UserWithID : DPVUsersWithID)
