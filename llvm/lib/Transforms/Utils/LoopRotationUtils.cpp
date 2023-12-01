@@ -563,9 +563,8 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
                D.getVariable()},
               D.getExpression()};
     };
-    for (Instruction &I : llvm::drop_begin(llvm::reverse(*OrigPreheader)))
-      for (const DPValue &DPV : I.getDbgValueRange())
-        DbgIntrinsics.insert(makeHashDPV(DPV));
+    for (const DPValue &DPV : OrigPreheader->getTerminator()->getDbgValueRange())
+      DbgIntrinsics.insert(makeHashDPV(DPV));
 
     // Remember the local noalias scope declarations in the header. After the
     // rotation, they must be duplicated and the scope must be cloned. This
@@ -616,6 +615,10 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
               LoopEntryBranch->cloneDebugInfoFrom(Inst, NextDbgInst);
           RemapDPValueRange(M, DbgValueRange, ValueMap,
                             RF_NoModuleLevelChanges | RF_IgnoreMissingLocals);
+          // Erase anything we've seen before.
+          for (DPValue &DPV : make_early_inc_range(DbgValueRange))
+            if (DbgIntrinsics.count(makeHashDPV(DPV)))
+              DPV.eraseFromParent();
         }
 
         NextDbgInst = I->getDbgValueRange().begin();
