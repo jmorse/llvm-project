@@ -547,14 +547,6 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
                D->getVariable()},
               D->getExpression()};
     };
-    SmallDenseSet<DbgIntrinsicHash, 8> DbgIntrinsics;
-    for (Instruction &I : llvm::drop_begin(llvm::reverse(*OrigPreheader))) {
-      if (auto *DII = dyn_cast<DbgVariableIntrinsic>(&I))
-        DbgIntrinsics.insert(makeHash(DII));
-      else
-        break;
-    }
-
     // Duplicate implementation for DPValues, the non-instruction format of
     // debug-info records in RemoveDIs.
     auto makeHashDPV = [](const DPValue &D) -> DbgIntrinsicHash {
@@ -563,6 +555,22 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
                D.getVariable()},
               D.getExpression()};
     };
+
+    SmallDenseSet<DbgIntrinsicHash, 8> DbgIntrinsics;
+    for (Instruction &I : llvm::drop_begin(llvm::reverse(*OrigPreheader))) {
+      if (auto *DII = dyn_cast<DbgVariableIntrinsic>(&I)) {
+        DbgIntrinsics.insert(makeHash(DII));
+        // Until RemoveDIs supports dbg.declares in DPValue format, we'll need
+        // to collect DPValues attached to any other debug intrinsics.
+        for (const DPValue &DPV : DII->getDbgValueRange())
+          DbgIntrinsics.insert(makeHashDPV(DPV));
+      } else {
+        break;
+      }
+    }
+
+    // Build DPValue hashes for DPValues attached to the terminator, which isn't
+    // considered in the loop above.
     for (const DPValue &DPV : OrigPreheader->getTerminator()->getDbgValueRange())
       DbgIntrinsics.insert(makeHashDPV(DPV));
 
