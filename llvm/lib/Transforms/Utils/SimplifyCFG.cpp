@@ -1606,6 +1606,7 @@ bool SimplifyCFGOpt::hoistCommonCodeFromSuccessors(BasicBlock *BB,
       Instruction *I2 = &*Iter;
       return I1->isIdenticalToWhenDefined(I2);
     });
+AllDbgInstsAreIdentical = false;
     if (!AllDbgInstsAreIdentical) {
       while (isa<DbgInfoIntrinsic>(I1))
         I1 = &*++BB1ItrPair.first;
@@ -1661,18 +1662,20 @@ bool SimplifyCFGOpt::hoistCommonCodeFromSuccessors(BasicBlock *BB,
         // The debug location is an integral part of a debug info intrinsic
         // and can't be separated from it or replaced.  Instead of attempting
         // to merge locations, simply hoist both copies of the intrinsic.
+#if 0
         I1->moveBeforePreserving(TI);
         for (auto &SuccIter : OtherSuccIterRange) {
           auto *I2 = &*SuccIter++;
           assert(isa<DbgInfoIntrinsic>(I2));
           I2->moveBeforePreserving(TI);
         }
+#endif
       } else {
         // For a normal instruction, we just move one to right before the
         // branch, then replace all uses of the other with the first.  Finally,
         // we remove the now redundant second instruction.
-        I1->moveBeforePreserving(TI);
-        BB->splice(TI->getIterator(), BB1, I1->getIterator());
+        I1->moveBefore(TI);
+//        BB->splice(TI->getIterator(), BB1, I1->getIterator());
         for (auto &SuccIter : OtherSuccIterRange) {
           Instruction *I2 = &*SuccIter++;
           assert(I2 != I1);
@@ -1685,10 +1688,10 @@ bool SimplifyCFGOpt::hoistCommonCodeFromSuccessors(BasicBlock *BB,
           I1->applyMergedLocation(I1->getDebugLoc(), I2->getDebugLoc());
           I2->eraseFromParent();
         }
+        Changed = true;
       }
       if (!Changed)
         NumHoistCommonCode += SuccIterPairs.size();
-      Changed = true;
       NumHoistCommonInstrs += SuccIterPairs.size();
     } else {
       if (NumSkipped >= HoistCommonSkipLimit)

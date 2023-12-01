@@ -286,6 +286,7 @@ public:
   /// representation has been converted, and the ordering of DPValues is
   /// meaningful in the same was a dbg.values.
   simple_ilist<DPValue> StoredDPValues;
+  bool empty() const { return StoredDPValues.empty(); }
 
   const BasicBlock *getParent() const;
   BasicBlock *getParent();
@@ -332,6 +333,11 @@ public:
   /// never erase an assignment in this way, but it's the equivalent to
   /// erasing a dbg.value from a block.
   void dropOneDPValue(DPValue *DPV);
+
+  /// Return an iterator to the position of the "Next" DPValue after this
+  /// marker, or std::nullopt. This is the position to pass to
+  /// BasicBlock::reinsertInstInDPValues when re-inserting an instruction.
+  std::optional<DPValue::self_iterator> getReinsertionPosition();
 
   /// We generally act like all llvm Instructions have a range of DPValues
   /// attached to them, but in reality sometimes we don't allocate the DPMarker

@@ -1606,6 +1606,7 @@ void SelectionDAGISel::SelectAllBasicBlocks(const Function &Fn) {
         if (isFoldedOrDeadInstruction(Inst, *FuncInfo) ||
             ElidedArgCopyInstrs.count(Inst)) {
           --NumFastIselRemaining;
+          FastIS->handleDbgInfo(Inst);
           continue;
         }
 
@@ -1635,6 +1636,7 @@ void SelectionDAGISel::SelectAllBasicBlocks(const Function &Fn) {
             BI = std::next(BasicBlock::const_iterator(BeforeInst));
             --NumFastIselRemaining;
             ++NumFastIselSuccess;
+            FastIS->handleDbgInfo(Inst);
           }
           continue;
         }
