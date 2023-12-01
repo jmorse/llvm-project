@@ -1606,6 +1606,7 @@ bool SimplifyCFGOpt::hoistCommonCodeFromSuccessors(BasicBlock *BB,
       Instruction *I2 = &*Iter;
       return I1->isIdenticalToWhenDefined(I2);
     });
+AllDbgInstsAreIdentical = false;
     if (!AllDbgInstsAreIdentical) {
       while (isa<DbgInfoIntrinsic>(I1))
         I1 = &*++BB1ItrPair.first;
@@ -1673,8 +1674,8 @@ bool SimplifyCFGOpt::hoistCommonCodeFromSuccessors(BasicBlock *BB,
         // For a normal instruction, we just move one to right before the
         // branch, then replace all uses of the other with the first.  Finally,
         // we remove the now redundant second instruction.
-        I1->moveBeforePreserving(TI);
-        BB->splice(TI->getIterator(), BB1, I1->getIterator());
+        I1->moveBefore(TI);
+//        BB->splice(TI->getIterator(), BB1, I1->getIterator());
         for (auto &SuccIter : OtherSuccIterRange) {
           Instruction *I2 = &*SuccIter++;
           assert(I2 != I1);
