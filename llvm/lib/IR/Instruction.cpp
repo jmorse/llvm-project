@@ -200,7 +200,7 @@ void Instruction::moveBeforeImpl(BasicBlock &BB, InstListType::iterator I,
   // If we've been given the "Preserve" flag, then just move the DPValues with
   // the instruction, no more special handling needed.
   if (BB.IsNewDbgInfoFormat && DbgMarker && !Preserve) {
-    if (I != this->getIterator()) {
+    if (I != this->getIterator() || InsertAtHead) {
       // "this" is definitely moving; detach any existing DPValues.
       handleMarkerRemoval();
     }
