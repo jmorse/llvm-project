@@ -622,7 +622,11 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
               DPV.eraseFromParent();
         }
 
-        NextDbgInst = I->getDbgValueRange().begin();
+        if (I->hasDbgValues())
+          NextDbgInst = I->getDbgValueRange().begin();
+        else
+          NextDbgInst = std::nullopt;
+
         Inst->moveBefore(LoopEntryBranch);
 
         ++NumInstrsHoisted;

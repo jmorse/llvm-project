@@ -85,8 +85,10 @@ void BasicBlock::convertToNewDbgValues(bool HasNoDebugInfo) {
       continue;
     }
 
-    // Create a marker to store DPValues in. Technically we don't need to store
-    // one marker per instruction, but that's a future optimisation.
+    if (DPVals.empty())
+      continue;
+
+    // Create a marker to store DPValues in.
     createMarker(&I);
     DPMarker *Marker = I.DbgMarker;
 
@@ -777,6 +779,7 @@ void BasicBlock::flushTerminatorDbgValues() {
     return;
 
   // Transfer DPValues from the trailing position onto the terminator.
+  createMarker(Term);
   Term->DbgMarker->absorbDebugValues(*TrailingDPValues, false);
   TrailingDPValues->eraseFromParent();
   deleteTrailingDPValues();
@@ -820,9 +823,10 @@ void BasicBlock::spliceDebugInfoEmptyBlock(BasicBlock::iterator Dest,
     if (!SrcTrailingDPValues)
       return;
 
-    DPMarker *M = Dest->DbgMarker;
-    M->absorbDebugValues(*SrcTrailingDPValues, InsertAtHead);
-    SrcTrailingDPValues->eraseFromParent();
+    if (!Dest->adoptDbgValues(Src, Src->end(), InsertAtHead))
+      // If we couldn't just assign the marker into Dest, delete the trailing
+      // DPMarker.
+      SrcTrailingDPValues->eraseFromParent();
     Src->deleteTrailingDPValues();
     return;
   }
@@ -893,7 +897,6 @@ if (!getParent()->getSubprogram())
     }
 
     if (First->hasDbgValues()) {
-      DPMarker *CurMarker = Src->getMarker(First);
       // Place them at the front, it would look like this:
       //            Dest
       //              |
@@ -901,8 +904,8 @@ if (!getParent()->getSubprogram())
       // Src-block: ~~~~~~~~++++B---B---B---B:::C
       //                        |               |
       //                       First           Last
-      CurMarker->absorbDebugValues(*OurTrailingDPValues, true);
-      OurTrailingDPValues->eraseFromParent();
+      if (!First->adoptDbgValues(this, end(), true))
+        OurTrailingDPValues->eraseFromParent();
     } else {
       // No current marker, create one and absorb in. (FIXME: we can avoid an
       // allocation in the future).
@@ -910,6 +913,7 @@ if (!getParent()->getSubprogram())
       CurMarker->absorbDebugValues(*OurTrailingDPValues, false);
       OurTrailingDPValues->eraseFromParent();
     }
+
     deleteTrailingDPValues();
     First.setHeadBit(true);
   }
@@ -922,7 +926,8 @@ if (!getParent()->getSubprogram())
   if (!MoreDanglingDPValues)
     return;
 
-  // FIXME: we could avoid an allocation here sometimes.
+  // FIXME: we could avoid an allocation here sometimes. (absorbDbgValues
+  // requires an iterator).
   DPMarker *LastMarker = Src->createMarker(Last);
   LastMarker->absorbDebugValues(*MoreDanglingDPValues, true);
   MoreDanglingDPValues->eraseFromParent();
@@ -1004,20 +1009,22 @@ void BasicBlock::spliceDebugInfoImpl(BasicBlock::iterator Dest, BasicBlock *Src,
   // Detach the marker at Dest -- this lets us move the "====" DPValues around.
   DPMarker *DestMarker = nullptr;
   if (Dest != end()) {
-    DestMarker = getMarker(Dest);
-    DestMarker->removeFromParent();
-    createMarker(&*Dest);
+    if (DestMarker = getMarker(Dest))
+      DestMarker->removeFromParent();
+//    createMarker(&*Dest);
   }
 
   // If we're moving the tail range of DPValues (":::"), absorb them into the
   // front of the DPValues at Dest.
   if (ReadFromTail && Src->getMarker(Last)) {
-    DPMarker *OntoDest = getMarker(Dest);
     DPMarker *FromLast = Src->getMarker(Last);
-    OntoDest->absorbDebugValues(*FromLast, true);
     if (LastIsEnd) {
-      FromLast->eraseFromParent();
+      if (!Dest->adoptDbgValues(Src, Last, true))
+        FromLast->eraseFromParent();
       Src->deleteTrailingDPValues();
+    } else {
+      DPMarker *OntoDest = createMarker(Dest); // XXX can reduce to adopt?
+      OntoDest->absorbDebugValues(*FromLast, true);
     }
   }
 
@@ -1025,10 +1032,16 @@ void BasicBlock::spliceDebugInfoImpl(BasicBlock::iterator Dest, BasicBlock *Src,
   // move their markers onto Last. They remain in the Src block. No action
   // needed.
   if (!ReadFromHead && First->hasDbgValues()) {
-    DPMarker *OntoLast = Src->createMarker(Last);
-    DPMarker *FromFirst = Src->createMarker(First);
-    OntoLast->absorbDebugValues(*FromFirst,
-                                true); // Always insert at head of it.
+    DPMarker *FromFirst = Src->getMarker(First);
+    if (Last != Src->end()) {
+      if (!Last->adoptDbgValues(Src, First, true))
+        FromFirst->eraseFromParent();
+    } else {
+      DPMarker *OntoLast = Src->createMarker(Last);
+      DPMarker *FromFirst = Src->createMarker(First);
+      OntoLast->absorbDebugValues(*FromFirst,
+                                  true); // Always insert at head of it.
+    }
   }
 
   // Finally, do something with the "====" DPValues we detached.
@@ -1036,12 +1049,12 @@ void BasicBlock::spliceDebugInfoImpl(BasicBlock::iterator Dest, BasicBlock *Src,
     if (InsertAtHead) {
       // Insert them at the end of the DPValues at Dest. The "::::" DPValues
       // might be in front of them.
-      DPMarker *NewDestMarker = getMarker(Dest);
+      DPMarker *NewDestMarker = createMarker(Dest);
       NewDestMarker->absorbDebugValues(*DestMarker, false);
     } else {
       // Insert them right at the start of the range we moved, ahead of First
       // and the "++++" DPValues.
-      DPMarker *FirstMarker = getMarker(First);
+      DPMarker *FirstMarker = createMarker(First);
       FirstMarker->absorbDebugValues(*DestMarker, true);
     }
     DestMarker->eraseFromParent();
@@ -1093,9 +1106,7 @@ void BasicBlock::insertDPValueAfter(DPValue *DPV, Instruction *I) {
   assert(I->getParent() == this);
 
   iterator NextIt = std::next(I->getIterator());
-  DPMarker *NextMarker = getMarker(NextIt);
-  if (!NextMarker)
-    NextMarker = createMarker(NextIt);
+  DPMarker *NextMarker = createMarker(NextIt);
   NextMarker->insertDPValue(DPV, true);
 }
 
@@ -1108,6 +1119,7 @@ void BasicBlock::insertDPValueBefore(DPValue *DPV,
   if (!Where->DbgMarker)
     createMarker(Where);
   bool InsertAtHead = Where.getHeadBit();
+  createMarker(&*Where);
   Where->DbgMarker->insertDPValue(DPV, InsertAtHead);
 }
 
