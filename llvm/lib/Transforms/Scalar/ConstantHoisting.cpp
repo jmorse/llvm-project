@@ -93,6 +93,35 @@ MinNumOfDependentToRebase("consthoist-min-num-to-rebase",
              "than this number."),
     cl::init(0), cl::Hidden);
 
+// jmorse -- densemapinfo for iterators
+namespace llvm {
+  // Provide DenseMapInfo for BasicBlock::iterator. Just project to the node
+  // pointer and /*combine with the "head" bit*/. Technically an iterator with the
+  // head bit set is a different location.
+  template <> struct DenseMapInfo<BasicBlock::iterator, void> {
+    static inline BasicBlock::iterator getEmptyKey() {
+      uintptr_t Val = static_cast<uintptr_t>(-1);
+      Instruction *foo = reinterpret_cast<Instruction*>(Val);
+      return BasicBlock::iterator(foo);
+    }
+
+    static inline BasicBlock::iterator getTombstoneKey() {
+      uintptr_t Val = static_cast<uintptr_t>(-2);
+      Instruction *foo = reinterpret_cast<Instruction*>(Val);
+      return BasicBlock::iterator(foo);
+    }
+
+    static unsigned getHashValue(const BasicBlock::iterator &Key) {
+      const Instruction *foo = static_cast<const Instruction*>(Key.getNodePtr());
+      return DenseMapInfo<const Instruction*>::getHashValue(foo);
+    }
+
+    static bool isEqual(const BasicBlock::iterator &LHS, const BasicBlock::iterator &RHS) {
+      return LHS == RHS;
+    }
+  };
+}
+
 namespace {
 
 /// The constant hoisting pass.
@@ -314,30 +343,26 @@ static void findBestInsertionSet(DominatorTree &DT, BlockFrequencyInfo &BFI,
 }
 
 /// Find an insertion point that dominates all uses.
-SetVector<Instruction *> ConstantHoistingPass::findConstantInsertionPoint(
+SetVector<BasicBlock::iterator> ConstantHoistingPass::findConstantInsertionPoint(
     const ConstantInfo &ConstInfo,
     const ArrayRef<Instruction *> MatInsertPts) const {
   assert(!ConstInfo.RebasedConstants.empty() && "Invalid constant info entry.");
   // Collect all basic blocks.
   SetVector<BasicBlock *> BBs;
-  SetVector<Instruction *> InsertPts;
+  SetVector<BasicBlock::iterator> InsertPts;
 
   for (Instruction *MatInsertPt : MatInsertPts)
     BBs.insert(MatInsertPt->getParent());
 
   if (BBs.count(Entry)) {
-    InsertPts.insert(Entry->getFirstNonPHIOrDbg());
+    InsertPts.insert(Entry->begin());
     return InsertPts;
   }
 
   if (BFI) {
     findBestInsertionSet(*DT, *BFI, Entry, BBs);
-    for (BasicBlock *BB : BBs) {
-      BasicBlock::iterator InsertPt = BB->begin();
-      for (; isa<PHINode>(InsertPt) || InsertPt->isEHPad() || isa<DbgInfoIntrinsic>(InsertPt); ++InsertPt)
-        ;
-      InsertPts.insert(&*InsertPt);
-    }
+    for (BasicBlock *BB : BBs)
+      InsertPts.insert(BB->getFirstInsertionPt());
     return InsertPts;
   }
 
@@ -347,14 +372,14 @@ SetVector<Instruction *> ConstantHoistingPass::findConstantInsertionPoint(
     BB2 = BBs.pop_back_val();
     BB = DT->findNearestCommonDominator(BB1, BB2);
     if (BB == Entry) {
-      InsertPts.insert(Entry->getFirstNonPHIOrDbg());
+      InsertPts.insert(Entry->begin());
       return InsertPts;
     }
     BBs.insert(BB);
   }
   assert((BBs.size() == 1) && "Expected only one element.");
-  Instruction &FirstInst = *(*BBs.begin())->getFirstNonPHIOrDbg();
-  InsertPts.insert(findMatInsertPt(&FirstInst));
+  BasicBlock::iterator FirstInst = (*BBs.begin())->begin();
+  InsertPts.insert(findMatInsertPt(&*FirstInst)->getIterator()); // XXX jmorse isn't ever first?
   return InsertPts;
 }
 
@@ -851,7 +876,7 @@ bool ConstantHoistingPass::emitBaseConstants(GlobalVariable *BaseGV) {
   for (const consthoist::ConstantInfo &ConstInfo : ConstInfoVec) {
     SmallVector<Instruction *, 4> MatInsertPts;
     collectMatInsertPts(ConstInfo.RebasedConstants, MatInsertPts);
-    SetVector<Instruction *> IPSet =
+    SetVector<BasicBlock::iterator> IPSet =
         findConstantInsertionPoint(ConstInfo, MatInsertPts);
     // We can have an empty set if the function contains unreachable blocks.
     if (IPSet.empty())
@@ -860,7 +885,7 @@ bool ConstantHoistingPass::emitBaseConstants(GlobalVariable *BaseGV) {
     unsigned UsesNum = 0;
     unsigned ReBasesNum = 0;
     unsigned NotRebasedNum = 0;
-    for (Instruction *IP : IPSet) {
+    for (BasicBlock::iterator IP : IPSet) {
       // First, collect constants depending on this IP of the base.
       UsesNum = 0;
       SmallVector<UserAdjustment, 4> ToBeRebased;
@@ -891,11 +916,12 @@ bool ConstantHoistingPass::emitBaseConstants(GlobalVariable *BaseGV) {
       if (ConstInfo.BaseExpr) {
         assert(BaseGV && "A base constant expression must have an base GV");
         Type *Ty = ConstInfo.BaseExpr->getType();
-        Base = new BitCastInst(ConstInfo.BaseExpr, Ty, "const", IP);
+        Base = new BitCastInst(ConstInfo.BaseExpr, Ty, "const");
       } else {
         IntegerType *Ty = ConstInfo.BaseInt->getType();
-        Base = new BitCastInst(ConstInfo.BaseInt, Ty, "const", IP);
+        Base = new BitCastInst(ConstInfo.BaseInt, Ty, "const");
       }
+      Base->insertBefore(*IP->getParent(), IP);
 
       Base->setDebugLoc(IP->getDebugLoc());
 

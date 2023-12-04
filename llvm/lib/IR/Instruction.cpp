@@ -61,6 +61,8 @@ Instruction::~Instruction() {
   // Explicitly remove DIAssignID metadata to clear up ID -> Instruction(s)
   // mapping in LLVMContext.
   setMetadata(LLVMContext::MD_DIAssignID, nullptr);
+  if (DbgMarker)
+    DbgMarker->removeMarker();
 }
 
 

@@ -295,6 +295,8 @@ void DPMarker::removeMarker() {
     return;
   }
 
+  assert(Owner && Owner->getParent() && "Removing DPMarker from removed inst!");
+
   // The attached DPValues need to be preserved; attach them to the next
   // instruction. If there isn't a next instruction, put them on the
   // "trailing" list.
