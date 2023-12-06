@@ -4723,6 +4723,14 @@ void Module::print(raw_ostream &ROS, AssemblyAnnotationWriter *AAW,
   if (IsNewDbgInfoFormat)
     const_cast<Module *>(this)->convertFromNewDbgValues();
 
+  if (Function *DbgValue = getFunction("llvm.dbg.value")) {
+    DbgValue->removeFnAttr(Attribute::MustProgress);
+    // Move to the start of the list to normalise.
+    FunctionListType &FuncList = const_cast<FunctionListType&>(getFunctionList());
+    if (FuncList.begin() != DbgValue->getIterator())
+      FuncList.splice(FuncList.begin(), FuncList, DbgValue->getIterator(), std::next(DbgValue->getIterator()));
+  }
+
   SlotTracker SlotTable(this);
   formatted_raw_ostream OS(ROS);
   AssemblyWriter W(OS, SlotTable, this, AAW, IsForDebug,

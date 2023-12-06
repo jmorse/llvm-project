@@ -2509,7 +2509,7 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
         //
         // Inlined notail calls should remain notail calls.
         CallInst::TailCallKind ChildTCK = CI->getTailCallKind();
-        if (ChildTCK != CallInst::TCK_NoTail)
+        if (ChildTCK != CallInst::TCK_NoTail && !isa<DbgVariableIntrinsic>(CI))
           ChildTCK = std::min(CallSiteTailKind, ChildTCK);
         CI->setTailCallKind(ChildTCK);
         InlinedMustTailCalls |= CI->isMustTailCall();

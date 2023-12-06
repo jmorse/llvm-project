@@ -25,6 +25,14 @@ PreservedAnalyses BitcodeWriterPass::run(Module &M, ModuleAnalysisManager &AM) {
   if (IsNewDbgInfoFormat)
     M.convertFromNewDbgValues();
 
+  if (Function *DbgValue = M.getFunction("llvm.dbg.value")) {
+    DbgValue->removeFnAttr(Attribute::MustProgress);
+    // Move to the start of the list to normalise.
+    auto &FuncList = M.getFunctionList();
+    if (FuncList.begin() != DbgValue->getIterator())
+      FuncList.splice(FuncList.begin(), FuncList, DbgValue->getIterator(), std::next(DbgValue->getIterator()));
+  }
+
   const ModuleSummaryIndex *Index =
       EmitSummaryIndex ? &(AM.getResult<ModuleSummaryIndexAnalysis>(M))
                        : nullptr;
@@ -69,6 +77,14 @@ namespace {
       bool IsNewDbgInfoFormat = M.IsNewDbgInfoFormat;
       if (IsNewDbgInfoFormat)
         M.convertFromNewDbgValues();
+
+      if (Function *DbgValue = M.getFunction("llvm.dbg.value")) {
+        DbgValue->removeFnAttr(Attribute::MustProgress);
+        // Move to the start of the list to normalise.
+        auto &FuncList = M.getFunctionList();
+        if (FuncList.begin() != DbgValue->getIterator())
+          FuncList.splice(FuncList.begin(), FuncList, DbgValue->getIterator(), std::next(DbgValue->getIterator()));
+      }
 
       WriteBitcodeToFile(M, OS, ShouldPreserveUseListOrder, Index,
                          EmitModuleHash);
