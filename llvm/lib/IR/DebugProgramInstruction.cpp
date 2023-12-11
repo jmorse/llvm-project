@@ -29,17 +29,6 @@ DPValue::DPValue(const DbgVariableIntrinsic *DVI)
   }
 }
 
-DPValue::DPValue(const DPValue &DPV)
-    : DebugValueUser(DPV.getRawLocation()),
-      Variable(DPV.getVariable()), Expression(DPV.getExpression()),
-      DbgLoc(DPV.getDebugLoc()), Type(DPV.getType()) {}
-
-DPValue::DPValue(Metadata *Location, DILocalVariable *DV, DIExpression *Expr,
-                 const DILocation *DI)
-    : DebugValueUser(Location), Variable(DV), Expression(Expr), DbgLoc(DI),
-      Type(LocationType::Value) {
-}
-
 void DPValue::deleteInstr() { delete this; }
 
 iterator_range<DPValue::location_op_iterator> DPValue::location_ops() const {
@@ -329,10 +318,6 @@ void DPMarker::eraseFromParent() {
     removeFromParent();
   dropDPValues();
   delete this;
-}
-
-iterator_range<DPValue::self_iterator> DPMarker::getDbgValueRange() {
-  return make_range(StoredDPValues.begin(), StoredDPValues.end());
 }
 
 void DPValue::removeFromParent() {

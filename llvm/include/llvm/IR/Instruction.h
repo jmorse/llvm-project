@@ -19,6 +19,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/ilist_node.h"
 #include "llvm/IR/DebugLoc.h"
+#include "llvm/IR/DebugProgramInstruction.h"
 #include "llvm/IR/SymbolTableListTraits.h"
 #include "llvm/IR/User.h"
 #include "llvm/IR/Value.h"
@@ -76,7 +77,16 @@ public:
       bool InsertAtHead = false);
 
   /// Return a range over the DPValues attached to this instruction.
-  iterator_range<simple_ilist<DPValue>::iterator> getDbgValueRange() const;
+  iterator_range<simple_ilist<DPValue>::iterator> getDbgValueRange() const {
+    BasicBlock *Parent = const_cast<BasicBlock *>(getParent());
+    assert(Parent && "Instruction must be inserted to have DPValues");
+    (void)Parent;
+
+    if (!DbgMarker)
+      return DPMarker::getEmptyDPValueRange();
+
+    return DbgMarker->getDbgValueRange();
+  }
 
   /// Return an iterator to the position of the "Next" DPValue after this
   /// instruction, or std::nullopt. This is the position to pass to

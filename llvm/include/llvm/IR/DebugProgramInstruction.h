@@ -109,11 +109,19 @@ public:
   /// Create a new DPValue representing the intrinsic \p DVI, for example the
   /// assignment represented by a dbg.value.
   DPValue(const DbgVariableIntrinsic *DVI);
-  DPValue(const DPValue &DPV);
+
   /// Directly construct a new DPValue representing a dbg.value intrinsic
   /// assigning \p Location to the DV / Expr / DI variable.
   DPValue(Metadata *Location, DILocalVariable *DV, DIExpression *Expr,
-          const DILocation *DI);
+                 const DILocation *DI)
+      : DebugValueUser(Location), Variable(DV), Expression(Expr), DbgLoc(DI),
+        Type(LocationType::Value) {
+  }
+
+  DPValue(const DPValue &DPV)
+        : DebugValueUser(DPV.getRawLocation()),
+          Variable(DPV.getVariable()), Expression(DPV.getExpression()),
+          DbgLoc(DPV.getDebugLoc()), Type(DPV.getType()) {}
 
   /// Iterator for ValueAsMetadata that internally uses direct pointer iteration
   /// over either a ValueAsMetadata* or a ValueAsMetadata**, dereferencing to the
@@ -305,7 +313,10 @@ public:
   void print(raw_ostream &ROS, ModuleSlotTracker &MST, bool IsForDebug) const;
 
   /// Produce a range over all the DPValues in this Marker.
-  iterator_range<simple_ilist<DPValue>::iterator> getDbgValueRange();
+  iterator_range<simple_ilist<DPValue>::iterator> getDbgValueRange() {
+    return make_range(StoredDPValues.begin(), StoredDPValues.end());
+  }
+
   /// Transfer any DPValues from \p Src into this DPMarker. If \p InsertAtHead
   /// is true, place them before existing DPValues, otherwise afterwards.
   void absorbDebugValues(DPMarker &Src, bool InsertAtHead);
