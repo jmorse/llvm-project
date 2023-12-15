@@ -74,8 +74,8 @@ private:
 public:
   /// Attach a DPMarker to the given instruction. Enables the storage of any
   /// debug-info at this position in the program.
-  DPMarker *createMarker(Instruction *I);
-  DPMarker *createMarker(InstListType::iterator It);
+  DPMarker *createMarker(Instruction *I, unsigned int DPVCount = 0);
+  DPMarker *createMarker(InstListType::iterator It, unsigned int DPVCount = 0);
 
   /// Convert variable location debugging information stored in dbg.value
   /// intrinsics into DPMarker / DPValue records. Deletes all dbg.values in

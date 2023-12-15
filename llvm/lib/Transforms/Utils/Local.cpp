@@ -2617,7 +2617,9 @@ static bool rewriteDebugUsers(
     }
 
     // DPValue implementation of the above.
-    for (auto *DPV : DPUsers) {
+    unsigned int I;
+    for (I = 0; I < DPUsers.size(); ++I) {
+      DPValue *DPV = DPUsers[I];
       Instruction *MarkedInstr = DPV->getMarker()->MarkedInstr;
       Instruction *NextNonDebug = MarkedInstr;
       // The next instruction might still be a dbg.declare, skip over it.
@@ -2626,7 +2628,8 @@ static bool rewriteDebugUsers(
 
       if (DomPointAfterFrom && NextNonDebug == &DomPoint) {
         LLVM_DEBUG(dbgs() << "MOVE:  " << *DPV << '\n');
-        DPV->removeFromParent();
+        DPV = DPV->unlinkFromParent();
+        DPUsers[I] = DPV; // loljmorse
         // Ensure there's a marker.
         DomPoint.getParent()->insertDPValueAfter(DPV, &DomPoint);
         Changed = true;

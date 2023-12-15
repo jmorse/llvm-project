@@ -34,9 +34,9 @@ cl::opt<bool>
     UseNewDbgInfoFormat("experimental-debuginfo-iterators",
                         cl::desc("Enable communicating debuginfo positions "
                                  "through iterators, eliminating intrinsics"),
-                        cl::init(false));
+                        cl::init(true));
 
-DPMarker *BasicBlock::createMarker(Instruction *I) {
+DPMarker *BasicBlock::createMarker(Instruction *I, unsigned int DPVCount) {
   assert(IsNewDbgInfoFormat &&
          "Tried to create a marker in a non new debug-info block!");
   if (I->DbgMarker)
@@ -47,7 +47,7 @@ DPMarker *BasicBlock::createMarker(Instruction *I) {
   return Marker;
 }
 
-DPMarker *BasicBlock::createMarker(InstListType::iterator It) {
+DPMarker *BasicBlock::createMarker(InstListType::iterator It, unsigned int DPVCount) {
   assert(IsNewDbgInfoFormat &&
          "Tried to create a marker in a non new debug-info block!");
   if (It != end())
@@ -175,6 +175,8 @@ bool BasicBlock::validateDbgValues(bool Assert, bool Msg, raw_ostream *OS) {
       TestFailure(
           !isa<PHINode>(It),
           "DebugProgramValues must not appear before PHI nodes in a block!");
+
+//      TestFailure(CurrentDebugMarker->NumInline != 0 || !DPV.isInline, "inline DPV in non-inline DPM?");
     }
   }
 
@@ -279,6 +281,8 @@ BasicBlock::~BasicBlock() {
     Inst.DbgMarker->eraseFromParent();
   }
   InstList.clear();
+
+assert(!getTrailingDPValues());
 }
 
 void BasicBlock::setParent(Function *parent) {
@@ -776,7 +780,6 @@ void BasicBlock::flushTerminatorDbgValues() {
   // Transfer DPValues from the trailing position onto the terminator.
   createMarker(Term);
   Term->DbgMarker->absorbDebugValues(*TrailingDPValues, false);
-  TrailingDPValues->eraseFromParent();
   deleteTrailingDPValues();
 }
 
@@ -899,7 +902,6 @@ void BasicBlock::spliceDebugInfo(BasicBlock::iterator Dest, BasicBlock *Src,
       // allocation in the future).
       DPMarker *CurMarker = Src->createMarker(&*First);
       CurMarker->absorbDebugValues(*OurTrailingDPValues, false);
-      OurTrailingDPValues->eraseFromParent();
     }
 
     deleteTrailingDPValues();
@@ -918,7 +920,6 @@ void BasicBlock::spliceDebugInfo(BasicBlock::iterator Dest, BasicBlock *Src,
   // requires an iterator).
   DPMarker *LastMarker = Src->createMarker(Last);
   LastMarker->absorbDebugValues(*MoreDanglingDPValues, true);
-  MoreDanglingDPValues->eraseFromParent();
 }
 
 void BasicBlock::spliceDebugInfoImpl(BasicBlock::iterator Dest, BasicBlock *Src,
@@ -1045,7 +1046,6 @@ void BasicBlock::spliceDebugInfoImpl(BasicBlock::iterator Dest, BasicBlock *Src,
       DPMarker *FirstMarker = createMarker(First);
       FirstMarker->absorbDebugValues(*DestMarker, true);
     }
-    DestMarker->eraseFromParent();
   } else if (Dest == end() && !InsertAtHead) {
     // In the rare circumstance where we insert at end(), and we did not
     // generate the iterator with begin() / getFirstInsertionPt(), it means
@@ -1055,7 +1055,6 @@ void BasicBlock::spliceDebugInfoImpl(BasicBlock::iterator Dest, BasicBlock *Src,
     DPMarker *TrailingDPValues = getTrailingDPValues();
     if (TrailingDPValues) {
       FirstMarker->absorbDebugValues(*TrailingDPValues, true);
-      TrailingDPValues->eraseFromParent();
       deleteTrailingDPValues();
     }
   }
@@ -1172,6 +1171,8 @@ void BasicBlock::reinsertInstInDPValues(
   // Otherwise: splice.
   DPMarker *ThisMarker = createMarker(I);
   assert(ThisMarker->StoredDPValues.empty());
+// XXX jmorse -- single scenario remaining where we peel/reallocate DPValues from their marker?
+// Seems alright in proportion.
   ThisMarker->absorbDebugValues(Range, *DPM, true);
 }
 

@@ -232,8 +232,11 @@ Instruction::cloneDebugInfoFrom(const Instruction *From,
   assert(getParent()->IsNewDbgInfoFormat ==
          From->getParent()->IsNewDbgInfoFormat);
 
-  if (!DbgMarker)
-    getParent()->createMarker(this);
+  if (!DbgMarker) {
+    DbgMarker = DPMarker::cloneDebugInfoFromInline(this, From->DbgMarker, FromHere);
+    DbgMarker->MarkedInstr = this;
+    return DbgMarker->getDbgValueRange();
+  }
 
   return DbgMarker->cloneDebugInfoFrom(From->DbgMarker, FromHere, InsertAtHead);
 }
@@ -277,7 +280,7 @@ bool Instruction::adoptDbgValues(BasicBlock *BB, BasicBlock::iterator It,
     // Ensure we _do_ have a marker.
     getParent()->createMarker(this);
     DbgMarker->absorbDebugValues(*SrcMarker, InsertAtHead);
-    return false;
+    return true;
   } else {
     // Optimisation: adopt the other instructions marker.
     DbgMarker = SrcMarker;

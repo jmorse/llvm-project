@@ -27,19 +27,29 @@ DPValue::DPValue(const DbgVariableIntrinsic *DVI)
     llvm_unreachable(
         "Trying to create a DPValue with an invalid intrinsic type!");
   }
+  isInline = false;
 }
 
 DPValue::DPValue(const DPValue &DPV)
     : DebugValueUser(DPV.getRawLocation()),
       Variable(DPV.getVariable()), Expression(DPV.getExpression()),
-      DbgLoc(DPV.getDebugLoc()), Type(DPV.getType()) {}
+      DbgLoc(DPV.getDebugLoc()), Type(DPV.getType()) {
+  isInline = false; // Let caller set it if it's important.
+}
 
 DPValue::DPValue(Metadata *Location, DILocalVariable *DV, DIExpression *Expr,
                  const DILocation *DI, LocationType Type)
     : DebugValueUser(Location), Variable(DV), Expression(Expr), DbgLoc(DI),
-      Type(Type) {}
+      Type(Type) {
+  isInline = false;
+}
 
-void DPValue::deleteInstr() { delete this; }
+void DPValue::deleteInstr() {
+  if (!isInline)
+    delete this;
+  else
+    DPValue::~DPValue(); // oh my.
+}
 
 iterator_range<DPValue::location_op_iterator> DPValue::location_ops() const {
   auto *MD = getRawLocation();
@@ -277,6 +287,12 @@ const BasicBlock *DPMarker::getParent() const {
 BasicBlock *DPMarker::getParent() { return MarkedInstr->getParent(); }
 
 void DPMarker::removeMarker() {
+#if 0
+dbgs() << "Removing marker from ";
+MarkedInstr->dump();
+dbgs() << "Before";
+dump();
+#endif
   // Are there any DPValues in this DPMarker? If not, nothing to preserve.
   Instruction *Owner = MarkedInstr;
   if (StoredDPValues.empty()) {
@@ -290,8 +306,12 @@ void DPMarker::removeMarker() {
   // "trailing" list.
   DPMarker *NextMarker = Owner->getParent()->getNextMarker(Owner);
   if (NextMarker) {
+#if 0
+dbgs() << "Next";
+NextMarker->dump();
+#endif
     NextMarker->absorbDebugValues(*this, true);
-    eraseFromParent();
+    // that erases us!
   } else {
     // We can avoid a deallocation -- just store this marker onto the next
     // instruction. Are we at the end of the block?
@@ -303,11 +323,15 @@ void DPMarker::removeMarker() {
       NextIt->DbgMarker = this;
       MarkedInstr = &*NextIt;
     }
+    Owner->DbgMarker = nullptr;
   }
-  Owner->DbgMarker = nullptr;
+assert(!Owner->DbgMarker);
+//dbgs() << "After";
+//dump();
 }
 
 void DPMarker::removeFromParent() {
+if (MarkedInstr) // might be a dangler?
   MarkedInstr->DbgMarker = nullptr;
   MarkedInstr = nullptr;
 }
@@ -316,7 +340,18 @@ void DPMarker::eraseFromParent() {
   if (MarkedInstr)
     removeFromParent();
   dropDPValues();
-  delete this;
+
+  // Delete down the chain -- nothing further down should either mark anything
+  // or have any DPValues in a list.
+  MarkedInstr = nullptr;
+  DPMarker *ToFree = this;
+  while (ToFree) {
+    assert(ToFree->MarkedInstr == nullptr);
+    assert(ToFree->StoredDPValues.empty());
+    DPMarker *tmp = ToFree;
+    ToFree = ToFree->ToFreeChain;
+    delete tmp;
+  }
 }
 
 iterator_range<DPValue::self_iterator> DPMarker::getDbgValueRange() {
@@ -325,6 +360,18 @@ iterator_range<DPValue::self_iterator> DPMarker::getDbgValueRange() {
 
 void DPValue::removeFromParent() {
   getMarker()->StoredDPValues.erase(getIterator());
+}
+
+DPValue *DPValue::unlinkFromParent() {
+  getMarker()->StoredDPValues.erase(getIterator());
+
+  if (isInline) {
+    DPValue *Clone = clone();
+    deleteInstr(); // delete ourselves!
+    return Clone;
+  } else {
+    return this;
+  }
 }
 
 void DPValue::eraseFromParent() {
@@ -340,17 +387,47 @@ void DPMarker::insertDPValue(DPValue *New, bool InsertAtHead) {
 
 void DPMarker::absorbDebugValues(DPMarker &Src, bool InsertAtHead) {
   auto It = InsertAtHead ? StoredDPValues.begin() : StoredDPValues.end();
-  for (DPValue &DPV : Src.StoredDPValues)
+  bool HasInline = false;
+  for (DPValue &DPV : make_early_inc_range(Src.StoredDPValues)) {
     DPV.setMarker(this);
+    HasInline |= DPV.isInline;
+  }
 
   StoredDPValues.splice(It, Src.StoredDPValues);
+
+  if (HasInline) {
+    Src.removeFromParent();
+    // What if both of these things have to-free chains?
+    // Seek out the end of ours and put Src there.
+    DPMarker *EndOfList = this;
+    while (EndOfList->ToFreeChain)
+      EndOfList = EndOfList->ToFreeChain;
+    EndOfList->ToFreeChain = &Src;
+  } else {
+    Src.eraseFromParent();
+  }
+// XXX -- this effectively invalidates the Src, need to check all callsites.
 }
 
 void DPMarker::absorbDebugValues(iterator_range<DPValue::self_iterator> Range,
                                  DPMarker &Src, bool InsertAtHead) {
-  for (DPValue &DPV : Range)
-    DPV.setMarker(this);
+  auto lolrange = Range;
+  for (DPValue &DPV : make_early_inc_range(Range)) {
+    if (!DPV.isInline) {
+      DPV.setMarker(this);
+    } else {
+      // We have to re-allocate it if it's inline, then unlink the old one.
+      // In the future perhaps we can chain slabs of DPMarkers, but not today.
+      DPValue *NewDPV = DPV.clone();
+      NewDPV->setMarker(this);
+      auto InsertPos = std::next(DPV.getIterator());
+      DPV.eraseFromParent();
+      Src.StoredDPValues.insert(InsertPos, *NewDPV);
 
+     if (&*Range.begin() == &DPV)
+       lolrange = make_range(NewDPV->getIterator(), Range.end());
+    }
+  }
   auto InsertPos =
       (InsertAtHead) ? StoredDPValues.begin() : StoredDPValues.end();
 
@@ -392,6 +469,57 @@ iterator_range<simple_ilist<DPValue>::iterator> DPMarker::cloneDebugInfoFrom(
     // We inserted a block at the end, return that range.
     return {First->getIterator(), StoredDPValues.end()};
 }
+
+DPValue *
+DPMarker::getInline(unsigned int Idx) {
+  assert(Idx < NumInline);
+  uintptr_t Ptr = reinterpret_cast<uintptr_t>(this);
+  Ptr += sizeof(DPMarker);
+  Ptr += (Idx * sizeof(DPValue));
+  return reinterpret_cast<DPValue *>(Ptr);
+}
+
+DPMarker::DPMarker(unsigned int NumInline) {
+  this->NumInline = NumInline;
+}
+
+DPMarker *
+DPMarker::allocWithInline(unsigned int Num) {
+  unsigned int size_wanted = sizeof(DPMarker) + (sizeof(DPValue) * Num);
+  DPMarker *DPM = static_cast<DPMarker*>(::operator new(size_wanted));
+  // In-place constructor call.
+  new (DPM) DPMarker(Num);
+  return DPM;
+}
+
+DPMarker *
+DPMarker::cloneDebugInfoFromInline(Instruction *inst_from, DPMarker *From,
+                       std::optional<simple_ilist<DPValue>::iterator> from_here) {
+  // Form the source range,
+  auto Range =
+      make_range(From->StoredDPValues.begin(), From->StoredDPValues.end());
+  if (from_here.has_value())
+    Range = make_range(*from_here, From->StoredDPValues.end());
+
+  unsigned NumElems = std::distance(Range.begin(), Range.end());
+  DPMarker *DPM = allocWithInline(NumElems);
+  // XXX -- what do to when there are none, be an error?
+
+  // Iterate through the range, constructing in-place in the allocated blobs,
+  // and setting the "inline" flag.
+  unsigned int Count = 0 ;
+  for (DPValue &DPV : Range) {
+    DPValue *NewMem = DPM->getInline(Count);
+    new (NewMem) DPValue(DPV);
+    NewMem->setMarker(DPM);
+    NewMem->isInline = true;
+    DPM->StoredDPValues.insert(DPM->StoredDPValues.end(), *NewMem);
+    ++Count;
+  }
+
+  return DPM;
+}
+
 
 } // end namespace llvm
 

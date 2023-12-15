@@ -2991,8 +2991,8 @@ void coro::salvageDebugInfo(
     else if (isa<Argument>(Storage))
       InsertPt = F->getEntryBlock().begin();
     if (InsertPt) {
-      DPV.removeFromParent();
-      (*InsertPt)->getParent()->insertDPValueBefore(&DPV, *InsertPt);
+      DPValue *Unlinked = DPV.unlinkFromParent();
+      (*InsertPt)->getParent()->insertDPValueBefore(Unlinked, *InsertPt);
     }
   }
 }
