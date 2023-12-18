@@ -214,6 +214,8 @@ void Instruction::moveBeforeImpl(BasicBlock &BB, InstListType::iterator I,
     // there, then we should absorb the DPValues attached to I.
     if (!InsertAtHead && NextMarker && !NextMarker->empty()) {
       adoptDbgValues(&BB, I, false);
+      if (I == BB.end())
+        BB.deleteTrailingDPValues();
     }
   }
 
