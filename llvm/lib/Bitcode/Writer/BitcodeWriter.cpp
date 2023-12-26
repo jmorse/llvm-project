@@ -3513,7 +3513,6 @@ void ModuleBitcodeWriter::writeFunction(
           // are derived from the values operand and the bitcode position
           // respectively.
           Metadata *M = DPV.getRawLocation();
-// XXX for space need to stop enumerating this Metadata?
           unsigned Code = bitc::FUNC_CODE_DEBUG_VAR_LOC;
           if (M && isa<ValueAsMetadata>(M)) {
             // Try to encode as a Value/Type reference instead of as a Metadata
@@ -3533,7 +3532,7 @@ void ModuleBitcodeWriter::writeFunction(
           // DebugLoc. Don't use the DEBUG_LOC(_AGAIN) framework to avoid
           // having extra code in the reader to handle DebugLocs attached to
           // non-instructions. TODO: Do that to improve compression.
-          EncodeDbgLoc(DPV.getDebugLoc());
+          Vals.push_back(VE.getMetadataID(&*DPV.getDebugLoc()));
           Stream.EmitRecord(Code, Vals);
           Vals.clear();
         }

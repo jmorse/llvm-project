@@ -435,8 +435,7 @@ ValueEnumerator::ValueEnumerator(const Module &M,
           // Enumerate non-location metadata.
           EnumerateMetadata(&F, DPV.getExpression());
           EnumerateMetadata(&F, DPV.getVariable());
-          for (const Metadata *Op : DPV.getDebugLoc()->operands())
-            EnumerateMetadata(&F, Op);
+          EnumerateMetadata(&F, &*DPV.getDebugLoc());
 
           // Enumerate non-local location metadata.
           if (!DPV.getRawLocation()) {

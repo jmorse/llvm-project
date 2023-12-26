@@ -626,10 +626,10 @@ enum FunctionCodes {
   FUNC_CODE_BLOCKADDR_USERS = 60, // BLOCKADDR_USERS: [value...]
 
   FUNC_CODE_DEBUG_VAR_LOC =
-      61, // DPVALUE: [values, expression, variable, line, col, scope, ia]
+      61, // DPVALUE: [values, expression, variable, dilocation]
   // XXX jmorse, this can become the same as above if we add another selector bit.
   FUNC_CODE_DEBUG_VAR_LOC_WVALUES =
-      62, // DPVALUE: [value-ref, ty, expression, variable, line, col, scope, ia]
+      62, // DPVALUE: [value-ref, ty, expression, variable, dilocation]
 };
 
 enum UseListCodes {
