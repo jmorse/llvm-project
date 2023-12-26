@@ -451,7 +451,8 @@ ValueEnumerator::ValueEnumerator(const Module &M,
                 EnumerateMetadata(&F, VAM);
             }
           } else if (!isa<LocalAsMetadata>(DPV.getRawLocation())) {
-            EnumerateMetadata(&F, DPV.getRawLocation());
+            EnumerateMetadata(&F, DPV.getRawLocation()); // jmorse. of interest.
+	    // XXX this doesn't enumerate non-locals at all?
           }
         }
         for (const Use &Op : I.operands()) {
@@ -1134,7 +1135,11 @@ void ValueEnumerator::incorporateFunction(const Function &F) {
       }
       /// DDD: Add non-instruction function-local metadata uses.
       for (DPValue &DPV : I.getDbgValueRange())
-        AddFnLocalMetadata(DPV.getRawLocation());
+        if (Metadata *M = DPV.getRawLocation())
+          if (!isa<LocalAsMetadata>(M))
+            AddFnLocalMetadata(M);
+// XXX jmorse -- don't enumerate DPValue normal metadata refs as we'll emit
+// those directly.
 
       if (!I.getType()->isVoidTy())
         EnumerateValue(&I);

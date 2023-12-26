@@ -6417,6 +6417,44 @@ Error BitcodeReader::parseFunctionBody(Function *F) {
       Inst->getParent()->insertDPValueBefore(DPV, Inst->getIterator());
       continue; // This isn't an instruction.
     }
+    case bitc::FUNC_CODE_DEBUG_VAR_LOC_WVALUES: {
+      assert(UseNewDbgInfoFormat && "not in ddd mode but have dpvalue record");
+      assert(DDDDirectBC && "not in ddd bc mode but have dpvalue record");
+      // DPValues are placed after the Instructions that they are attached to.
+      Instruction *Inst = getLastInstruction();
+      if (!Inst)
+        return error("Invalid record");
+
+      unsigned Slot = 0;
+      Value *Val = nullptr;
+      unsigned ValTypeID = 0;
+      if (getValueTypePair(Record, Slot, NextValueNo, Val, ValTypeID, CurBB))
+        return error("Invalid record");
+      DIExpression *Expr = cast<DIExpression>(getFnMetadataByID(Record[Slot++]));
+      DILocalVariable *Var =
+          cast<DILocalVariable>(getFnMetadataByID(Record[Slot++]));
+      // The rest of the record describes the DebugLoc.
+      ArrayRef<uint64_t> DbgLocRecord =
+          ArrayRef<uint64_t>(Record).drop_front(Slot);
+      auto MaybeDbgLoc = DecodeDebugLoc(DbgLocRecord);
+      if (!MaybeDbgLoc)
+        return error("Invalid record");
+      // XXX jmorse This is going to wrap Val, which _could_ be a dummy forward
+      // reference, in a VAM that then gets a DPValue metadata-user pointing at
+      // it. There's an unavoidable RAUW cost if Val is a fwd ref, but if it
+      // isn't (which seems likely) then there's no further setup. We don't
+      // need to switch to parsing the metadata block, or get a fwd-reference
+      // metadata node that'll be tracked, untracked, then tracked.
+      DPValue *DPV = new DPValue(ValueAsMetadata::get(Val), Var, Expr, *MaybeDbgLoc);
+      // Inst->getParent()->IsNewDbgInfoFormat = true; // uh... need to do this for all
+      // blocks... Inst->getParent()->getParent()->IsNewDbgInfoFormat = true; // uh...
+      // need to do this for all blocks...
+      // Inst->getParent()->getParent()->getParent()->IsNewDbgInfoFormat = true;
+      if (!Inst->DbgMarker)
+        Inst->getParent()->createMarker(Inst);
+      Inst->getParent()->insertDPValueBefore(DPV, Inst->getIterator());
+      continue; // This isn't an instruction.
+    }
     case bitc::FUNC_CODE_INST_CALL: {
       // CALL: [paramattrs, cc, fmf, fnty, fnid, arg0, arg1...]
       if (Record.size() < 3)

@@ -3512,17 +3512,29 @@ void ModuleBitcodeWriter::writeFunction(
           // Don't need to encode the LocationType or Marker as those
           // are derived from the values operand and the bitcode position
           // respectively.
-          if (DPV.getRawLocation())
-            Vals.push_back(VE.getMetadataID(DPV.getRawLocation()));
-          else // Little hack to ensure `!{}` locations work.
-            Vals.push_back(VE.getMetadataID(MDTuple::get(I.getContext(), {})));
+          Metadata *M = DPV.getRawLocation();
+// XXX for space need to stop enumerating this Metadata?
+          unsigned Code = bitc::FUNC_CODE_DEBUG_VAR_LOC;
+          if (M && isa<ValueAsMetadata>(M)) {
+            // Try to encode as a Value/Type reference instead of as a Metadata
+            // XXX how does one push those two,
+            Code = bitc::FUNC_CODE_DEBUG_VAR_LOC_WVALUES;
+            // Unwrap the value,
+            ValueAsMetadata *VAM = dyn_cast<ValueAsMetadata>(M);
+            pushValueAndType(VAM->getValue(), InstID, Vals);
+          } else {
+            if (M)
+              Vals.push_back(VE.getMetadataID(M));
+            else // Little hack to ensure `!{}` locations work.
+              Vals.push_back(VE.getMetadataID(MDTuple::get(I.getContext(), {})));
+          }
           Vals.push_back(VE.getMetadataID(DPV.getExpression()));
           Vals.push_back(VE.getMetadataID(DPV.getVariable()));
           // DebugLoc. Don't use the DEBUG_LOC(_AGAIN) framework to avoid
           // having extra code in the reader to handle DebugLocs attached to
           // non-instructions. TODO: Do that to improve compression.
           EncodeDbgLoc(DPV.getDebugLoc());
-          Stream.EmitRecord(bitc::FUNC_CODE_DEBUG_VAR_LOC, Vals);
+          Stream.EmitRecord(Code, Vals);
           Vals.clear();
         }
       }

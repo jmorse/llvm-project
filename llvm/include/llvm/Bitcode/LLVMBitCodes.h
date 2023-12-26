@@ -627,6 +627,9 @@ enum FunctionCodes {
 
   FUNC_CODE_DEBUG_VAR_LOC =
       61, // DPVALUE: [values, expression, variable, line, col, scope, ia]
+  // XXX jmorse, this can become the same as above if we add another selector bit.
+  FUNC_CODE_DEBUG_VAR_LOC_WVALUES =
+      62, // DPVALUE: [value-ref, ty, expression, variable, line, col, scope, ia]
 };
 
 enum UseListCodes {
