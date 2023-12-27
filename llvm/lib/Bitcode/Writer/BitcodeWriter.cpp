@@ -130,6 +130,10 @@ enum {
   FUNCTION_INST_RET_VAL_ABBREV,
   FUNCTION_INST_UNREACHABLE_ABBREV,
   FUNCTION_INST_GEP_ABBREV,
+
+  // lolol jeremy abbrev id's
+//  DPVALUE_ABBREV,
+  DPVALUE2_ABBREV,
 };
 
 /// Abstract class to manage the bitcode writing, subclassed for each bitcode
@@ -3507,21 +3511,28 @@ void ModuleBitcodeWriter::writeFunction(
       // when reading the bitcode, even though conceptually the debug locations
       // start "before" the instruction.
       if (I.DbgMarker && DDDDirectBC) {
-        // Create a record for each marker.
+        auto EjectArrayOfAbbrevs = [&]() {
+          if (Vals.empty())
+            return;
+          Stream.EmitRecord(bitc::FUNC_CODE_DEBUG_VAR_LOC_WVALUES, Vals, DPVALUE2_ABBREV);
+          Vals.clear();
+        };
+
         for (DPValue &DPV : I.DbgMarker->getDbgValueRange()) {
           // Don't need to encode the LocationType or Marker as those
           // are derived from the values operand and the bitcode position
           // respectively.
           Metadata *M = DPV.getRawLocation();
-          unsigned Code = bitc::FUNC_CODE_DEBUG_VAR_LOC;
+          bool IsNormal = true;
           if (M && isa<ValueAsMetadata>(M)) {
-            // Try to encode as a Value/Type reference instead of as a Metadata
-            // XXX how does one push those two,
-            Code = bitc::FUNC_CODE_DEBUG_VAR_LOC_WVALUES;
             // Unwrap the value,
             ValueAsMetadata *VAM = dyn_cast<ValueAsMetadata>(M);
             pushValueAndType(VAM->getValue(), InstID, Vals);
           } else {
+            // We're going to emit a non-normal location, eject all the ones
+            // we've seen so far.
+            EjectArrayOfAbbrevs();
+            IsNormal = false;
             if (M)
               Vals.push_back(VE.getMetadataID(M));
             else // Little hack to ensure `!{}` locations work.
@@ -3533,9 +3544,15 @@ void ModuleBitcodeWriter::writeFunction(
           // having extra code in the reader to handle DebugLocs attached to
           // non-instructions. TODO: Do that to improve compression.
           Vals.push_back(VE.getMetadataID(&*DPV.getDebugLoc()));
-          Stream.EmitRecord(Code, Vals);
-          Vals.clear();
+
+          // If we're dealing with a non-normal VAM DPValue, emit right now
+          // as a normal location.
+          if (!IsNormal) {
+            Stream.EmitRecord(bitc::FUNC_CODE_DEBUG_VAR_LOC, Vals, 0);
+            Vals.clear();
+          }
         }
+        EjectArrayOfAbbrevs();
       }
     }
 
@@ -3776,6 +3793,33 @@ void ModuleBitcodeWriter::writeBlockInfo() {
     if (Stream.EmitBlockInfoAbbrev(bitc::FUNCTION_BLOCK_ID, Abbv) !=
         FUNCTION_INST_GEP_ABBREV)
       llvm_unreachable("Unexpected abbrev ordering!");
+  }
+// jmorse
+#if 0
+  {
+    auto Abbv = std::make_shared<BitCodeAbbrev>();
+    Abbv->Add(BitCodeAbbrevOp(bitc::FUNC_CODE_DEBUG_VAR_LOC_WVALUES));
+    // fmt: value, optional-type, expr, var, dilocation.
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6));
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6));
+    // There's usually tons of metadata.
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 16));
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 16));
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 16));
+    if (Stream.EmitBlockInfoAbbrev(bitc::FUNCTION_BLOCK_ID, Abbv) !=
+        DPVALUE_ABBREV)
+      llvm_unreachable("Unexpected abbrev ordering! 1");
+  }
+#endif
+  {
+    auto Abbv = std::make_shared<BitCodeAbbrev>();
+    Abbv->Add(BitCodeAbbrevOp(bitc::FUNC_CODE_DEBUG_VAR_LOC_WVALUES));
+    // fmt: array-of [value, expr, var, dilocation]
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Array));
+    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 16));
+    if (Stream.EmitBlockInfoAbbrev(bitc::FUNCTION_BLOCK_ID, Abbv) !=
+        DPVALUE2_ABBREV)
+      llvm_unreachable("Unexpected abbrev ordering! 1");
   }
 
   Stream.ExitBlock();
