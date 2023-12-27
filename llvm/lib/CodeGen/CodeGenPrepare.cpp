@@ -8459,7 +8459,7 @@ static void DbgInserterHelper(DbgValueInst *DVI, Instruction *VI) {
 }
 
 static void DbgInserterHelper(DPValue *DPV, Instruction *VI) {
-  DPV->removeFromParent();
+  DPV = DPV->unlinkFromParent();
   BasicBlock *VIBB = VI->getParent();
   if (isa<PHINode>(VI))
     VIBB->insertDPValueBefore(DPV, VIBB->getFirstInsertionPt());

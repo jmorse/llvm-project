@@ -639,8 +639,7 @@ void llvm::deleteDeadLoop(Loop *L, DominatorTree *DT, ScalarEvolution *SE,
             if (!DeadDebugSet.insert(Key).second)
               continue;
             // Unlinks the DPV from it's container, for later insertion.
-            DPV.removeFromParent();
-            DeadDPValues.push_back(&DPV);
+            DeadDPValues.push_back(DPV.unlinkFromParent());
           }
         }
 

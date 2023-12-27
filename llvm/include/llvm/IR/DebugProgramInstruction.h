@@ -88,13 +88,17 @@ public:
   const BasicBlock *getParent() const;
   BasicBlock *getParent();
   void dump() const;
+protected:
   void removeFromParent();
+public:
+  // jmorse -- possibly reallocate ourselves.
+  DPValue *unlinkFromParent();
   void eraseFromParent();
 
   using self_iterator = simple_ilist<DPValue>::iterator;
   using const_self_iterator = simple_ilist<DPValue>::const_iterator;
 
-  enum class LocationType {
+  enum class LocationType : char {
     Declare,
     Value,
 
@@ -105,6 +109,9 @@ public:
   /// Essentially, "is this a dbg.value or dbg.declare?". dbg.declares are not
   /// currently supported, but it would be trivial to do so.
   LocationType Type;
+
+  // i.e., allocated inline with a marker.
+  bool isInline = false;
 
   /// Marker that this DPValue is linked into.
   DPMarker *Marker = nullptr;
@@ -279,9 +286,11 @@ public:
 class DPMarker {
 public:
   DPMarker() {}
+  DPMarker(unsigned int NumInline);
   /// Link back to the Instruction that owns this marker. Can be null during
   /// operations that move a marker from one instruction to another.
   Instruction *MarkedInstr = nullptr;
+  DPMarker *ToFreeChain = nullptr;
 
   /// List of DPValues, each recording a single variable assignment, the
   /// equivalent of a dbg.value intrinsic. There is a one-to-one relationship
@@ -348,6 +357,15 @@ public:
   static iterator_range<simple_ilist<DPValue>::iterator> getEmptyDPValueRange(){
     return make_range(EmptyDPMarker.StoredDPValues.end(), EmptyDPMarker.StoredDPValues.end());
   }
+
+  unsigned NumInline = 0;
+  DPValue *getInline(unsigned int Idx);
+  static DPMarker *allocWithInline(unsigned int Idx);
+
+  static DPMarker *
+  cloneDebugInfoFromInline(Instruction *inst_from, DPMarker *From,
+                     std::optional<simple_ilist<DPValue>::iterator> FromHere);
+
 };
 
 inline raw_ostream &operator<<(raw_ostream &OS, const DPMarker &Marker) {
