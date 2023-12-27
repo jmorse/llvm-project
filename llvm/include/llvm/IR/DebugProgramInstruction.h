@@ -125,6 +125,8 @@ public:
   DPValue(Metadata *Location, DILocalVariable *DV, DIExpression *Expr,
           const DILocation *DI, LocationType Type = LocationType::Value);
 
+  ~DPValue() { }
+
   /// Iterator for ValueAsMetadata that internally uses direct pointer iteration
   /// over either a ValueAsMetadata* or a ValueAsMetadata**, dereferencing to the
   /// ValueAsMetadata .

@@ -3511,9 +3511,12 @@ void ModuleBitcodeWriter::writeFunction(
       // when reading the bitcode, even though conceptually the debug locations
       // start "before" the instruction.
       if (I.DbgMarker && DDDDirectBC) {
+        unsigned int num_of_elements = 0;
         auto EjectArrayOfAbbrevs = [&]() {
           if (Vals.empty())
             return;
+          // Write the number of elements in.
+          Vals[0] = num_of_elements;
           Stream.EmitRecord(bitc::FUNC_CODE_DEBUG_VAR_LOC_WVALUES, Vals, DPVALUE2_ABBREV);
           Vals.clear();
         };
@@ -3525,13 +3528,18 @@ void ModuleBitcodeWriter::writeFunction(
           Metadata *M = DPV.getRawLocation();
           bool IsNormal = true;
           if (M && isa<ValueAsMetadata>(M)) {
+            if (Vals.empty())
+              // Reserve a space for the leading "num-of-elements".
+              Vals.push_back(0);
             // Unwrap the value,
             ValueAsMetadata *VAM = dyn_cast<ValueAsMetadata>(M);
             pushValueAndType(VAM->getValue(), InstID, Vals);
+            ++num_of_elements;
           } else {
             // We're going to emit a non-normal location, eject all the ones
             // we've seen so far.
             EjectArrayOfAbbrevs();
+            num_of_elements = 0;
             IsNormal = false;
             if (M)
               Vals.push_back(VE.getMetadataID(M));
@@ -3795,26 +3803,11 @@ void ModuleBitcodeWriter::writeBlockInfo() {
       llvm_unreachable("Unexpected abbrev ordering!");
   }
 // jmorse
-#if 0
   {
     auto Abbv = std::make_shared<BitCodeAbbrev>();
     Abbv->Add(BitCodeAbbrevOp(bitc::FUNC_CODE_DEBUG_VAR_LOC_WVALUES));
-    // fmt: value, optional-type, expr, var, dilocation.
-    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6));
-    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6));
-    // There's usually tons of metadata.
+    // fmt: num-of-dpvalues, array-of [value, expr, var, dilocation]
     Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 16));
-    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 16));
-    Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 16));
-    if (Stream.EmitBlockInfoAbbrev(bitc::FUNCTION_BLOCK_ID, Abbv) !=
-        DPVALUE_ABBREV)
-      llvm_unreachable("Unexpected abbrev ordering! 1");
-  }
-#endif
-  {
-    auto Abbv = std::make_shared<BitCodeAbbrev>();
-    Abbv->Add(BitCodeAbbrevOp(bitc::FUNC_CODE_DEBUG_VAR_LOC_WVALUES));
-    // fmt: array-of [value, expr, var, dilocation]
     Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Array));
     Abbv->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 16));
     if (Stream.EmitBlockInfoAbbrev(bitc::FUNCTION_BLOCK_ID, Abbv) !=

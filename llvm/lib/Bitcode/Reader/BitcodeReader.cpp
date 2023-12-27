@@ -6422,6 +6422,15 @@ Error BitcodeReader::parseFunctionBody(Function *F) {
         return error("Invalid record");
 
       unsigned Slot = 0;
+      unsigned DPVNum = 0;
+      unsigned num_of_dpvalues = Record[Slot++];
+      bool refaff = false;
+      if (!Inst->DbgMarker) {
+        Inst->getParent()->createMarker(Inst, num_of_dpvalues);
+      } else {
+        refaff = true; // denormal case in the middle.
+      }
+
       while (Slot < Record.size()) {
         Value *Val = nullptr;
         unsigned ValTypeID = 0;
@@ -6437,13 +6446,18 @@ Error BitcodeReader::parseFunctionBody(Function *F) {
         // isn't (which seems likely) then there's no further setup. We don't
         // need to switch to parsing the metadata block, or get a fwd-reference
         // metadata node that'll be tracked, untracked, then tracked.
-        DPValue *DPV = new DPValue(ValueAsMetadata::get(Val), Var, Expr, DIL);
+	DPValue *DPV;
+	if (!refaff) {
+          DPV = Inst->DbgMarker->getInline(DPVNum++);
+	  new (DPV) DPValue(ValueAsMetadata::get(Val), Var, Expr, DIL);
+	  DPV->isInline = true;
+	} else {
+	  DPV = new DPValue(ValueAsMetadata::get(Val), Var, Expr, DIL);
+	}
         // Inst->getParent()->IsNewDbgInfoFormat = true; // uh... need to do this for all
         // blocks... Inst->getParent()->getParent()->IsNewDbgInfoFormat = true; // uh...
         // need to do this for all blocks...
         // Inst->getParent()->getParent()->getParent()->IsNewDbgInfoFormat = true;
-        if (!Inst->DbgMarker)
-          Inst->getParent()->createMarker(Inst);
         Inst->getParent()->insertDPValueBefore(DPV, Inst->getIterator());
       }
       continue; // This isn't an instruction.

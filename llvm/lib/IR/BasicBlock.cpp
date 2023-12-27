@@ -44,9 +44,11 @@ cl::opt<bool, true> WriteDDDDirectToBC("ddd-to-bc", cl::Hidden,
 DPMarker *BasicBlock::createMarker(Instruction *I, unsigned int DPVCount) {
   assert(IsNewDbgInfoFormat &&
          "Tried to create a marker in a non new debug-info block!");
-  if (I->DbgMarker)
+  if (I->DbgMarker) {
+    assert(!DPVCount);
     return I->DbgMarker;
-  DPMarker *Marker = new DPMarker();
+  }
+  DPMarker *Marker = (DPVCount) ? DPMarker::allocWithInline(DPVCount) : new DPMarker();
   Marker->MarkedInstr = I;
   I->DbgMarker = Marker;
   return Marker;
@@ -56,11 +58,12 @@ DPMarker *BasicBlock::createMarker(InstListType::iterator It, unsigned int DPVCo
   assert(IsNewDbgInfoFormat &&
          "Tried to create a marker in a non new debug-info block!");
   if (It != end())
-    return createMarker(&*It);
+    return createMarker(&*It, DPVCount);
   DPMarker *DPM = getTrailingDPValues();
+  assert(!(DPM && DPVCount));
   if (DPM)
     return DPM;
-  DPM = new DPMarker();
+  DPM = (DPVCount) ? DPMarker::allocWithInline(DPVCount) : new DPMarker();
   setTrailingDPValues(DPM);
   return DPM;
 }

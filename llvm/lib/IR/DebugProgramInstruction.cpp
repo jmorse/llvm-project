@@ -48,7 +48,7 @@ void DPValue::deleteInstr() {
   if (!isInline)
     delete this;
   else
-    DPValue::~DPValue(); // oh my.
+    this->~DPValue(); // oh my.
 }
 
 iterator_range<DPValue::location_op_iterator> DPValue::location_ops() const {
