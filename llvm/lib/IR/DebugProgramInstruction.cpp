@@ -431,8 +431,8 @@ void DPMarker::absorbDebugValues(iterator_range<DPValue::self_iterator> Range,
   auto InsertPos =
       (InsertAtHead) ? StoredDPValues.begin() : StoredDPValues.end();
 
-  StoredDPValues.splice(InsertPos, Src.StoredDPValues, Range.begin(),
-                        Range.end());
+  StoredDPValues.splice(InsertPos, Src.StoredDPValues, lolrange.begin(),
+                        lolrange.end());
 }
 
 iterator_range<simple_ilist<DPValue>::iterator> DPMarker::cloneDebugInfoFrom(
