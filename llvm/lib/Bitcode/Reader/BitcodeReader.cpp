@@ -986,11 +986,6 @@ Error BitcodeReader::materializeForwardReferencedFunctions() {
 
   while (!BasicBlockFwdRefQueue.empty()) {
     Function *F = BasicBlockFwdRefQueue.front();
-    // DDD: Little bit of a weird hack - we need to mark everything as
-    // IsNewDbgInfoFormat, including declarations.
-    if (UseNewDbgInfoFormat && DDDDirectBC)
-      F->IsNewDbgInfoFormat = true;
-
     BasicBlockFwdRefQueue.pop_front();
     assert(F && "Expected valid function");
     if (!BasicBlockFwdRefs.count(F))
@@ -1011,10 +1006,6 @@ Error BitcodeReader::materializeForwardReferencedFunctions() {
   assert(BasicBlockFwdRefs.empty() && "Function missing from queue");
 
   for (Function *F : BackwardRefFunctions) {
-    // DDD: Little bit of a weird hack - we need to mark everything as
-    // IsNewDbgInfoFormat, including declarations.
-    if (UseNewDbgInfoFormat && DDDDirectBC)
-      F->IsNewDbgInfoFormat = true;
     if (Error Err = materialize(F))
       return Err;
   }
@@ -3725,16 +3716,6 @@ Error BitcodeReader::globalCleanup() {
     UpgradeFunctionAttributes(F);
   }
 
-  // DDD: Continue to scatter IsNewDbgInfoFormat updates all over.
-  if (UseNewDbgInfoFormat && DDDDirectBC) {
-    TheModule->IsNewDbgInfoFormat = true;
-    for (Function &F : *TheModule) {
-      F.IsNewDbgInfoFormat = true;
-      for (auto &BB : F)
-        BB.IsNewDbgInfoFormat = true;
-    }
-  }
-
   // Look for global variables which need to be renamed.
   std::vector<std::pair<GlobalVariable *, GlobalVariable *>> UpgradedVariables;
   for (GlobalVariable &GV : TheModule->globals())
@@ -4023,10 +4004,7 @@ Error BitcodeReader::parseFunctionRecord(ArrayRef<uint64_t> Record) {
       Function::Create(cast<FunctionType>(FTy), GlobalValue::ExternalLinkage,
                        AddrSpace, Name, TheModule);
 
-  // DDD: Little bit of a weird hack - we need to mark everything as IsNewDbgInfoFormat,
-  // including declarations.
-  if (UseNewDbgInfoFormat && DDDDirectBC)
-    Func->IsNewDbgInfoFormat = true;
+  Func->IsNewDbgInfoFormat = TheModule->IsNewDbgInfoFormat;
 
   assert(Func->getFunctionType() == FTy &&
          "Incorrect fully specified type provided for function");
@@ -4302,9 +4280,6 @@ Error BitcodeReader::parseModule(uint64_t ResumeBit,
     return Error::success();
   };
 
-  if (UseNewDbgInfoFormat && DDDDirectBC)
-    TheModule->IsNewDbgInfoFormat = true;
-
   // Read all the records for this module.
   while (true) {
     Expected<llvm::BitstreamEntry> MaybeEntry = Stream.advance();
@@ -4463,6 +4438,9 @@ Error BitcodeReader::parseModule(uint64_t ResumeBit,
       return MaybeBitCode.takeError();
     switch (unsigned BitCode = MaybeBitCode.get()) {
     default: break;  // Default behavior, ignore unknown content.
+    case bitc::MODULE_CODE_LOL_IS_NEW_DEBUG_INFO:
+      TheModule->IsNewDbgInfoFormat = Record[0] != 0;
+      break;
     case bitc::MODULE_CODE_VERSION: {
       Expected<unsigned> VersionOrErr = parseVersionRecord(Record);
       if (!VersionOrErr)
@@ -4686,9 +4664,6 @@ Error BitcodeReader::parseFunctionBody(Function *F) {
   // Unexpected unresolved metadata when parsing function.
   if (MDLoader->hasFwdRefs())
     return error("Invalid function metadata: incoming forward references");
-
-  if (UseNewDbgInfoFormat && DDDDirectBC)
-    F->IsNewDbgInfoFormat = true;
 
   InstructionList.clear();
   unsigned ModuleValueListSize = ValueList.size();
@@ -6637,8 +6612,6 @@ Error BitcodeReader::parseFunctionBody(Function *F) {
     // If this was a terminator instruction, move to the next block.
     if (I->isTerminator()) {
       ++CurBBNo;
-      if (UseNewDbgInfoFormat && DDDDirectBC)
-        CurBB->IsNewDbgInfoFormat = true;
       CurBB = CurBBNo < FunctionBBs.size() ? FunctionBBs[CurBBNo] : nullptr;
     }
 

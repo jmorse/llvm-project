@@ -1054,8 +1054,8 @@ void Mapper::remapFunction(Function &F) {
       // XXX -- why can't we just do this instead of inhale/exhale?
       // XXX has this been covered?
       if (I.DbgMarker) {
-        auto DbgValueRange = I.DbgMarker->getDbgValueRange();
-        RemapDPValueRange(F.getParent(), DbgValueRange, getVM(), Flags);
+        for (DPValue &DPV : I.DbgMarker->getDbgValueRange())
+          remapDPValue(DPV);
       }
     }
   }
