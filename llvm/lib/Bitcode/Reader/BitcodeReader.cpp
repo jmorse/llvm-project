@@ -4002,6 +4002,8 @@ Error BitcodeReader::parseFunctionRecord(ArrayRef<uint64_t> Record) {
       Function::Create(cast<FunctionType>(FTy), GlobalValue::ExternalLinkage,
                        AddrSpace, Name, TheModule);
 
+  Func->IsNewDbgInfoFormat = TheModule->IsNewDbgInfoFormat;
+
   assert(Func->getFunctionType() == FTy &&
          "Incorrect fully specified type provided for function");
   FunctionTypeIDs[Func] = FTyID;
@@ -4437,6 +4439,9 @@ Error BitcodeReader::parseModule(uint64_t ResumeBit,
       return MaybeBitCode.takeError();
     switch (unsigned BitCode = MaybeBitCode.get()) {
     default: break;  // Default behavior, ignore unknown content.
+    case bitc::MODULE_CODE_LOL_IS_NEW_DEBUG_INFO:
+      TheModule->IsNewDbgInfoFormat = Record[0] != 0;
+      break;
     case bitc::MODULE_CODE_VERSION: {
       Expected<unsigned> VersionOrErr = parseVersionRecord(Record);
       if (!VersionOrErr)

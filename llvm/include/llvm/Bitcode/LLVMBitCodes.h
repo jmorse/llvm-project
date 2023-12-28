@@ -120,6 +120,9 @@ enum ModuleCodes {
 
   // IFUNC: [ifunc value type, addrspace, resolver val#, linkage, visibility]
   MODULE_CODE_IFUNC = 18,
+
+  MODULE_CODE_LOL_IS_NEW_DEBUG_INFO = 19,
+
 };
 
 /// PARAMATTR blocks have code for defining a parameter attribute set.
