@@ -3540,6 +3540,22 @@ void ModuleBitcodeWriter::writeFunction(
             ValueAsMetadata *VAM = dyn_cast<ValueAsMetadata>(M);
             pushValueAndType(VAM->getValue(), InstID, Vals);
             ++num_of_elements;
+          } else if (DPV.isConstant()) {
+            if (Vals.empty())
+              // Reserve a space for the leading "num-of-elements".
+              Vals.push_back(0);
+            // Unwrap the value,
+            Value *foo = DPV.coughUpConstant();
+            pushValueAndType(foo, InstID, Vals);
+            ++num_of_elements;
+          } else if (!M) {
+            if (Vals.empty())
+              // Reserve a space for the leading "num-of-elements".
+              Vals.push_back(0);
+            // Unwrap the value,
+            Value *foo = UndefValue::get(Type::getInt1Ty(DPV.getContext()));
+            pushValueAndType(foo, InstID, Vals);
+            ++num_of_elements;
           } else {
             // We're going to emit a non-normal location, eject all the ones
             // we've seen so far.

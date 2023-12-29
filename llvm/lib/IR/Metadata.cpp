@@ -157,11 +157,13 @@ void DebugValueUser::handleChangedValue(Metadata *NewMD) {
 }
 
 void DebugValueUser::trackDebugValue() {
+//dbgs() << "  TRACKING debug value user ptr " << DebugValue << " for DPV " << this << "\n";
   if (DebugValue)
     MetadataTracking::track(&DebugValue, *DebugValue, *this);
 }
 
 void DebugValueUser::untrackDebugValue() {
+//dbgs() << "  Untracking debug value user ptr " << DebugValue << " for DPV " << this << "\n";
   if (DebugValue)
     MetadataTracking::untrack(DebugValue);
 }
@@ -362,6 +364,7 @@ void ReplaceableMetadataImpl::replaceAllUsesWith(Metadata *MD) {
     }
 
     if (Owner.is<DebugValueUser *>()) {
+//	    dbgs() << "RAUW for DPV " << Owner.get<DebugValueUser *>()->getUser() << " which has value " << Owner.get<DebugValueUser *>()->getUser()->getRawLocation() << " setting to " << MD << "\n";
       Owner.get<DebugValueUser *>()->getUser()->handleChangedLocation(MD);
       continue;
     }

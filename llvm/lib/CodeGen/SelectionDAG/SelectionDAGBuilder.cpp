@@ -1248,18 +1248,24 @@ void SelectionDAGBuilder::visitDbgInfo(const Instruction &I) {
 
     // A DPValue with no locations is a kill location.
     SmallVector<Value *, 4> Values(DPV.location_ops());
-    if (Values.empty()) {
+    if (Values.empty() || DPV.isKillLocation()) {
       handleKillDebugValue(Variable, Expression, DPV.getDebugLoc(),
                            SDNodeOrder);
       continue;
     }
 
+#if 0
     // A DPValue with an undef or absent location is also a kill location.
     if (llvm::any_of(Values,
                      [](Value *V) { return !V || isa<UndefValue>(V); })) {
       handleKillDebugValue(Variable, Expression, DPV.getDebugLoc(),
                            SDNodeOrder);
       continue;
+    }
+#endif
+    if (DPV.isConstant()) {
+      assert(Values.empty());
+      Values.push_back(DPV.coughUpConstant());
     }
 
     bool IsVariadic = DPV.hasArgList();

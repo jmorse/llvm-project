@@ -10,12 +10,14 @@
 #include "llvm/IR/DebugProgramInstruction.h"
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/Support/Signals.h"
 
 namespace llvm {
 
 DPValue::DPValue(const DbgVariableIntrinsic *DVI)
-    : DebugValueUser(DVI->getRawLocation()), Variable(DVI->getVariable()),
+    : DebugValueUser(nullptr), Variable(DVI->getVariable()),
       Expression(DVI->getExpression()), DbgLoc(DVI->getDebugLoc()) {
+  handleChangedLocation(DVI->getRawLocation());
   switch (DVI->getIntrinsicID()) {
   case Intrinsic::dbg_value:
     Type = LocationType::Value;
@@ -31,20 +33,28 @@ DPValue::DPValue(const DbgVariableIntrinsic *DVI)
 }
 
 DPValue::DPValue(const DPValue &DPV)
-    : DebugValueUser(DPV.getRawLocation()),
+    : DebugValueUser(nullptr),
       Variable(DPV.getVariable()), Expression(DPV.getExpression()),
-      DbgLoc(DPV.getDebugLoc()), Type(DPV.getType()) {
+      DbgLoc(DPV.getDebugLoc()), Type(DPV.getType()), ConstantKind(DPV.ConstantKind),
+      constant_u(DPV.constant_u) {
+//dbgs() << "Src DPValueCreation COPYCONS of " << this << " with location " << DPV.getRawLocation() << "\n";
+  if (DPV.getRawLocation())
+    setRawLocation(DPV.getRawLocation());
   isInline = false; // Let caller set it if it's important.
 }
 
 DPValue::DPValue(Metadata *Location, DILocalVariable *DV, DIExpression *Expr,
                  const DILocation *DI, LocationType Type)
-    : DebugValueUser(Location), Variable(DV), Expression(Expr), DbgLoc(DI),
+    : DebugValueUser(nullptr), Variable(DV), Expression(Expr), DbgLoc(DI),
       Type(Type) {
+//dbgs() << "Src DPValueCreation of " << this << " with location " << Location << "\n";
+  setRawLocation(Location);
   isInline = false;
 }
 
 void DPValue::deleteInstr() {
+//dbgs() << "Delete-instr of DPV " << this << "\n";
+//llvm::sys::PrintStackTrace(dbgs(), 0);
   if (!isInline)
     delete this;
   else
@@ -106,6 +116,16 @@ static ValueAsMetadata *getAsMetadata(Value *V) {
 void DPValue::replaceVariableLocationOp(Value *OldValue, Value *NewValue,
                                         bool AllowEmpty) {
   assert(NewValue && "Values must be non-null");
+//dbgs() << "Src replace " << OldValue << " with  " << NewValue << "\n";
+//OldValue->dump();
+//NewValue->dump();
+//dbgs() << "Cur location is " << getRawLocation() << " for dpv " << this << "\n";
+  // Replacing a constant-valued part of this would be ill-conceived.
+  assert(!isa<Constant>(OldValue));
+  if (ConstantKind != constantKind::None)
+    // This doesn't have anything replaceable.
+    return;
+
   auto Locations = location_ops();
   auto OldIt = find(Locations, OldValue);
   if (OldIt == Locations.end()) {
@@ -134,6 +154,10 @@ void DPValue::replaceVariableLocationOp(Value *OldValue, Value *NewValue,
 void DPValue::replaceVariableLocationOp(unsigned OpIdx, Value *NewValue) {
   assert(OpIdx < getNumVariableLocationOps() && "Invalid Operand Index");
 
+//dbgs() << "Src direct set of op idx " << OpIdx << " with  " << NewValue << "\n";
+//NewValue->dump();
+//dbgs() << "  Cur location is " << getRawLocation() << " for dpv " << this << "\n";
+
   if (!hasArgList()) {
     setRawLocation(isa<MetadataAsValue>(NewValue)
                        ? cast<MetadataAsValue>(NewValue)->getMetadata()
@@ -152,6 +176,7 @@ void DPValue::replaceVariableLocationOp(unsigned OpIdx, Value *NewValue) {
 
 void DPValue::addVariableLocationOps(ArrayRef<Value *> NewValues,
                                      DIExpression *NewExpr) {
+//dbgs() << "LOL ADD VARIABLE LOCATION OPS\n";
   assert(NewExpr->hasAllLocationOps(getNumVariableLocationOps() +
                                     NewValues.size()) &&
          "NewExpr for debug variable intrinsic does not reference every "
@@ -169,6 +194,9 @@ void DPValue::addVariableLocationOps(ArrayRef<Value *> NewValues,
 void DPValue::setKillLocation() {
   // TODO: When/if we remove duplicate values from DIArgLists, we don't need
   // this set anymore.
+//  dbgs() << "Src reset debug value for kill location, i am " << this << "\n";
+  resetDebugValue();
+#if 0
   SmallPtrSet<Value *, 4> RemovedValues;
   for (Value *OldValue : location_ops()) {
     if (!RemovedValues.insert(OldValue).second)
@@ -176,12 +204,20 @@ void DPValue::setKillLocation() {
     Value *Poison = PoisonValue::get(OldValue->getType());
     replaceVariableLocationOp(OldValue, Poison);
   }
+#endif
 }
 
 bool DPValue::isKillLocation() const {
-  return (getNumVariableLocationOps() == 0 &&
+  bool res = (getNumVariableLocationOps() == 0 &&
           !getExpression()->isComplex()) ||
          any_of(location_ops(), [](Value *V) { return isa<UndefValue>(V); });
+  if (res)
+    return true;
+
+  // One location that's empty,
+  if (getNumVariableLocationOps() == 1 && !getRawLocation())
+    return true;
+  return false;
 }
 
 std::optional<uint64_t> DPValue::getFragmentSizeInBits() const {
@@ -232,6 +268,56 @@ DPValue::createDebugIntrinsic(Module *M, Instruction *InsertBefore) const {
 }
 
 void DPValue::handleChangedLocation(Metadata *NewLocation) {
+  // Test for various constant and undef things.
+//  dbgs() << "  Reset debug value for changing to " << NewLocation << " from " << getRawLocation() << ", I am " << this << "\n";
+  resetDebugValue();
+  if (!NewLocation)
+    return;
+  if (ValueAsMetadata *VAM = dyn_cast<ValueAsMetadata>(NewLocation)) {
+    Value *V = VAM->getValue();
+    if (isa<UndefValue>(V)) {
+//dbgs() << "  AKERHSERLY set to null\n";
+      resetDebugValue();
+      return;
+    } else if (ConstantInt *CI = dyn_cast<ConstantInt>(V)) {
+      if (cast<IntegerType>(CI->getType())->getBitWidth() <= 64) {
+        if (CI->isNegative()) {
+          ConstantKind = Signed;
+          constant_u.sl = CI->getSExtValue();
+        } else {
+          ConstantKind = Unsigned;
+          constant_u.ul = CI->getZExtValue();
+        }
+//dbgs() << "  AKERHSERLY set to null\n";
+        return;
+      }
+    } else if (ConstantFP *FP = dyn_cast<ConstantFP>(V)) {
+      llvm::Type *TT = FP->getType();
+      if (TT->isFloatTy()) {
+        ConstantKind = Float;
+        constant_u.f = FP->getValue().convertToFloat();
+      } else {
+        if (!TT->isDoubleTy()) {
+		// Yeah, this can happen when we get x86_80 floats
+		// Just bung a number in there, we need to make DPValue
+		// store an APFloat in this case anyway.
+		ConstantKind = Double;
+		constant_u.d = 1234.0;
+	} else {
+          ConstantKind = Double;
+          constant_u.d = FP->getValue().convertToDouble();
+	}
+      }
+//dbgs() << "  AKERHSERLY set to null\n";
+      return;
+    } else if (isa<ConstantPointerNull>(V)) {
+      ConstantKind = Nullptr;
+//dbgs() << "  AKERHSERLY set to null\n";
+      return;
+    }
+  }
+
+//dbgs() << "  committed\n";
   resetDebugValue(NewLocation);
 }
 
@@ -379,6 +465,38 @@ void DPValue::eraseFromParent() {
   deleteInstr();
 }
 
+bool DPValue::isConstant() {
+  return ConstantKind != constantKind::None;
+}
+
+Value *DPValue::coughUpConstant() {
+  LLVMContext &Ctx = getParent()->getContext();
+  switch(ConstantKind) {
+  default:
+    llvm_unreachable("wrong constant kind DPValue?");
+  case constantKind::Unsigned: {
+    llvm::Type *TT = IntegerType::get(Ctx, 64);
+    return ConstantInt::get(TT, constant_u.ul, false);
+  }
+  case constantKind::Signed: {
+    llvm::Type *TT = IntegerType::get(Ctx, 64);
+    return ConstantInt::get(TT, constant_u.sl, true);
+  }
+  case constantKind::Float: {
+    llvm::Type *TT = Type::getFloatTy(Ctx);
+    return ConstantFP::get(TT, APFloat(constant_u.f));
+  }
+  case constantKind::Double: {
+    llvm::Type *TT = Type::getDoubleTy(Ctx);
+    return ConstantFP::get(TT, APFloat(constant_u.d));
+  }
+  case constantKind::Nullptr: {
+    llvm::PointerType *TT = PointerType::get(Ctx, 0);
+    return ConstantPointerNull::get(TT);
+  }
+  }
+}
+
 void DPMarker::insertDPValue(DPValue *New, bool InsertAtHead) {
   auto It = InsertAtHead ? StoredDPValues.begin() : StoredDPValues.end();
   StoredDPValues.insert(It, *New);
@@ -411,28 +529,68 @@ void DPMarker::absorbDebugValues(DPMarker &Src, bool InsertAtHead) {
 
 void DPMarker::absorbDebugValues(iterator_range<DPValue::self_iterator> Range,
                                  DPMarker &Src, bool InsertAtHead) {
-  auto lolrange = Range;
-  for (DPValue &DPV : make_early_inc_range(Range)) {
+// Right -- actually this function is only ever called during CGP transaction
+// rollback, and what it does is peel apart the DPValues in Range from where
+// they used to be. We can just move them; as normal, but we need to move the
+// pointer ownership between DPMarkers so that they're freed at the right time.
+// The hazard here is that we end up with overlapping DPValue ranges in the
+// two markers owned by overlapping sets of DPMarkers; that should never happen
+// because we have one call-site.
+
+// Collect the set of owning DPMarkers.
+DPMarker *Owner = &Src;
+SmallPtrSet<DPMarker *, 8> Owners, MovingSet;
+while (Owner) {
+	if (Owner->NumInline)
+    Owners.insert(Owner);
+  Owner = Owner->ToFreeChain;
+}
+
+  for (DPValue &DPV : Range) {
     if (!DPV.isInline) {
       DPV.setMarker(this);
     } else {
-      // We have to re-allocate it if it's inline, then unlink the old one.
-      // In the future perhaps we can chain slabs of DPMarkers, but not today.
-      DPValue *NewDPV = DPV.clone();
-      NewDPV->setMarker(this);
-      auto InsertPos = std::next(DPV.getIterator());
-      DPV.eraseFromParent();
-      Src.StoredDPValues.insert(InsertPos, *NewDPV);
-
-     if (&*Range.begin() == &DPV)
-       lolrange = make_range(NewDPV->getIterator(), Range.end());
+      // Work out which marker this is and move it from one place to another.
+      intptr_t dpvaddr = reinterpret_cast<intptr_t>(&DPV);
+      bool found = false;
+      for (DPMarker *DPM : Owners) {
+        intptr_t startaddr = reinterpret_cast<intptr_t>(DPM);
+        intptr_t end = reinterpret_cast<intptr_t>(DPM->getInline(DPM->NumInline-1));
+        if (dpvaddr >= startaddr && dpvaddr <= end) {
+          MovingSet.insert(DPM);
+          found = true;
+          break;
+        }
+      }
+      assert(found && "Didn't find an owning DPM for inline thingy?");
+      DPV.setMarker(this);
     }
   }
   auto InsertPos =
       (InsertAtHead) ? StoredDPValues.begin() : StoredDPValues.end();
 
-  StoredDPValues.splice(InsertPos, Src.StoredDPValues, lolrange.begin(),
-                        lolrange.end());
+  StoredDPValues.splice(InsertPos, Src.StoredDPValues, Range.begin(),
+                        Range.end());
+
+  // Produce two distinct sets of Markers to be owned,
+  for (auto *DPM : MovingSet)
+    Owners.erase(DPM);
+
+  // Replace Src owned markers with the new owner set,
+  Owner = &Src;
+  while (Owner != nullptr) {
+    if (MovingSet.count(Owner->ToFreeChain)) {
+      Owner->ToFreeChain = Owner->ToFreeChain->ToFreeChain;
+    } else {
+      Owner = Owner->ToFreeChain;
+    }
+  }
+
+  // Add the newly owned markers to this' owned list.
+  for (DPMarker *DPM : MovingSet) {
+    DPM->ToFreeChain = ToFreeChain;
+    ToFreeChain = DPM;
+  }
 }
 
 iterator_range<simple_ilist<DPValue>::iterator> DPMarker::cloneDebugInfoFrom(

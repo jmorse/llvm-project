@@ -110,11 +110,30 @@ public:
   /// currently supported, but it would be trivial to do so.
   LocationType Type;
 
+  enum constantKind : char {
+    None = 0,
+    Unsigned,
+    Signed,
+    Float,
+    Double,
+    Bool,
+    Nullptr
+  };
+  constantKind ConstantKind = None;
+
   // i.e., allocated inline with a marker.
   bool isInline = false;
 
   /// Marker that this DPValue is linked into.
   DPMarker *Marker = nullptr;
+
+  union {
+    unsigned long ul;
+    long sl;
+    float f;
+    double d;
+    bool b;
+  } constant_u;
 
   /// Create a new DPValue representing the intrinsic \p DVI, for example the
   /// assignment represented by a dbg.value.
@@ -262,6 +281,9 @@ public:
 
   void print(raw_ostream &O, bool IsForDebug = false) const;
   void print(raw_ostream &ROS, ModuleSlotTracker &MST, bool IsForDebug) const;
+
+  bool isConstant();
+  Value *coughUpConstant();
 };
 
 /// Per-instruction record of debug-info. If an Instruction is the position of

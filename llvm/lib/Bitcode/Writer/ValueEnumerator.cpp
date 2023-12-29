@@ -438,11 +438,16 @@ ValueEnumerator::ValueEnumerator(const Module &M,
           EnumerateMetadata(&F, &*DPV.getDebugLoc());
 
           // Enumerate non-local location metadata.
-          if (!DPV.getRawLocation()) {
+	  if (DPV.isConstant()) {
+            Value *foo = DPV.coughUpConstant();
+            EnumerateValue(foo);
+	  } else if (!DPV.getRawLocation()) {
             // Little hack to ensure `!{}` locations work.
             // FIXME: getRawLocation isn't really a "raw" location, since it
             // preserves the "empty MD tuple as nullptr" abstraction.
             EnumerateMetadata(&F, MDTuple::get(I.getContext(), {}));
+	    // Enumerate a void undef value too, we'll encode as that.
+            EnumerateValue(UndefValue::get(Type::getInt1Ty(DPV.getContext())));
           } else if (const auto *AL =
                          dyn_cast<DIArgList>(DPV.getRawLocation())) {
             for (const auto *VAM : AL->getArgs()) {
