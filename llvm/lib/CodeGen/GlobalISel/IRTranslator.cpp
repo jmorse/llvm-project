@@ -3591,7 +3591,15 @@ static bool checkForMustTailInVarArgFn(bool IsVarArg, const BasicBlock &BB) {
 
 bool IRTranslator::runOnMachineFunction(MachineFunction &CurMF) {
   MF = &CurMF;
-  const Function &F = MF->getFunction();
+  Function &F = MF->getFunction();
+
+  // jmorse -- for comparing for identical binaries, just convert non-instr
+  // debug-info into dbg.values. We'll need to implement a "real" solution
+  // for shipping.
+  bool ConvertDbgInfoBack = F.IsNewDbgInfoFormat;
+  if (F.IsNewDbgInfoFormat)
+    F.convertFromNewDbgValues();
+
   GISelCSEAnalysisWrapper &Wrapper =
       getAnalysis<GISelCSEAnalysisWrapperPass>().getCSEWrapper();
   // Set the CSEConfig and run the analysis.
@@ -3692,6 +3700,10 @@ bool IRTranslator::runOnMachineFunction(MachineFunction &CurMF) {
                                F.getSubprogram(), &F.getEntryBlock());
     R << "unable to lower function: " << ore::NV("Prototype", F.getType());
     reportTranslationError(*MF, *TPC, *ORE, R);
+
+    if (ConvertDbgInfoBack)
+      F.convertToNewDbgValues();
+
     return false;
   }
 
@@ -3714,6 +3726,10 @@ bool IRTranslator::runOnMachineFunction(MachineFunction &CurMF) {
                                F.getSubprogram(), &F.getEntryBlock());
     R << "unable to lower arguments: " << ore::NV("Prototype", F.getType());
     reportTranslationError(*MF, *TPC, *ORE, R);
+
+    if (ConvertDbgInfoBack)
+      F.convertToNewDbgValues();
+
     return false;
   }
 
@@ -3762,6 +3778,10 @@ bool IRTranslator::runOnMachineFunction(MachineFunction &CurMF) {
         }
 
         reportTranslationError(*MF, *TPC, *ORE, R);
+
+        if (ConvertDbgInfoBack)
+          F.convertToNewDbgValues();
+
         return false;
       }
 
@@ -3770,6 +3790,10 @@ bool IRTranslator::runOnMachineFunction(MachineFunction &CurMF) {
                                    BB->getTerminator()->getDebugLoc(), BB);
         R << "unable to translate basic block";
         reportTranslationError(*MF, *TPC, *ORE, R);
+
+        if (ConvertDbgInfoBack)
+          F.convertToNewDbgValues();
+
         return false;
       }
     }
@@ -3812,6 +3836,9 @@ bool IRTranslator::runOnMachineFunction(MachineFunction &CurMF) {
   // Initialize stack protector information.
   StackProtector &SP = getAnalysis<StackProtector>();
   SP.copyToMachineFrameInfo(MF->getFrameInfo());
+
+  if (ConvertDbgInfoBack)
+    F.convertToNewDbgValues();
 
   return false;
 }

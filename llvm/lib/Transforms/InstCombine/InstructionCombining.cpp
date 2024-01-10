@@ -4501,7 +4501,7 @@ bool InstCombinerImpl::run() {
             InsertPos = InstParent->getFirstNonPHIIt();
         }
 
-        Result->insertInto(InstParent, InsertPos);
+        Result->insertBefore(*InstParent, InsertPos);
 
         // Push the new instruction and any users onto the worklist.
         Worklist.pushUsersToWorkList(*Result);
