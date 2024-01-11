@@ -4303,6 +4303,47 @@ void InstCombinerImpl::tryToSinkInstructionDPValues(Instruction *I, BasicBlock::
   };
   llvm::sort(DPValuesToSink, Order);
 
+  // Work out whether we need to establish an ordering within groupings of
+  // DPValues. This happens automatically for dbg.values, but as a side-effect
+  // of DPValue not being in the instruction stream, we have to do it manually
+  // here. This is a feature: you shouldn't order everything with the debug-info
+  // during the normal course of optimisations.
+  using InstVarPair = std::pair<const Instruction *, DebugVariable>;
+  SmallDenseMap<InstVarPair, DPValue *> FilterOutMap;
+  if (DPValuesToSink.size() > 1) {
+    SmallDenseMap<InstVarPair, unsigned> CountMap;
+    for (DPValue *DPV : DPValuesToSink) {
+      DebugVariable DbgUserVariable =
+          DebugVariable(DPV->getVariable(), DPV->getExpression(),
+                        DPV->getDebugLoc()->getInlinedAt());
+      CountMap[std::make_pair(DPV->getInstruction(), DbgUserVariable)] += 1;
+    }
+
+    // Pick up any more-than-one instances.
+    SmallPtrSet<const Instruction *, 4> DupSet;
+    for (auto It : CountMap) {
+      if (It.second > 1) {
+        FilterOutMap[It.first] = nullptr;
+        DupSet.insert(It.first.first);
+      }
+    }
+
+    // Now pick the last assignment of the duplicate set.
+    for (const Instruction *Inst : DupSet) {
+      for (DPValue &DPV : llvm::reverse(Inst->getDbgValueRange())) {
+        DebugVariable DbgUserVariable =
+            DebugVariable(DPV.getVariable(), DPV.getExpression(),
+                          DPV.getDebugLoc()->getInlinedAt());
+        auto FilterIt = FilterOutMap.find(std::make_pair(Inst, DbgUserVariable));
+        if (FilterIt == FilterOutMap.end())
+          continue;
+        if (FilterIt->second != nullptr)
+          continue;
+        FilterIt->second = &DPV;
+      }
+    }
+  }
+
   SmallVector<DPValue *, 2> DPVClones;
   SmallSet<DebugVariable, 4> SunkVariables;
   for (DPValue *DPV : DPValuesToSink) {
@@ -4312,6 +4353,18 @@ void InstCombinerImpl::tryToSinkInstructionDPValues(Instruction *I, BasicBlock::
     DebugVariable DbgUserVariable =
         DebugVariable(DPV->getVariable(), DPV->getExpression(),
                       DPV->getDebugLoc()->getInlinedAt());
+
+    // For any variable where we had to establish an order within a contiguous
+    // group of DPValues, ignore all but the last assignment.
+    if (!FilterOutMap.empty()) {
+      // Are there replacements for this DPV?
+      InstVarPair IVP = std::make_pair(DPV->getInstruction(), DbgUserVariable);
+      auto It = FilterOutMap.find(IVP);
+
+      // Filter out.
+      if (It != FilterOutMap.end() && It->second != DPV)
+        continue;
+    }
 
     if (!SunkVariables.insert(DbgUserVariable).second)
       continue;
