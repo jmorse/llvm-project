@@ -2398,7 +2398,10 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
     BasicBlock::iterator InsertPoint = Caller->begin()->begin();
     for (BasicBlock::iterator I = FirstNewBlock->begin(),
          E = FirstNewBlock->end(); I != E; ) {
-      AllocaInst *AI = dyn_cast<AllocaInst>(I++);
+      AllocaInst *AI = dyn_cast<AllocaInst>(I);
+      I = std::next(I);
+      if (I != FirstNewBlock->end() && isa<DbgVariableIntrinsic>(I))
+        I = I->getNextNonDebugInstruction()->getIterator();
       if (!AI) continue;
 
       // If the alloca is now dead, remove it.  This often occurs due to code
@@ -2420,7 +2423,17 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
              !cast<AllocaInst>(I)->use_empty() &&
              allocaWouldBeStaticInEntry(cast<AllocaInst>(I))) {
         IFI.StaticAllocas.push_back(cast<AllocaInst>(I));
-        ++I;
+        I = I->getNextNonDebugInstruction()->getIterator();
+      }
+
+      // Step backwards over any prev debug-info insts, just for comparisons
+      // sake.
+      auto tmp = std::prev(I);
+      while (isa<DbgInfoIntrinsic>(tmp)) {
+        I = tmp;
+        tmp = std::prev(tmp);
+        // Will terminate leaving I as a debug-info inst, which is what we
+        // want.
       }
 
       // Transfer all of the allocas over in a block.  Using splice means
