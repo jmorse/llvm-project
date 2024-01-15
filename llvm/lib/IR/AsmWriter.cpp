@@ -2909,8 +2909,6 @@ void AssemblyWriter::printModule(const Module *M) {
   for (const Function &F : *M) {
 if (F.getName() == "llvm.dbg.value")
   continue;
-if (F.getName() == "llvm.dbg.declare")
-  continue;
 if (F.getName() == "llvm.assume")
   continue;
     Out << '\n';
@@ -4151,7 +4149,7 @@ void AssemblyWriter::printInstruction(const Instruction &I) {
   if (const CallInst *CI = dyn_cast<CallInst>(&I)) {
     if (CI->isMustTailCall())
       Out << "musttail ";
-    else if (CI->isTailCall() || isa<DbgVariableIntrinsic>(CI))
+    else if (CI->isTailCall() || isa<DbgValueInst>(CI))
       Out << "tail ";
     else if (CI->isNoTailCall())
       Out << "notail ";

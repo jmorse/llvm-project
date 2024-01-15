@@ -4125,9 +4125,6 @@ bool llvm::inferAttributesFromOthers(Function &F) {
 if (F.isIntrinsic())
   return false;
 
-if (F.isIntrinsic())
-  return false;
-
   bool Changed = false;
   // readnone + not convergent implies nosync
   if (!F.hasFnAttribute(Attribute::NoSync) &&
