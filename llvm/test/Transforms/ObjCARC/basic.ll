@@ -2952,6 +2952,6 @@ define void @test68(ptr %a, ptr %b) {
 !4 = !DIFile(filename: "path/to/file", directory: "/path/to/dir")
 !5 = !{i32 2, !"Debug Info Version", i32 3}
 
+; CHECK: attributes #0 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
 ; CHECK: attributes [[NUW]] = { nounwind }
-; CHECK: attributes #1 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
 ; CHECK: ![[RELEASE]] = !{}

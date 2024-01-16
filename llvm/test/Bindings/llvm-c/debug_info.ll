@@ -3,6 +3,9 @@
 ; CHECK: ; ModuleID = 'debuginfo.c'
 ; CHECK-NEXT: source_filename = "debuginfo.c"
 
+; CHECK:      ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
+; CHECK-NEXT: declare void @llvm.dbg.value(metadata, metadata, metadata) #0
+
 ; CHECK:      define i64 @foo(i64 %0, i64 %1, <10 x i64> %2) !dbg !31 {
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT:   call void @llvm.dbg.declare(metadata i64 0, metadata !38, metadata !DIExpression()), !dbg !43
@@ -14,9 +17,6 @@
 
 ; CHECK:      ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
 ; CHECK-NEXT: declare void @llvm.dbg.declare(metadata, metadata, metadata) #0
-
-; CHECK:      ; Function Attrs: nocallback nofree nosync nounwind speculatable willreturn memory(none)
-; CHECK-NEXT: declare void @llvm.dbg.value(metadata, metadata, metadata) #0
 
 ; CHECK:      attributes #0 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
 

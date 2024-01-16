@@ -171,8 +171,8 @@ attributes #7 = { noduplicate }
 !31 = !DILocalVariable(name: "allocated", scope: !6, file: !7, line: 55, type: !11)
 !32 = !DILocalVariable(name: "inline_asm", scope: !6, file: !7, line: 55, type: !11)
 
-; CHECK: define ptr @f(i32 %x) #0 personality i32 0 !dbg ![[ORIG:[0-9]+]]
-; CHECK: define internal fastcc void @f.resume(ptr noundef nonnull align 8 dereferenceable(40) %0) #0 personality i32 0 !dbg ![[RESUME:[0-9]+]]
+; CHECK: define ptr @f(i32 %x) #1 personality i32 0 !dbg ![[ORIG:[0-9]+]]
+; CHECK: define internal fastcc void @f.resume(ptr noundef nonnull align 8 dereferenceable(40) %0) #1 personality i32 0 !dbg ![[RESUME:[0-9]+]]
 ; CHECK: entry.resume:
 ; CHECK: %[[DBG_PTR:.*]] = alloca ptr
 ; CHECK: call void @llvm.dbg.declare(metadata ptr %[[DBG_PTR]], metadata ![[RESUME_COROHDL:[0-9]+]], metadata !DIExpression(DW_OP_deref, DW_OP_plus_uconst,
@@ -195,8 +195,8 @@ attributes #7 = { noduplicate }
 ; CHECK: [[DEFAULT_DEST]]:
 ; CHECK-NOT: {{.*}}:
 ; CHECK: call void @llvm.dbg.declare(metadata i32 %[[CALLBR_RES]]
-; CHECK: define internal fastcc void @f.destroy(ptr noundef nonnull align 8 dereferenceable(40) %0) #0 personality i32 0 !dbg ![[DESTROY:[0-9]+]]
-; CHECK: define internal fastcc void @f.cleanup(ptr noundef nonnull align 8 dereferenceable(40) %0) #0 personality i32 0 !dbg ![[CLEANUP:[0-9]+]]
+; CHECK: define internal fastcc void @f.destroy(ptr noundef nonnull align 8 dereferenceable(40) %0) #1 personality i32 0 !dbg ![[DESTROY:[0-9]+]]
+; CHECK: define internal fastcc void @f.cleanup(ptr noundef nonnull align 8 dereferenceable(40) %0) #1 personality i32 0 !dbg ![[CLEANUP:[0-9]+]]
 
 ; CHECK: ![[ORIG]] = distinct !DISubprogram(name: "f", linkageName: "flink"
 

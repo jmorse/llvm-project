@@ -3,6 +3,9 @@
 ; RUN: llvm-dis < %s.bc | FileCheck %s
 ; RUN: verify-uselistorder < %s.bc
 
+declare void @llvm.dbg.value(metadata, i64, metadata, metadata)
+; CHECK: declare void @llvm.dbg.value(metadata, metadata, metadata)
+
 define void @f() !dbg !3 {
 entry:
   ; CHECK-NOT: call void @llvm.dbg.value
@@ -12,9 +15,6 @@ entry:
   call void @llvm.dbg.value(metadata i32 0, i64 1, metadata !8, metadata !9), !dbg !10
   ret void
 }
-
-; CHECK: declare void @llvm.dbg.value(metadata, metadata, metadata)
-declare void @llvm.dbg.value(metadata, i64, metadata, metadata)
 
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!2}

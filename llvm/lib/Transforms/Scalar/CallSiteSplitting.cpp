@@ -223,6 +223,7 @@ static Instruction *cloneInstForMustTail(Instruction *I, Instruction *Before,
   Instruction *Copy = I->clone();
   Copy->setName(I->getName());
   Copy->insertBefore(Before);
+  Copy->cloneDebugInfoFrom(I);
   if (V)
     Copy->setOperand(0, V);
   return Copy;
@@ -324,12 +325,12 @@ static void splitCallSite(CallBase &CB,
   for (unsigned i = 0; i < Preds.size(); i++) {
     BasicBlock *PredBB = Preds[i].first;
     BasicBlock *SplitBlock = DuplicateInstructionsInSplitBetween(
-        TailBB, PredBB, CB.getNextNonDebugInstruction(), ValueToValueMaps[i],
+        TailBB, PredBB, &*std::next(CB.getIterator()), ValueToValueMaps[i],
         DTU);
     assert(SplitBlock && "Unexpected new basic block split.");
 
     auto *NewCI =
-        cast<CallBase>(SplitBlock->getTerminator()->getPrevNonDebugInstruction());
+        cast<CallBase>(&*std::prev(SplitBlock->getTerminator()->getIterator()));
     addConditions(*NewCI, Preds[i].second);
 
     // Handle PHIs used as arguments in the call-site.

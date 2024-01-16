@@ -131,17 +131,17 @@ declare void @llvm.dbg.value(metadata, metadata, metadata)
 !23 = !DILocation(line: 7, column: 5, scope: !15)
 !24 = !DILocation(line: 8, column: 1, scope: !15)
 ;.
-; DYNAMIC-SHADOW: attributes #[[ATTR0]] = { sanitize_hwaddress }
-; DYNAMIC-SHADOW: attributes #[[ATTR1:[0-9]+]] = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
-; DYNAMIC-SHADOW: attributes #[[ATTR2:[0-9]+]] = { nounwind }
-; DYNAMIC-SHADOW: attributes #[[ATTR3:[0-9]+]] = { nocallback nofree nosync nounwind willreturn memory(none) }
-; DYNAMIC-SHADOW: attributes #[[ATTR4:[0-9]+]] = { nocallback nofree nounwind willreturn memory(argmem: write) }
+; DYNAMIC-SHADOW-DAG: attributes #[[ATTR0]] = { sanitize_hwaddress }
+; DYNAMIC-SHADOW-DAG: attributes #[[ATTR1:[0-9]+]] = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
+; DYNAMIC-SHADOW-DAG: attributes #[[ATTR2:[0-9]+]] = { nounwind }
+; DYNAMIC-SHADOW-DAG: attributes #[[ATTR3:[0-9]+]] = { nocallback nofree nosync nounwind willreturn memory(none) }
+; DYNAMIC-SHADOW-DAG: attributes #[[ATTR4:[0-9]+]] = { nocallback nofree nounwind willreturn memory(argmem: write) }
 ;.
-; ZERO-BASED-SHADOW: attributes #[[ATTR0]] = { sanitize_hwaddress }
-; ZERO-BASED-SHADOW: attributes #[[ATTR1:[0-9]+]] = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
-; ZERO-BASED-SHADOW: attributes #[[ATTR2:[0-9]+]] = { nounwind }
-; ZERO-BASED-SHADOW: attributes #[[ATTR3:[0-9]+]] = { nocallback nofree nosync nounwind willreturn memory(none) }
-; ZERO-BASED-SHADOW: attributes #[[ATTR4:[0-9]+]] = { nocallback nofree nounwind willreturn memory(argmem: write) }
+; ZERO-BASED-SHADOW-DAG: attributes #[[ATTR0]] = { sanitize_hwaddress }
+; ZERO-BASED-SHADOW-DAG: attributes #[[ATTR1:[0-9]+]] = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
+; ZERO-BASED-SHADOW-DAG: attributes #[[ATTR2:[0-9]+]] = { nounwind }
+; ZERO-BASED-SHADOW-DAG: attributes #[[ATTR3:[0-9]+]] = { nocallback nofree nosync nounwind willreturn memory(none) }
+; ZERO-BASED-SHADOW-DAG: attributes #[[ATTR4:[0-9]+]] = { nocallback nofree nounwind willreturn memory(argmem: write) }
 ;.
 ; DYNAMIC-SHADOW: [[META0:![0-9]+]] = !{ptr @hwasan.note}
 ; DYNAMIC-SHADOW: [[META1:![0-9]+]] = distinct !DICompileUnit(language: DW_LANG_C_plus_plus_14, file: !2, producer: "clang version 13.0.0", isOptimized: false, runtimeVersion: 0, emissionKind: FullDebug, enums: !3, splitDebugInlining: false, nameTableKind: None)

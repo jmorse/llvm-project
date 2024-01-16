@@ -102,8 +102,8 @@ declare void @NSLog(ptr, ...)
 
 declare void @llvm.dbg.value(metadata, metadata, metadata) nounwind readnone
 
-; CHECK: attributes #0 = { ssp uwtable }
-; CHECK: attributes #1 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
+; CHECK: attributes #0 = { nocallback nofree nosync nounwind speculatable willreturn memory(none) }
+; CHECK: attributes #1 = { ssp uwtable }
 ; CHECK: attributes #2 = { nonlazybind }
 ; CHECK: attributes [[NUW]] = { nounwind }
 ; CHECK: attributes #4 = { noinline ssp uwtable }

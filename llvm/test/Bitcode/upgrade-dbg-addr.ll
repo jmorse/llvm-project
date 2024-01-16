@@ -3,6 +3,9 @@
 ; RUN: llvm-dis < %s.bc | FileCheck %s
 ; RUN: verify-uselistorder < %s.bc
 
+declare void @llvm.dbg.addr(metadata, metadata, metadata)
+; CHECK: declare void @llvm.dbg.value(metadata, metadata, metadata)
+
 define i32 @example(i32 %num) {
 entry:
   %num.addr = alloca i32, align 4
@@ -13,9 +16,6 @@ entry:
   %0 = load i32, ptr %num.addr, align 4
   ret i32 %0
 }
-
-; CHECK: declare void @llvm.dbg.value(metadata, metadata, metadata)
-declare void @llvm.dbg.addr(metadata, metadata, metadata)
 
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!2}

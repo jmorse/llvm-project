@@ -6,6 +6,8 @@ target triple = "x86_64-apple-macosx10.14.0"
 
 @a = common local_unnamed_addr global i32 0, align 4, !dbg !0
 
+; CHECK: declare void @llvm.dbg.value(metadata,
+
 define i32 @b() local_unnamed_addr !dbg !12 {
 ; CHECK-LABEL: entry
 ; CHECK:       call void @llvm.dbg.value(metadata i32 0, metadata ![[IVAR:[0-9]+]],
@@ -39,8 +41,6 @@ entry:
   %call = call i32 @b(), !dbg !35
   ret i32 0, !dbg !36
 }
-
-; CHECK: declare void @llvm.dbg.value(metadata,
 
 ; CHECK: ![[IVAR]] = !DILocalVariable(name: "i",
 ; CHECK: ![[JVAR]] = !DILocalVariable(name: "j",
