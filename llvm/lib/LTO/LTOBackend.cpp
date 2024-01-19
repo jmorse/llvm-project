@@ -625,9 +625,15 @@ Error lto::thinBackend(const Config &Conf, unsigned Task, AddStreamFn AddStream,
     if (ModuleMap) {
       auto I = ModuleMap->find(Identifier);
       assert(I != ModuleMap->end());
-      return I->second.getLazyModule(Mod.getContext(),
+      auto Muh = I->second.getLazyModule(Mod.getContext(),
                                      /*ShouldLazyLoadMetadata=*/true,
                                      /*IsImporting*/ true);
+
+      // If we are operating in a "new debug-info" context, upgrade the debug-info
+      // in the loaded module to allow it to link in cleanly.
+      if (Muh && UseNewDbgInfoFormat && !(*Muh)->IsNewDbgInfoFormat)
+        (*Muh)->convertToNewDbgValues();
+      return Muh;
     }
 
     ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> MBOrErr =
@@ -650,6 +656,12 @@ Error lto::thinBackend(const Config &Conf, unsigned Task, AddStreamFn AddStream,
                                /*IsImporting*/ true);
     if (MOrErr)
       (*MOrErr)->setOwnedMemoryBuffer(std::move(*MBOrErr));
+
+    // If we are operating in a "new debug-info" context, upgrade the debug-info
+    // in the loaded module to allow it to link in cleanly.
+    if (UseNewDbgInfoFormat && !(*MOrErr)->IsNewDbgInfoFormat)
+      (*MOrErr)->convertToNewDbgValues();
+
     return MOrErr;
   };
 

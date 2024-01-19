@@ -83,6 +83,9 @@ extern cl::opt<bool> SupportsHotColdNew;
 extern cl::opt<bool> EnableMemProfContextDisambiguation;
 } // namespace llvm
 
+// Declare external flag for whether we're using the new debug-info format.
+extern llvm::cl::opt<bool> UseNewDbgInfoFormat;
+
 // Computes a unique hash for the Module considering the current list of
 // export/import and other global analysis results.
 // The hash is produced in \p Key.
@@ -1452,6 +1455,11 @@ public:
       Expected<std::unique_ptr<Module>> MOrErr = BM.parseModule(BackendContext);
       if (!MOrErr)
         return MOrErr.takeError();
+
+      // If we are operating in a "new debug-info" context, upgrade the debug-info
+      // in the loaded module to allow it to link in cleanly.
+      if (UseNewDbgInfoFormat && !(*MOrErr)->IsNewDbgInfoFormat)
+        (*MOrErr)->convertToNewDbgValues();
 
       return thinBackend(Conf, Task, AddStream, **MOrErr, CombinedIndex,
                          ImportList, DefinedGlobals, &ModuleMap);

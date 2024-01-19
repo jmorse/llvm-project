@@ -162,6 +162,9 @@ static cl::opt<std::string> WorkloadDefinitions(
              "}"),
     cl::Hidden);
 
+// Declare external flag for whether we're using the new debug-info format.
+extern llvm::cl::opt<bool> UseNewDbgInfoFormat;
+
 // Load lazily a module from \p FileName in \p Context.
 static std::unique_ptr<Module> loadFile(const std::string &FileName,
                                         LLVMContext &Context) {
@@ -1622,6 +1625,11 @@ Expected<bool> FunctionImporter::importFunctions(
     std::unique_ptr<Module> SrcModule = std::move(*SrcModuleOrErr);
     assert(&DestModule.getContext() == &SrcModule->getContext() &&
            "Context mismatch");
+
+    // If we are operating in a "new debug-info" context, upgrade the debug-info
+    // in the loaded module to allow it to link in cleanly.
+    if (UseNewDbgInfoFormat && !SrcModule->IsNewDbgInfoFormat)
+      SrcModule->convertToNewDbgValues();
 
     // If modules were created with lazy metadata loading, materialize it
     // now, before linking it (otherwise this will be a noop).

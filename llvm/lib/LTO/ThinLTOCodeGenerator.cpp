@@ -208,6 +208,12 @@ static std::unique_ptr<Module> loadModuleFromInput(lto::InputFile *Input,
   }
   if (!Lazy)
     verifyLoadedModule(*ModuleOrErr.get());
+
+  // If we are operating in a "new debug-info" context, upgrade the debug-info
+  // in the loaded module to allow it to link in cleanly.
+  if (UseNewDbgInfoFormat && !(*ModuleOrErr)->IsNewDbgInfoFormat)
+    (*ModuleOrErr)->convertToNewDbgValues();
+
   return std::move(*ModuleOrErr);
 }
 
