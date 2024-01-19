@@ -491,6 +491,19 @@ void SelectOptimizeImpl::convertProfitableSIGroups(SelectGroups &ProfSIGroups) {
       DI->moveBeforePreserving(&*EndBlock->getFirstInsertionPt());
     }
 
+    // Duplicate implementation for DPValues, the non-instruction debug-info
+    // record.
+    DIt = std::next(SI->getIterator());
+    while (DIt != SI->getParent()->end()) {
+      for (auto &DPValue : llvm::make_early_inc_range(DIt->getDbgValueRange())) {
+        DPValue.removeFromParent();
+        EndBlock->insertDPValueBefore(&DPValue, EndBlock->getFirstInsertionPt());
+      }
+      if (&*DIt != LastSI)
+        break;
+      DIt++;
+    }
+
     // These are the new basic blocks for the conditional branch.
     // At least one will become an actual new basic block.
     BasicBlock *TrueBlock = nullptr, *FalseBlock = nullptr;
