@@ -60,12 +60,16 @@ DPMarker *BasicBlock::createMarker(InstListType::iterator It) {
   return DPM;
 }
 
-void BasicBlock::convertToNewDbgValues() {
+void BasicBlock::convertToNewDbgValues(bool HasNoDebugInfo) {
   // Is the command line option set?
   if (!UseNewDbgInfoFormat)
     return;
 
   IsNewDbgInfoFormat = true;
+
+  // If the caller knows there's no debug-info in this function, do nothing.
+  if (HasNoDebugInfo)
+    return;
 
   // Iterate over all instructions in the instruction list, collecting dbg.value
   // instructions and converting them to DPValues. Once we find a "real"
@@ -93,9 +97,13 @@ void BasicBlock::convertToNewDbgValues() {
   }
 }
 
-void BasicBlock::convertFromNewDbgValues() {
+void BasicBlock::convertFromNewDbgValues(bool HasNoDebugInfo) {
   invalidateOrders();
   IsNewDbgInfoFormat = false;
+
+  // If the caller knows there's no debug-info in this function, do nothing.
+  if (HasNoDebugInfo)
+    return;
 
   // Iterate over the block, finding instructions annotated with DPMarkers.
   // Convert any attached DPValues to dbg.values and insert ahead of the
@@ -867,6 +875,9 @@ void BasicBlock::spliceDebugInfo(BasicBlock::iterator Dest, BasicBlock *Src,
       * splice like normal,
       * replace the "+" DPValues onto the Last position.
      Complicated, but gets the job done. */
+
+if (!getParent()->getSubprogram())
+  return;
 
   // If we're inserting at end(), and not in front of dangling DPValues, then
   // move the DPValues onto "First". They'll then be moved naturally in the

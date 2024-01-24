@@ -81,12 +81,12 @@ public:
   /// intrinsics into DPMarker / DPValue records. Deletes all dbg.values in
   /// the process and sets IsNewDbgInfoFormat = true. Only takes effect if
   /// the UseNewDbgInfoFormat LLVM command line option is given.
-  void convertToNewDbgValues();
+  void convertToNewDbgValues(bool HasNoDebugInfo = false);
 
   /// Convert variable location debugging information stored in DPMarkers and
   /// DPValues into the dbg.value intrinsic representation. Sets
   /// IsNewDbgInfoFormat = false.
-  void convertFromNewDbgValues();
+  void convertFromNewDbgValues(bool HasNoDebugInfo = false);
 
   /// Ensure the block is in "old" dbg.value format (\p NewFlag == false) or
   /// in the new format (\p NewFlag == true), converting to the desired format

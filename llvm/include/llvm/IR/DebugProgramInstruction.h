@@ -453,6 +453,12 @@ inline raw_ostream &operator<<(raw_ostream &OS, const DPValue &Value) {
   return OS;
 }
 
+inline iterator_range<simple_ilist<DPValue>::iterator> getDbgValueRange(DPMarker *DbgMarker) {
+  if (!DbgMarker)
+    return DPMarker::getEmptyDPValueRange();
+  return DbgMarker->getDbgValueRange();
+}
+
 } // namespace llvm
 
 #endif // LLVM_IR_DEBUGPROGRAMINSTRUCTION_H
