@@ -220,16 +220,20 @@ public:
 
   /// \see BasicBlock::convertToNewDbgValues.
   void convertToNewDbgValues() {
+    // If we have no CU, there's no debug-info in this module, meaning we're
+    // not a -g build and can skip a lot of stuff.
+    bool HasNoDebugInfo = getNamedMetadata("llvm.dbg.cu") == nullptr;
     for (auto &F : *this) {
-      F.convertToNewDbgValues();
+      F.convertToNewDbgValues(HasNoDebugInfo);
     }
     IsNewDbgInfoFormat = true;
   }
 
   /// \see BasicBlock::convertFromNewDbgValues.
   void convertFromNewDbgValues() {
+    bool HasNoDebugInfo = getNamedMetadata("llvm.dbg.cu") == nullptr;
     for (auto &F : *this) {
-      F.convertFromNewDbgValues();
+      F.convertFromNewDbgValues(HasNoDebugInfo);
     }
     IsNewDbgInfoFormat = false;
   }

@@ -34,7 +34,7 @@ cl::opt<bool>
     UseNewDbgInfoFormat("experimental-debuginfo-iterators",
                         cl::desc("Enable communicating debuginfo positions "
                                  "through iterators, eliminating intrinsics"),
-                        cl::init(false));
+                        cl::init(true));
 
 DPMarker *BasicBlock::createMarker(Instruction *I) {
   assert(IsNewDbgInfoFormat &&
@@ -60,12 +60,18 @@ DPMarker *BasicBlock::createMarker(InstListType::iterator It) {
   return DPM;
 }
 
-void BasicBlock::convertToNewDbgValues() {
+void BasicBlock::convertToNewDbgValues(bool HasNoDebugInfo) {
   // Is the command line option set?
   if (!UseNewDbgInfoFormat)
     return;
 
   IsNewDbgInfoFormat = true;
+
+  // If the caller knows there's no debug-info in this function, do nothing.
+#if 0
+  if (HasNoDebugInfo)
+    return;
+#endif
 
   // Iterate over all instructions in the instruction list, collecting dbg.value
   // instructions and converting them to DPValues. Once we find a "real"
@@ -95,9 +101,15 @@ void BasicBlock::convertToNewDbgValues() {
   }
 }
 
-void BasicBlock::convertFromNewDbgValues() {
+void BasicBlock::convertFromNewDbgValues(bool HasNoDebugInfo) {
   invalidateOrders();
   IsNewDbgInfoFormat = false;
+
+  // If the caller knows there's no debug-info in this function, do nothing.
+#if 0
+  if (HasNoDebugInfo)
+    return;
+#endif
 
   // Iterate over the block, finding instructions annotated with DPMarkers.
   // Convert any attached DPValues to dbg.values and insert ahead of the

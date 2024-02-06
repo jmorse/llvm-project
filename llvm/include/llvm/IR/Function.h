@@ -114,10 +114,10 @@ public:
   }
 
   /// \see BasicBlock::convertToNewDbgValues.
-  void convertToNewDbgValues();
+  void convertToNewDbgValues(bool HasNoDebugInfo = false);
 
   /// \see BasicBlock::convertFromNewDbgValues.
-  void convertFromNewDbgValues();
+  void convertFromNewDbgValues(bool HasNoDebugInfo = false);
 
   void setIsNewDbgInfoFormat(bool NewVal);
 
