@@ -925,6 +925,11 @@ public:
 
 protected:
   CmpInst(Type *ty, Instruction::OtherOps op, Predicate pred,
+          Value *LHS, Value *RHS, const Twine &Name,
+          BasicBlock::iterator InsertBefore,
+          Instruction *FlagsSource = nullptr);
+
+  CmpInst(Type *ty, Instruction::OtherOps op, Predicate pred,
           Value *LHS, Value *RHS, const Twine &Name = "",
           Instruction *InsertBefore = nullptr,
           Instruction *FlagsSource = nullptr);

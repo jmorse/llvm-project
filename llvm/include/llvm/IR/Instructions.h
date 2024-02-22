@@ -199,16 +199,26 @@ protected:
 
 public:
   LoadInst(Type *Ty, Value *Ptr, const Twine &NameStr,
+           BasicBlock::iterator InsertBefore);
+  LoadInst(Type *Ty, Value *Ptr, const Twine &NameStr,
            Instruction *InsertBefore);
   LoadInst(Type *Ty, Value *Ptr, const Twine &NameStr, BasicBlock *InsertAtEnd);
+  LoadInst(Type *Ty, Value *Ptr, const Twine &NameStr, bool isVolatile,
+           BasicBlock::iterator InsertBefore);
   LoadInst(Type *Ty, Value *Ptr, const Twine &NameStr, bool isVolatile,
            Instruction *InsertBefore);
   LoadInst(Type *Ty, Value *Ptr, const Twine &NameStr, bool isVolatile,
            BasicBlock *InsertAtEnd);
   LoadInst(Type *Ty, Value *Ptr, const Twine &NameStr, bool isVolatile,
+           Align Align, BasicBlock::iterator InsertBefore);
+  LoadInst(Type *Ty, Value *Ptr, const Twine &NameStr, bool isVolatile,
            Align Align, Instruction *InsertBefore = nullptr);
   LoadInst(Type *Ty, Value *Ptr, const Twine &NameStr, bool isVolatile,
            Align Align, BasicBlock *InsertAtEnd);
+  LoadInst(Type *Ty, Value *Ptr, const Twine &NameStr, bool isVolatile,
+           Align Align, AtomicOrdering Order,
+           SyncScope::ID SSID,
+           BasicBlock::iterator InsertBefore);
   LoadInst(Type *Ty, Value *Ptr, const Twine &NameStr, bool isVolatile,
            Align Align, AtomicOrdering Order,
            SyncScope::ID SSID = SyncScope::System,
@@ -463,6 +473,9 @@ public:
   // Ordering may only be Acquire, Release, AcquireRelease, or
   // SequentiallyConsistent.
   FenceInst(LLVMContext &C, AtomicOrdering Ordering,
+            SyncScope::ID SSID,
+            BasicBlock::iterator InsertBefore);
+  FenceInst(LLVMContext &C, AtomicOrdering Ordering,
             SyncScope::ID SSID = SyncScope::System,
             Instruction *InsertBefore = nullptr);
   FenceInst(LLVMContext &C, AtomicOrdering Ordering, SyncScope::ID SSID,
@@ -542,6 +555,10 @@ protected:
   AtomicCmpXchgInst *cloneImpl() const;
 
 public:
+  AtomicCmpXchgInst(Value *Ptr, Value *Cmp, Value *NewVal, Align Alignment,
+                    AtomicOrdering SuccessOrdering,
+                    AtomicOrdering FailureOrdering, SyncScope::ID SSID,
+                    BasicBlock::iterator InsertBefore);
   AtomicCmpXchgInst(Value *Ptr, Value *Cmp, Value *NewVal, Align Alignment,
                     AtomicOrdering SuccessOrdering,
                     AtomicOrdering FailureOrdering, SyncScope::ID SSID,
@@ -806,6 +823,9 @@ private:
 public:
   AtomicRMWInst(BinOp Operation, Value *Ptr, Value *Val, Align Alignment,
                 AtomicOrdering Ordering, SyncScope::ID SSID,
+                BasicBlock::iterator InsertBefore);
+  AtomicRMWInst(BinOp Operation, Value *Ptr, Value *Val, Align Alignment,
+                AtomicOrdering Ordering, SyncScope::ID SSID,
                 Instruction *InsertBefore = nullptr);
   AtomicRMWInst(BinOp Operation, Value *Ptr, Value *Val, Align Alignment,
                 AtomicOrdering Ordering, SyncScope::ID SSID,
@@ -959,9 +979,12 @@ class GetElementPtrInst : public Instruction {
   GetElementPtrInst(const GetElementPtrInst &GEPI);
 
   /// Constructors - Create a getelementptr instruction with a base pointer an
-  /// list of indices. The first ctor can optionally insert before an existing
-  /// instruction, the second appends the new instruction to the specified
-  /// BasicBlock.
+  /// list of indices. The first and second ctor can optionally insert before an
+  /// existing instruction, the third appends the new instruction to the
+  /// specified BasicBlock.
+  inline GetElementPtrInst(Type *PointeeType, Value *Ptr,
+                           ArrayRef<Value *> IdxList, unsigned Values,
+                           const Twine &NameStr, BasicBlock::iterator InsertBefore);
   inline GetElementPtrInst(Type *PointeeType, Value *Ptr,
                            ArrayRef<Value *> IdxList, unsigned Values,
                            const Twine &NameStr, Instruction *InsertBefore);
@@ -1161,6 +1184,18 @@ struct OperandTraits<GetElementPtrInst> :
 GetElementPtrInst::GetElementPtrInst(Type *PointeeType, Value *Ptr,
                                      ArrayRef<Value *> IdxList, unsigned Values,
                                      const Twine &NameStr,
+                                     BasicBlock::iterator InsertBefore)
+    : Instruction(getGEPReturnType(Ptr, IdxList), GetElementPtr,
+                  OperandTraits<GetElementPtrInst>::op_end(this) - Values,
+                  Values, InsertBefore),
+      SourceElementType(PointeeType),
+      ResultElementType(getIndexedType(PointeeType, IdxList)) {
+  init(Ptr, IdxList, NameStr);
+}
+
+GetElementPtrInst::GetElementPtrInst(Type *PointeeType, Value *Ptr,
+                                     ArrayRef<Value *> IdxList, unsigned Values,
+                                     const Twine &NameStr,
                                      Instruction *InsertBefore)
     : Instruction(getGEPReturnType(Ptr, IdxList), GetElementPtr,
                   OperandTraits<GetElementPtrInst>::op_end(this) - Values,
@@ -1212,6 +1247,21 @@ protected:
   ICmpInst *cloneImpl() const;
 
 public:
+  /// Constructor with insert-before-instruction semantics.
+  ICmpInst(
+    BasicBlock::iterator InsertBefore,  ///< Where to insert
+    Predicate pred,  ///< The predicate to use for the comparison
+    Value *LHS,      ///< The left-hand-side of the expression
+    Value *RHS,      ///< The right-hand-side of the expression
+    const Twine &NameStr = ""  ///< Name of the instruction
+  ) : CmpInst(makeCmpResultType(LHS->getType()),
+              Instruction::ICmp, pred, LHS, RHS, NameStr,
+              InsertBefore) {
+#ifndef NDEBUG
+  AssertOK();
+#endif
+  }
+
   /// Constructor with insert-before-instruction semantics.
   ICmpInst(
     Instruction *InsertBefore,  ///< Where to insert
@@ -1384,6 +1434,19 @@ protected:
   FCmpInst *cloneImpl() const;
 
 public:
+  /// Constructor with insert-before-instruction semantics.
+  FCmpInst(
+    BasicBlock::iterator InsertBefore, ///< Where to insert
+    Predicate pred,  ///< The predicate to use for the comparison
+    Value *LHS,      ///< The left-hand-side of the expression
+    Value *RHS,      ///< The right-hand-side of the expression
+    const Twine &NameStr = ""  ///< Name of the instruction
+  ) : CmpInst(makeCmpResultType(LHS->getType()),
+              Instruction::FCmp, pred, LHS, RHS, NameStr,
+              InsertBefore) {
+    AssertOK();
+  }
+
   /// Constructor with insert-before-instruction semantics.
   FCmpInst(
     Instruction *InsertBefore, ///< Where to insert

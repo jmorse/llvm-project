@@ -1416,10 +1416,18 @@ static Align computeLoadStoreDefaultAlign(Type *Ty, BasicBlock *BB) {
   return DL.getABITypeAlign(Ty);
 }
 
+static Align computeLoadStoreDefaultAlign(Type *Ty, BasicBlock::iterator It) {
+  return computeLoadStoreDefaultAlign(Ty, It->getParent());
+}
+
 static Align computeLoadStoreDefaultAlign(Type *Ty, Instruction *I) {
   assert(I && "Insertion position cannot be null when alignment not provided!");
   return computeLoadStoreDefaultAlign(Ty, I->getParent());
 }
+
+LoadInst::LoadInst(Type *Ty, Value *Ptr, const Twine &Name,
+                   BasicBlock::iterator InsertBef)
+    : LoadInst(Ty, Ptr, Name, /*isVolatile=*/false, InsertBef) {}
 
 LoadInst::LoadInst(Type *Ty, Value *Ptr, const Twine &Name,
                    Instruction *InsertBef)
@@ -1428,6 +1436,11 @@ LoadInst::LoadInst(Type *Ty, Value *Ptr, const Twine &Name,
 LoadInst::LoadInst(Type *Ty, Value *Ptr, const Twine &Name,
                    BasicBlock *InsertAE)
     : LoadInst(Ty, Ptr, Name, /*isVolatile=*/false, InsertAE) {}
+
+LoadInst::LoadInst(Type *Ty, Value *Ptr, const Twine &Name, bool isVolatile,
+                   BasicBlock::iterator InsertBef)
+    : LoadInst(Ty, Ptr, Name, isVolatile,
+               computeLoadStoreDefaultAlign(Ty, InsertBef), InsertBef) {}
 
 LoadInst::LoadInst(Type *Ty, Value *Ptr, const Twine &Name, bool isVolatile,
                    Instruction *InsertBef)
@@ -1440,6 +1453,11 @@ LoadInst::LoadInst(Type *Ty, Value *Ptr, const Twine &Name, bool isVolatile,
                computeLoadStoreDefaultAlign(Ty, InsertAE), InsertAE) {}
 
 LoadInst::LoadInst(Type *Ty, Value *Ptr, const Twine &Name, bool isVolatile,
+                   Align Align, BasicBlock::iterator InsertBef)
+    : LoadInst(Ty, Ptr, Name, isVolatile, Align, AtomicOrdering::NotAtomic,
+               SyncScope::System, InsertBef) {}
+
+LoadInst::LoadInst(Type *Ty, Value *Ptr, const Twine &Name, bool isVolatile,
                    Align Align, Instruction *InsertBef)
     : LoadInst(Ty, Ptr, Name, isVolatile, Align, AtomicOrdering::NotAtomic,
                SyncScope::System, InsertBef) {}
@@ -1448,6 +1466,17 @@ LoadInst::LoadInst(Type *Ty, Value *Ptr, const Twine &Name, bool isVolatile,
                    Align Align, BasicBlock *InsertAE)
     : LoadInst(Ty, Ptr, Name, isVolatile, Align, AtomicOrdering::NotAtomic,
                SyncScope::System, InsertAE) {}
+
+LoadInst::LoadInst(Type *Ty, Value *Ptr, const Twine &Name, bool isVolatile,
+                   Align Align, AtomicOrdering Order, SyncScope::ID SSID,
+                   BasicBlock::iterator InsertBef)
+    : UnaryInstruction(Ty, Load, Ptr, InsertBef) {
+  setVolatile(isVolatile);
+  setAlignment(Align);
+  setAtomic(Order, SSID);
+  AssertOK();
+  setName(Name);
+}
 
 LoadInst::LoadInst(Type *Ty, Value *Ptr, const Twine &Name, bool isVolatile,
                    Align Align, AtomicOrdering Order, SyncScope::ID SSID,
@@ -1595,6 +1624,19 @@ AtomicCmpXchgInst::AtomicCmpXchgInst(Value *Ptr, Value *Cmp, Value *NewVal,
                                      AtomicOrdering SuccessOrdering,
                                      AtomicOrdering FailureOrdering,
                                      SyncScope::ID SSID,
+                                     BasicBlock::iterator InsertBefore)
+    : Instruction(
+          StructType::get(Cmp->getType(), Type::getInt1Ty(Cmp->getContext())),
+          AtomicCmpXchg, OperandTraits<AtomicCmpXchgInst>::op_begin(this),
+          OperandTraits<AtomicCmpXchgInst>::operands(this), InsertBefore) {
+  Init(Ptr, Cmp, NewVal, Alignment, SuccessOrdering, FailureOrdering, SSID);
+}
+
+AtomicCmpXchgInst::AtomicCmpXchgInst(Value *Ptr, Value *Cmp, Value *NewVal,
+                                     Align Alignment,
+                                     AtomicOrdering SuccessOrdering,
+                                     AtomicOrdering FailureOrdering,
+                                     SyncScope::ID SSID,
                                      Instruction *InsertBefore)
     : Instruction(
           StructType::get(Cmp->getType(), Type::getInt1Ty(Cmp->getContext())),
@@ -1640,6 +1682,15 @@ void AtomicRMWInst::Init(BinOp Operation, Value *Ptr, Value *Val,
          "Ptr must have pointer type!");
   assert(Ordering != AtomicOrdering::NotAtomic &&
          "AtomicRMW instructions must be atomic!");
+}
+
+AtomicRMWInst::AtomicRMWInst(BinOp Operation, Value *Ptr, Value *Val,
+                             Align Alignment, AtomicOrdering Ordering,
+                             SyncScope::ID SSID, BasicBlock::iterator InsertBefore)
+    : Instruction(Val->getType(), AtomicRMW,
+                  OperandTraits<AtomicRMWInst>::op_begin(this),
+                  OperandTraits<AtomicRMWInst>::operands(this), InsertBefore) {
+  Init(Operation, Ptr, Val, Alignment, Ordering, SSID);
 }
 
 AtomicRMWInst::AtomicRMWInst(BinOp Operation, Value *Ptr, Value *Val,
@@ -1706,6 +1757,14 @@ StringRef AtomicRMWInst::getOperationName(BinOp Op) {
 //===----------------------------------------------------------------------===//
 //                       FenceInst Implementation
 //===----------------------------------------------------------------------===//
+
+FenceInst::FenceInst(LLVMContext &C, AtomicOrdering Ordering,
+                     SyncScope::ID SSID,
+                     BasicBlock::iterator InsertBefore)
+  : Instruction(Type::getVoidTy(C), Fence, nullptr, 0, InsertBefore) {
+  setOrdering(Ordering);
+  setSyncScopeID(SSID);
+}
 
 FenceInst::FenceInst(LLVMContext &C, AtomicOrdering Ordering,
                      SyncScope::ID SSID,
@@ -4175,6 +4234,22 @@ AddrSpaceCastInst::AddrSpaceCastInst(
 //===----------------------------------------------------------------------===//
 //                               CmpInst Classes
 //===----------------------------------------------------------------------===//
+
+CmpInst::CmpInst(Type *ty, OtherOps op, Predicate predicate, Value *LHS,
+                 Value *RHS, const Twine &Name,
+                 BasicBlock::iterator InsertBefore,
+                 Instruction *FlagsSource)
+  : Instruction(ty, op,
+                OperandTraits<CmpInst>::op_begin(this),
+                OperandTraits<CmpInst>::operands(this),
+                InsertBefore) {
+  Op<0>() = LHS;
+  Op<1>() = RHS;
+  setPredicate((Predicate)predicate);
+  setName(Name);
+  if (FlagsSource)
+    copyIRFlags(FlagsSource);
+}
 
 CmpInst::CmpInst(Type *ty, OtherOps op, Predicate predicate, Value *LHS,
                  Value *RHS, const Twine &Name, Instruction *InsertBefore,
