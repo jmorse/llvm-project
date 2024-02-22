@@ -55,6 +55,11 @@ typedef unsigned ID;
 class UnaryInstruction : public Instruction {
 protected:
   UnaryInstruction(Type *Ty, unsigned iType, Value *V,
+                   BasicBlock::iterator IB)
+    : Instruction(Ty, iType, &Op<0>(), 1, IB) {
+    Op<0>() = V;
+  }
+  UnaryInstruction(Type *Ty, unsigned iType, Value *V,
                    Instruction *IB = nullptr)
     : Instruction(Ty, iType, &Op<0>(), 1, IB) {
     Op<0>() = V;
@@ -484,6 +489,12 @@ class CastInst : public UnaryInstruction {
 protected:
   /// Constructor with insert-before-instruction semantics for subclasses
   CastInst(Type *Ty, unsigned iType, Value *S,
+           const Twine &NameStr, BasicBlock::iterator InsertBefore)
+    : UnaryInstruction(Ty, iType, S, InsertBefore) {
+    setName(NameStr);
+  }
+  /// Constructor with insert-before-instruction semantics for subclasses
+  CastInst(Type *Ty, unsigned iType, Value *S,
            const Twine &NameStr = "", Instruction *InsertBefore = nullptr)
     : UnaryInstruction(Ty, iType, S, InsertBefore) {
     setName(NameStr);
@@ -496,6 +507,19 @@ protected:
   }
 
 public:
+  /// Provides a way to construct any of the CastInst subclasses using an
+  /// opcode instead of the subclass's constructor. The opcode must be in the
+  /// CastOps category (Instruction::isCast(opcode) returns true). This
+  /// constructor has insert-before-instruction semantics to automatically
+  /// insert the new CastInst before InsertBefore, which must be a valid
+  /// iterator. Construct any of the CastInst subclasses.
+  static CastInst *Create(
+    Instruction::CastOps,    ///< The opcode of the cast instruction
+    Value *S,                ///< The value to be casted (operand 0)
+    Type *Ty,          ///< The type to which cast should be made
+    const Twine &Name, ///< Name for the instruction
+    BasicBlock::iterator InsertBefore ///< Place to insert the instruction
+  );
   /// Provides a way to construct any of the CastInst subclasses using an
   /// opcode instead of the subclass's constructor. The opcode must be in the
   /// CastOps category (Instruction::isCast(opcode) returns true). This
@@ -527,6 +551,14 @@ public:
   static CastInst *CreateZExtOrBitCast(
     Value *S,                ///< The value to be casted (operand 0)
     Type *Ty,          ///< The type to which cast should be made
+    const Twine &Name, ///< Name for the instruction
+    BasicBlock::iterator InsertBefore ///< Place to insert the instruction
+  );
+
+  /// Create a ZExt or BitCast cast instruction
+  static CastInst *CreateZExtOrBitCast(
+    Value *S,                ///< The value to be casted (operand 0)
+    Type *Ty,          ///< The type to which cast should be made
     const Twine &Name = "", ///< Name for the instruction
     Instruction *InsertBefore = nullptr ///< Place to insert the instruction
   );
@@ -537,6 +569,14 @@ public:
     Type *Ty,          ///< The type to which operand is casted
     const Twine &Name, ///< The name for the instruction
     BasicBlock *InsertAtEnd  ///< The block to insert the instruction into
+  );
+
+  /// Create a SExt or BitCast cast instruction
+  static CastInst *CreateSExtOrBitCast(
+    Value *S,                ///< The value to be casted (operand 0)
+    Type *Ty,          ///< The type to which cast should be made
+    const Twine &Name, ///< Name for the instruction
+    BasicBlock::iterator InsertBefore ///< Place to insert the instruction
   );
 
   /// Create a SExt or BitCast cast instruction
@@ -567,6 +607,14 @@ public:
   static CastInst *CreatePointerCast(
     Value *S,                ///< The pointer value to be casted (operand 0)
     Type *Ty,          ///< The type to which cast should be made
+    const Twine &Name, ///< Name for the instruction
+    BasicBlock::iterator InsertBefore ///< Place to insert the instruction
+  );
+
+  /// Create a BitCast, AddrSpaceCast or a PtrToInt cast instruction.
+  static CastInst *CreatePointerCast(
+    Value *S,                ///< The pointer value to be casted (operand 0)
+    Type *Ty,          ///< The type to which cast should be made
     const Twine &Name = "", ///< Name for the instruction
     Instruction *InsertBefore = nullptr ///< Place to insert the instruction
   );
@@ -577,6 +625,14 @@ public:
     Type *Ty,          ///< The type to which operand is casted
     const Twine &Name, ///< The name for the instruction
     BasicBlock *InsertAtEnd  ///< The block to insert the instruction into
+  );
+
+  /// Create a BitCast or an AddrSpaceCast cast instruction.
+  static CastInst *CreatePointerBitCastOrAddrSpaceCast(
+    Value *S,                ///< The pointer value to be casted (operand 0)
+    Type *Ty,          ///< The type to which cast should be made
+    const Twine &Name, ///< Name for the instruction
+    BasicBlock::iterator InsertBefore ///< Place to insert the instruction
   );
 
   /// Create a BitCast or an AddrSpaceCast cast instruction.
@@ -596,8 +652,30 @@ public:
   static CastInst *CreateBitOrPointerCast(
     Value *S,                ///< The pointer value to be casted (operand 0)
     Type *Ty,          ///< The type to which cast should be made
+    const Twine &Name, ///< Name for the instruction
+    BasicBlock::iterator InsertBefore ///< Place to insert the instruction
+  );
+
+  /// Create a BitCast, a PtrToInt, or an IntToPTr cast instruction.
+  ///
+  /// If the value is a pointer type and the destination an integer type,
+  /// creates a PtrToInt cast. If the value is an integer type and the
+  /// destination a pointer type, creates an IntToPtr cast. Otherwise, creates
+  /// a bitcast.
+  static CastInst *CreateBitOrPointerCast(
+    Value *S,                ///< The pointer value to be casted (operand 0)
+    Type *Ty,          ///< The type to which cast should be made
     const Twine &Name = "", ///< Name for the instruction
     Instruction *InsertBefore = nullptr ///< Place to insert the instruction
+  );
+
+  /// Create a ZExt, BitCast, or Trunc for int -> int casts.
+  static CastInst *CreateIntegerCast(
+    Value *S,                ///< The pointer value to be casted (operand 0)
+    Type *Ty,          ///< The type to which cast should be made
+    bool isSigned,           ///< Whether to regard S as signed or not
+    const Twine &Name, ///< Name for the instruction
+    BasicBlock::iterator InsertBefore ///< Place to insert the instruction
   );
 
   /// Create a ZExt, BitCast, or Trunc for int -> int casts.
@@ -622,6 +700,14 @@ public:
   static CastInst *CreateFPCast(
     Value *S,                ///< The floating point value to be casted
     Type *Ty,          ///< The floating point type to cast to
+    const Twine &Name, ///< Name for the instruction
+    BasicBlock::iterator InsertBefore ///< Place to insert the instruction
+  );
+
+  /// Create an FPExt, BitCast, or FPTrunc for fp -> fp casts
+  static CastInst *CreateFPCast(
+    Value *S,                ///< The floating point value to be casted
+    Type *Ty,          ///< The floating point type to cast to
     const Twine &Name = "", ///< Name for the instruction
     Instruction *InsertBefore = nullptr ///< Place to insert the instruction
   );
@@ -632,6 +718,14 @@ public:
     Type *Ty,          ///< The floating point type to cast to
     const Twine &Name, ///< The name for the instruction
     BasicBlock *InsertAtEnd  ///< The block to insert the instruction into
+  );
+
+  /// Create a Trunc or BitCast cast instruction
+  static CastInst *CreateTruncOrBitCast(
+    Value *S,                ///< The value to be casted (operand 0)
+    Type *Ty,          ///< The type to which cast should be made
+    const Twine &Name, ///< Name for the instruction
+    BasicBlock::iterator InsertBefore ///< Place to insert the instruction
   );
 
   /// Create a Trunc or BitCast cast instruction

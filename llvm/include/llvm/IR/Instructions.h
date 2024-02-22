@@ -74,15 +74,21 @@ protected:
 
 public:
   explicit AllocaInst(Type *Ty, unsigned AddrSpace, Value *ArraySize,
+                      const Twine &Name, BasicBlock::iterator InsertBefore);
+  explicit AllocaInst(Type *Ty, unsigned AddrSpace, Value *ArraySize,
                       const Twine &Name, Instruction *InsertBefore);
   AllocaInst(Type *Ty, unsigned AddrSpace, Value *ArraySize,
              const Twine &Name, BasicBlock *InsertAtEnd);
 
   AllocaInst(Type *Ty, unsigned AddrSpace, const Twine &Name,
+             BasicBlock::iterator InsertBefore);
+  AllocaInst(Type *Ty, unsigned AddrSpace, const Twine &Name,
              Instruction *InsertBefore);
   AllocaInst(Type *Ty, unsigned AddrSpace,
              const Twine &Name, BasicBlock *InsertAtEnd);
 
+  AllocaInst(Type *Ty, unsigned AddrSpace, Value *ArraySize, Align Align,
+             const Twine &Name, BasicBlock::iterator);
   AllocaInst(Type *Ty, unsigned AddrSpace, Value *ArraySize, Align Align,
              const Twine &Name = "", Instruction *InsertBefore = nullptr);
   AllocaInst(Type *Ty, unsigned AddrSpace, Value *ArraySize, Align Align,
@@ -4844,6 +4850,14 @@ public:
   TruncInst(
     Value *S,                           ///< The value to be truncated
     Type *Ty,                           ///< The (smaller) type to truncate to
+    const Twine &NameStr,               ///< A name for the new instruction
+    BasicBlock::iterator InsertBefore   ///< Where to insert the new instruction
+  );
+
+  /// Constructor with insert-before-instruction semantics
+  TruncInst(
+    Value *S,                           ///< The value to be truncated
+    Type *Ty,                           ///< The (smaller) type to truncate to
     const Twine &NameStr = "",          ///< A name for the new instruction
     Instruction *InsertBefore = nullptr ///< Where to insert the new instruction
   );
@@ -4879,6 +4893,14 @@ protected:
   ZExtInst *cloneImpl() const;
 
 public:
+  /// Constructor with insert-before-instruction semantics
+  ZExtInst(
+    Value *S,                           ///< The value to be zero extended
+    Type *Ty,                           ///< The type to zero extend to
+    const Twine &NameStr,               ///< A name for the new instruction
+    BasicBlock::iterator InsertBefore   ///< Where to insert the new instruction
+  );
+
   /// Constructor with insert-before-instruction semantics
   ZExtInst(
     Value *S,                           ///< The value to be zero extended
@@ -4922,6 +4944,14 @@ public:
   SExtInst(
     Value *S,                           ///< The value to be sign extended
     Type *Ty,                           ///< The type to sign extend to
+    const Twine &NameStr,               ///< A name for the new instruction
+    BasicBlock::iterator InsertBefore   ///< Where to insert the new instruction
+  );
+
+  /// Constructor with insert-before-instruction semantics
+  SExtInst(
+    Value *S,                           ///< The value to be sign extended
+    Type *Ty,                           ///< The type to sign extend to
     const Twine &NameStr = "",          ///< A name for the new instruction
     Instruction *InsertBefore = nullptr ///< Where to insert the new instruction
   );
@@ -4957,6 +4987,14 @@ protected:
   FPTruncInst *cloneImpl() const;
 
 public:
+  /// Constructor with insert-before-instruction semantics
+  FPTruncInst(
+    Value *S,                           ///< The value to be truncated
+    Type *Ty,                           ///< The type to truncate to
+    const Twine &NameStr,               ///< A name for the new instruction
+    BasicBlock::iterator InsertBefore   ///< Where to insert the new instruction
+  );
+
   /// Constructor with insert-before-instruction semantics
   FPTruncInst(
     Value *S,                           ///< The value to be truncated
@@ -5000,6 +5038,14 @@ public:
   FPExtInst(
     Value *S,                           ///< The value to be extended
     Type *Ty,                           ///< The type to extend to
+    const Twine &NameStr,               ///< A name for the new instruction
+    BasicBlock::iterator InsertBefore   ///< Where to insert the new instruction
+  );
+
+  /// Constructor with insert-before-instruction semantics
+  FPExtInst(
+    Value *S,                           ///< The value to be extended
+    Type *Ty,                           ///< The type to extend to
     const Twine &NameStr = "",          ///< A name for the new instruction
     Instruction *InsertBefore = nullptr ///< Where to insert the new instruction
   );
@@ -5035,6 +5081,14 @@ protected:
   UIToFPInst *cloneImpl() const;
 
 public:
+  /// Constructor with insert-before-instruction semantics
+  UIToFPInst(
+    Value *S,                           ///< The value to be converted
+    Type *Ty,                           ///< The type to convert to
+    const Twine &NameStr,               ///< A name for the new instruction
+    BasicBlock::iterator InsertBefore   ///< Where to insert the new instruction
+  );
+
   /// Constructor with insert-before-instruction semantics
   UIToFPInst(
     Value *S,                           ///< The value to be converted
@@ -5078,6 +5132,14 @@ public:
   SIToFPInst(
     Value *S,                           ///< The value to be converted
     Type *Ty,                           ///< The type to convert to
+    const Twine &NameStr,               ///< A name for the new instruction
+    BasicBlock::iterator InsertBefore   ///< Where to insert the new instruction
+  );
+
+  /// Constructor with insert-before-instruction semantics
+  SIToFPInst(
+    Value *S,                           ///< The value to be converted
+    Type *Ty,                           ///< The type to convert to
     const Twine &NameStr = "",          ///< A name for the new instruction
     Instruction *InsertBefore = nullptr ///< Where to insert the new instruction
   );
@@ -5113,6 +5175,14 @@ protected:
   FPToUIInst *cloneImpl() const;
 
 public:
+  /// Constructor with insert-before-instruction semantics
+  FPToUIInst(
+    Value *S,                           ///< The value to be converted
+    Type *Ty,                           ///< The type to convert to
+    const Twine &NameStr,               ///< A name for the new instruction
+    BasicBlock::iterator InsertBefore   ///< Where to insert the new instruction
+  );
+
   /// Constructor with insert-before-instruction semantics
   FPToUIInst(
     Value *S,                           ///< The value to be converted
@@ -5156,6 +5226,14 @@ public:
   FPToSIInst(
     Value *S,                           ///< The value to be converted
     Type *Ty,                           ///< The type to convert to
+    const Twine &NameStr,               ///< A name for the new instruction
+    BasicBlock::iterator InsertBefore   ///< Where to insert the new instruction
+  );
+
+  /// Constructor with insert-before-instruction semantics
+  FPToSIInst(
+    Value *S,                           ///< The value to be converted
+    Type *Ty,                           ///< The type to convert to
     const Twine &NameStr = "",          ///< A name for the new instruction
     Instruction *InsertBefore = nullptr ///< Where to insert the new instruction
   );
@@ -5186,6 +5264,14 @@ class IntToPtrInst : public CastInst {
 public:
   // Note: Instruction needs to be a friend here to call cloneImpl.
   friend class Instruction;
+
+  /// Constructor with insert-before-instruction semantics
+  IntToPtrInst(
+    Value *S,                           ///< The value to be converted
+    Type *Ty,                           ///< The type to convert to
+    const Twine &NameStr,               ///< A name for the new instruction
+    BasicBlock::iterator InsertBefore   ///< Where to insert the new instruction
+  );
 
   /// Constructor with insert-before-instruction semantics
   IntToPtrInst(
@@ -5234,6 +5320,14 @@ protected:
   PtrToIntInst *cloneImpl() const;
 
 public:
+  /// Constructor with insert-before-instruction semantics
+  PtrToIntInst(
+    Value *S,                           ///< The value to be converted
+    Type *Ty,                           ///< The type to convert to
+    const Twine &NameStr,               ///< A name for the new instruction
+    BasicBlock::iterator InsertBefore   ///< Where to insert the new instruction
+  );
+
   /// Constructor with insert-before-instruction semantics
   PtrToIntInst(
     Value *S,                           ///< The value to be converted
@@ -5289,6 +5383,14 @@ public:
   BitCastInst(
     Value *S,                           ///< The value to be casted
     Type *Ty,                           ///< The type to casted to
+    const Twine &NameStr,               ///< A name for the new instruction
+    BasicBlock::iterator InsertBefore   ///< Where to insert the new instruction
+  );
+
+  /// Constructor with insert-before-instruction semantics
+  BitCastInst(
+    Value *S,                           ///< The value to be casted
+    Type *Ty,                           ///< The type to casted to
     const Twine &NameStr = "",          ///< A name for the new instruction
     Instruction *InsertBefore = nullptr ///< Where to insert the new instruction
   );
@@ -5325,6 +5427,14 @@ protected:
   AddrSpaceCastInst *cloneImpl() const;
 
 public:
+  /// Constructor with insert-before-instruction semantics
+  AddrSpaceCastInst(
+    Value *S,                           ///< The value to be casted
+    Type *Ty,                           ///< The type to casted to
+    const Twine &NameStr,               ///< A name for the new instruction
+    BasicBlock::iterator InsertBefore   ///< Where to insert the new instruction
+  );
+
   /// Constructor with insert-before-instruction semantics
   AddrSpaceCastInst(
     Value *S,                           ///< The value to be casted
