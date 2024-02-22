@@ -2492,6 +2492,10 @@ private:
 
   explicit FuncletPadInst(Instruction::FuncletPadOps Op, Value *ParentPad,
                           ArrayRef<Value *> Args, unsigned Values,
+                          const Twine &NameStr,
+                          BasicBlock::iterator InsertBefore);
+  explicit FuncletPadInst(Instruction::FuncletPadOps Op, Value *ParentPad,
+                          ArrayRef<Value *> Args, unsigned Values,
                           const Twine &NameStr, Instruction *InsertBefore);
   explicit FuncletPadInst(Instruction::FuncletPadOps Op, Value *ParentPad,
                           ArrayRef<Value *> Args, unsigned Values,
