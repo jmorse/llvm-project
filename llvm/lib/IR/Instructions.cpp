@@ -3242,7 +3242,7 @@ BinaryOperator *BinaryOperator::Create(BinaryOps Op, Value *S1, Value *S2,
 }
 
 BinaryOperator *BinaryOperator::CreateNeg(Value *Op, const Twine &Name,
-                                          Instruction *InsertBefore) {
+                                          BasicBlock::iterator InsertBefore) {
   Value *Zero = ConstantInt::get(Op->getType(), 0);
   return new BinaryOperator(Instruction::Sub,
                             Zero, Op,
