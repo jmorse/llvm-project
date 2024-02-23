@@ -107,6 +107,8 @@ class UnaryOperator : public UnaryInstruction {
 
 protected:
   UnaryOperator(UnaryOps iType, Value *S, Type *Ty,
+                const Twine &Name, BasicBlock::iterator InsertBefore);
+  UnaryOperator(UnaryOps iType, Value *S, Type *Ty,
                 const Twine &Name, Instruction *InsertBefore);
   UnaryOperator(UnaryOps iType, Value *S, Type *Ty,
                 const Twine &Name, BasicBlock *InsertAtEnd);
@@ -117,6 +119,14 @@ protected:
   UnaryOperator *cloneImpl() const;
 
 public:
+
+  /// Construct a unary instruction, given the opcode and an operand.
+  /// Insert the instruction into a BasicBlock right before the specified
+  /// instruction (InsertBefore must be a valid iterator).
+  ///
+  static UnaryOperator *Create(UnaryOps Op, Value *S,
+                               const Twine &Name,
+                               BasicBlock::iterator InsertBefore);
 
   /// Construct a unary instruction, given the opcode and an operand.
   /// Optionally (if InstBefore is specified) insert the instruction
@@ -155,6 +165,21 @@ public:
     return Create(Instruction::OPC, V, Name, I);\
   }
 #include "llvm/IR/Instruction.def"
+#define HANDLE_UNARY_INST(N, OPC, CLASS) \
+  static UnaryOperator *Create##OPC(Value *V, const Twine &Name, \
+                                    BasicBlock::iterator It) {\
+    return Create(Instruction::OPC, V, Name, It);\
+  }
+#include "llvm/IR/Instruction.def"
+
+  static UnaryOperator *
+  CreateWithCopiedFlags(UnaryOps Opc, Value *V, Instruction *CopyO,
+                        const Twine &Name,
+                        BasicBlock::iterator InsertBefore) {
+    UnaryOperator *UO = Create(Opc, V, Name, InsertBefore);
+    UO->copyIRFlags(CopyO);
+    return UO;
+  }
 
   static UnaryOperator *
   CreateWithCopiedFlags(UnaryOps Opc, Value *V, Instruction *CopyO,
@@ -163,6 +188,13 @@ public:
     UnaryOperator *UO = Create(Opc, V, Name, InsertBefore);
     UO->copyIRFlags(CopyO);
     return UO;
+  }
+
+  static UnaryOperator *CreateFNegFMF(Value *Op, Instruction *FMFSource,
+                                      const Twine &Name,
+                                      BasicBlock::iterator InsertBefore) {
+    return CreateWithCopiedFlags(Instruction::FNeg, Op, FMFSource, Name,
+                                 InsertBefore);
   }
 
   static UnaryOperator *CreateFNegFMF(Value *Op, Instruction *FMFSource,
@@ -194,6 +226,8 @@ class BinaryOperator : public Instruction {
 
 protected:
   BinaryOperator(BinaryOps iType, Value *S1, Value *S2, Type *Ty,
+                 const Twine &Name, BasicBlock::iterator InsertBefore);
+  BinaryOperator(BinaryOps iType, Value *S1, Value *S2, Type *Ty,
                  const Twine &Name, Instruction *InsertBefore);
   BinaryOperator(BinaryOps iType, Value *S1, Value *S2, Type *Ty,
                  const Twine &Name, BasicBlock *InsertAtEnd);
@@ -210,6 +244,14 @@ public:
 
   /// Transparently provide more efficient getOperand methods.
   DECLARE_TRANSPARENT_OPERAND_ACCESSORS(Value);
+
+  /// Construct a binary instruction, given the opcode and the two
+  /// operands. Insert the instruction into a BasicBlock right before the
+  /// specified instruction.
+  ///
+  static BinaryOperator *Create(BinaryOps Op, Value *S1, Value *S2,
+                                const Twine &Name,
+                                BasicBlock::iterator InsertBefore);
 
   /// Construct a binary instruction, given the opcode and the two
   /// operands.  Optionally (if InstBefore is specified) insert the instruction
@@ -248,6 +290,21 @@ public:
     return Create(Instruction::OPC, V1, V2, Name, I);\
   }
 #include "llvm/IR/Instruction.def"
+#define HANDLE_BINARY_INST(N, OPC, CLASS) \
+  static BinaryOperator *Create##OPC(Value *V1, Value *V2, \
+                                     const Twine &Name, BasicBlock::iterator It) {\
+    return Create(Instruction::OPC, V1, V2, Name, It);\
+  }
+#include "llvm/IR/Instruction.def"
+
+  static BinaryOperator *
+  CreateWithCopiedFlags(BinaryOps Opc, Value *V1, Value *V2, Value *CopyO,
+                        const Twine &Name,
+                        BasicBlock::iterator InsertBefore) {
+    BinaryOperator *BO = Create(Opc, V1, V2, Name, InsertBefore);
+    BO->copyIRFlags(CopyO);
+    return BO;
+  }
 
   static BinaryOperator *
   CreateWithCopiedFlags(BinaryOps Opc, Value *V1, Value *V2, Value *CopyO,
@@ -302,6 +359,12 @@ public:
     BO->setHasNoSignedWrap(true);
     return BO;
   }
+  static BinaryOperator *CreateNSW(BinaryOps Opc, Value *V1, Value *V2,
+                                   const Twine &Name, BasicBlock::iterator It) {
+    BinaryOperator *BO = Create(Opc, V1, V2, Name, It);
+    BO->setHasNoSignedWrap(true);
+    return BO;
+  }
 
   static BinaryOperator *CreateNUW(BinaryOps Opc, Value *V1, Value *V2,
                                    const Twine &Name = "") {
@@ -318,6 +381,12 @@ public:
   static BinaryOperator *CreateNUW(BinaryOps Opc, Value *V1, Value *V2,
                                    const Twine &Name, Instruction *I) {
     BinaryOperator *BO = Create(Opc, V1, V2, Name, I);
+    BO->setHasNoUnsignedWrap(true);
+    return BO;
+  }
+  static BinaryOperator *CreateNUW(BinaryOps Opc, Value *V1, Value *V2,
+                                   const Twine &Name, BasicBlock::iterator It) {
+    BinaryOperator *BO = Create(Opc, V1, V2, Name, It);
     BO->setHasNoUnsignedWrap(true);
     return BO;
   }
@@ -340,6 +409,12 @@ public:
     BO->setIsExact(true);
     return BO;
   }
+  static BinaryOperator *CreateExact(BinaryOps Opc, Value *V1, Value *V2,
+                                     const Twine &Name, BasicBlock::iterator It) {
+    BinaryOperator *BO = Create(Opc, V1, V2, Name, It);
+    BO->setIsExact(true);
+    return BO;
+  }
 
   static inline BinaryOperator *
   CreateDisjoint(BinaryOps Opc, Value *V1, Value *V2, const Twine &Name = "");
@@ -349,6 +424,9 @@ public:
   static inline BinaryOperator *CreateDisjoint(BinaryOps Opc, Value *V1,
                                                Value *V2, const Twine &Name,
                                                Instruction *I);
+  static inline BinaryOperator *CreateDisjoint(BinaryOps Opc, Value *V1,
+                                               Value *V2, const Twine &Name,
+                                               BasicBlock::iterator It);
 
 #define DEFINE_HELPERS(OPC, NUWNSWEXACT)                                       \
   static BinaryOperator *Create##NUWNSWEXACT##OPC(Value *V1, Value *V2,        \
@@ -362,6 +440,10 @@ public:
   static BinaryOperator *Create##NUWNSWEXACT##OPC(                             \
       Value *V1, Value *V2, const Twine &Name, Instruction *I) {               \
     return Create##NUWNSWEXACT(Instruction::OPC, V1, V2, Name, I);             \
+  }                                                                            \
+  static BinaryOperator *Create##NUWNSWEXACT##OPC(                             \
+      Value *V1, Value *V2, const Twine &Name, BasicBlock::iterator It) {      \
+    return Create##NUWNSWEXACT(Instruction::OPC, V1, V2, Name, It);            \
   }
 
   DEFINE_HELPERS(Add, NSW) // CreateNSWAdd
@@ -387,18 +469,26 @@ public:
   ///
   /// Create the NEG and NOT instructions out of SUB and XOR instructions.
   ///
+  static BinaryOperator *CreateNeg(Value *Op, const Twine &Name,
+                                   BasicBlock::iterator InsertBefore);
   static BinaryOperator *CreateNeg(Value *Op, const Twine &Name = "",
                                    Instruction *InsertBefore = nullptr);
   static BinaryOperator *CreateNeg(Value *Op, const Twine &Name,
                                    BasicBlock *InsertAtEnd);
+  static BinaryOperator *CreateNSWNeg(Value *Op, const Twine &Name,
+                                      BasicBlock::iterator InsertBefore);
   static BinaryOperator *CreateNSWNeg(Value *Op, const Twine &Name = "",
                                       Instruction *InsertBefore = nullptr);
   static BinaryOperator *CreateNSWNeg(Value *Op, const Twine &Name,
                                       BasicBlock *InsertAtEnd);
+  static BinaryOperator *CreateNUWNeg(Value *Op, const Twine &Name,
+                                      BasicBlock::iterator InsertBefore);
   static BinaryOperator *CreateNUWNeg(Value *Op, const Twine &Name = "",
                                       Instruction *InsertBefore = nullptr);
   static BinaryOperator *CreateNUWNeg(Value *Op, const Twine &Name,
                                       BasicBlock *InsertAtEnd);
+  static BinaryOperator *CreateNot(Value *Op, const Twine &Name,
+                                   BasicBlock::iterator InsertBefore);
   static BinaryOperator *CreateNot(Value *Op, const Twine &Name = "",
                                    Instruction *InsertBefore = nullptr);
   static BinaryOperator *CreateNot(Value *Op, const Twine &Name,
@@ -474,6 +564,14 @@ BinaryOperator *BinaryOperator::CreateDisjoint(BinaryOps Opc, Value *V1,
   cast<PossiblyDisjointInst>(BO)->setIsDisjoint(true);
   return BO;
 }
+BinaryOperator *BinaryOperator::CreateDisjoint(BinaryOps Opc, Value *V1,
+                                               Value *V2, const Twine &Name,
+                                               BasicBlock::iterator It) {
+  BinaryOperator *BO = Create(Opc, V1, V2, Name, It);
+  cast<PossiblyDisjointInst>(BO)->setIsDisjoint(true);
+  return BO;
+}
+
 
 //===----------------------------------------------------------------------===//
 //                               CastInst Class
@@ -944,6 +1042,15 @@ public:
   void operator delete(void *Ptr) { User::operator delete(Ptr); }
 
   /// Construct a compare instruction, given the opcode, the predicate and
+  /// the two operands. Insert the instruction into a BasicBlock right before
+  /// the specified instruction.
+  /// Create a CmpInst
+  static CmpInst *Create(OtherOps Op,
+                         Predicate predicate, Value *S1,
+                         Value *S2, const Twine &Name,
+                         BasicBlock::iterator InsertBefore);
+
+  /// Construct a compare instruction, given the opcode, the predicate and
   /// the two operands.  Optionally (if InstBefore is specified) insert the
   /// instruction into a BasicBlock right before the specified instruction.
   /// The specified Instruction is allowed to be a dereferenced end iterator.
@@ -1406,7 +1513,25 @@ public:
   /// the operand bundles for the new instruction are set to the operand bundles
   /// in \p Bundles.
   static CallBase *Create(CallBase *CB, ArrayRef<OperandBundleDef> Bundles,
+                          BasicBlock::iterator InsertPt);
+
+  /// Create a clone of \p CB with a different set of operand bundles and
+  /// insert it before \p InsertPt.
+  ///
+  /// The returned call instruction is identical \p CB in every way except that
+  /// the operand bundles for the new instruction are set to the operand bundles
+  /// in \p Bundles.
+  static CallBase *Create(CallBase *CB, ArrayRef<OperandBundleDef> Bundles,
                           Instruction *InsertPt = nullptr);
+
+  /// Create a clone of \p CB with the operand bundle with the tag matching
+  /// \p Bundle's tag replaced with Bundle, and insert it before \p InsertPt.
+  ///
+  /// The returned call instruction is identical \p CI in every way except that
+  /// the specified operand bundle has been replaced.
+  static CallBase *Create(CallBase *CB,
+                          OperandBundleDef Bundle,
+                          BasicBlock::iterator InsertPt);
 
   /// Create a clone of \p CB with the operand bundle with the tag matching
   /// \p Bundle's tag replaced with Bundle, and insert it before \p InsertPt.

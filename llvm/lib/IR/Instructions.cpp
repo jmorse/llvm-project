@@ -744,6 +744,20 @@ CallInst::CallInst(const CallInst &CI)
 }
 
 CallInst *CallInst::Create(CallInst *CI, ArrayRef<OperandBundleDef> OpB,
+                           BasicBlock::iterator InsertPt) {
+  std::vector<Value *> Args(CI->arg_begin(), CI->arg_end());
+
+  auto *NewCI = CallInst::Create(CI->getFunctionType(), CI->getCalledOperand(),
+                                 Args, OpB, CI->getName(), InsertPt);
+  NewCI->setTailCallKind(CI->getTailCallKind());
+  NewCI->setCallingConv(CI->getCallingConv());
+  NewCI->SubclassOptionalData = CI->SubclassOptionalData;
+  NewCI->setAttributes(CI->getAttributes());
+  NewCI->setDebugLoc(CI->getDebugLoc());
+  return NewCI;
+}
+
+CallInst *CallInst::Create(CallInst *CI, ArrayRef<OperandBundleDef> OpB,
                            Instruction *InsertPt) {
   std::vector<Value *> Args(CI->arg_begin(), CI->arg_end());
 
@@ -3038,6 +3052,15 @@ Type *ExtractValueInst::getIndexedType(Type *Agg,
 
 UnaryOperator::UnaryOperator(UnaryOps iType, Value *S,
                              Type *Ty, const Twine &Name,
+                             BasicBlock::iterator InsertBefore)
+  : UnaryInstruction(Ty, iType, S, InsertBefore) {
+  Op<0>() = S;
+  setName(Name);
+  AssertOK();
+}
+
+UnaryOperator::UnaryOperator(UnaryOps iType, Value *S,
+                             Type *Ty, const Twine &Name,
                              Instruction *InsertBefore)
   : UnaryInstruction(Ty, iType, S, InsertBefore) {
   Op<0>() = S;
@@ -3052,6 +3075,12 @@ UnaryOperator::UnaryOperator(UnaryOps iType, Value *S,
   Op<0>() = S;
   setName(Name);
   AssertOK();
+}
+
+UnaryOperator *UnaryOperator::Create(UnaryOps Op, Value *S,
+                                     const Twine &Name,
+                                     BasicBlock::iterator InsertBefore) {
+  return new UnaryOperator(Op, S, S->getType(), Name, InsertBefore);
 }
 
 UnaryOperator *UnaryOperator::Create(UnaryOps Op, Value *S,
@@ -3088,6 +3117,19 @@ void UnaryOperator::AssertOK() {
 //===----------------------------------------------------------------------===//
 //                             BinaryOperator Class
 //===----------------------------------------------------------------------===//
+
+BinaryOperator::BinaryOperator(BinaryOps iType, Value *S1, Value *S2,
+                               Type *Ty, const Twine &Name,
+                               BasicBlock::iterator InsertBefore)
+  : Instruction(Ty, iType,
+                OperandTraits<BinaryOperator>::op_begin(this),
+                OperandTraits<BinaryOperator>::operands(this),
+                InsertBefore) {
+  Op<0>() = S1;
+  Op<1>() = S2;
+  setName(Name);
+  AssertOK();
+}
 
 BinaryOperator::BinaryOperator(BinaryOps iType, Value *S1, Value *S2,
                                Type *Ty, const Twine &Name,
