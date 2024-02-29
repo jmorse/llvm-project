@@ -55,7 +55,7 @@ Value *coro::LowererBase::makeSubFnCall(Value *Arg, int Index,
   assert(Index >= CoroSubFnInst::IndexFirst &&
          Index < CoroSubFnInst::IndexLast &&
          "makeSubFnCall: Index value out of range");
-  return CallInst::Create(Fn, {Arg, IndexVal}, "", InsertPt);
+  return CallInst::Create(Fn, {Arg, IndexVal}, "", InsertPt->getIterator());
 }
 
 // NOTE: Must be sorted!
@@ -158,7 +158,7 @@ static CoroSaveInst *createCoroSave(CoroBeginInst *CoroBegin,
   Module *M = SuspendInst->getModule();
   auto *Fn = Intrinsic::getDeclaration(M, Intrinsic::coro_save);
   auto *SaveInst =
-      cast<CoroSaveInst>(CallInst::Create(Fn, CoroBegin, "", SuspendInst));
+      cast<CoroSaveInst>(CallInst::Create(Fn, CoroBegin, "", SuspendInst->getIterator()));
   assert(!SuspendInst->getCoroSave());
   SuspendInst->setArgOperand(0, SaveInst);
   return SaveInst;
@@ -362,7 +362,7 @@ void coro::Shape::buildFrom(Function &F) {
           // calls, but that messes with our invariants.  Re-insert the
           // bitcast and ignore this type mismatch.
           if (CastInst::isBitCastable(SrcTy, *RI)) {
-            auto BCI = new BitCastInst(*SI, *RI, "", Suspend);
+            auto BCI = new BitCastInst(*SI, *RI, "", Suspend->getIterator());
             SI->set(BCI);
             continue;
           }

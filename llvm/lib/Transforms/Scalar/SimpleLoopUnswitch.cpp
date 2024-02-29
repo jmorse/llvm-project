@@ -2348,7 +2348,7 @@ static void unswitchNontrivialInvariants(
       Value *Cond = skipTrivialSelect(BI->getCondition());
       if (InsertFreeze)
         Cond = new FreezeInst(
-            Cond, Cond->getName() + ".fr", BI);
+            Cond, Cond->getName() + ".fr", BI->getIterator());
       BI->setCondition(Cond);
       DTUpdates.push_back({DominatorTree::Insert, SplitBB, ClonedPH});
     } else {
@@ -2366,7 +2366,7 @@ static void unswitchNontrivialInvariants(
 
       if (InsertFreeze)
         SI->setCondition(new FreezeInst(
-            SI->getCondition(), SI->getCondition()->getName() + ".fr", SI));
+            SI->getCondition(), SI->getCondition()->getName() + ".fr", SI->getIterator()));
 
       // We need to use the set to populate domtree updates as even when there
       // are multiple cases pointing at the same successor we only want to
@@ -2704,7 +2704,7 @@ static BranchInst *turnSelectIntoBranch(SelectInst *SI, DominatorTree &DT,
   if (MSSAU)
     MSSAU->moveAllAfterSpliceBlocks(HeadBB, TailBB, SI);
 
-  PHINode *Phi = PHINode::Create(SI->getType(), 2, "unswitched.select", SI);
+  PHINode *Phi = PHINode::Create(SI->getType(), 2, "unswitched.select", SI->getIterator());
   Phi->addIncoming(SI->getTrueValue(), ThenBB);
   Phi->addIncoming(SI->getFalseValue(), HeadBB);
   SI->replaceAllUsesWith(Phi);
@@ -3092,7 +3092,7 @@ injectPendingInvariantConditions(NonTrivialUnswitchCandidate Candidate, Loop &L,
   // unswitching will break. Better optimize it away later.
   auto *InjectedCond =
       ICmpInst::Create(Instruction::ICmp, Pred, LHS, RHS, "injected.cond",
-                       Preheader->getTerminator());
+                       Preheader->getTerminator()->getIterator());
 
   BasicBlock *CheckBlock = BasicBlock::Create(Ctx, BB->getName() + ".check",
                                               BB->getParent(), InLoopSucc);

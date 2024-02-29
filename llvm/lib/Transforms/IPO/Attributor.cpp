@@ -3125,10 +3125,10 @@ ChangeStatus Attributor::rewriteFunctionSignatures(
       if (InvokeInst *II = dyn_cast<InvokeInst>(OldCB)) {
         NewCB =
             InvokeInst::Create(NewFn, II->getNormalDest(), II->getUnwindDest(),
-                               NewArgOperands, OperandBundleDefs, "", OldCB);
+                               NewArgOperands, OperandBundleDefs, "", OldCB->getIterator());
       } else {
         auto *NewCI = CallInst::Create(NewFn, NewArgOperands, OperandBundleDefs,
-                                       "", OldCB);
+                                       "", OldCB->getIterator());
         NewCI->setTailCallKind(cast<CallInst>(OldCB)->getTailCallKind());
         NewCB = NewCI;
       }

@@ -601,7 +601,7 @@ void TailRecursionEliminator::copyByValueOperandIntoLocalTemp(CallInst *CI,
   // Put alloca into the entry block.
   Value *NewAlloca = new AllocaInst(
       AggTy, DL.getAllocaAddrSpace(), nullptr, Alignment,
-      CI->getArgOperand(OpndIdx)->getName(), &*F.getEntryBlock().begin());
+      CI->getArgOperand(OpndIdx)->getName(), F.getEntryBlock().begin());
 
   IRBuilder<> Builder(CI);
   Value *Size = Builder.getInt64(DL.getTypeAllocSize(AggTy));
@@ -715,7 +715,7 @@ bool TailRecursionEliminator::eliminateCall(CallInst *CI) {
       // select it if we don't already know what our return value will be and
       // store the result in our return value PHI node.
       SelectInst *SI = SelectInst::Create(
-          RetKnownPN, RetPN, Ret->getReturnValue(), "current.ret.tr", Ret);
+          RetKnownPN, RetPN, Ret->getReturnValue(), "current.ret.tr", Ret->getIterator());
       RetSelects.push_back(SI);
 
       RetPN->addIncoming(SI, BB);
@@ -728,7 +728,7 @@ bool TailRecursionEliminator::eliminateCall(CallInst *CI) {
 
   // Now that all of the PHI nodes are in place, remove the call and
   // ret instructions, replacing them with an unconditional branch.
-  BranchInst *NewBI = BranchInst::Create(HeaderBB, Ret);
+  BranchInst *NewBI = BranchInst::Create(HeaderBB, Ret->getIterator());
   NewBI->setDebugLoc(CI->getDebugLoc());
 
   Ret->eraseFromParent();  // Remove return.
@@ -788,7 +788,7 @@ void TailRecursionEliminator::cleanupAndFinalize() {
           continue;
 
         SelectInst *SI = SelectInst::Create(
-            RetKnownPN, RetPN, RI->getOperand(0), "current.ret.tr", RI);
+            RetKnownPN, RetPN, RI->getOperand(0), "current.ret.tr", RI->getIterator());
         RetSelects.push_back(SI);
         RI->setOperand(0, SI);
       }

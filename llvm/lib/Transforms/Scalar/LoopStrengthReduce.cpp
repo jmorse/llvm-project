@@ -2218,14 +2218,14 @@ void LSRInstance::OptimizeShadowIV() {
     if (!C->getValue().isStrictlyPositive()) continue;
 
     /* Add new PHINode. */
-    PHINode *NewPH = PHINode::Create(DestTy, 2, "IV.S.", PH);
+    PHINode *NewPH = PHINode::Create(DestTy, 2, "IV.S.", PH->getIterator());
 
     /* create new increment. '++d' in above example. */
     Constant *CFP = ConstantFP::get(DestTy, C->getZExtValue());
     BinaryOperator *NewIncr =
       BinaryOperator::Create(Incr->getOpcode() == Instruction::Add ?
                                Instruction::FAdd : Instruction::FSub,
-                             NewPH, CFP, "IV.S.next.", Incr);
+                             NewPH, CFP, "IV.S.next.", Incr->getIterator());
 
     NewPH->addIncoming(NewInit, PH->getIncomingBlock(Entry));
     NewPH->addIncoming(NewIncr, PH->getIncomingBlock(Latch));
@@ -2396,7 +2396,7 @@ ICmpInst *LSRInstance::OptimizeMax(ICmpInst *Cond, IVStrideUse* &CondUse) {
   // Ok, everything looks ok to change the condition into an SLT or SGE and
   // delete the max calculation.
   ICmpInst *NewCond =
-    new ICmpInst(Cond, Pred, Cond->getOperand(0), NewRHS, "scmp");
+    new ICmpInst(Cond->getIterator(), Pred, Cond->getOperand(0), NewRHS, "scmp");
 
   // Delete the max calculation instructions.
   NewCond->setDebugLoc(Cond->getDebugLoc());
@@ -5535,7 +5535,7 @@ Value *LSRInstance::Expand(const LSRUse &LU, const LSRFixup &LF,
         Instruction *Cast =
           CastInst::Create(CastInst::getCastOpcode(ICmpScaledV, false,
                                                    OpTy, false),
-                           ICmpScaledV, OpTy, "tmp", CI);
+                           ICmpScaledV, OpTy, "tmp", CI->getIterator());
         ICmpScaledV = Cast;
       }
       CI->setOperand(1, ICmpScaledV);
@@ -5639,7 +5639,7 @@ void LSRInstance::RewriteForPHI(
             CastInst::Create(CastInst::getCastOpcode(FullV, false,
                                                      OpTy, false),
                              FullV, LF.OperandValToReplace->getType(),
-                             "tmp", BB->getTerminator());
+                             "tmp", BB->getTerminator()->getIterator());
 
         // If the incoming block for this value is not in the loop, it means the
         // current PHI is not in a loop exit, so we must create a LCSSA PHI for
@@ -5712,7 +5712,7 @@ void LSRInstance::Rewrite(const LSRUse &LU, const LSRFixup &LF,
     if (FullV->getType() != OpTy) {
       Instruction *Cast =
         CastInst::Create(CastInst::getCastOpcode(FullV, false, OpTy, false),
-                         FullV, OpTy, "tmp", LF.UserInst);
+                         FullV, OpTy, "tmp", LF.UserInst->getIterator());
       FullV = Cast;
     }
 
