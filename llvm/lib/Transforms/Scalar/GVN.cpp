@@ -1056,7 +1056,7 @@ Value *AvailableValue::MaterializeAdjustedValue(LoadInst *Load,
     // Introduce a new value select for a load from an eligible pointer select.
     SelectInst *Sel = getSelectValue();
     assert(V1 && V2 && "both value operands of the select must be present");
-    Res = SelectInst::Create(Sel->getCondition(), V1, V2, "", Sel);
+    Res = SelectInst::Create(Sel->getCondition(), V1, V2, "", Sel->getIterator());
   } else {
     llvm_unreachable("Should not materialize value from dead block");
   }
@@ -1415,7 +1415,7 @@ void GVNPass::eliminatePartiallyRedundantLoad(
     auto *NewLoad =
         new LoadInst(Load->getType(), LoadPtr, Load->getName() + ".pre",
                      Load->isVolatile(), Load->getAlign(), Load->getOrdering(),
-                     Load->getSyncScopeID(), UnavailableBlock->getTerminator());
+                     Load->getSyncScopeID(), UnavailableBlock->getTerminator()->getIterator());
     NewLoad->setDebugLoc(Load->getDebugLoc());
     if (MSSAU) {
       auto *NewAccess = MSSAU->createMemoryAccessInBB(
@@ -1995,7 +1995,7 @@ bool GVNPass::processAssumeIntrinsic(AssumeInst *IntrinsicI) {
       // this code is not reachable.  FIXME: We could insert unreachable
       // instruction directly because we can modify the CFG.
       auto *NewS = new StoreInst(PoisonValue::get(Int8Ty),
-                                 Constant::getNullValue(PtrTy), IntrinsicI);
+                                 Constant::getNullValue(PtrTy), IntrinsicI->getIterator());
       if (MSSAU) {
         const MemoryUseOrDef *FirstNonDom = nullptr;
         const auto *AL =

@@ -557,7 +557,7 @@ static Value *rewriteGEPAsOffset(Value *Start, Value *Base,
     // the remaining instructions.
     if (auto *PHI = dyn_cast<PHINode>(Val))
       NewInsts[PHI] = PHINode::Create(IndexType, PHI->getNumIncomingValues(),
-                                      PHI->getName() + ".idx", PHI);
+                                      PHI->getName() + ".idx", PHI->getIterator());
   }
   IRBuilder<> Builder(Base->getContext());
 

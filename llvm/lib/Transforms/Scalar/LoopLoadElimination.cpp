@@ -442,7 +442,7 @@ public:
                                           PH->getTerminator());
     Value *Initial = new LoadInst(
         Cand.Load->getType(), InitialPtr, "load_initial",
-        /* isVolatile */ false, Cand.Load->getAlign(), PH->getTerminator());
+        /* isVolatile */ false, Cand.Load->getAlign(), PH->getTerminator()->getIterator());
 
     PHINode *PHI = PHINode::Create(Initial->getType(), 2, "store_forwarded");
     PHI->insertBefore(L->getHeader()->begin());
@@ -459,7 +459,7 @@ public:
     Value *StoreValue = Cand.Store->getValueOperand();
     if (LoadType != StoreType)
       StoreValue = CastInst::CreateBitOrPointerCast(
-          StoreValue, LoadType, "store_forward_cast", Cand.Store);
+          StoreValue, LoadType, "store_forward_cast", Cand.Store->getIterator());
 
     PHI->addIncoming(StoreValue, L->getLoopLatch());
 

@@ -590,7 +590,7 @@ static bool processSaturatingInst(SaturatingInst *SI, LazyValueInfo *LVI) {
   bool NSW = SI->isSigned();
   bool NUW = !SI->isSigned();
   BinaryOperator *BinOp = BinaryOperator::Create(
-      Opcode, SI->getLHS(), SI->getRHS(), SI->getName(), SI);
+      Opcode, SI->getLHS(), SI->getRHS(), SI->getName(), SI->getIterator());
   BinOp->setDebugLoc(SI->getDebugLoc());
   setDeducedOverflowingFlags(BinOp, Opcode, NSW, NUW);
 
@@ -912,7 +912,7 @@ static bool processSRem(BinaryOperator *SDI, const ConstantRange &LCR,
   }
 
   auto *URem =
-      BinaryOperator::CreateURem(Ops[0].V, Ops[1].V, SDI->getName(), SDI);
+      BinaryOperator::CreateURem(Ops[0].V, Ops[1].V, SDI->getName(), SDI->getIterator());
   URem->setDebugLoc(SDI->getDebugLoc());
 
   auto *Res = URem;
@@ -974,7 +974,7 @@ static bool processSDiv(BinaryOperator *SDI, const ConstantRange &LCR,
   }
 
   auto *UDiv =
-      BinaryOperator::CreateUDiv(Ops[0].V, Ops[1].V, SDI->getName(), SDI);
+      BinaryOperator::CreateUDiv(Ops[0].V, Ops[1].V, SDI->getName(), SDI->getIterator());
   UDiv->setDebugLoc(SDI->getDebugLoc());
   UDiv->setIsExact(SDI->isExact());
 
@@ -1041,7 +1041,7 @@ static bool processAShr(BinaryOperator *SDI, LazyValueInfo *LVI) {
 
   ++NumAShrsConverted;
   auto *BO = BinaryOperator::CreateLShr(SDI->getOperand(0), SDI->getOperand(1),
-                                        "", SDI);
+                                        "", SDI->getIterator());
   BO->takeName(SDI);
   BO->setDebugLoc(SDI->getDebugLoc());
   BO->setIsExact(SDI->isExact());
@@ -1061,7 +1061,7 @@ static bool processSExt(SExtInst *SDI, LazyValueInfo *LVI) {
     return false;
 
   ++NumSExt;
-  auto *ZExt = CastInst::CreateZExtOrBitCast(Base, SDI->getType(), "", SDI);
+  auto *ZExt = CastInst::CreateZExtOrBitCast(Base, SDI->getType(), "", SDI->getIterator());
   ZExt->takeName(SDI);
   ZExt->setDebugLoc(SDI->getDebugLoc());
   ZExt->setNonNeg();

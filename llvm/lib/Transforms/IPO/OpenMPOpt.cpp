@@ -1146,17 +1146,17 @@ private:
         const DataLayout &DL = M.getDataLayout();
         AllocaInst *AllocaI = new AllocaInst(
             I.getType(), DL.getAllocaAddrSpace(), nullptr,
-            I.getName() + ".seq.output.alloc", &OuterFn->front().front());
+            I.getName() + ".seq.output.alloc", OuterFn->front().begin());
 
         // Emit a store instruction in the sequential BB to update the
         // value.
-        new StoreInst(&I, AllocaI, SeqStartBB->getTerminator());
+        new StoreInst(&I, AllocaI, SeqStartBB->getTerminator()->getIterator());
 
         // Emit a load instruction and replace the use of the output value
         // with it.
         for (Instruction *UsrI : OutsideUsers) {
           LoadInst *LoadI = new LoadInst(
-              I.getType(), AllocaI, I.getName() + ".seq.output.load", UsrI);
+              I.getType(), AllocaI, I.getName() + ".seq.output.load", UsrI->getIterator());
           UsrI->replaceUsesOfWith(&I, LoadI);
         }
       }
@@ -1261,7 +1261,7 @@ private:
              ++U)
           Args.push_back(CI->getArgOperand(U));
 
-        CallInst *NewCI = CallInst::Create(FT, Callee, Args, "", CI);
+        CallInst *NewCI = CallInst::Create(FT, Callee, Args, "", CI->getIterator());
         if (CI->getDebugLoc())
           NewCI->setDebugLoc(CI->getDebugLoc());
 
@@ -1740,7 +1740,7 @@ private:
     Args.push_back(Handle);
 
     CallInst *IssueCallsite =
-        CallInst::Create(IssueDecl, Args, /*NameStr=*/"", &RuntimeCall);
+        CallInst::Create(IssueDecl, Args, /*NameStr=*/"", RuntimeCall.getIterator());
     OMPInfoCache.setCallingConvention(IssueDecl, IssueCallsite);
     RuntimeCall.eraseFromParent();
 
@@ -1755,7 +1755,7 @@ private:
         Handle                             // handle to wait on.
     };
     CallInst *WaitCallsite = CallInst::Create(
-        WaitDecl, WaitParams, /*NameStr=*/"", &WaitMovementPoint);
+        WaitDecl, WaitParams, /*NameStr=*/"", WaitMovementPoint.getIterator());
     OMPInfoCache.setCallingConvention(WaitDecl, WaitCallsite);
 
     return true;
@@ -4025,11 +4025,11 @@ struct AAKernelInfoFunction : AAKernelInfo {
             static_cast<unsigned>(AddressSpace::Shared));
 
         // Emit a store instruction to update the value.
-        new StoreInst(&I, SharedMem, RegionEndBB->getTerminator());
+        new StoreInst(&I, SharedMem, RegionEndBB->getTerminator()->getIterator());
 
         LoadInst *LoadI = new LoadInst(I.getType(), SharedMem,
                                        I.getName() + ".guarded.output.load",
-                                       RegionBarrierBB->getTerminator());
+                                       RegionBarrierBB->getTerminator()->getIterator());
 
         // Emit a load instruction and replace uses of the output value.
         for (Use *U : OutsideUses)
@@ -4083,7 +4083,7 @@ struct AAKernelInfoFunction : AAKernelInfo {
       // Second barrier ensures workers have read broadcast values.
       if (HasBroadcastValues) {
         CallInst *Barrier = CallInst::Create(BarrierFn, {Ident, Tid}, "",
-                                             RegionBarrierBB->getTerminator());
+                                             RegionBarrierBB->getTerminator()->getIterator());
         Barrier->setDebugLoc(DL);
         OMPInfoCache.setCallingConvention(BarrierFn, Barrier);
       }
@@ -4488,7 +4488,7 @@ struct AAKernelInfoFunction : AAKernelInfo {
     Type *VoidPtrTy = PointerType::getUnqual(Ctx);
     Instruction *WorkFnAI =
         new AllocaInst(VoidPtrTy, DL.getAllocaAddrSpace(), nullptr,
-                       "worker.work_fn.addr", &Kernel->getEntryBlock().front());
+                       "worker.work_fn.addr", Kernel->getEntryBlock().begin());
     WorkFnAI->setDebugLoc(DLoc);
 
     OMPInfoCache.OMPBuilder.updateToLocation(
