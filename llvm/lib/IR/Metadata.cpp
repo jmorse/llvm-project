@@ -153,52 +153,53 @@ const DPValue *DebugValueUser::getUser() const {
   return static_cast<const DPValue *>(this);
 }
 
-void DebugValueUser::handleChangedValue(void *Old, Metadata *New) {
+void DebugValueUser::handleChangedValue(size_t Idx, Metadata *New) {
   // NOTE: We could inform the "owner" that a value has changed through
   // getOwner, if needed.
-  auto OldMD = static_cast<Metadata **>(Old);
-  ptrdiff_t Idx = std::distance(&*DebugValues.begin(), OldMD);
+  Metadata *OldMD = DebugValues[Idx]->MD;
   // If replacing a ValueAsMetadata with a nullptr, replace it with a
   // PoisonValue instead.
-  if (OldMD && isa<ValueAsMetadata>(*OldMD) && !New) {
-    auto *OldVAM = cast<ValueAsMetadata>(*OldMD);
+  if (isa<ValueAsMetadata>(OldMD) && !New) {
+    auto *OldVAM = cast<ValueAsMetadata>(OldMD);
     New = ValueAsMetadata::get(PoisonValue::get(OldVAM->getValue()->getType()));
   }
   resetDebugValue(Idx, New);
 }
 
-void DebugValueUser::trackDebugValue(size_t Idx) {
+void DebugValueUser::resetDebugValue(size_t Idx, Metadata *DebugValue) {
   assert(Idx < 3 && "Invalid debug value index.");
-  Metadata *&MD = DebugValues[Idx];
-  if (MD)
-    MetadataTracking::track(&MD, *MD, *this);
-}
-
-void DebugValueUser::trackDebugValues() {
-  for (Metadata *&MD : DebugValues)
-    if (MD)
-      MetadataTracking::track(&MD, *MD, *this);
-}
-
-void DebugValueUser::untrackDebugValue(size_t Idx) {
-  assert(Idx < 3 && "Invalid debug value index.");
-  Metadata *&MD = DebugValues[Idx];
-  if (MD)
-    MetadataTracking::untrack(MD);
-}
-
-void DebugValueUser::untrackDebugValues() {
-  for (Metadata *&MD : DebugValues)
-    if (MD)
-      MetadataTracking::untrack(MD);
-}
-
-void DebugValueUser::retrackDebugValues(DebugValueUser &X) {
-  assert(DebugValueUser::operator==(X) && "Expected values to match");
-  for (const auto &[MD, XMD] : zip(DebugValues, X.DebugValues))
-    if (XMD)
-      MetadataTracking::retrack(XMD, MD);
-  X.DebugValues.fill(nullptr);
+  // if (isa_and_nonnull<MDNode>(DebugValue) && !isa<DIAssignID>(DebugValue)) {
+  //   // We can't track empty MDNodes, so treat them as null values.
+  //   assert(cast<MDNode>(DebugValue)->getNumOperands() == 0 &&
+  //           "Non-empty MDNodes should not appear in debug records.");
+  //   DebugValue = nullptr;
+  // }
+  // Don't try to do anything if we're replacing a value with itself.
+  if (getDebugValue(Idx) == DebugValue)
+    return;
+  if (DebugValues[Idx] && DebugValue) {
+    // Reuse existing memory.
+    if (DebugValues[Idx]->isInList())
+      DebugValues[Idx]->removeFromList();
+    DebugValues[Idx]->MD = DebugValue;
+    auto *R = ReplaceableMetadataImpl::getOrCreate(*DebugValue);
+    if (R)
+      DebugValues[Idx]->addToList(&R->DebugUseList);
+  } else if (DebugValue) {
+    // Allocate new memory.
+    DebugValues[Idx] = new DebugValueUse(this, Idx);
+    DebugValues[Idx]->MD = DebugValue;
+    auto *R = ReplaceableMetadataImpl::getOrCreate(*DebugValue);
+    if (R)
+      DebugValues[Idx]->addToList(&R->DebugUseList);
+  } else if (DebugValues[Idx]) {
+    // Just delete.
+    if (DebugValues[Idx]->isInList())
+      DebugValues[Idx]->removeFromList();
+    delete DebugValues[Idx];
+    DebugValues[Idx] = nullptr;
+  }
+  // Otherwise, we're replacing nothing with nothing, so do nothing.
 }
 
 bool MetadataTracking::track(void *Ref, Metadata &MD, OwnerTy Owner) {
@@ -267,26 +268,12 @@ SmallVector<Metadata *> ReplaceableMetadataImpl::getAllArgListUsers() {
 }
 
 SmallVector<DPValue *> ReplaceableMetadataImpl::getAllDPValueUsers() {
-  SmallVector<std::pair<OwnerTy, uint64_t> *> DPVUsersWithID;
-  for (auto Pair : UseMap) {
-    OwnerTy Owner = Pair.second.first;
-    if (Owner.isNull())
-      continue;
-    if (!Owner.is<DebugValueUser *>())
-      continue;
-    DPVUsersWithID.push_back(&UseMap[Pair.first]);
-  }
-  // Order DPValue users in reverse-creation order. Normal dbg.value users
-  // of MetadataAsValues are ordered by their UseList, i.e. reverse order of
-  // when they were added: we need to replicate that here. The structure of
-  // debug-info output depends on the ordering of intrinsics, thus we need
-  // to keep them consistent for comparisons sake.
-  llvm::sort(DPVUsersWithID, [](auto UserA, auto UserB) {
-    return UserA->second > UserB->second;
-  });
   SmallVector<DPValue *> DPVUsers;
-  for (auto UserWithID : DPVUsersWithID)
-    DPVUsers.push_back(UserWithID->first.get<DebugValueUser *>()->getUser());
+  DebugValueUse *DbgUseIt = DebugUseList;
+  while (DbgUseIt != nullptr) {
+    DPVUsers.push_back(DbgUseIt->getUser()->getUser());
+    DbgUseIt = DbgUseIt->getNext();
+  }
   return DPVUsers;
 }
 
@@ -356,6 +343,14 @@ void ReplaceableMetadataImpl::SalvageDebugInfo(const Constant &C) {
 }
 
 void ReplaceableMetadataImpl::replaceAllUsesWith(Metadata *MD) {
+  DebugValueUse *DbgUseIt = DebugUseList;
+  while (DbgUseIt != nullptr) {
+    DebugValueUse *LastDbgUse = DbgUseIt;
+    DbgUseIt = DbgUseIt->getNext();
+    LastDbgUse->getUser()->handleChangedValue(LastDbgUse->getIdx(), MD);
+  }
+  assert(DebugUseList == nullptr && "List should have been emptied!");
+
   if (UseMap.empty())
     return;
 
@@ -385,11 +380,6 @@ void ReplaceableMetadataImpl::replaceAllUsesWith(Metadata *MD) {
     // Check for MetadataAsValue.
     if (isa<MetadataAsValue *>(Owner)) {
       cast<MetadataAsValue *>(Owner)->handleChangedMetadata(MD);
-      continue;
-    }
-
-    if (Owner.is<DebugValueUser *>()) {
-      Owner.get<DebugValueUser *>()->handleChangedValue(Pair.first, MD);
       continue;
     }
 

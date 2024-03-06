@@ -402,7 +402,7 @@ public:
   /// dbg intrinsic dbg.value,declare operand and dbg.assign 1st location
   /// operand (the "value componenet"). Note the operand (singular) may be
   /// a DIArgList which is a list of values.
-  Metadata *getRawLocation() const { return DebugValues[0]; }
+  Metadata *getRawLocation() const { return getDebugValue(0); }
 
   Value *getValue(unsigned OpIdx = 0) const {
     return getVariableLocationOp(OpIdx);
@@ -424,15 +424,18 @@ public:
   std::optional<uint64_t> getFragmentSizeInBits() const;
 
   bool isEquivalentTo(const DPValue &Other) const {
-    return DbgLoc == Other.DbgLoc && isIdenticalToWhenDefined(Other);
+    return std::tie(Type, Variable, Expression, DbgLoc) ==
+               std::tie(Other.Type, Other.Variable, Other.Expression,
+                        Other.DbgLoc) &&
+           hasIdenticalDebugValues(Other);
   }
+
   // Matches the definition of the Instruction version, equivalent to above but
   // without checking DbgLoc.
   bool isIdenticalToWhenDefined(const DPValue &Other) const {
-    return std::tie(Type, DebugValues, Variable, Expression,
-                    AddressExpression) ==
-           std::tie(Other.Type, Other.DebugValues, Other.Variable,
-                    Other.Expression, Other.AddressExpression);
+    return std::tie(Type, Variable, Expression) ==
+               std::tie(Other.Type, Other.Variable, Other.Expression) &&
+           hasIdenticalDebugValues(Other);
   }
 
   /// @name DbgAssign Methods
@@ -441,9 +444,9 @@ public:
 
   Value *getAddress() const;
   Metadata *getRawAddress() const {
-    return isDbgAssign() ? DebugValues[1] : DebugValues[0];
+    return isDbgAssign() ? getDebugValue(1) : getDebugValue(0);
   }
-  Metadata *getRawAssignID() const { return DebugValues[2]; }
+  Metadata *getRawAssignID() const { return getDebugValue(2); }
   DIAssignID *getAssignID() const;
   DIExpression *getAddressExpression() const { return AddressExpression.get(); }
   MDNode *getRawAddressExpression() const {

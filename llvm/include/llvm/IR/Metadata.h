@@ -202,6 +202,64 @@ private:
   void untrack();
 };
 
+class DebugValueUser;
+/// Bidirectional linked list for tracking uses of Metadata in debug records.
+/// ReplaceableMetadataImpl has a pointer to the front of the list, and
+/// DebugValueUser is responsible for allocating nodes and adding/removing them
+/// from the list. This class should not be used anywhere else -
+/// ReplaceableMetadataImpl provides methods to search or update the
+/// DebugUseList, and DebugValueUser only provides access to the underlying
+/// metadata, not the nodes themselves.
+class DebugValueUse {
+public:
+  DebugValueUse(const DebugValueUse &U) = delete;
+
+private:
+  DebugValueUse(DebugValueUser *Parent, size_t Idx)
+      : Parent(Parent), Idx(Idx) {}
+
+public:
+  friend class DebugValueUser;
+
+  inline Metadata *get() const { return MD; }
+
+  /// Returns the DebugValueUser that contains this DebugValueUse.
+  DebugValueUser *getUser() const { return Parent; }
+  size_t getIdx() const { return Idx; }
+
+  DebugValueUse *getNext() const { return Next; }
+
+  bool isInList() const {
+    return Prev;
+  }
+
+private:
+  Metadata *MD = nullptr;
+  DebugValueUse *Next = nullptr;
+  DebugValueUse **Prev = nullptr;
+  DebugValueUser *Parent = nullptr;
+  size_t Idx = -1;
+
+  void setParent(DebugValueUser *NewParent, size_t NewIdx) {
+    Parent = NewParent;
+    Idx = NewIdx;
+  }
+
+  void addToList(DebugValueUse **List) {
+    Next = *List;
+    if (Next)
+      Next->Prev = &Next;
+    Prev = List;
+    *Prev = this;
+  }
+
+  void removeFromList() {
+    *Prev = Next;
+    if (Next)
+      Next->Prev = Prev;
+  }
+};
+
 /// Base class for tracking ValueAsMetadata/DIArgLists with user lookups and
 /// Owner callbacks outside of ValueAsMetadata.
 ///
@@ -215,11 +273,21 @@ protected:
   // TODO: Not all DebugValueUser instances need all 3 elements, if we
   // restructure the DPValue class then we can template parameterize this array
   // size.
-  std::array<Metadata *, 3> DebugValues;
+  std::array<DebugValueUse *, 3> DebugValues = {nullptr, nullptr, nullptr};
 
-  ArrayRef<Metadata *> getDebugValues() const { return DebugValues; }
+  inline Metadata *getDebugValue(size_t Idx) const {
+    assert(Idx < 3 && "Invalid debug value index.");
+    return DebugValues[Idx] ? DebugValues[Idx]->get() : nullptr;
+  }
 
 public:
+  bool hasIdenticalDebugValues(const DebugValueUser &Other) const {
+    for (size_t Idx = 0; Idx < 3; ++Idx)
+      if (getDebugValue(Idx) != Other.getDebugValue(Idx))
+        return false;
+    return true;
+  }
+
   DPValue *getUser();
   const DPValue *getUser() const;
   /// To be called by ReplaceableMetadataImpl::replaceAllUsesWith, where `Old`
@@ -228,28 +296,31 @@ public:
   /// *Old.
   /// For manually replacing elements of DebugValues,
   /// `resetDebugValue(Idx, NewDebugValue)` should be used instead.
-  void handleChangedValue(void *Old, Metadata *NewDebugValue);
+  void handleChangedValue(size_t Idx, Metadata *NewDebugValue);
   DebugValueUser() = default;
-  explicit DebugValueUser(std::array<Metadata *, 3> DebugValues)
-      : DebugValues(DebugValues) {
-    trackDebugValues();
+  explicit DebugValueUser(std::array<Metadata *, 3> DebugValueMDs) {
+    for (size_t Idx = 0; Idx < 3; ++Idx)
+      resetDebugValue(Idx, DebugValueMDs[Idx]);
   }
   DebugValueUser(DebugValueUser &&X) {
     DebugValues = X.DebugValues;
-    retrackDebugValues(X);
+    for (size_t Idx = 0; Idx < 3; ++Idx)
+      DebugValues[Idx]->setParent(this, Idx);
+    X.DebugValues.fill(nullptr);
   }
   DebugValueUser(const DebugValueUser &X) {
-    DebugValues = X.DebugValues;
-    trackDebugValues();
+    for (size_t Idx = 0; Idx < 3; ++Idx)
+      resetDebugValue(Idx, X.getDebugValue(Idx));
   }
 
   DebugValueUser &operator=(DebugValueUser &&X) {
     if (&X == this)
       return *this;
 
-    untrackDebugValues();
     DebugValues = X.DebugValues;
-    retrackDebugValues(X);
+    for (size_t Idx = 0; Idx < 3; ++Idx)
+      DebugValues[Idx]->setParent(this, Idx);
+    X.DebugValues.fill(nullptr);
     return *this;
   }
 
@@ -257,41 +328,26 @@ public:
     if (&X == this)
       return *this;
 
-    untrackDebugValues();
-    DebugValues = X.DebugValues;
-    trackDebugValues();
+    for (size_t Idx = 0; Idx < 3; ++Idx)
+      resetDebugValue(Idx, X.getDebugValue(Idx));
     return *this;
   }
 
-  ~DebugValueUser() { untrackDebugValues(); }
+  ~DebugValueUser() { resetDebugValues(); }
 
   void resetDebugValues() {
-    untrackDebugValues();
-    DebugValues.fill(nullptr);
+    for (size_t Idx = 0; Idx < 3; ++Idx)
+      resetDebugValue(Idx, nullptr);
   }
 
-  void resetDebugValue(size_t Idx, Metadata *DebugValue) {
-    assert(Idx < 3 && "Invalid debug value index.");
-    untrackDebugValue(Idx);
-    DebugValues[Idx] = DebugValue;
-    trackDebugValue(Idx);
-  }
+  void resetDebugValue(size_t Idx, Metadata *DebugValue);
 
   bool operator==(const DebugValueUser &X) const {
-    return DebugValues == X.DebugValues;
+    return hasIdenticalDebugValues(X);
   }
   bool operator!=(const DebugValueUser &X) const {
-    return DebugValues != X.DebugValues;
+    return !hasIdenticalDebugValues(X);
   }
-
-private:
-  void trackDebugValue(size_t Idx);
-  void trackDebugValues();
-
-  void untrackDebugValue(size_t Idx);
-  void untrackDebugValues();
-
-  void retrackDebugValues(DebugValueUser &X);
 };
 
 /// API for tracking metadata references through RAUW and deletion.
@@ -334,15 +390,6 @@ public:
     return track(Ref, MD, &Owner);
   }
 
-  /// Track the reference to metadata for \a DebugValueUser.
-  ///
-  /// As \a track(Metadata*&), but with support for calling back to \c Owner to
-  /// tell it that its operand changed.  This could trigger \c Owner being
-  /// re-uniqued.
-  static bool track(void *Ref, Metadata &MD, DebugValueUser &Owner) {
-    return track(Ref, MD, &Owner);
-  }
-
   /// Stop tracking a reference to metadata.
   ///
   /// Stops \c *MD from tracking \c MD.
@@ -365,7 +412,7 @@ public:
   /// Check whether metadata is replaceable.
   static bool isReplaceable(const Metadata &MD);
 
-  using OwnerTy = PointerUnion<MetadataAsValue *, Metadata *, DebugValueUser *>;
+  using OwnerTy = PointerUnion<MetadataAsValue *, Metadata *>;
 
 private:
   /// Track a reference to metadata for an owner.
@@ -381,6 +428,7 @@ private:
 /// \a ValueAsMetadata, \a TempMDNode, and \a DIArgList).
 class ReplaceableMetadataImpl {
   friend class MetadataTracking;
+  friend class DebugValueUser;
 
 public:
   using OwnerTy = MetadataTracking::OwnerTy;
@@ -389,6 +437,7 @@ private:
   LLVMContext &Context;
   uint64_t NextIndex = 0;
   SmallDenseMap<void *, std::pair<OwnerTy, uint64_t>, 4> UseMap;
+  DebugValueUse *DebugUseList = nullptr;
 
 public:
   ReplaceableMetadataImpl(LLVMContext &Context) : Context(Context) {}

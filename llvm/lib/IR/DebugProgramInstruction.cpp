@@ -56,7 +56,7 @@ DPValue::DPValue(const DbgVariableIntrinsic *DVI)
 }
 
 DPValue::DPValue(const DPValue &DPV)
-    : DbgRecord(ValueKind, DPV.getDebugLoc()), DebugValueUser(DPV.DebugValues),
+    : DbgRecord(ValueKind, DPV.getDebugLoc()), DebugValueUser(DPV),
       Type(DPV.getType()), Variable(DPV.getVariable()),
       Expression(DPV.getExpression()),
       AddressExpression(DPV.AddressExpression) {}
@@ -384,19 +384,28 @@ DPValue::createDebugIntrinsic(Module *M, Instruction *InsertBefore) const {
   // Create the intrinsic from this DPValue's information, optionally insert
   // into the target location.
   DbgVariableIntrinsic *DVI;
-  assert(getRawLocation() && "DPValue's RawLocation should be non-null.");
+  // We can't track uses of empty MDNodes, so we use nullptr instead - convert
+  // nulls to empty MDNodes when returning to intrinsic form.
+  Metadata *RawLocation = getRawLocation();
+  if (!RawLocation)
+    RawLocation = MDNode::get(Context, std::nullopt);
   if (isDbgAssign()) {
+    // See above comment for RawLocation; getAssignID should always return
+    // non-null and will assert otherwise.
+    Metadata *RawAddress = getRawAddress();
+    if (!RawAddress)
+      RawAddress = MDNode::get(Context, std::nullopt);
     Value *AssignArgs[] = {
-        MetadataAsValue::get(Context, getRawLocation()),
+        MetadataAsValue::get(Context, RawLocation),
         MetadataAsValue::get(Context, getVariable()),
         MetadataAsValue::get(Context, getExpression()),
         MetadataAsValue::get(Context, getAssignID()),
-        MetadataAsValue::get(Context, getRawAddress()),
+        MetadataAsValue::get(Context, RawAddress),
         MetadataAsValue::get(Context, getAddressExpression())};
     DVI = cast<DbgVariableIntrinsic>(CallInst::Create(
         IntrinsicFn->getFunctionType(), IntrinsicFn, AssignArgs));
   } else {
-    Value *Args[] = {MetadataAsValue::get(Context, getRawLocation()),
+    Value *Args[] = {MetadataAsValue::get(Context, RawLocation),
                      MetadataAsValue::get(Context, getVariable()),
                      MetadataAsValue::get(Context, getExpression())};
     DVI = cast<DbgVariableIntrinsic>(
@@ -435,7 +444,7 @@ Value *DPValue::getAddress() const {
 }
 
 DIAssignID *DPValue::getAssignID() const {
-  return cast<DIAssignID>(DebugValues[2]);
+  return cast<DIAssignID>(getDebugValue(2));
 }
 
 void DPValue::setAssignId(DIAssignID *New) { resetDebugValue(2, New); }
