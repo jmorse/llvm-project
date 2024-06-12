@@ -344,7 +344,7 @@ public:
   /// \p DbgOpStore is the map containing the DbgOpID->DbgOp mapping needed to
   ///    determine the values used by Value.
   void loadVarInloc(MachineBasicBlock &MBB, DbgOpIDMap &DbgOpStore,
-                    const DenseMap<ValueIDNum, LocationAndQuality> &ValueToLoc,
+                    const SmallDenseMap<ValueIDNum, LocationAndQuality> &ValueToLoc,
                     DebugVariable Var, DbgValue Value) {
     SmallVector<DbgOp> DbgOps;
     SmallVector<ResolvedDbgOp> ResolvedDbgOps;
