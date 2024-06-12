@@ -811,7 +811,7 @@ public:
     }
 
     // Examine all the variables based on this location.
-    DenseSet<DebugVariable> NewMLocs;
+    SmallDenseSet<DebugVariable> NewMLocs;
     // If no new location has been found, every variable that depends on this
     // MLoc is dead, so end their existing MLoc->Var mappings as well.
     SmallVector<std::pair<LocIdx, DebugVariable>> LostMLocs;
