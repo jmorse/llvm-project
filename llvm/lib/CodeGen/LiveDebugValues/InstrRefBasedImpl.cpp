@@ -344,7 +344,7 @@ public:
   /// \p DbgOpStore is the map containing the DbgOpID->DbgOp mapping needed to
   ///    determine the values used by Value.
   void loadVarInloc(MachineBasicBlock &MBB, DbgOpIDMap &DbgOpStore,
-                    const SmallDenseMap<ValueIDNum, LocationAndQuality> &ValueToLoc,
+                    const SmallDenseMap<ValueIDNum, LocationAndQuality, 16> &ValueToLoc,
                     DebugVariable Var, DbgValue Value) {
     SmallVector<DbgOp> DbgOps;
     SmallVector<ResolvedDbgOp> ResolvedDbgOps;
@@ -440,7 +440,7 @@ public:
     UseBeforeDefVariables.clear();
 
     // Map of the preferred location for each value.
-    SmallDenseMap<ValueIDNum, LocationAndQuality> ValueToLoc;
+    SmallDenseMap<ValueIDNum, LocationAndQuality, 16> ValueToLoc;
 
     // Initialized the preferred-location map with illegal locations, to be
     // filled in later.
