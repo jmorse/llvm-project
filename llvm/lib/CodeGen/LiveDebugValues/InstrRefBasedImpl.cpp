@@ -909,6 +909,7 @@ public:
       PendingDbgValues.push_back(MI);
     }
     ActiveMLocs[Src].clear();
+    ActiveMLocs.erase(Src);
     flushDbgValues(Pos, nullptr);
 
     // XXX XXX XXX "pretend to be old LDV" means dropping all tracking data
