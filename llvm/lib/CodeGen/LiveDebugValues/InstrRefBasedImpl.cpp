@@ -870,6 +870,7 @@ public:
 
     // Commit ActiveMLoc changes.
     ActiveMLocIt->second.clear();
+    ActiveMLocs.erase(ActiveMLocIt);
     if (!NewMLocs.empty())
       for (auto &Var : NewMLocs)
         ActiveMLocs[*NewLoc].insert(Var);
