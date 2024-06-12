@@ -859,6 +859,8 @@ public:
              "Variable was using this MLoc, but ActiveMLocs[MLoc] has no "
              "entries?");
       LostMLocIt->second.erase(LocVarIt.second);
+      if (LostMLocIt->second.empty())
+        ActiveMLocs.erase(LostMLocIt);
     }
 
     // We lazily track what locations have which values; if we've found a new
