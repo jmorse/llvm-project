@@ -440,7 +440,7 @@ public:
     UseBeforeDefVariables.clear();
 
     // Map of the preferred location for each value.
-    DenseMap<ValueIDNum, LocationAndQuality> ValueToLoc;
+    SmallDenseMap<ValueIDNum, LocationAndQuality> ValueToLoc;
 
     // Initialized the preferred-location map with illegal locations, to be
     // filled in later.
