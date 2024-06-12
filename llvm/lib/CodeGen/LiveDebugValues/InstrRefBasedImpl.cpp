@@ -711,8 +711,12 @@ public:
     // Erase any previous location.
     auto It = ActiveVLocs.find(Var);
     if (It != ActiveVLocs.end()) {
-      for (LocIdx Loc : It->second.loc_indices())
-        ActiveMLocs[Loc].erase(Var);
+      for (LocIdx Loc : It->second.loc_indices()) {
+        auto MIt = ActiveMLocs.find(Loc);
+        MIt->second.erase(Var);
+        if (MIt->second.empty())
+          ActiveMLocs.erase(MIt);
+      }
     }
 
     // If there _is_ no new location, all we had to do was erase.
@@ -746,8 +750,11 @@ public:
           }
           ActiveVLocs.erase(P);
         }
-        for (const auto &LostMLoc : LostMLocs)
-          ActiveMLocs[LostMLoc.first].erase(LostMLoc.second);
+        for (const auto &LostMLoc : LostMLocs) {
+          auto MIt = ActiveMLocs.find(LostMLoc.first);
+          MIt->second.erase(LostMLoc.second);
+          ActiveMLocs.erase(MIt);
+        }
         LostMLocs.clear();
         It = ActiveVLocs.find(Var);
         ActiveMLocs[NewLoc.asU64()].clear();
