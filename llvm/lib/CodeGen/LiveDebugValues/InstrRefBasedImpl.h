@@ -36,7 +36,38 @@ class DbgOpIDMap;
 using namespace llvm;
 
 using DebugVariableID = unsigned;
-using DebugVariableMap = UniqueVector<DebugVariable>;
+class DebugVariableMap {
+  DenseMap<DebugVariable, unsigned> VarToIdx;
+  SmallVector<DebugVariable> IdxToVar;
+
+public:
+  DebugVariableID getDVID(const DebugVariable &Var) const {
+    auto It = VarToIdx.find(Var);
+    assert(It != VarToIdx.end());
+    return It->second;
+  }
+
+  DebugVariableID insertDVID(const DebugVariable &Var) {
+    unsigned Size = VarToIdx.size();
+    auto ItPair = VarToIdx.insert({Var, Size});
+    if (ItPair.second) {
+      IdxToVar.push_back(Var);
+      return Size;
+    }
+
+    return ItPair.first->second;
+  }
+
+  const DebugVariable &lookupDVID(DebugVariableID ID) const {
+    return IdxToVar[ID];
+  }
+
+  void clear() {
+    VarToIdx.clear();
+    IdxToVar.clear();
+  }
+
+};
 
 /// Handle-class for a particular "location". This value-type uniquely
 /// symbolises a register or stack location, allowing manipulation of locations
@@ -1030,7 +1061,7 @@ public:
     assert(MI.isDebugValueLike());
     DebugVariable Var(MI.getDebugVariable(), MI.getDebugExpression(),
                       MI.getDebugLoc()->getInlinedAt());
-    DebugVariableID VarID = DVMap.insert(Var);
+    DebugVariableID VarID = DVMap.insertDVID(Var);
     DbgValue Rec = (DebugOps.size() > 0)
                        ? DbgValue(DebugOps, Properties)
                        : DbgValue(Properties, DbgValue::Undef);
@@ -1061,7 +1092,7 @@ public:
 
       DebugVariable Overlapped(Var.getVariable(), OptFragmentInfo,
                                Var.getInlinedAt());
-      DebugVariableID OverlappedID = DVMap.insert(Overlapped);
+      DebugVariableID OverlappedID = DVMap.insertDVID(Overlapped);
       DbgValue Rec = DbgValue(EmptyProperties, DbgValue::Undef);
 
       // Attempt insertion; overwrite if it's already mapped.

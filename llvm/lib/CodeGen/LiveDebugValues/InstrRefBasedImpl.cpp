@@ -351,7 +351,7 @@ public:
     SmallVector<ResolvedDbgOp> ResolvedDbgOps;
     bool IsValueValid = true;
     unsigned LastUseBeforeDef = 0;
-    const DebugVariable &Var = DVMap[VarID]; // XXX this could be pushed further in.
+    const DebugVariable &Var = DVMap.lookupDVID(VarID); // XXX this could be pushed further in.
 
     // If every value used by the incoming DbgValue is available at block
     // entry, ResolvedDbgOps will contain the machine locations/constants for
@@ -3329,7 +3329,7 @@ void InstrRefBasedLDV::buildVLocValueMap(
       if (BlockLiveIn->Kind == DbgValue::VPHI)
         BlockLiveIn->Kind = DbgValue::Def;
       assert(BlockLiveIn->Properties.DIExpr->getFragmentInfo() ==
-             DVMap[VarID].getFragment() && "Fragment info missing during value prop");
+             DVMap.lookupDVID(VarID).getFragment() && "Fragment info missing during value prop");
       Output[MBB->getNumber()].push_back(std::make_pair(VarID, *BlockLiveIn));
     }
   } // Per-variable loop.
@@ -3354,7 +3354,6 @@ void InstrRefBasedLDV::placePHIsForSingleVarDefinition(
 
   // Pick out the variables value from the block transfer function.
   VLocTracker &VLocs = AllTheVLocs[AssignMBB->getNumber()];
-  assert(VarID);
   auto ValueIt = VLocs.Vars.find(VarID);
   const DbgValue &Value = ValueIt->second;
 
@@ -3771,7 +3770,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
       // No insts in scope -> shouldn't have been recorded.
       assert(Scope != nullptr);
 
-      AllVarsNumbering.insert(std::make_pair(DVMap[VarID], AllVarsNumbering.size())); // XXX DVMap boundary.
+      AllVarsNumbering.insert(std::make_pair(DVMap.lookupDVID(VarID), AllVarsNumbering.size())); // XXX DVMap boundary.
       ScopeToVars[Scope].insert(VarID);
       ScopeToAssignBlocks[Scope].insert(VTracker->MBB);
       ScopeToDILocation[Scope] = ScopeLoc;
@@ -3815,7 +3814,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   SeenFragments.clear();
   SeenDbgPHIs.clear();
   DbgOpStore.clear();
-  DVMap = decltype(DVMap)();
+  DVMap.clear();
 
   return Changed;
 }
