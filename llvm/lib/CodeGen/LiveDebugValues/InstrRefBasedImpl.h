@@ -35,6 +35,9 @@ class DbgOpIDMap;
 
 using namespace llvm;
 
+using DebugVariableID = unsigned;
+using DebugVariableMap = UniqueVector<DebugVariable>;
+
 /// Handle-class for a particular "location". This value-type uniquely
 /// symbolises a register or stack location, allowing manipulation of locations
 /// without concern for where that location is. Practically, this allows us to
@@ -1011,30 +1014,32 @@ public:
   /// transfer function for this block, as part of the dataflow analysis. The
   /// movement of values between locations inside of a block is handled at a
   /// much later stage, in the TransferTracker class.
-  MapVector<DebugVariable, DbgValue> Vars;
-  SmallDenseMap<DebugVariable, const DILocation *, 8> Scopes;
+  DebugVariableMap &DVMap;
+  MapVector<DebugVariableID, DbgValue> Vars;
+  SmallDenseMap<DebugVariableID, const DILocation *, 8> Scopes;
   MachineBasicBlock *MBB = nullptr;
   const OverlapMap &OverlappingFragments;
   DbgValueProperties EmptyProperties;
 
 public:
-  VLocTracker(const OverlapMap &O, const DIExpression *EmptyExpr)
-      : OverlappingFragments(O), EmptyProperties(EmptyExpr, false, false) {}
+  VLocTracker(DebugVariableMap &DVMap, const OverlapMap &O, const DIExpression *EmptyExpr)
+      : DVMap(DVMap), OverlappingFragments(O), EmptyProperties(EmptyExpr, false, false) {}
 
   void defVar(const MachineInstr &MI, const DbgValueProperties &Properties,
               const SmallVectorImpl<DbgOpID> &DebugOps) {
     assert(MI.isDebugValueLike());
     DebugVariable Var(MI.getDebugVariable(), MI.getDebugExpression(),
                       MI.getDebugLoc()->getInlinedAt());
+    DebugVariableID VarID = DVMap.insert(Var);
     DbgValue Rec = (DebugOps.size() > 0)
                        ? DbgValue(DebugOps, Properties)
                        : DbgValue(Properties, DbgValue::Undef);
 
     // Attempt insertion; overwrite if it's already mapped.
-    auto Result = Vars.insert(std::make_pair(Var, Rec));
+    auto Result = Vars.insert(std::make_pair(VarID, Rec));
     if (!Result.second)
       Result.first->second = Rec;
-    Scopes[Var] = MI.getDebugLoc().get();
+    Scopes[VarID] = MI.getDebugLoc().get();
 
     considerOverlaps(Var, MI.getDebugLoc().get());
   }
@@ -1056,13 +1061,14 @@ public:
 
       DebugVariable Overlapped(Var.getVariable(), OptFragmentInfo,
                                Var.getInlinedAt());
+      DebugVariableID OverlappedID = DVMap.insert(Overlapped);
       DbgValue Rec = DbgValue(EmptyProperties, DbgValue::Undef);
 
       // Attempt insertion; overwrite if it's already mapped.
-      auto Result = Vars.insert(std::make_pair(Overlapped, Rec));
+      auto Result = Vars.insert(std::make_pair(OverlappedID, Rec));
       if (!Result.second)
         Result.first->second = Rec;
-      Scopes[Overlapped] = Loc;
+      Scopes[OverlappedID] = Loc;
     }
   }
 
@@ -1093,7 +1099,7 @@ public:
   /// variables to their values.
   using LiveIdxT = DenseMap<const MachineBasicBlock *, DbgValue *>;
 
-  using VarAndLoc = std::pair<DebugVariable, DbgValue>;
+  using VarAndLoc = std::pair<DebugVariableID, DbgValue>;
 
   /// Type for a live-in value: the predecessor block, and its value.
   using InValueT = std::pair<MachineBasicBlock *, DbgValue *>;
@@ -1106,7 +1112,7 @@ public:
   using ScopeToDILocT = DenseMap<const LexicalScope *, const DILocation *>;
 
   /// Mapping from lexical scopes to variables in that scope.
-  using ScopeToVarsT = DenseMap<const LexicalScope *, SmallSet<DebugVariable, 4>>;
+  using ScopeToVarsT = DenseMap<const LexicalScope *, SmallSet<DebugVariableID, 4>>;
 
   /// Mapping from lexical scopes to blocks where variables in that scope are
   /// assigned. Such blocks aren't necessarily "in" the lexical scope, it's
@@ -1199,6 +1205,9 @@ private:
       SeenDbgPHIs;
 
   DbgOpIDMap DbgOpStore;
+
+  /// XXX docs, DebugVariable to unsigned.
+  DebugVariableMap DVMap;
 
   /// True if we need to examine call instructions for stack clobbers. We
   /// normally assume that they don't clobber SP, but stack probes on Windows
@@ -1332,7 +1341,7 @@ private:
   void placePHIsForSingleVarDefinition(
           const SmallPtrSetImpl<MachineBasicBlock *> &InScopeBlocks,
           MachineBasicBlock *MBB, SmallVectorImpl<VLocTracker> &AllTheVLocs,
-          const DebugVariable &Var, LiveInsT &Output);
+          DebugVariableID Var, LiveInsT &Output);
 
   /// Calculate the iterated-dominance-frontier for a set of defs, using the
   /// existing LLVM facilities for this. Works for a single "value" or
@@ -1381,7 +1390,7 @@ private:
   /// scope, but which do contain DBG_VALUEs, which VarLocBasedImpl tracks
   /// locations through.
   void buildVLocValueMap(const DILocation *DILoc,
-                         const SmallSet<DebugVariable, 4> &VarsWeCareAbout,
+                         const SmallSet<DebugVariableID, 4> &VarsWeCareAbout,
                          SmallPtrSetImpl<MachineBasicBlock *> &AssignBlocks,
                          LiveInsT &Output, FuncValueTable &MOutLocs,
                          FuncValueTable &MInLocs,

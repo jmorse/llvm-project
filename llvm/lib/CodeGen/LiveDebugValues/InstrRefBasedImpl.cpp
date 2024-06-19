@@ -183,6 +183,7 @@ public:
   /// information from it. (XXX make it const?)
   MLocTracker *MTracker;
   MachineFunction &MF;
+  const DebugVariableMap &DVMap;
   bool ShouldEmitDebugEntryValues;
 
   /// Record of all changes in variable locations at a block position. Awkwardly
@@ -266,9 +267,9 @@ public:
   const BitVector &CalleeSavedRegs;
 
   TransferTracker(const TargetInstrInfo *TII, MLocTracker *MTracker,
-                  MachineFunction &MF, const TargetRegisterInfo &TRI,
+                  MachineFunction &MF, const DebugVariableMap &DVMap, const TargetRegisterInfo &TRI,
                   const BitVector &CalleeSavedRegs, const TargetPassConfig &TPC)
-      : TII(TII), MTracker(MTracker), MF(MF), TRI(TRI),
+      : TII(TII), MTracker(MTracker), MF(MF), DVMap(DVMap), TRI(TRI),
         CalleeSavedRegs(CalleeSavedRegs) {
     TLI = MF.getSubtarget().getTargetLowering();
     auto &TM = TPC.getTM<TargetMachine>();
@@ -345,11 +346,12 @@ public:
   ///    determine the values used by Value.
   void loadVarInloc(MachineBasicBlock &MBB, DbgOpIDMap &DbgOpStore,
                     const DenseMap<ValueIDNum, LocationAndQuality> &ValueToLoc,
-                    DebugVariable Var, DbgValue Value) {
+                    DebugVariableID VarID, DbgValue Value) {
     SmallVector<DbgOp> DbgOps;
     SmallVector<ResolvedDbgOp> ResolvedDbgOps;
     bool IsValueValid = true;
     unsigned LastUseBeforeDef = 0;
+    const DebugVariable &Var = DVMap[VarID]; // XXX this could be pushed further in.
 
     // If every value used by the incoming DbgValue is available at block
     // entry, ResolvedDbgOps will contain the machine locations/constants for
@@ -430,7 +432,7 @@ public:
   /// FIXME: could just examine mloctracker instead of passing in \p mlocs?
   void
   loadInlocs(MachineBasicBlock &MBB, ValueTable &MLocs, DbgOpIDMap &DbgOpStore,
-             const SmallVectorImpl<std::pair<DebugVariable, DbgValue>> &VLocs,
+             const SmallVectorImpl<std::pair<DebugVariableID, DbgValue>> &VLocs,
              unsigned NumLocs) {
     ActiveMLocs.clear();
     ActiveVLocs.clear();
@@ -3092,7 +3094,7 @@ void InstrRefBasedLDV::getBlocksForScope(
 }
 
 void InstrRefBasedLDV::buildVLocValueMap(
-    const DILocation *DILoc, const SmallSet<DebugVariable, 4> &VarsWeCareAbout,
+    const DILocation *DILoc, const SmallSet<DebugVariableID, 4> &VarsWeCareAbout,
     SmallPtrSetImpl<MachineBasicBlock *> &AssignBlocks, LiveInsT &Output,
     FuncValueTable &MOutLocs, FuncValueTable &MInLocs,
     SmallVectorImpl<VLocTracker> &AllTheVLocs) {
@@ -3167,7 +3169,7 @@ void InstrRefBasedLDV::buildVLocValueMap(
   // between blocks. This keeps the locality of working on one lexical scope at
   // at time, but avoids re-processing variable values because some other
   // variable has been assigned.
-  for (const auto &Var : VarsWeCareAbout) {
+  for (const DebugVariableID VarID : VarsWeCareAbout) {
     // Re-initialize live-ins and live-outs, to clear the remains of previous
     // variables live-ins / live-outs.
     for (unsigned int I = 0; I < NumBlocks; ++I) {
@@ -3181,7 +3183,7 @@ void InstrRefBasedLDV::buildVLocValueMap(
     SmallPtrSet<MachineBasicBlock *, 32> DefBlocks;
     for (const MachineBasicBlock *ExpMBB : BlocksToExplore) {
       auto &TransferFunc = AllTheVLocs[ExpMBB->getNumber()].Vars;
-      if (TransferFunc.contains(Var))
+      if (TransferFunc.contains(VarID))
         DefBlocks.insert(const_cast<MachineBasicBlock *>(ExpMBB));
     }
 
@@ -3191,7 +3193,7 @@ void InstrRefBasedLDV::buildVLocValueMap(
     // only one value definition, things are very simple.
     if (DefBlocks.size() == 1) {
       placePHIsForSingleVarDefinition(MutBlocksToExplore, *DefBlocks.begin(),
-                                      AllTheVLocs, Var, Output);
+                                      AllTheVLocs, VarID, Output);
       continue;
     }
 
@@ -3264,7 +3266,7 @@ void InstrRefBasedLDV::buildVLocValueMap(
 
         // Do transfer function.
         auto &VTracker = AllTheVLocs[MBB->getNumber()];
-        auto TransferIt = VTracker.Vars.find(Var);
+        auto TransferIt = VTracker.Vars.find(VarID);
         if (TransferIt != VTracker.Vars.end()) {
           // Erase on empty transfer (DBG_VALUE $noreg).
           if (TransferIt->second.Kind == DbgValue::Undef) {
@@ -3327,8 +3329,8 @@ void InstrRefBasedLDV::buildVLocValueMap(
       if (BlockLiveIn->Kind == DbgValue::VPHI)
         BlockLiveIn->Kind = DbgValue::Def;
       assert(BlockLiveIn->Properties.DIExpr->getFragmentInfo() ==
-             Var.getFragment() && "Fragment info missing during value prop");
-      Output[MBB->getNumber()].push_back(std::make_pair(Var, *BlockLiveIn));
+             DVMap[VarID].getFragment() && "Fragment info missing during value prop");
+      Output[MBB->getNumber()].push_back(std::make_pair(VarID, *BlockLiveIn));
     }
   } // Per-variable loop.
 
@@ -3339,7 +3341,7 @@ void InstrRefBasedLDV::buildVLocValueMap(
 void InstrRefBasedLDV::placePHIsForSingleVarDefinition(
     const SmallPtrSetImpl<MachineBasicBlock *> &InScopeBlocks,
     MachineBasicBlock *AssignMBB, SmallVectorImpl<VLocTracker> &AllTheVLocs,
-    const DebugVariable &Var, LiveInsT &Output) {
+    DebugVariableID VarID, LiveInsT &Output) {
   // If there is a single definition of the variable, then working out it's
   // value everywhere is very simple: it's every block dominated by the
   // definition. At the dominance frontier, the usual algorithm would:
@@ -3352,7 +3354,8 @@ void InstrRefBasedLDV::placePHIsForSingleVarDefinition(
 
   // Pick out the variables value from the block transfer function.
   VLocTracker &VLocs = AllTheVLocs[AssignMBB->getNumber()];
-  auto ValueIt = VLocs.Vars.find(Var);
+  assert(VarID);
+  auto ValueIt = VLocs.Vars.find(VarID);
   const DbgValue &Value = ValueIt->second;
 
   // If it's an explicit assignment of "undef", that means there is no location
@@ -3367,7 +3370,7 @@ void InstrRefBasedLDV::placePHIsForSingleVarDefinition(
     if (!DomTree->properlyDominates(AssignMBB, ScopeBlock))
       continue;
 
-    Output[ScopeBlock->getNumber()].push_back({Var, Value});
+    Output[ScopeBlock->getNumber()].push_back({VarID, Value});
   }
 
   // All blocks that aren't dominated have no live-in value, thus no variable
@@ -3488,7 +3491,7 @@ bool InstrRefBasedLDV::depthFirstVLocAndEmit(
     SmallVectorImpl<VLocTracker> &AllTheVLocs, MachineFunction &MF,
     DenseMap<DebugVariable, unsigned> &AllVarsNumbering,
     const TargetPassConfig &TPC) {
-  TTracker = new TransferTracker(TII, MTracker, MF, *TRI, CalleeSavedRegs, TPC);
+  TTracker = new TransferTracker(TII, MTracker, MF, DVMap, *TRI, CalleeSavedRegs, TPC);
   unsigned NumLocs = MTracker->getNumLocs();
   VTracker = nullptr;
 
@@ -3681,7 +3684,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   initialSetup(MF);
 
   MLocTransfer.resize(MaxNumBlocks);
-  vlocs.resize(MaxNumBlocks, VLocTracker(OverlapFragments, EmptyExpr));
+  vlocs.resize(MaxNumBlocks, VLocTracker(DVMap, OverlapFragments, EmptyExpr));
   SavedLiveIns.resize(MaxNumBlocks);
 
   produceMLocTransferFunction(MF, MLocTransfer, MaxNumBlocks);
@@ -3760,16 +3763,16 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
     auto *VTracker = &vlocs[MBB->getNumber()];
     // Collect each variable with a DBG_VALUE in this block.
     for (auto &idx : VTracker->Vars) {
-      const auto &Var = idx.first;
-      const DILocation *ScopeLoc = VTracker->Scopes[Var];
+      DebugVariableID VarID = idx.first;
+      const DILocation *ScopeLoc = VTracker->Scopes[VarID];
       assert(ScopeLoc != nullptr);
       auto *Scope = LS.findLexicalScope(ScopeLoc);
 
       // No insts in scope -> shouldn't have been recorded.
       assert(Scope != nullptr);
 
-      AllVarsNumbering.insert(std::make_pair(Var, AllVarsNumbering.size()));
-      ScopeToVars[Scope].insert(Var);
+      AllVarsNumbering.insert(std::make_pair(DVMap[VarID], AllVarsNumbering.size())); // XXX DVMap boundary.
+      ScopeToVars[Scope].insert(VarID);
       ScopeToAssignBlocks[Scope].insert(VTracker->MBB);
       ScopeToDILocation[Scope] = ScopeLoc;
       ++VarAssignCount;
@@ -3812,6 +3815,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   SeenFragments.clear();
   SeenDbgPHIs.clear();
   DbgOpStore.clear();
+  DVMap = decltype(DVMap)();
 
   return Changed;
 }
