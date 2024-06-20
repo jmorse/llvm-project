@@ -228,19 +228,20 @@ public:
   /// Map from LocIdxes to which DebugVariables are based that location.
   /// Mantained while stepping through the block. Not accurate if
   /// VarLocs[Idx] != MTracker->LocIdxToIDNum[Idx].
-  SmallDenseMap<LocIdx, std::pair<DebugVariableID, DebugVariableID>> ActiveMLocs;
-  SmallDenseMap<DebugVariableID, DebugVariableID> ActiveMLocChain;
+  using VarOpPair = std::pair<unsigned, DebugVariableID>;
+  SmallDenseMap<LocIdx, std::pair<VarOpPair, VarOpPair>> ActiveMLocs;
+  SmallDenseMap<VarOpPair, VarOpPair> ActiveMLocChain;
 
-  void insertActiveMLoc(LocIdx L, DebugVariableID ID) {
+  void insertActiveMLoc(LocIdx L, VarOpPair ID) {
     auto InsertIt = ActiveMLocs.insert({L, {ID, ID}});
     if (InsertIt.second) {
       // Insertion succeeded, just terminate a chain for ID,
-      ActiveMLocChain[ID] = UINT_MAX;
+      ActiveMLocChain[ID] = {UINT_MAX, UINT_MAX};
     } else {
       // No insertion -- we need to add ourselves to the end of the chain.
-      unsigned &EndOfChainR = InsertIt.first->second.second;
+      VarOpPair &EndOfChainR = InsertIt.first->second.second;
       ActiveMLocChain[EndOfChainR] = ID;
-      ActiveMLocChain[ID] = UINT_MAX;
+      ActiveMLocChain[ID] = {UINT_MAX, UINT_MAX};
       EndOfChainR = ID;
     }
   }
@@ -251,37 +252,41 @@ public:
       return;
 
     // There's stuff in the chain, remove it.
-    unsigned ID = It->second.first;
-    while (ID != UINT_MAX) {
+    VarOpPair ID = It->second.first;
+    while (ID.first != UINT_MAX) {
       auto ChainIt = ActiveMLocChain.find(ID);
-      assert(ChainIt != ActiveMLocChain.end());
-      ID = It->second.first;
+//      assert(ChainIt != ActiveMLocChain.end());
+      ID = ChainIt->second;
       ActiveMLocChain.erase(ChainIt);
     }
 
     ActiveMLocs.erase(It);
   }
 
-  void removeActiveMLoc(LocIdx L, DebugVariableID ID) {
+  void removeActiveMLoc(LocIdx L, VarOpPair ID) {
     auto It = ActiveMLocs.find(L);
-    assert(It != ActiveMLocs.end());
+//    assert(It != ActiveMLocs.end());
     auto ChainIt = ActiveMLocChain.find(ID);
-    assert(ChainIt != ActiveMLocChain.end());
+//    assert(ChainIt != ActiveMLocChain.end());
+//    assert(It->second.first.first != UINT_MAX);
 
     // Find and unlink our entry in the chain.
-    DebugVariableID CurID = It->second.first;
+    VarOpPair CurID = It->second.first;
+    VarOpPair PrevID = CurID;
     auto CurIt = ActiveMLocChain.end();
     while (CurID != ID) {
       CurIt = ActiveMLocChain.find(CurID);
-      assert(CurIt != ActiveMLocChain.end());
+//      assert(CurIt != ActiveMLocChain.end());
+      PrevID = CurID;
       CurID = CurIt->second;
     }
     if (CurIt != ActiveMLocChain.end())
       CurIt->second = ChainIt->second;
 
     // If the start of the list was this element, point it at the Next thing (or empty)
-    if (It->second.first == ID)
+    if (It->second.first == ID) {
       It->second.first = ChainIt->second;
+    }
     // If it was the end, first, did we have anything before?
     if (It->second.second == ID) {
       if (CurIt == ActiveMLocChain.end()) {
@@ -289,7 +294,7 @@ public:
 	ActiveMLocs.erase(It);
       } else {
         // We can set the element-before this one as the end.
-        It->second.second = CurID;
+        It->second.second = PrevID;
       }
     }
 
@@ -297,25 +302,71 @@ public:
   }
 
   void transferActiveMLocs(LocIdx From, LocIdx To) { // Erase from, append to To.
+//assert(From != To);
     auto FromIt = ActiveMLocs.find(From);
-    assert(FromIt != ActiveMLocs.end());
+//    assert(FromIt != ActiveMLocs.end());
     auto ToIt = ActiveMLocs.find(To);
     if (ToIt == ActiveMLocs.end()) {
-      ActiveMLocs.insert({To, FromIt->second});
+      auto Pair = FromIt->second;
+      ActiveMLocs.erase(FromIt);
+      ActiveMLocs.insert({To, Pair});
       return;
     }
 
     // There's something at To that we need to append to! Point the end of that
     // chain at the head of From, and update Stuff.
-    DebugVariableID EndOfToChain = ToIt->second.second;
+    VarOpPair EndOfToChain = ToIt->second.second;
     auto ChainIt = ActiveMLocChain.find(EndOfToChain);
-    assert(ChainIt != ActiveMLocChain.end());
-    assert(ChainIt->second == UINT_MAX); // end of chain
+//    assert(ChainIt != ActiveMLocChain.end());
+//    assert(ChainIt->second.second == UINT_MAX); // end of chain
     ChainIt->second = FromIt->second.first;
     ToIt->second.second = FromIt->second.second;
 
     // Does this even get called very often? When do we _merge_ two blocks together?
     ActiveMLocs.erase(FromIt);
+  }
+
+  void validateActiveMaps() {
+    for (auto &It : ActiveMLocs) {
+	    assert(It.second.first.first != UINT_MAX);
+	    assert(It.second.first.second != UINT_MAX);
+	    assert(It.second.second.first != UINT_MAX);
+	    assert(It.second.second.second != UINT_MAX);
+      auto StartIt = ActiveMLocChain.find(It.second.first);
+      auto EndIt = ActiveMLocChain.find(It.second.second);
+      assert(StartIt != ActiveMLocChain.end());
+      assert(EndIt != ActiveMLocChain.end());
+      assert(EndIt->second.second == UINT_MAX);
+      auto VarID = It.second.first;
+      VarOpPair LastID = {UINT_MAX, UINT_MAX};
+      auto lolit = StartIt;
+      while (VarID != VarOpPair(UINT_MAX, UINT_MAX)) {
+        lolit = ActiveMLocChain.find(VarID);
+	LastID = VarID;
+	VarID = lolit->second;
+      }
+      assert(LastID == It.second.second);
+    }
+
+    for (auto &P : ActiveVLocs) {
+      unsigned VarID = P.first;
+      unsigned int I = 0;
+      for (auto &Op : P.second.Ops) {
+        if (Op.IsConst) {
+		++I;
+		continue;
+	}
+	LocIdx L = Op.Loc;
+	//There needs to be an entry in there,
+	auto It = ActiveMLocs.find(L);
+	VarOpPair VarIDChain = It->second.first;
+	while (VarIDChain != VarOpPair(I, VarID)) {
+		auto lala = ActiveMLocChain.find(VarIDChain);
+		VarIDChain = lala->second;
+	} // will assert if it's not in there.
+	++I;
+      }
+    }
   }
 
   /// Map from DebugVariable to it's current location and qualifying meta
@@ -508,11 +559,13 @@ public:
 
     // The LiveIn value is available at block entry, begin tracking and record
     // the transfer.
-    for (const ResolvedDbgOp &Op : ResolvedDbgOps)
+    unsigned int I = 0;
+    for (const ResolvedDbgOp &Op : ResolvedDbgOps) {
       if (!Op.IsConst)
-        insertActiveMLoc(Op.Loc, VarID);
-        //ActiveMLocs[Op.Loc].insert(VarID);
-	//
+        insertActiveMLoc(Op.Loc, {I, VarID});
+      ++I;
+    }
+
     auto NewValue = ResolvedDbgValue{ResolvedDbgOps, Value.Properties};
     auto Result = ActiveVLocs.insert(std::make_pair(VarID, NewValue));
     if (!Result.second)
@@ -782,8 +835,12 @@ public:
                [](const MachineOperand &MO) { return !MO.isReg(); })) {
       auto It = ActiveVLocs.find(VarID);
       if (It != ActiveVLocs.end()) {
-        for (LocIdx Loc : It->second.loc_indices())
-          removeActiveMLoc(Loc, VarID);
+        unsigned int I = 0;
+        for (ResolvedDbgOp Op : It->second.Ops) {
+          if (!Op.IsConst)
+            removeActiveMLoc(Op.Loc, {I, VarID});
+	  ++I;
+	}
         ActiveVLocs.erase(It);
       }
       // Any use-before-defs no longer apply.
@@ -819,9 +876,13 @@ public:
 
     // Erase any previous location.
     auto It = ActiveVLocs.find(VarID);
+    unsigned int I = 0;
     if (It != ActiveVLocs.end()) {
-      for (LocIdx Loc : It->second.loc_indices())
-        removeActiveMLoc(Loc, VarID);
+      for (ResolvedDbgOp Op : It->second.Ops) {
+        if (!Op.IsConst)
+          removeActiveMLoc(Op.Loc, {I, VarID});
+	++I;
+      }
     }
 
     // If there _is_ no new location, all we had to do was erase.
@@ -831,41 +892,49 @@ public:
       return;
     }
 
-    SmallVector<std::pair<LocIdx, DebugVariableID>> LostMLocs;
+    SmallVector<std::pair<LocIdx, VarOpPair>> LostMLocs;
+    I = 0;
     for (ResolvedDbgOp &Op : NewLocs) {
-      if (Op.IsConst)
+      if (Op.IsConst) {
+	      ++I;
         continue;
+      }
 
       LocIdx NewLoc = Op.Loc;
 
       // Check whether our local copy of values-by-location in #VarLocs is out
       // of date. Wipe old tracking data for the location if it's been clobbered
       // in the meantime.
+      auto MLocIt = ActiveMLocs.find(NewLoc);
       if (MTracker->readMLoc(NewLoc) != VarLocs[NewLoc.asU64()]) {
-        DebugVariableID VarID = ActiveMLocs.find(NewLoc)->second.first;
-	while (VarID != UINT_MAX) {
-          auto LostVLocIt = ActiveVLocs.find(VarID);
-          if (LostVLocIt != ActiveVLocs.end()) {
-            for (LocIdx Loc : LostVLocIt->second.loc_indices()) {
-              // Every active variable mapping for NewLoc will be cleared, no
-              // need to track individual variables.
-              if (Loc == NewLoc)
-                continue;
-              LostMLocs.emplace_back(Loc, VarID);
+        if (MLocIt != ActiveMLocs.end()) {
+          VarOpPair MLocVarID = MLocIt->second.first;
+          while (MLocVarID.second != UINT_MAX) {
+            auto LostVLocIt = ActiveVLocs.find(MLocVarID.second);
+            if (LostVLocIt != ActiveVLocs.end()) {
+              unsigned int I = 0;
+              for (ResolvedDbgOp Op : LostVLocIt->second.Ops) {
+                // Every active variable mapping for NewLoc will be cleared, no
+                // need to track individual variables.
+                if (!Op.IsConst && Op.Loc != NewLoc)
+                  LostMLocs.emplace_back(Op.Loc, VarOpPair(I,MLocVarID.second));
+		++I;
+              }
             }
+            ActiveVLocs.erase(MLocVarID.second);
+            MLocVarID = ActiveMLocChain.find(MLocVarID)->second;
           }
-          ActiveVLocs.erase(VarID);
-          VarID = ActiveMLocChain.find(VarID)->second;
+          for (const auto &LostMLoc : LostMLocs)
+	    removeActiveMLoc(LostMLoc.first, LostMLoc.second);
+          LostMLocs.clear();
         }
-        for (const auto &LostMLoc : LostMLocs)
-	  removeActiveMLoc(LostMLoc.first, LostMLoc.second);
-        LostMLocs.clear();
         It = ActiveVLocs.find(VarID);
         clearActiveMLocs(NewLoc.asU64());
         VarLocs[NewLoc.asU64()] = MTracker->readMLoc(NewLoc);
       }
 
-      insertActiveMLoc(NewLoc, VarID);
+      insertActiveMLoc(NewLoc, {I, VarID});
+      ++I;
     }
 
     if (It == ActiveVLocs.end()) {
@@ -913,10 +982,10 @@ public:
     // explicitly undef, then stop here.
     if (!NewLoc && !MakeUndef) {
       // Try and recover a few more locations with entry values.
-      DebugVariableID VarID = ActiveMLocIt->second.first;
-      while (VarID != UINT_MAX) {
-        auto &Prop = ActiveVLocs.find(VarID)->second.Properties;
-        recoverAsEntryValue(VarID, Prop, OldValue);
+      VarOpPair VarID = ActiveMLocIt->second.first;
+      while (VarID.second != UINT_MAX) {
+        auto &Prop = ActiveVLocs.find(VarID.second)->second.Properties;
+        recoverAsEntryValue(VarID.second, Prop, OldValue);
         VarID = ActiveMLocChain.find(VarID)->second;
       }
       flushDbgValues(Pos, nullptr);
@@ -924,13 +993,13 @@ public:
     }
 
     // Examine all the variables based on this location.
-    DenseSet<DebugVariableID> NewMLocs;
+    DenseSet<VarOpPair> NewMLocs;
     // If no new location has been found, every variable that depends on this
     // MLoc is dead, so end their existing MLoc->Var mappings as well.
-    SmallVector<std::pair<LocIdx, DebugVariableID>> LostMLocs;
-    DebugVariableID VarID = ActiveMLocIt->second.first;
-    while (VarID != UINT_MAX) {
-      auto ActiveVLocIt = ActiveVLocs.find(VarID);
+    SmallVector<std::pair<LocIdx, VarOpPair>> LostMLocs;
+    VarOpPair VarID = ActiveMLocIt->second.first;
+    while (VarID.second != UINT_MAX) {
+      auto ActiveVLocIt = ActiveVLocs.find(VarID.second);
       // Re-state the variable location: if there's no replacement then NewLoc
       // is std::nullopt and a $noreg DBG_VALUE will be created. Otherwise, a
       // DBG_VALUE identifying the alternative location will be emitted.
@@ -949,20 +1018,30 @@ public:
         replace_copy(ActiveVLocIt->second.Ops, DbgOps.begin(), OldOp, NewOp);
       }
 
-      const DebugVariable &Var = DVMap.lookupDVID(VarID);
+      const DebugVariable &Var = DVMap.lookupDVID(VarID.second);
       PendingDbgValues.push_back(MTracker->emitLoc(DbgOps, Var, Properties));
 
       // Update machine locations <=> variable locations maps. Defer updating
       // ActiveMLocs to avoid invalidating the ActiveMLocIt iterator.
       if (!NewLoc) {
-        for (LocIdx Loc : ActiveVLocIt->second.loc_indices()) {
-          if (Loc != MLoc)
-            LostMLocs.emplace_back(Loc, VarID);
+        unsigned int I = 0;
+        for (ResolvedDbgOp &Op : ActiveVLocIt->second.Ops) {
+          if (!Op.IsConst && Op.Loc != MLoc)
+            LostMLocs.emplace_back(Op.Loc, VarOpPair(I,VarID.second));
+	  ++I;
         }
         ActiveVLocs.erase(ActiveVLocIt);
       } else {
         ActiveVLocIt->second.Ops = DbgOps;
-        NewMLocs.insert(VarID);
+	// Find us in DbgOps,
+	unsigned int I = 0;
+	for (ResolvedDbgOp &Op : DbgOps) {
+		if (!Op.IsConst)
+			if (Op.Loc == NewLoc)
+				break;
+		++I;
+	}
+        NewMLocs.insert({I, VarID.second});
       }
 
       VarID = ActiveMLocChain.find(VarID)->second;
@@ -983,10 +1062,11 @@ public:
     flushDbgValues(Pos, nullptr);
 
     // Commit ActiveMLoc changes.
-    assert(ActiveMLocs.find(MLoc) == ActiveMLocs.end());
+//    assert(ActiveMLocs.find(MLoc) == ActiveMLocs.end());
+    clearActiveMLocs(MLoc);
     if (!NewMLocs.empty())
-      for (DebugVariableID VarID : NewMLocs)
-        insertActiveMLoc(*NewLoc, VarID);
+      for (VarOpPair VarOp : NewMLocs)
+        insertActiveMLoc(*NewLoc, VarOp);
   }
 
   /// Transfer variables based on \p Src to be based on \p Dst. This handles
@@ -1003,23 +1083,26 @@ public:
 
     // Move set of active variables from one location to another.
     auto It = ActiveMLocs.find(Src);
-    DebugVariableID StartID = It->second.first, EndID = It->second.second;
+    if (It == ActiveMLocs.end())
+      return;
+
+    VarOpPair StartID = It->second.first, EndID = It->second.second;
     transferActiveMLocs(Src, Dst); // XXX including append?
     VarLocs[Dst.asU64()] = VarLocs[Src.asU64()];
 
     // For each variable based on Src; create a location at Dst.
     ResolvedDbgOp SrcOp(Src);
     ResolvedDbgOp DstOp(Dst);
-    DebugVariableID VarID = StartID;
+    VarOpPair VarID = StartID;
     while (true) {
-      auto ActiveVLocIt = ActiveVLocs.find(VarID);
+      auto ActiveVLocIt = ActiveVLocs.find(VarID.second);
       assert(ActiveVLocIt != ActiveVLocs.end());
 
       // Update all instances of Src in the variable's tracked values to Dst.
       std::replace(ActiveVLocIt->second.Ops.begin(),
                    ActiveVLocIt->second.Ops.end(), SrcOp, DstOp);
 
-      const DebugVariable &Var = DVMap.lookupDVID(VarID);
+      const DebugVariable &Var = DVMap.lookupDVID(VarID.second);
       MachineInstr *MI = MTracker->emitLoc(ActiveVLocIt->second.Ops, Var,
                                            ActiveVLocIt->second.Properties);
       PendingDbgValues.push_back(MI);
@@ -2273,7 +2356,7 @@ bool InstrRefBasedLDV::transferRegisterCopy(MachineInstr &MI) {
       auto MLocIt = TTracker->ActiveMLocs.find(ClobberedLoc);
       // If ActiveMLocs isn't tracking this location or there are no variables
       // using it, don't bother remembering.
-      if (MLocIt == TTracker->ActiveMLocs.end());
+      if (MLocIt == TTracker->ActiveMLocs.end())
         continue;
       ValueIDNum Value = MTracker->readReg(*RAI);
       ClobberedLocs[ClobberedLoc] = Value;
