@@ -228,12 +228,12 @@ public:
   /// Map from LocIdxes to which DebugVariables are based that location.
   /// Mantained while stepping through the block. Not accurate if
   /// VarLocs[Idx] != MTracker->LocIdxToIDNum[Idx].
-  DenseMap<LocIdx, SmallSet<DebugVariable, 4>> ActiveMLocs;
+  DenseMap<LocIdx, SmallSet<DebugVariableID, 4>> ActiveMLocs;
 
   /// Map from DebugVariable to it's current location and qualifying meta
   /// information. To be used in conjunction with ActiveMLocs to construct
   /// enough information for the DBG_VALUEs for a particular LocIdx.
-  DenseMap<DebugVariable, ResolvedDbgValue> ActiveVLocs;
+  DenseMap<DebugVariableID, ResolvedDbgValue> ActiveVLocs;
 
   /// Temporary cache of DBG_VALUEs to be entered into the Transfers collection.
   SmallVector<MachineInstr *, 4> PendingDbgValues;
@@ -245,12 +245,12 @@ public:
     /// Value of this variable, def'd in block.
     SmallVector<DbgOp> Values;
     /// Identity of this variable.
-    DebugVariable Var;
+    DebugVariableID VarID;
     /// Additional variable properties.
     DbgValueProperties Properties;
-    UseBeforeDef(ArrayRef<DbgOp> Values, const DebugVariable &Var,
+    UseBeforeDef(ArrayRef<DbgOp> Values, DebugVariableID VarID,
                  const DbgValueProperties &Properties)
-        : Values(Values.begin(), Values.end()), Var(Var),
+        : Values(Values.begin(), Values.end()), VarID(VarID),
           Properties(Properties) {}
   };
 
@@ -261,7 +261,7 @@ public:
   /// The set of variables that are in UseBeforeDefs and can become a location
   /// once the relevant value is defined. An element being erased from this
   /// collection prevents the use-before-def materializing.
-  DenseSet<DebugVariable> UseBeforeDefVariables;
+  DenseSet<DebugVariableID> UseBeforeDefVariables;
 
   const TargetRegisterInfo &TRI;
   const BitVector &CalleeSavedRegs;
@@ -351,7 +351,6 @@ public:
     SmallVector<ResolvedDbgOp> ResolvedDbgOps;
     bool IsValueValid = true;
     unsigned LastUseBeforeDef = 0;
-    const DebugVariable &Var = DVMap.lookupDVID(VarID); // XXX this could be pushed further in.
 
     // If every value used by the incoming DbgValue is available at block
     // entry, ResolvedDbgOps will contain the machine locations/constants for
@@ -388,7 +387,7 @@ public:
                                       static_cast<unsigned>(Num.getInst()));
           continue;
         }
-        recoverAsEntryValue(Var, Value.Properties, Num);
+        recoverAsEntryValue(VarID, Value.Properties, Num);
         IsValueValid = false;
         break;
       }
@@ -406,7 +405,7 @@ public:
 
     // Add UseBeforeDef entry for the last value to be defined in this block.
     if (LastUseBeforeDef) {
-      addUseBeforeDef(Var, Value.Properties, DbgOps,
+      addUseBeforeDef(VarID, Value.Properties, DbgOps,
                       LastUseBeforeDef);
       return;
     }
@@ -415,11 +414,12 @@ public:
     // the transfer.
     for (const ResolvedDbgOp &Op : ResolvedDbgOps)
       if (!Op.IsConst)
-        ActiveMLocs[Op.Loc].insert(Var);
+        ActiveMLocs[Op.Loc].insert(VarID);
     auto NewValue = ResolvedDbgValue{ResolvedDbgOps, Value.Properties};
-    auto Result = ActiveVLocs.insert(std::make_pair(Var, NewValue));
+    auto Result = ActiveVLocs.insert(std::make_pair(VarID, NewValue));
     if (!Result.second)
       Result.first->second = NewValue;
+    const DebugVariable &Var = DVMap.lookupDVID(VarID);
     PendingDbgValues.push_back(
         MTracker->emitLoc(ResolvedDbgOps, Var, Value.Properties));
   }
@@ -488,11 +488,11 @@ public:
 
   /// Record that \p Var has value \p ID, a value that becomes available
   /// later in the function.
-  void addUseBeforeDef(const DebugVariable &Var,
+  void addUseBeforeDef(DebugVariableID VarID,
                        const DbgValueProperties &Properties,
                        const SmallVectorImpl<DbgOp> &DbgOps, unsigned Inst) {
-    UseBeforeDefs[Inst].emplace_back(DbgOps, Var, Properties);
-    UseBeforeDefVariables.insert(Var);
+    UseBeforeDefs[Inst].emplace_back(DbgOps, VarID, Properties);
+    UseBeforeDefVariables.insert(VarID);
   }
 
   /// After the instruction at index \p Inst and position \p pos has been
@@ -511,7 +511,7 @@ public:
     // Populate ValueToLoc with illegal default mappings for every value used by
     // any UseBeforeDef variables for this instruction.
     for (auto &Use : MIt->second) {
-      if (!UseBeforeDefVariables.count(Use.Var))
+      if (!UseBeforeDefVariables.count(Use.VarID))
         continue;
 
       for (DbgOp &Op : Use.Values) {
@@ -550,7 +550,7 @@ public:
     // Using the map of values to locations, produce a final set of values for
     // this variable.
     for (auto &Use : MIt->second) {
-      if (!UseBeforeDefVariables.count(Use.Var))
+      if (!UseBeforeDefVariables.count(Use.VarID))
         continue;
 
       SmallVector<ResolvedDbgOp> DbgOps;
@@ -573,8 +573,9 @@ public:
         continue;
 
       // Otherwise, we're good to go.
+      const DebugVariable &Var = DVMap.lookupDVID(Use.VarID);
       PendingDbgValues.push_back(
-          MTracker->emitLoc(DbgOps, Use.Var, Use.Properties));
+          MTracker->emitLoc(DbgOps, Var, Use.Properties));
     }
     flushDbgValues(pos, nullptr);
   }
@@ -624,7 +625,7 @@ public:
     return Reg != SP && Reg != FP;
   }
 
-  bool recoverAsEntryValue(const DebugVariable &Var,
+  bool recoverAsEntryValue(DebugVariableID VarID,
                            const DbgValueProperties &Prop,
                            const ValueIDNum &Num) {
     // Is this variable location a candidate to be an entry value. First,
@@ -644,6 +645,8 @@ public:
         return false;
       DIExpr = *NonVariadicExpression;
     }
+
+    const DebugVariable &Var = DVMap.lookupDVID(VarID);
 
     // Is the variable appropriate for entry values (i.e., is a parameter).
     if (!isEntryValueVariable(Var, DIExpr))
@@ -669,19 +672,20 @@ public:
     DebugVariable Var(MI.getDebugVariable(), MI.getDebugExpression(),
                       MI.getDebugLoc()->getInlinedAt());
     DbgValueProperties Properties(MI);
+    DebugVariableID VarID = DVMap.getDVID(Var);
 
     // Ignore non-register locations, we don't transfer those.
     if (MI.isUndefDebugValue() ||
         all_of(MI.debug_operands(),
                [](const MachineOperand &MO) { return !MO.isReg(); })) {
-      auto It = ActiveVLocs.find(Var);
+      auto It = ActiveVLocs.find(VarID);
       if (It != ActiveVLocs.end()) {
         for (LocIdx Loc : It->second.loc_indices())
-          ActiveMLocs[Loc].erase(Var);
+          ActiveMLocs[Loc].erase(VarID);
         ActiveVLocs.erase(It);
       }
       // Any use-before-defs no longer apply.
-      UseBeforeDefVariables.erase(Var);
+      UseBeforeDefVariables.erase(VarID);
       return;
     }
 
@@ -707,14 +711,15 @@ public:
                 SmallVectorImpl<ResolvedDbgOp> &NewLocs) {
     DebugVariable Var(MI.getDebugVariable(), MI.getDebugExpression(),
                       MI.getDebugLoc()->getInlinedAt());
+    DebugVariableID VarID = DVMap.getDVID(Var);
     // Any use-before-defs no longer apply.
-    UseBeforeDefVariables.erase(Var);
+    UseBeforeDefVariables.erase(VarID);
 
     // Erase any previous location.
-    auto It = ActiveVLocs.find(Var);
+    auto It = ActiveVLocs.find(VarID);
     if (It != ActiveVLocs.end()) {
       for (LocIdx Loc : It->second.loc_indices())
-        ActiveMLocs[Loc].erase(Var);
+        ActiveMLocs[Loc].erase(VarID);
     }
 
     // If there _is_ no new location, all we had to do was erase.
@@ -724,7 +729,7 @@ public:
       return;
     }
 
-    SmallVector<std::pair<LocIdx, DebugVariable>> LostMLocs;
+    SmallVector<std::pair<LocIdx, DebugVariableID>> LostMLocs;
     for (ResolvedDbgOp &Op : NewLocs) {
       if (Op.IsConst)
         continue;
@@ -751,17 +756,17 @@ public:
         for (const auto &LostMLoc : LostMLocs)
           ActiveMLocs[LostMLoc.first].erase(LostMLoc.second);
         LostMLocs.clear();
-        It = ActiveVLocs.find(Var);
+        It = ActiveVLocs.find(VarID);
         ActiveMLocs[NewLoc.asU64()].clear();
         VarLocs[NewLoc.asU64()] = MTracker->readMLoc(NewLoc);
       }
 
-      ActiveMLocs[NewLoc].insert(Var);
+      ActiveMLocs[NewLoc].insert(VarID);
     }
 
     if (It == ActiveVLocs.end()) {
       ActiveVLocs.insert(
-          std::make_pair(Var, ResolvedDbgValue(NewLocs, Properties)));
+          std::make_pair(VarID, ResolvedDbgValue(NewLocs, Properties)));
     } else {
       It->second.Ops.assign(NewLocs);
       It->second.Properties = Properties;
@@ -804,21 +809,21 @@ public:
     // explicitly undef, then stop here.
     if (!NewLoc && !MakeUndef) {
       // Try and recover a few more locations with entry values.
-      for (const auto &Var : ActiveMLocIt->second) {
-        auto &Prop = ActiveVLocs.find(Var)->second.Properties;
-        recoverAsEntryValue(Var, Prop, OldValue);
+      for (DebugVariableID VarID : ActiveMLocIt->second) {
+        auto &Prop = ActiveVLocs.find(VarID)->second.Properties;
+        recoverAsEntryValue(VarID, Prop, OldValue);
       }
       flushDbgValues(Pos, nullptr);
       return;
     }
 
     // Examine all the variables based on this location.
-    DenseSet<DebugVariable> NewMLocs;
+    DenseSet<DebugVariableID> NewMLocs;
     // If no new location has been found, every variable that depends on this
     // MLoc is dead, so end their existing MLoc->Var mappings as well.
-    SmallVector<std::pair<LocIdx, DebugVariable>> LostMLocs;
-    for (const auto &Var : ActiveMLocIt->second) {
-      auto ActiveVLocIt = ActiveVLocs.find(Var);
+    SmallVector<std::pair<LocIdx, DebugVariableID>> LostMLocs;
+    for (DebugVariableID VarID : ActiveMLocIt->second) {
+      auto ActiveVLocIt = ActiveVLocs.find(VarID);
       // Re-state the variable location: if there's no replacement then NewLoc
       // is std::nullopt and a $noreg DBG_VALUE will be created. Otherwise, a
       // DBG_VALUE identifying the alternative location will be emitted.
@@ -837,6 +842,7 @@ public:
         replace_copy(ActiveVLocIt->second.Ops, DbgOps.begin(), OldOp, NewOp);
       }
 
+      const DebugVariable &Var = DVMap.lookupDVID(VarID);
       PendingDbgValues.push_back(MTracker->emitLoc(DbgOps, Var, Properties));
 
       // Update machine locations <=> variable locations maps. Defer updating
@@ -844,12 +850,12 @@ public:
       if (!NewLoc) {
         for (LocIdx Loc : ActiveVLocIt->second.loc_indices()) {
           if (Loc != MLoc)
-            LostMLocs.emplace_back(Loc, Var);
+            LostMLocs.emplace_back(Loc, VarID);
         }
         ActiveVLocs.erase(ActiveVLocIt);
       } else {
         ActiveVLocIt->second.Ops = DbgOps;
-        NewMLocs.insert(Var);
+        NewMLocs.insert(VarID);
       }
     }
 
@@ -873,8 +879,8 @@ public:
     // Commit ActiveMLoc changes.
     ActiveMLocIt->second.clear();
     if (!NewMLocs.empty())
-      for (auto &Var : NewMLocs)
-        ActiveMLocs[*NewLoc].insert(Var);
+      for (DebugVariableID VarID : NewMLocs)
+        ActiveMLocs[*NewLoc].insert(VarID);
   }
 
   /// Transfer variables based on \p Src to be based on \p Dst. This handles
@@ -897,14 +903,15 @@ public:
     // For each variable based on Src; create a location at Dst.
     ResolvedDbgOp SrcOp(Src);
     ResolvedDbgOp DstOp(Dst);
-    for (const auto &Var : MovingVars) {
-      auto ActiveVLocIt = ActiveVLocs.find(Var);
+    for (DebugVariableID VarID : MovingVars) {
+      auto ActiveVLocIt = ActiveVLocs.find(VarID);
       assert(ActiveVLocIt != ActiveVLocs.end());
 
       // Update all instances of Src in the variable's tracked values to Dst.
       std::replace(ActiveVLocIt->second.Ops.begin(),
                    ActiveVLocIt->second.Ops.end(), SrcOp, DstOp);
 
+      const DebugVariable &Var = DVMap.lookupDVID(VarID);
       MachineInstr *MI = MTracker->emitLoc(ActiveVLocIt->second.Ops, Var,
                                            ActiveVLocIt->second.Properties);
       PendingDbgValues.push_back(MI);
@@ -1708,7 +1715,8 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
       LastUseBeforeDef = std::max(LastUseBeforeDef, NewID.getInst());
     }
     if (IsValidUseBeforeDef) {
-      TTracker->addUseBeforeDef(V, {MI.getDebugExpression(), false, true},
+      DebugVariableID VID = DVMap.insertDVID(V);
+      TTracker->addUseBeforeDef(VID, {MI.getDebugExpression(), false, true},
                                 DbgOps, LastUseBeforeDef);
     }
   }
