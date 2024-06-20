@@ -317,6 +317,12 @@ public:
     bool isBest() const { return getQuality() == LocationQuality::Best; }
   };
 
+  using ValueLocPair = std::pair<ValueIDNum, LocationAndQuality>;
+
+  static inline bool ValueToLocSort(const ValueLocPair &A, const ValueLocPair &B) {
+    return A.first < B.first;
+  };
+
   // Returns the LocationQuality for the location L iff the quality of L is
   // is strictly greater than the provided minimum quality.
   std::optional<LocationQuality>
@@ -345,7 +351,7 @@ public:
   /// \p DbgOpStore is the map containing the DbgOpID->DbgOp mapping needed to
   ///    determine the values used by Value.
   void loadVarInloc(MachineBasicBlock &MBB, DbgOpIDMap &DbgOpStore,
-                    const DenseMap<ValueIDNum, LocationAndQuality> &ValueToLoc,
+                    const SmallVectorImpl<ValueLocPair> &ValueToLoc,
                     DebugVariableID VarID, DbgValue Value) {
     SmallVector<DbgOp> DbgOps;
     SmallVector<ResolvedDbgOp> ResolvedDbgOps;
@@ -376,7 +382,9 @@ public:
 
       // If the value has no location, we can't make a variable location.
       const ValueIDNum &Num = Op.ID;
-      auto ValuesPreferredLoc = ValueToLoc.find(Num);
+      ValueLocPair Probe(Num, LocationAndQuality());
+      auto ValuesPreferredLoc = std::lower_bound(ValueToLoc.begin(), ValueToLoc.end(), Probe, ValueToLocSort);
+      assert(ValuesPreferredLoc != ValueToLoc.end() && ValuesPreferredLoc->first == Num);
       if (ValuesPreferredLoc->second.isIllegal()) {
         // If it's a def that occurs in this block, register it as a
         // use-before-def to be resolved as we step through the block.
@@ -442,7 +450,7 @@ public:
     UseBeforeDefVariables.clear();
 
     // Map of the preferred location for each value.
-    DenseMap<ValueIDNum, LocationAndQuality> ValueToLoc;
+    SmallVector<ValueLocPair, 16> ValueToLoc;
 
     // Initialized the preferred-location map with illegal locations, to be
     // filled in later.
@@ -450,8 +458,9 @@ public:
       if (VLoc.second.Kind == DbgValue::Def)
         for (DbgOpID OpID : VLoc.second.getDbgOpIDs())
           if (!OpID.ID.IsConst)
-            ValueToLoc.insert({DbgOpStore.find(OpID).ID, LocationAndQuality()});
+            ValueToLoc.push_back({DbgOpStore.find(OpID).ID, LocationAndQuality()});
 
+    llvm::sort(ValueToLoc, ValueToLocSort);
     ActiveMLocs.reserve(VLocs.size());
     ActiveVLocs.reserve(VLocs.size());
 
@@ -466,8 +475,9 @@ public:
       VarLocs.push_back(VNum);
 
       // Is there a variable that wants a location for this value? If not, skip.
-      auto VIt = ValueToLoc.find(VNum);
-      if (VIt == ValueToLoc.end())
+      ValueLocPair Probe(VNum, LocationAndQuality());
+      auto VIt = std::lower_bound(ValueToLoc.begin(), ValueToLoc.end(), Probe, ValueToLocSort);
+      if (VIt == ValueToLoc.end() || VIt->first != VNum)
         continue;
 
       auto &Previous = VIt->second;
