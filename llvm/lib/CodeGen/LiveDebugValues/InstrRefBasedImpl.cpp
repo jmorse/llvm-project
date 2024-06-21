@@ -873,7 +873,7 @@ public:
       for (ResolvedDbgOp Op : It->second.Ops) {
         if (!Op.IsConst) {
           removeActiveMLoc(Op.Loc, {I, VarID});
-          ++NumOldLocsResetByDef;
+          //++NumOldLocsResetByDef;
 	}
 	++I;
       }
