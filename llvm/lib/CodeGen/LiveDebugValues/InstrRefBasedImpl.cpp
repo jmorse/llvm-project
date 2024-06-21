@@ -788,7 +788,16 @@ public:
     if (!ShouldEmitDebugEntryValues)
       return false;
 
+    // Is the value assigned to this variable still the entry value?
+    if (!isEntryValueValue(Num))
+      return false;
+
+    const DebugVariable &Var = DVMap.lookupDVID(VarID);
     const DIExpression *DIExpr = Prop.DIExpr;
+
+    // Is the variable appropriate for entry values (i.e., is a parameter).
+    if (!isEntryValueVariable(Var, DIExpr))
+      return false;
 
     // We don't currently emit entry values for DBG_VALUE_LISTs.
     if (Prop.IsVariadic) {
@@ -801,15 +810,6 @@ public:
       DIExpr = *NonVariadicExpression;
     }
 
-    const DebugVariable &Var = DVMap.lookupDVID(VarID);
-
-    // Is the variable appropriate for entry values (i.e., is a parameter).
-    if (!isEntryValueVariable(Var, DIExpr))
-      return false;
-
-    // Is the value assigned to this variable still the entry value?
-    if (!isEntryValueValue(Num))
-      return false;
 
     // Emit a variable location using an entry value expression.
     DIExpression *NewExpr =
