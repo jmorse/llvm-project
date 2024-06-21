@@ -229,6 +229,7 @@ public:
   /// Mantained while stepping through the block. Not accurate if
   /// VarLocs[Idx] != MTracker->LocIdxToIDNum[Idx].
   using VarOpPair = std::pair<unsigned, DebugVariableID>;
+  BitVector HasActiveMLocs;
   SmallDenseMap<LocIdx, std::pair<VarOpPair, VarOpPair>> ActiveMLocs;
   SmallDenseMap<VarOpPair, VarOpPair> ActiveMLocChain;
 
@@ -237,6 +238,7 @@ public:
     if (InsertIt.second) {
       // Insertion succeeded, just terminate a chain for ID,
       ActiveMLocChain[ID] = {UINT_MAX, UINT_MAX};
+      HasActiveMLocs.set(L.asU64());
     } else {
       // No insertion -- we need to add ourselves to the end of the chain.
       VarOpPair &EndOfChainR = InsertIt.first->second.second;
@@ -261,6 +263,7 @@ public:
     }
 
     ActiveMLocs.erase(It);
+    HasActiveMLocs.reset(L.asU64());
   }
 
   void removeActiveMLoc(LocIdx L, VarOpPair ID) {
@@ -292,6 +295,7 @@ public:
       if (CurIt == ActiveMLocChain.end()) {
         // Ouch -- it was the start and end. Erase this loc completely.
 	ActiveMLocs.erase(It);
+        HasActiveMLocs.reset(L.asU64());
       } else {
         // We can set the element-before this one as the end.
         It->second.second = PrevID;
@@ -309,7 +313,9 @@ public:
     if (ToIt == ActiveMLocs.end()) {
       auto Pair = FromIt->second;
       ActiveMLocs.erase(FromIt);
+      HasActiveMLocs.reset(From.asU64());
       ActiveMLocs.insert({To, Pair});
+      HasActiveMLocs.set(To.asU64());
       return;
     }
 
@@ -324,6 +330,7 @@ public:
 
     // Does this even get called very often? When do we _merge_ two blocks together?
     ActiveMLocs.erase(FromIt);
+    HasActiveMLocs.reset(From.asU64());
   }
 
   void validateActiveMaps() {
@@ -413,6 +420,7 @@ public:
     TLI = MF.getSubtarget().getTargetLowering();
     auto &TM = TPC.getTM<TargetMachine>();
     ShouldEmitDebugEntryValues = TM.Options.ShouldEmitDebugEntryValues();
+    HasActiveMLocs.resize(MTracker->getNumLocs(), false);
   }
 
   bool isCalleeSaved(LocIdx L) const {
@@ -585,6 +593,7 @@ public:
   loadInlocs(MachineBasicBlock &MBB, ValueTable &MLocs, DbgOpIDMap &DbgOpStore,
              const SmallVectorImpl<std::pair<DebugVariableID, DbgValue>> &VLocs,
              unsigned NumLocs) {
+    HasActiveMLocs.reset();
     ActiveMLocs.clear();
     ActiveMLocChain.clear();
     ActiveVLocs.clear();
@@ -952,10 +961,6 @@ public:
   /// explicitly terminate a location if it can't be recovered.
   void clobberMloc(LocIdx MLoc, MachineBasicBlock::iterator Pos,
                    bool MakeUndef = true) {
-    auto ActiveMLocIt = ActiveMLocs.find(MLoc);
-    if (ActiveMLocIt == ActiveMLocs.end())
-      return;
-
     // What was the old variable value?
     ValueIDNum OldValue = VarLocs[MLoc.asU64()];
     clobberMloc(MLoc, OldValue, Pos, MakeUndef);
@@ -965,9 +970,9 @@ public:
   /// updated yet.
   void clobberMloc(LocIdx MLoc, ValueIDNum OldValue,
                    MachineBasicBlock::iterator Pos, bool MakeUndef = true) {
-    auto ActiveMLocIt = ActiveMLocs.find(MLoc);
-    if (ActiveMLocIt == ActiveMLocs.end())
+    if (!HasActiveMLocs.test(MLoc.asU64()))
       return;
+    auto ActiveMLocIt = ActiveMLocs.find(MLoc);
 
     VarLocs[MLoc.asU64()] = ValueIDNum::EmptyValue;
 
@@ -1073,6 +1078,9 @@ public:
   /// both register copies as well as spills and restores. Creates DBG_VALUEs
   /// describing the movement.
   void transferMlocs(LocIdx Src, LocIdx Dst, MachineBasicBlock::iterator Pos) {
+    if (!HasActiveMLocs.test(Src.asU64()))
+      return;
+
     // Does Src still contain the value num we expect? If not, it's been
     // clobbered in the meantime, and our variable locations are stale.
     if (VarLocs[Src.asU64()] != MTracker->readMLoc(Src))
@@ -1083,8 +1091,6 @@ public:
 
     // Move set of active variables from one location to another.
     auto It = ActiveMLocs.find(Src);
-    if (It == ActiveMLocs.end())
-      return;
 
     VarOpPair StartID = It->second.first, EndID = It->second.second;
     transferActiveMLocs(Src, Dst); // XXX including append?
