@@ -843,15 +843,10 @@ public:
         all_of(MI.debug_operands(),
                [](const MachineOperand &MO) { return !MO.isReg(); })) {
       auto It = ActiveVLocs.find(VarID);
-      if (It != ActiveVLocs.end()) {
-        unsigned int I = 0;
-        for (ResolvedDbgOp Op : It->second.Ops) {
-          if (!Op.IsConst)
-            removeActiveMLoc(Op.Loc, {I, VarID});
-	  ++I;
-	}
+      clearMlocsForVloc(It, VarID);
+      if (It != ActiveVLocs.end())
         ActiveVLocs.erase(It);
-      }
+
       // Any use-before-defs no longer apply.
       UseBeforeDefVariables.erase(VarID);
       return;
@@ -872,6 +867,19 @@ public:
     redefVar(MI, Properties, NewLocs);
   }
 
+  void clearMlocsForVloc(DenseMap<DebugVariableID, ResolvedDbgValue>::iterator It, DebugVariableID VarID) {
+    unsigned int I = 0;
+    if (It != ActiveVLocs.end()) {
+      for (ResolvedDbgOp Op : It->second.Ops) {
+        if (!Op.IsConst) {
+          removeActiveMLoc(Op.Loc, {I, VarID});
+          ++NumOldLocsResetByDef;
+	}
+	++I;
+      }
+    }
+  }
+
   /// Handle a change in variable location within a block. Terminate the
   /// variables current location, and record the value it now refers to, so
   /// that we can detect location transfers later on.
@@ -885,14 +893,7 @@ public:
 
     // Erase any previous location.
     auto It = ActiveVLocs.find(VarID);
-    unsigned int I = 0;
-    if (It != ActiveVLocs.end()) {
-      for (ResolvedDbgOp Op : It->second.Ops) {
-        if (!Op.IsConst)
-          removeActiveMLoc(Op.Loc, {I, VarID});
-	++I;
-      }
-    }
+    clearMlocsForVloc(It, VarID);
 
     // If there _is_ no new location, all we had to do was erase.
     if (NewLocs.empty()) {
@@ -902,7 +903,7 @@ public:
     }
 
     SmallVector<std::pair<LocIdx, VarOpPair>> LostMLocs;
-    I = 0;
+    unsigned I = 0;
     for (ResolvedDbgOp &Op : NewLocs) {
       if (Op.IsConst) {
 	      ++I;
