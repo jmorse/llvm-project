@@ -999,7 +999,7 @@ public:
     }
 
     // Examine all the variables based on this location.
-    DenseSet<VarOpPair> NewMLocs;
+    SmallDenseSet<VarOpPair> NewMLocs;
     // If no new location has been found, every variable that depends on this
     // MLoc is dead, so end their existing MLoc->Var mappings as well.
     SmallVector<std::pair<LocIdx, VarOpPair>> LostMLocs;
@@ -2359,7 +2359,7 @@ bool InstrRefBasedLDV::transferRegisterCopy(MachineInstr &MI) {
   // Before we update MTracker, remember which values were present in each of
   // the locations about to be overwritten, so that we can recover any
   // potentially clobbered variables.
-  DenseMap<LocIdx, ValueIDNum> ClobberedLocs;
+  SmallDenseMap<LocIdx, ValueIDNum, 16> ClobberedLocs;
   if (TTracker) {
     for (MCRegAliasIterator RAI(DestReg, TRI, true); RAI.isValid(); ++RAI) {
       LocIdx ClobberedLoc = MTracker->getRegMLoc(*RAI);
