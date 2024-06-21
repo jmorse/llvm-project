@@ -1366,7 +1366,8 @@ MLocTracker::emitLoc(const SmallVectorImpl<ResolvedDbgOp> &DbgOps,
                                 Var.getVariable()->getScope(),
                                 const_cast<DILocation *>(Var.getInlinedAt()));
 
-  const MCInstrDesc &Desc = Properties.IsVariadic
+  bool ExprIsVariadic = (Properties.DIExpr->getNumLocationOperands() > 0);
+  const MCInstrDesc &Desc = ExprIsVariadic
                                 ? TII.get(TargetOpcode::DBG_VALUE_LIST)
                                 : TII.get(TargetOpcode::DBG_VALUE);
 
@@ -1484,7 +1485,7 @@ MLocTracker::emitLoc(const SmallVectorImpl<ResolvedDbgOp> &DbgOps,
           OffsetOps.push_back(dwarf::DW_OP_deref_size);
           OffsetOps.push_back(DerefSizeInBytes);
           StackValue = true;
-        } else if (Expr->isComplex() || Properties.IsVariadic) {
+        } else if (Expr->isComplex() || ExprIsVariadic) {
           // A variable with no size ambiguity, but with extra elements in it's
           // expression. Manually dereference the stack location.
           OffsetOps.push_back(dwarf::DW_OP_deref);
@@ -1826,7 +1827,8 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
   // tracker about it. The rest of this LiveDebugValues implementation acts
   // exactly the same for DBG_INSTR_REFs as DBG_VALUEs (just, the former can
   // refer to values that aren't immediately available).
-  DbgValueProperties Properties(Expr, false, true);
+  bool IsVariadic = DbgOpIDs.size() > 1;
+  DbgValueProperties Properties(Expr, false, IsVariadic);
   if (VTracker)
     VTracker->defVar(MI, Properties, DbgOpIDs);
 
@@ -1911,7 +1913,8 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
     }
     if (IsValidUseBeforeDef) {
       DebugVariableID VID = DVMap.insertDVID(V);
-      TTracker->addUseBeforeDef(VID, {MI.getDebugExpression(), false, true},
+      bool IsVariadic = DbgOps.size() > 1;
+      TTracker->addUseBeforeDef(VID, {MI.getDebugExpression(), false, IsVariadic},
                                 DbgOps, LastUseBeforeDef);
     }
   }

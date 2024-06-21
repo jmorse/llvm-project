@@ -316,7 +316,7 @@ public:
     assert(MI.isDebugValue());
     assert(MI.getDebugExpression()->getNumLocationOperands() == 0 ||
            MI.isDebugValueList() || MI.isUndefDebugValue());
-    IsVariadic = MI.isDebugValueList();
+    IsVariadic = MI.getDebugExpression()->getNumLocationOperands() > 1;
     DIExpr = MI.getDebugExpression();
     Indirect = MI.isDebugOffsetImm();
   }
