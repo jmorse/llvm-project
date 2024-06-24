@@ -998,12 +998,40 @@ public:
       return;
     }
 
+    if (!NewLoc) {
+      VarOpPair VarID = ActiveMLocIt->second.first;
+      SmallVector<ResolvedDbgOp, 1> DbgOps;
+      while (VarID.second != UINT_MAX) {
+        auto ActiveVLocIt = ActiveVLocs.find(VarID.second);
+
+	// Insert an undef DBG_VALUE.
+        const DebugVariable &Var = DVMap.lookupDVID(VarID.second);
+        const DbgValueProperties &Properties = ActiveVLocIt->second.Properties;
+        PendingDbgValues.push_back(MTracker->emitLoc(DbgOps, Var, Properties));
+
+        unsigned int I = 0;
+        for (ResolvedDbgOp &Op : ActiveVLocIt->second.Ops) {
+          if (!Op.IsConst && Op.Loc != MLoc)
+            removeActiveMLoc(Op.Loc, VarOpPair(I,VarID.second));
+	  ++I;
+        }
+        ActiveVLocs.erase(ActiveVLocIt);
+        VarID = ActiveMLocChain.find(VarID)->second;
+      }
+      // Clear the mlocs we were iterating through.
+      clearActiveMLocs(MLoc);
+
+      flushDbgValues(Pos, nullptr);
+      return;
+    }
+
+
+
     // Examine all the variables based on this location.
-    SmallDenseSet<VarOpPair> NewMLocs;
-    // If no new location has been found, every variable that depends on this
-    // MLoc is dead, so end their existing MLoc->Var mappings as well.
-    SmallVector<std::pair<LocIdx, VarOpPair>> LostMLocs;
     VarOpPair VarID = ActiveMLocIt->second.first;
+    // Can't edit mloc chain on-the-fly as we'll cross-over the chain we're
+    // editing.
+    SmallVector<std::pair<LocIdx, VarOpPair>> PendingVarLocs;
     while (VarID.second != UINT_MAX) {
       auto ActiveVLocIt = ActiveVLocs.find(VarID.second);
       // Re-state the variable location: if there's no replacement then NewLoc
@@ -1015,64 +1043,43 @@ public:
       // was found, or the existing list with the substitution MLoc -> NewLoc
       // otherwise.
       SmallVector<ResolvedDbgOp> DbgOps;
-      if (NewLoc) {
-        ResolvedDbgOp OldOp(MLoc);
-        ResolvedDbgOp NewOp(*NewLoc);
-        // Insert illegal ops to overwrite afterwards.
-        DbgOps.insert(DbgOps.begin(), ActiveVLocIt->second.Ops.size(),
-                      ResolvedDbgOp(LocIdx::MakeIllegalLoc()));
-        replace_copy(ActiveVLocIt->second.Ops, DbgOps.begin(), OldOp, NewOp);
-      }
+      assert(NewLoc);
+      ResolvedDbgOp OldOp(MLoc);
+      ResolvedDbgOp NewOp(*NewLoc);
+      // Insert illegal ops to overwrite afterwards.
+      DbgOps.insert(DbgOps.begin(), ActiveVLocIt->second.Ops.size(),
+                    ResolvedDbgOp(LocIdx::MakeIllegalLoc()));
+      replace_copy(ActiveVLocIt->second.Ops, DbgOps.begin(), OldOp, NewOp);
 
       const DebugVariable &Var = DVMap.lookupDVID(VarID.second);
       PendingDbgValues.push_back(MTracker->emitLoc(DbgOps, Var, Properties));
 
       // Update machine locations <=> variable locations maps. Defer updating
       // ActiveMLocs to avoid invalidating the ActiveMLocIt iterator.
-      if (!NewLoc) {
-        unsigned int I = 0;
-        for (ResolvedDbgOp &Op : ActiveVLocIt->second.Ops) {
-          if (!Op.IsConst && Op.Loc != MLoc)
-            LostMLocs.emplace_back(Op.Loc, VarOpPair(I,VarID.second));
-	  ++I;
-        }
-        ActiveVLocs.erase(ActiveVLocIt);
-      } else {
-        ActiveVLocIt->second.Ops = DbgOps;
-	// Find us in DbgOps,
-	unsigned int I = 0;
-	for (ResolvedDbgOp &Op : DbgOps) {
-		if (!Op.IsConst)
-			if (Op.Loc == NewLoc)
-				break;
-		++I;
-	}
-        NewMLocs.insert({I, VarID.second});
+      ActiveVLocIt->second.Ops = DbgOps;
+      // Find us in DbgOps,
+      unsigned int I = 0;
+      for (ResolvedDbgOp &Op : DbgOps) {
+        if (!Op.IsConst)
+          if (Op.Loc == NewLoc)
+            break;
+        ++I;
       }
+      PendingVarLocs.push_back(std::make_pair(*NewLoc, std::make_pair(I, VarID.second)));
 
       VarID = ActiveMLocChain.find(VarID)->second;
     }
-
-    // Remove variables from ActiveMLocs if they no longer use any other MLocs
-    // due to being killed by this clobber.
-// XXX this could be optimised
-    for (auto &LocVarIt : LostMLocs) {
-      removeActiveMLoc(LocVarIt.first, LocVarIt.second);	    
-    }
-
-    // We lazily track what locations have which values; if we've found a new
-    // location for the clobbered value, remember it.
-    if (NewLoc)
-      VarLocs[NewLoc->asU64()] = OldValue;
-
-    flushDbgValues(Pos, nullptr);
-
     // Commit ActiveMLoc changes.
 //    assert(ActiveMLocs.find(MLoc) == ActiveMLocs.end());
     clearActiveMLocs(MLoc);
-    if (!NewMLocs.empty())
-      for (VarOpPair VarOp : NewMLocs)
-        insertActiveMLoc(*NewLoc, VarOp);
+    for (auto &P : PendingVarLocs)
+      insertActiveMLoc(P.first, P.second);
+
+    // We lazily track what locations have which values; if we've found a new
+    // location for the clobbered value, remember it.
+    VarLocs[NewLoc->asU64()] = OldValue;
+
+    flushDbgValues(Pos, nullptr);
   }
 
   /// Transfer variables based on \p Src to be based on \p Dst. This handles
