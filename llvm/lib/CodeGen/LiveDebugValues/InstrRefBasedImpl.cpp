@@ -199,7 +199,9 @@ public:
   /// qualifying meta-information needed to construct a concrete DBG_VALUE-like
   /// instruction.
   struct ResolvedDbgValue {
-    SmallVector<ResolvedDbgOp> Ops;
+    // Across CTMark, 1.7% of variables have a variadic location at /some/
+    // point. Optimise heavily for the non-variadic case.
+    SmallVector<ResolvedDbgOp, 1> Ops;
     DbgValueProperties Properties;
 
     ResolvedDbgValue(SmallVectorImpl<ResolvedDbgOp> &Ops,
