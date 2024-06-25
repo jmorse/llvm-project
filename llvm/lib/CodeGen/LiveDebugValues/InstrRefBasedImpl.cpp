@@ -84,6 +84,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/SparseSet.h"
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/CodeGen/LexicalScopes.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
@@ -215,6 +216,10 @@ public:
           make_filter_range(
               Ops, [](const ResolvedDbgOp &Op) { return !Op.IsConst; }),
           [](const ResolvedDbgOp &Op) { return Op.Loc; });
+    }
+
+    bool operator==(const ResolvedDbgValue &Other) const {
+      return std::tie(Ops, Properties) == std::tie(Ops, Properties);
     }
   };
 
@@ -382,6 +387,33 @@ public:
   /// information. To be used in conjunction with ActiveMLocs to construct
   /// enough information for the DBG_VALUEs for a particular LocIdx.
   DenseMap<DebugVariableID, ResolvedDbgValue> ActiveVLocs;
+
+  class VarValuePair : public std::pair<DebugVariableID, ResolvedDbgValue> {
+  public:
+    VarValuePair(DebugVariableID id, const ResolvedDbgValue &V) : std::pair<DebugVariableID, ResolvedDbgValue>(id, V) { }
+    unsigned getSparseSetIndex() const {
+      return first;
+    }
+  };
+  class VariadicSortLol {
+  public:
+    using argument_type = DebugVariableID;
+    inline DebugVariableID operator()(const VarValuePair &A) {
+      return A.first;
+    }
+    inline unsigned operator()(unsigned A) {
+      return A;
+    }
+  };
+
+  template<typename ValueT>
+  struct SparseSetValTraits {
+    static unsigned getValIndex(const ValueT &Val) {
+      return Val.getSparseSetIndex();
+    }
+  };
+
+  SparseSet<VarValuePair> ActiveVariadicLocs;
 
   /// Temporary cache of DBG_VALUEs to be entered into the Transfers collection.
   SmallVector<MachineInstr *, 4> PendingDbgValues;
@@ -569,17 +601,18 @@ public:
 
     // The LiveIn value is available at block entry, begin tracking and record
     // the transfer.
-    unsigned int I = 0;
-    for (const ResolvedDbgOp &Op : ResolvedDbgOps) {
-      if (!Op.IsConst)
-        insertActiveMLoc(Op.Loc, {I, VarID});
-      ++I;
-    }
-
     auto NewValue = ResolvedDbgValue{ResolvedDbgOps, Value.Properties};
-    auto Result = ActiveVLocs.insert(std::make_pair(VarID, NewValue));
-    if (!Result.second)
-      Result.first->second = NewValue;
+    if (ResolvedDbgOps.size() > 1) {
+      ActiveVariadicLocs.insert(VarValuePair(VarID, NewValue));
+    } else {
+      ResolvedDbgOp &Op = ResolvedDbgOps[0];
+      if (!Op.IsConst) {
+        insertActiveMLoc(Op.Loc, {0, VarID});
+        auto Result = ActiveVLocs.insert(std::make_pair(VarID, NewValue));
+        if (!Result.second)
+          Result.first->second = NewValue;
+      }
+    }
     const DebugVariable &Var = DVMap.lookupDVID(VarID);
     PendingDbgValues.push_back(
         MTracker->emitLoc(ResolvedDbgOps, Var, Value.Properties));
@@ -595,6 +628,8 @@ public:
   loadInlocs(MachineBasicBlock &MBB, ValueTable &MLocs, DbgOpIDMap &DbgOpStore,
              const SmallVectorImpl<std::pair<DebugVariableID, DbgValue>> &VLocs,
              unsigned NumLocs) {
+    ActiveVariadicLocs.clear();
+    ActiveVariadicLocs.setUniverse(DVMap.size());
     HasActiveMLocs.reset();
     ActiveMLocs.clear();
     ActiveMLocChain.clear();
@@ -848,6 +883,8 @@ public:
       clearMlocsForVloc(It, VarID);
       if (It != ActiveVLocs.end())
         ActiveVLocs.erase(It);
+      else if (auto It2 = ActiveVariadicLocs.find(VarID); It2 != ActiveVariadicLocs.end())
+        ActiveVariadicLocs.erase(It2);
 
       // Any use-before-defs no longer apply.
       UseBeforeDefVariables.erase(VarID);
@@ -890,72 +927,116 @@ public:
     DebugVariable Var(MI.getDebugVariable(), MI.getDebugExpression(),
                       MI.getDebugLoc()->getInlinedAt());
     DebugVariableID VarID = DVMap.getDVID(Var);
+
     // Any use-before-defs no longer apply.
     UseBeforeDefVariables.erase(VarID);
 
-    // Erase any previous location.
+    // Erase any previous location, mloc tracking first.
     auto It = ActiveVLocs.find(VarID);
     clearMlocsForVloc(It, VarID);
 
-    // If there _is_ no new location, all we had to do was erase.
-    if (NewLocs.empty()) {
-      if (It != ActiveVLocs.end())
-        ActiveVLocs.erase(It);
+    // Then erase any variable-tracking information.
+// XXX could be re-used instead?
+    if (It != ActiveVLocs.end())
+      ActiveVLocs.erase(It);
+    else if (auto It2 = ActiveVariadicLocs.find(VarID); It2 != ActiveVariadicLocs.end())
+      ActiveVariadicLocs.erase(It2);
+
+    unsigned Size = NewLocs.size();
+    if (Size == 0) {
       return;
-    }
-
-    SmallVector<std::pair<LocIdx, VarOpPair>> LostMLocs;
-    unsigned I = 0;
-    for (ResolvedDbgOp &Op : NewLocs) {
-      if (Op.IsConst) {
-	      ++I;
-        continue;
-      }
-
-      LocIdx NewLoc = Op.Loc;
-
-      // Check whether our local copy of values-by-location in #VarLocs is out
-      // of date. Wipe old tracking data for the location if it's been clobbered
-      // in the meantime.
-      auto MLocIt = ActiveMLocs.find(NewLoc);
-      if (MTracker->readMLoc(NewLoc) != VarLocs[NewLoc.asU64()]) {
-        if (MLocIt != ActiveMLocs.end()) {
-          VarOpPair MLocVarID = MLocIt->second.first;
-          while (MLocVarID.second != UINT_MAX) {
-            auto LostVLocIt = ActiveVLocs.find(MLocVarID.second);
-            if (LostVLocIt != ActiveVLocs.end()) {
-              unsigned int I = 0;
-              for (ResolvedDbgOp Op : LostVLocIt->second.Ops) {
-                // Every active variable mapping for NewLoc will be cleared, no
-                // need to track individual variables.
-                if (!Op.IsConst && Op.Loc != NewLoc)
-                  LostMLocs.emplace_back(Op.Loc, VarOpPair(I,MLocVarID.second));
-		++I;
-              }
-            }
-            ActiveVLocs.erase(MLocVarID.second);
-            MLocVarID = ActiveMLocChain.find(MLocVarID)->second;
-          }
-          for (const auto &LostMLoc : LostMLocs)
-	    removeActiveMLoc(LostMLoc.first, LostMLoc.second);
-          LostMLocs.clear();
-        }
-        It = ActiveVLocs.find(VarID);
-        clearActiveMLocs(NewLoc.asU64());
-        VarLocs[NewLoc.asU64()] = MTracker->readMLoc(NewLoc);
-      }
-
-      insertActiveMLoc(NewLoc, {I, VarID});
-      ++I;
-    }
-
-    if (It == ActiveVLocs.end()) {
-      ActiveVLocs.insert(
-          std::make_pair(VarID, ResolvedDbgValue(NewLocs, Properties)));
+    } else if (Size == 1) {
+      redefVarSingle(MI, VarID, Properties, NewLocs);
     } else {
-      It->second.Ops.assign(NewLocs);
-      It->second.Properties = Properties;
+      redefVarVariadic(MI, VarID, Properties, NewLocs);
     }
+  }
+
+  void clearTrackingForStaleMLoc(LocIdx NewLoc) {
+    // Check whether our local copy of values-by-location in #VarLocs is out
+    // of date. Wipe old tracking data for the location if it's been clobbered
+    // in the meantime.
+    auto MLocIt = ActiveMLocs.find(NewLoc);
+    if (MTracker->readMLoc(NewLoc) == VarLocs[NewLoc.asU64()])
+      return; // It's fine.
+
+    // Reset VarLoc tracking,
+    VarLocs[NewLoc.asU64()] = MTracker->readMLoc(NewLoc);
+
+    // Check for any variadic locations that use this mloc.
+    SmallVector<DebugVariableID, 4> VariadicIDsToErase;
+    for (auto &P : ActiveVariadicLocs) {
+      for (ResolvedDbgOp Op : P.second.Ops) {
+        if (!Op.IsConst && Op.Loc == NewLoc)
+          VariadicIDsToErase.push_back(P.first);
+      }
+    }
+    SmallVector<ResolvedDbgOp, 1> empty;
+    VarValuePair lookup(0, ResolvedDbgValue(empty, DbgValueProperties(nullptr, false, false)));
+    for (DebugVariableID ID : VariadicIDsToErase)
+      ActiveVariadicLocs.erase(ID);
+
+    if (MLocIt == ActiveMLocs.end())
+      // There weren't any active locations, we're fine.
+      return;
+
+    VarOpPair MLocVarID = MLocIt->second.first;
+    while (MLocVarID.second != UINT_MAX) {
+      auto LostVLocIt = ActiveVLocs.find(MLocVarID.second);
+      if (LostVLocIt != ActiveVLocs.end())
+        ActiveVLocs.erase(LostVLocIt);
+      MLocVarID = ActiveMLocChain.find(MLocVarID)->second;
+    }
+
+    clearActiveMLocs(NewLoc.asU64());
+  }
+
+  void redefVarSingle(const MachineInstr &MI, DebugVariableID VarID, const DbgValueProperties &Properties,
+                SmallVectorImpl<ResolvedDbgOp> &NewLocs) {
+    assert(NewLocs.size() == 1);
+    ResolvedDbgOp &Op = NewLocs[0];
+    if (Op.IsConst)
+      // This constant-location can never be invalidated or moved -- we don't
+      // need to track it through the machine at all.
+      return;
+
+    LocIdx NewLoc = Op.Loc;
+
+    // Check whether our local copy of values-by-location in #VarLocs is out
+    // of date. Wipe old tracking data for the location if it's been clobbered
+    // in the meantime.
+    clearTrackingForStaleMLoc(NewLoc);
+
+    insertActiveMLoc(NewLoc, {0, VarID});
+
+    auto NewRec = std::make_pair(VarID, ResolvedDbgValue(NewLocs, Properties));
+    auto It = ActiveVLocs.insert(NewRec);
+    if (It.second)
+      return;
+
+    It.first->second.Ops.assign(NewLocs);
+    It.first->second.Properties = Properties;
+  }
+
+  void redefVarVariadic(const MachineInstr &MI, DebugVariableID VarID, const DbgValueProperties &Properties,
+                SmallVectorImpl<ResolvedDbgOp> &NewLocs) {
+    assert(NewLocs.size() > 1);
+
+    for (auto &Op : NewLocs) {
+      if (Op.IsConst)
+        continue;
+      clearTrackingForStaleMLoc(Op.Loc);
+    }
+
+    auto NewRec = VarValuePair(VarID, ResolvedDbgValue(NewLocs, Properties));
+    auto It = ActiveVariadicLocs.insert(NewRec);
+    if (It.second)
+      return;
+
+    VarValuePair &wat = const_cast<VarValuePair&>(*It.first);
+    ResolvedDbgValue &foo = wat.second;
+    foo.Ops.assign(NewLocs);
+    foo.Properties = Properties;
   }
 
   /// Account for a location \p mloc being clobbered. Examine the variable

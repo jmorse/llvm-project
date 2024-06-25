@@ -67,6 +67,9 @@ public:
     IdxToVar.clear();
   }
 
+  unsigned size() const {
+    return IdxToVar.size();
+  }
 };
 
 /// Handle-class for a particular "location". This value-type uniquely
