@@ -235,8 +235,7 @@ public:
   /// Map from LocIdxes to which DebugVariables are based that location.
   /// Mantained while stepping through the block. Not accurate if
   /// VarLocs[Idx] != MTracker->LocIdxToIDNum[Idx].
-  using VarOpPair = std::pair<unsigned, DebugVariableID>;
-  BitVector HasActiveMLocs;
+  using VarOpPair = DebugVariableID;
   SmallDenseMap<LocIdx, std::pair<VarOpPair, VarOpPair>> ActiveMLocs;
   SmallDenseMap<VarOpPair, VarOpPair> ActiveMLocChain;
 
@@ -244,13 +243,12 @@ public:
     auto InsertIt = ActiveMLocs.insert({L, {ID, ID}});
     if (InsertIt.second) {
       // Insertion succeeded, just terminate a chain for ID,
-      ActiveMLocChain[ID] = {UINT_MAX, UINT_MAX};
-      HasActiveMLocs.set(L.asU64());
+      ActiveMLocChain[ID] = UINT_MAX;
     } else {
       // No insertion -- we need to add ourselves to the end of the chain.
       VarOpPair &EndOfChainR = InsertIt.first->second.second;
       ActiveMLocChain[EndOfChainR] = ID;
-      ActiveMLocChain[ID] = {UINT_MAX, UINT_MAX};
+      ActiveMLocChain[ID] = UINT_MAX;
       EndOfChainR = ID;
     }
   }
@@ -262,7 +260,7 @@ public:
 
     // There's stuff in the chain, remove it.
     VarOpPair ID = It->second.first;
-    while (ID.first != UINT_MAX) {
+    while (ID != UINT_MAX) {
       auto ChainIt = ActiveMLocChain.find(ID);
 //      assert(ChainIt != ActiveMLocChain.end());
       ID = ChainIt->second;
@@ -270,7 +268,6 @@ public:
     }
 
     ActiveMLocs.erase(It);
-    HasActiveMLocs.reset(L.asU64());
   }
 
   void removeActiveMLoc(LocIdx L, VarOpPair ID) {
@@ -302,7 +299,6 @@ public:
       if (CurIt == ActiveMLocChain.end()) {
         // Ouch -- it was the start and end. Erase this loc completely.
 	ActiveMLocs.erase(It);
-        HasActiveMLocs.reset(L.asU64());
       } else {
         // We can set the element-before this one as the end.
         It->second.second = PrevID;
@@ -320,9 +316,7 @@ public:
     if (ToIt == ActiveMLocs.end()) {
       auto Pair = FromIt->second;
       ActiveMLocs.erase(FromIt);
-      HasActiveMLocs.reset(From.asU64());
       ActiveMLocs.insert({To, Pair});
-      HasActiveMLocs.set(To.asU64());
       return;
     }
 
@@ -337,9 +331,9 @@ public:
 
     // Does this even get called very often? When do we _merge_ two blocks together?
     ActiveMLocs.erase(FromIt);
-    HasActiveMLocs.reset(From.asU64());
   }
 
+#if 0
   void validateActiveMaps() {
     for (auto &It : ActiveMLocs) {
 	    assert(It.second.first.first != UINT_MAX);
@@ -382,6 +376,7 @@ public:
       }
     }
   }
+#endif
 
   /// Map from DebugVariable to it's current location and qualifying meta
   /// information. To be used in conjunction with ActiveMLocs to construct
@@ -454,7 +449,6 @@ public:
     TLI = MF.getSubtarget().getTargetLowering();
     auto &TM = TPC.getTM<TargetMachine>();
     ShouldEmitDebugEntryValues = TM.Options.ShouldEmitDebugEntryValues();
-    HasActiveMLocs.resize(MTracker->getNumLocs(), false);
   }
 
   bool isCalleeSaved(LocIdx L) const {
@@ -607,7 +601,7 @@ public:
     } else {
       ResolvedDbgOp &Op = ResolvedDbgOps[0];
       if (!Op.IsConst) {
-        insertActiveMLoc(Op.Loc, {0, VarID});
+        insertActiveMLoc(Op.Loc,  VarID);
         auto Result = ActiveVLocs.insert(std::make_pair(VarID, NewValue));
         if (!Result.second)
           Result.first->second = NewValue;
@@ -630,7 +624,6 @@ public:
              unsigned NumLocs) {
     ActiveVariadicLocs.clear();
     ActiveVariadicLocs.setUniverse(DVMap.size());
-    HasActiveMLocs.reset();
     ActiveMLocs.clear();
     ActiveMLocChain.clear();
     ActiveVLocs.clear();
@@ -907,15 +900,10 @@ public:
   }
 
   void clearMlocsForVloc(DenseMap<DebugVariableID, ResolvedDbgValue>::iterator It, DebugVariableID VarID) {
-    unsigned int I = 0;
     if (It != ActiveVLocs.end()) {
-      for (ResolvedDbgOp Op : It->second.Ops) {
-        if (!Op.IsConst) {
-          removeActiveMLoc(Op.Loc, {I, VarID});
-          //++NumOldLocsResetByDef;
-	}
-	++I;
-      }
+      assert(It->second.Ops.size() == 1);
+      removeActiveMLoc(It->second.Ops[0].Loc, VarID);
+      //++NumOldLocsResetByDef;
     }
   }
 
@@ -981,8 +969,8 @@ public:
       return;
 
     VarOpPair MLocVarID = MLocIt->second.first;
-    while (MLocVarID.second != UINT_MAX) {
-      auto LostVLocIt = ActiveVLocs.find(MLocVarID.second);
+    while (MLocVarID != UINT_MAX) {
+      auto LostVLocIt = ActiveVLocs.find(MLocVarID);
       if (LostVLocIt != ActiveVLocs.end())
         ActiveVLocs.erase(LostVLocIt);
       MLocVarID = ActiveMLocChain.find(MLocVarID)->second;
@@ -1007,7 +995,7 @@ public:
     // in the meantime.
     clearTrackingForStaleMLoc(NewLoc);
 
-    insertActiveMLoc(NewLoc, {0, VarID});
+    insertActiveMLoc(NewLoc, VarID);
 
     auto NewRec = std::make_pair(VarID, ResolvedDbgValue(NewLocs, Properties));
     auto It = ActiveVLocs.insert(NewRec);
@@ -1054,8 +1042,6 @@ public:
   /// updated yet.
   void clobberMloc(LocIdx MLoc, ValueIDNum OldValue,
                    MachineBasicBlock::iterator Pos, bool MakeUndef = true) {
-    if (!HasActiveMLocs.test(MLoc.asU64()))
-      return;
     auto ActiveMLocIt = ActiveMLocs.find(MLoc);
 
     VarLocs[MLoc.asU64()] = ValueIDNum::EmptyValue;
@@ -1067,56 +1053,70 @@ public:
       if (Loc.Value == OldValue)
         NewLoc = Loc.Idx;
 
+    VarOpPair VarID = UINT_MAX;
+    if (ActiveMLocIt != ActiveMLocs.end()) // Might be variadic-only.
+      VarID = ActiveMLocIt->second.first;
+
     // If there is no location, and we weren't asked to make the variable
     // explicitly undef, then stop here.
     if (!NewLoc && !MakeUndef) {
-      // Try and recover a few more locations with entry values.
-      VarOpPair VarID = ActiveMLocIt->second.first;
-      while (VarID.second != UINT_MAX) {
-        auto &Prop = ActiveVLocs.find(VarID.second)->second.Properties;
-        recoverAsEntryValue(VarID.second, Prop, OldValue);
+      // Try and recover a few more locations with entry values. Don't attempt
+      // it for variadic locations.
+      while (VarID != UINT_MAX) {
+        auto &Prop = ActiveVLocs.find(VarID)->second.Properties;
+        recoverAsEntryValue(VarID, Prop, OldValue);
         VarID = ActiveMLocChain.find(VarID)->second;
       }
+#warning why don't we clear too?
       flushDbgValues(Pos, nullptr);
       return;
     }
 
     if (!NewLoc) {
-      VarOpPair VarID = ActiveMLocIt->second.first;
       SmallVector<ResolvedDbgOp, 1> DbgOps;
-      while (VarID.second != UINT_MAX) {
-        auto ActiveVLocIt = ActiveVLocs.find(VarID.second);
+      while (VarID != UINT_MAX) {
+        auto ActiveVLocIt = ActiveVLocs.find(VarID);
 
 	// Insert an undef DBG_VALUE.
-        const DebugVariable &Var = DVMap.lookupDVID(VarID.second);
+        const DebugVariable &Var = DVMap.lookupDVID(VarID);
         const DbgValueProperties &Properties = ActiveVLocIt->second.Properties;
         PendingDbgValues.push_back(MTracker->emitLoc(DbgOps, Var, Properties));
 
-        unsigned int I = 0;
-        for (ResolvedDbgOp &Op : ActiveVLocIt->second.Ops) {
-          if (!Op.IsConst && Op.Loc != MLoc)
-            removeActiveMLoc(Op.Loc, VarOpPair(I,VarID.second));
-	  ++I;
-        }
+        assert(ActiveVLocIt->second.Ops.size() == 1);
+        ResolvedDbgOp &Op = ActiveVLocIt->second.Ops[0];
+        assert(!Op.IsConst);
+
         ActiveVLocs.erase(ActiveVLocIt);
         VarID = ActiveMLocChain.find(VarID)->second;
       }
       // Clear the mlocs we were iterating through.
       clearActiveMLocs(MLoc);
 
+      // Plain iteration over any variadic locations -- if we find any, delete 'em.
+      SmallVector<DebugVariableID, 4> VariadicIDsToErase;
+      for (auto &P : ActiveVariadicLocs) {
+        for (ResolvedDbgOp Op : P.second.Ops) {
+          if (!Op.IsConst && Op.Loc == MLoc) {
+            VariadicIDsToErase.push_back(P.first);
+            const DebugVariable &Var = DVMap.lookupDVID(P.first);
+            PendingDbgValues.push_back(MTracker->emitLoc(DbgOps, Var, P.second.Properties));
+          }
+        }
+      }
+      for (DebugVariableID ID : VariadicIDsToErase)
+        ActiveVariadicLocs.erase(ID);
+#warning fold into the "clearStale" stuff thing?
+
       flushDbgValues(Pos, nullptr);
       return;
     }
 
-
-
     // Examine all the variables based on this location.
-    VarOpPair VarID = ActiveMLocIt->second.first;
     // Can't edit mloc chain on-the-fly as we'll cross-over the chain we're
     // editing.
     SmallVector<std::pair<LocIdx, VarOpPair>> PendingVarLocs;
-    while (VarID.second != UINT_MAX) {
-      auto ActiveVLocIt = ActiveVLocs.find(VarID.second);
+    while (VarID != UINT_MAX) {
+      auto ActiveVLocIt = ActiveVLocs.find(VarID);
       // Re-state the variable location: if there's no replacement then NewLoc
       // is std::nullopt and a $noreg DBG_VALUE will be created. Otherwise, a
       // DBG_VALUE identifying the alternative location will be emitted.
@@ -1134,21 +1134,15 @@ public:
                     ResolvedDbgOp(LocIdx::MakeIllegalLoc()));
       replace_copy(ActiveVLocIt->second.Ops, DbgOps.begin(), OldOp, NewOp);
 
-      const DebugVariable &Var = DVMap.lookupDVID(VarID.second);
+      const DebugVariable &Var = DVMap.lookupDVID(VarID);
       PendingDbgValues.push_back(MTracker->emitLoc(DbgOps, Var, Properties));
 
       // Update machine locations <=> variable locations maps. Defer updating
       // ActiveMLocs to avoid invalidating the ActiveMLocIt iterator.
       ActiveVLocIt->second.Ops = DbgOps;
       // Find us in DbgOps,
-      unsigned int I = 0;
-      for (ResolvedDbgOp &Op : DbgOps) {
-        if (!Op.IsConst)
-          if (Op.Loc == NewLoc)
-            break;
-        ++I;
-      }
-      PendingVarLocs.push_back(std::make_pair(*NewLoc, std::make_pair(I, VarID.second)));
+      assert(DbgOps.size() == 1);
+      PendingVarLocs.push_back(std::make_pair(*NewLoc, VarID));
 
       VarID = ActiveMLocChain.find(VarID)->second;
     }
@@ -1157,6 +1151,21 @@ public:
     clearActiveMLocs(MLoc);
     for (auto &P : PendingVarLocs)
       insertActiveMLoc(P.first, P.second);
+
+    // Directly update any variadic locations.
+    for (auto &P : ActiveVariadicLocs) {
+      bool ReState = false;
+      for (ResolvedDbgOp &Op : P.second.Ops) {
+        if (!Op.IsConst && Op.Loc == MLoc) {
+          ReState = true;
+          Op.Loc = *NewLoc;
+        }
+      }
+      if (ReState) {
+        const DebugVariable &Var = DVMap.lookupDVID(P.first);
+        PendingDbgValues.push_back(MTracker->emitLoc(P.second.Ops, Var, P.second.Properties));
+      }
+    }
 
     // We lazily track what locations have which values; if we've found a new
     // location for the clobbered value, remember it.
@@ -1169,9 +1178,6 @@ public:
   /// both register copies as well as spills and restores. Creates DBG_VALUEs
   /// describing the movement.
   void transferMlocs(LocIdx Src, LocIdx Dst, MachineBasicBlock::iterator Pos) {
-    if (!HasActiveMLocs.test(Src.asU64()))
-      return;
-
     // Does Src still contain the value num we expect? If not, it's been
     // clobbered in the meantime, and our variable locations are stale.
     if (VarLocs[Src.asU64()] != MTracker->readMLoc(Src))
@@ -1182,33 +1188,52 @@ public:
 
     // Move set of active variables from one location to another.
     auto It = ActiveMLocs.find(Src);
+    if (It != ActiveMLocs.end()) {
 
-    VarOpPair StartID = It->second.first, EndID = It->second.second;
-    transferActiveMLocs(Src, Dst); // XXX including append?
-    VarLocs[Dst.asU64()] = VarLocs[Src.asU64()];
+      VarOpPair StartID = It->second.first, EndID = It->second.second;
+      transferActiveMLocs(Src, Dst); // XXX including append?
+      VarLocs[Dst.asU64()] = VarLocs[Src.asU64()];
 
-    // For each variable based on Src; create a location at Dst.
-    ResolvedDbgOp SrcOp(Src);
-    ResolvedDbgOp DstOp(Dst);
-    VarOpPair VarID = StartID;
-    while (true) {
-      auto ActiveVLocIt = ActiveVLocs.find(VarID.second);
-      assert(ActiveVLocIt != ActiveVLocs.end());
+      // For each variable based on Src; create a location at Dst.
+      ResolvedDbgOp SrcOp(Src);
+      ResolvedDbgOp DstOp(Dst);
+      VarOpPair VarID = StartID;
+      while (true) {
+        auto ActiveVLocIt = ActiveVLocs.find(VarID);
+        assert(ActiveVLocIt != ActiveVLocs.end());
 
-      // Update all instances of Src in the variable's tracked values to Dst.
-      std::replace(ActiveVLocIt->second.Ops.begin(),
-                   ActiveVLocIt->second.Ops.end(), SrcOp, DstOp);
+        // Update all instances of Src in the variable's tracked values to Dst.
+        std::replace(ActiveVLocIt->second.Ops.begin(),
+                     ActiveVLocIt->second.Ops.end(), SrcOp, DstOp);
 
-      const DebugVariable &Var = DVMap.lookupDVID(VarID.second);
-      MachineInstr *MI = MTracker->emitLoc(ActiveVLocIt->second.Ops, Var,
-                                           ActiveVLocIt->second.Properties);
-      PendingDbgValues.push_back(MI);
+        const DebugVariable &Var = DVMap.lookupDVID(VarID);
+        MachineInstr *MI = MTracker->emitLoc(ActiveVLocIt->second.Ops, Var,
+                                             ActiveVLocIt->second.Properties);
+        PendingDbgValues.push_back(MI);
 
-      if (VarID == EndID)
-        break;
-      VarID = ActiveMLocChain.find(VarID)->second;
+        if (VarID == EndID)
+          break;
+        VarID = ActiveMLocChain.find(VarID)->second;
+      }
+      assert(ActiveMLocs.find(Src) == ActiveMLocs.end()); // should have bene cleared.
     }
-    assert(ActiveMLocs.find(Src) == ActiveMLocs.end()); // should have bene cleared.
+
+     // Directly update any variadic locations.
+#warning Foldable?
+    for (auto &P : ActiveVariadicLocs) {
+      bool ReState = false;
+      for (ResolvedDbgOp &Op : P.second.Ops) {
+        if (!Op.IsConst && Op.Loc == Src) {
+          ReState = true;
+          Op.Loc = Dst;
+        }
+      }
+      if (ReState) {
+        const DebugVariable &Var = DVMap.lookupDVID(P.first);
+        PendingDbgValues.push_back(MTracker->emitLoc(P.second.Ops, Var, P.second.Properties));
+      }
+    }
+
     flushDbgValues(Pos, nullptr);
 
     // XXX XXX XXX "pretend to be old LDV" means dropping all tracking data
