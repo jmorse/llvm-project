@@ -193,7 +193,7 @@ public:
   struct Transfer {
     MachineBasicBlock::instr_iterator Pos; /// Position to insert DBG_VALUes
     MachineBasicBlock *MBB; /// non-null if we should insert after.
-    SmallVector<MachineInstr *, 4> Insts; /// Vector of DBG_VALUEs to insert.
+    SmallVector<std::pair<DebugVariableID, MachineInstr *>, 4> Insts; /// Vector of DBG_VALUEs to insert.
   };
 
   /// Stores the resolved operands (machine locations and constants) and
@@ -431,7 +431,7 @@ public:
   SparseSet<VarValuePair> ActiveVariadicLocs;
 
   /// Temporary cache of DBG_VALUEs to be entered into the Transfers collection.
-  SmallVector<MachineInstr *, 4> PendingDbgValues;
+  SmallVector<std::pair<DebugVariableID, MachineInstr *>, 4> PendingDbgValues;
 
   /// Record of a use-before-def: created when a value that's live-in to the
   /// current block isn't available in any machine location, but it will be
@@ -632,7 +632,7 @@ public:
     }
     auto& [Var, DILoc] = DVMap.lookupDVID(VarID);
     PendingDbgValues.push_back(
-        MTracker->emitLoc(ResolvedDbgOps, Var, DILoc, Value.Properties));
+        std::make_pair(VarID, &*MTracker->emitLoc(ResolvedDbgOps, Var, DILoc, Value.Properties)));
   }
 
   /// Load object with live-in variable values. \p mlocs contains the live-in
@@ -807,7 +807,7 @@ public:
       // Otherwise, we're good to go.
       auto& [Var, DILoc] = DVMap.lookupDVID(Use.VarID);
       PendingDbgValues.push_back(
-          MTracker->emitLoc(DbgOps, Var, DILoc, Use.Properties));
+          std::make_pair(Use.VarID, MTracker->emitLoc(DbgOps, Var, DILoc, Use.Properties)));
 #warning This doesn't enter these things into the tracking maps; and we didn't
 #warning in the past, so let's ignore for now.
     }
@@ -895,9 +895,8 @@ public:
         DIExpression::prepend(DIExpr, DIExpression::EntryValue);
     Register Reg = MTracker->LocIdxToLocID[Num.getLoc()];
     MachineOperand MO = MachineOperand::CreateReg(Reg, false);
-
     PendingDbgValues.push_back(
-        emitMOLoc(MO, Var, {NewExpr, Prop.Indirect, false}));
+        std::make_pair(VarID, &*emitMOLoc(MO, Var, {NewExpr, Prop.Indirect, false})));
     return true;
   }
 
@@ -1158,7 +1157,7 @@ public:
 	// Insert an undef DBG_VALUE.
         auto& [Var, DILoc] = DVMap.lookupDVID(VarEntry->ID);
         const DbgValueProperties &Properties = VarEntry->Value.Properties;
-        PendingDbgValues.push_back(MTracker->emitLoc(DbgOps, Var, DILoc, Properties));
+        PendingDbgValues.push_back(std::make_pair(VarEntry->ID, &*MTracker->emitLoc(DbgOps, Var, DILoc, Properties)));
 
         assert(VarEntry->Value.Ops.size() == 1);
         ResolvedDbgOp &Op = VarEntry->Value.Ops[0];
@@ -1177,7 +1176,7 @@ public:
           if (!Op.IsConst && Op.Loc == MLoc) {
             VariadicIDsToErase.push_back(P.first);
             auto& [Var, DILoc] = DVMap.lookupDVID(P.first);
-            PendingDbgValues.push_back(MTracker->emitLoc(DbgOps, Var, DILoc, P.second.Properties));
+            PendingDbgValues.push_back(std::make_pair(P.first, &*MTracker->emitLoc(DbgOps, Var, DILoc, P.second.Properties)));
           }
         }
       }
@@ -1213,7 +1212,7 @@ public:
       replace_copy(VarEntry->Value.Ops, DbgOps.begin(), OldOp, NewOp);
 
       auto& [Var, DILoc] = DVMap.lookupDVID(VarEntry->ID);
-      PendingDbgValues.push_back(MTracker->emitLoc(DbgOps, Var, DILoc, Properties));
+      PendingDbgValues.push_back(std::make_pair(VarEntry->ID, &*MTracker->emitLoc(DbgOps, Var, DILoc, Properties)));
 
       // Update machine locations <=> variable locations maps. Defer updating
       // ActiveMLocs to avoid invalidating the ActiveMLocIt iterator.
@@ -1242,7 +1241,7 @@ public:
       }
       if (ReState) {
         auto& [Var, DILoc] = DVMap.lookupDVID(P.first);
-        PendingDbgValues.push_back(MTracker->emitLoc(P.second.Ops, Var, DILoc, P.second.Properties));
+        PendingDbgValues.push_back(std::make_pair(P.first, &*MTracker->emitLoc(P.second.Ops, Var, DILoc, P.second.Properties)));
       }
     }
 
@@ -1287,7 +1286,7 @@ public:
         auto& [Var, DILoc] = DVMap.lookupDVID(CurV->ID);
         MachineInstr *MI = MTracker->emitLoc(CurV->Value.Ops, Var, DILoc,
                                              CurV->Value.Properties);
-        PendingDbgValues.push_back(MI);
+        PendingDbgValues.push_back(std::make_pair(CurV->ID, MI));
 
         if (CurV == EndV)
           break;
@@ -1309,7 +1308,7 @@ public:
       }
       if (ReState) {
         auto& [Var, DILoc] = DVMap.lookupDVID(P.first);
-        PendingDbgValues.push_back(MTracker->emitLoc(P.second.Ops, Var, DILoc, P.second.Properties));
+        PendingDbgValues.push_back(std::make_pair(P.first, &*MTracker->emitLoc(P.second.Ops, Var, DILoc, P.second.Properties)));
       }
     }
 
@@ -2128,8 +2127,9 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
   // FoundLoc is illegal.
   // (XXX -- could morph the DBG_INSTR_REF in the future).
   MachineInstr *DbgMI = MTracker->emitLoc(NewLocs, V, MI.getDebugLoc().get(), Properties);
+  DebugVariableID ID = DVMap.getDVID(V);
 
-  TTracker->PendingDbgValues.push_back(DbgMI);
+  TTracker->PendingDbgValues.push_back(std::make_pair(ID, DbgMI));
   TTracker->flushDbgValues(MI.getIterator(), nullptr);
   return true;
 }
@@ -4011,24 +4011,17 @@ bool InstrRefBasedLDV::emitTransfers() {
   // Go through all the transfers recorded in the TransferTracker -- this is
   // both the live-ins to a block, and any movements of values that happen
   // in the middle.
-  for (const auto &P : TTracker->Transfers) {
+  for (auto &P : TTracker->Transfers) {
     // We have to insert DBG_VALUEs in a consistent order, otherwise they
     // appear in DWARF in different orders. Use the order that they appear
     // when walking through each block / each instruction, stored in
     // DVMap.
-    SmallVector<std::pair<unsigned, MachineInstr *>> Insts;
-    for (MachineInstr *MI : P.Insts) {
-      DebugVariable Var(MI->getDebugVariable(), MI->getDebugExpression(),
-                        MI->getDebugLoc()->getInlinedAt());
-      DebugVariableID ID = DVMap.getDVID(Var);
-      Insts.emplace_back(ID, MI);
-    }
-    llvm::sort(Insts, llvm::less_first());
+    llvm::sort(P.Insts, llvm::less_first());
 
     // Insert either before or after the designated point...
     if (P.MBB) {
       MachineBasicBlock &MBB = *P.MBB;
-      for (const auto &Pair : Insts)
+      for (const auto &Pair : P.Insts)
         MBB.insert(P.Pos, Pair.second);
     } else {
       // Terminators, like tail calls, can clobber things. Don't try and place
@@ -4037,7 +4030,7 @@ bool InstrRefBasedLDV::emitTransfers() {
         continue;
 
       MachineBasicBlock &MBB = *P.Pos->getParent();
-      for (const auto &Pair : Insts)
+      for (const auto &Pair : P.Insts)
         MBB.insertAfterBundle(P.Pos, Pair.second);
     }
   }
@@ -4175,7 +4168,6 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
       // No insts in scope -> shouldn't have been recorded.
       assert(Scope != nullptr);
 
-      auto& [Var, DILoc] = DVMap.lookupDVID(VarID);
       ScopeToVars[Scope].insert(VarID);
       ScopeToAssignBlocks[Scope].insert(VTracker->MBB);
       ScopeToDILocation[Scope] = ScopeLoc;
