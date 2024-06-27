@@ -630,9 +630,9 @@ public:
         VIt->Value = NewValue;
       }
     }
-    const DebugVariable &Var = DVMap.lookupDVID(VarID);
+    auto& [Var, DILoc] = DVMap.lookupDVID(VarID);
     PendingDbgValues.push_back(
-        MTracker->emitLoc(ResolvedDbgOps, Var, Value.Properties));
+        MTracker->emitLoc(ResolvedDbgOps, Var, DILoc, Value.Properties));
   }
 
   /// Load object with live-in variable values. \p mlocs contains the live-in
@@ -805,9 +805,9 @@ public:
         continue;
 
       // Otherwise, we're good to go.
-      const DebugVariable &Var = DVMap.lookupDVID(Use.VarID);
+      auto& [Var, DILoc] = DVMap.lookupDVID(Use.VarID);
       PendingDbgValues.push_back(
-          MTracker->emitLoc(DbgOps, Var, Use.Properties));
+          MTracker->emitLoc(DbgOps, Var, DILoc, Use.Properties));
 #warning This doesn't enter these things into the tracking maps; and we didn't
 #warning in the past, so let's ignore for now.
     }
@@ -871,7 +871,7 @@ public:
     if (!isEntryValueValue(Num))
       return false;
 
-    const DebugVariable &Var = DVMap.lookupDVID(VarID);
+    auto& [Var, DILoc] = DVMap.lookupDVID(VarID);
     const DIExpression *DIExpr = Prop.DIExpr;
 
     // Is the variable appropriate for entry values (i.e., is a parameter).
@@ -1156,9 +1156,9 @@ public:
         assert(isValidVLoc(VarEntry));
 
 	// Insert an undef DBG_VALUE.
-        const DebugVariable &Var = DVMap.lookupDVID(VarEntry->ID);
+        auto& [Var, DILoc] = DVMap.lookupDVID(VarEntry->ID);
         const DbgValueProperties &Properties = VarEntry->Value.Properties;
-        PendingDbgValues.push_back(MTracker->emitLoc(DbgOps, Var, Properties));
+        PendingDbgValues.push_back(MTracker->emitLoc(DbgOps, Var, DILoc, Properties));
 
         assert(VarEntry->Value.Ops.size() == 1);
         ResolvedDbgOp &Op = VarEntry->Value.Ops[0];
@@ -1176,8 +1176,8 @@ public:
         for (ResolvedDbgOp Op : P.second.Ops) {
           if (!Op.IsConst && Op.Loc == MLoc) {
             VariadicIDsToErase.push_back(P.first);
-            const DebugVariable &Var = DVMap.lookupDVID(P.first);
-            PendingDbgValues.push_back(MTracker->emitLoc(DbgOps, Var, P.second.Properties));
+            auto& [Var, DILoc] = DVMap.lookupDVID(P.first);
+            PendingDbgValues.push_back(MTracker->emitLoc(DbgOps, Var, DILoc, P.second.Properties));
           }
         }
       }
@@ -1212,8 +1212,8 @@ public:
                     ResolvedDbgOp(LocIdx::MakeIllegalLoc()));
       replace_copy(VarEntry->Value.Ops, DbgOps.begin(), OldOp, NewOp);
 
-      const DebugVariable &Var = DVMap.lookupDVID(VarEntry->ID);
-      PendingDbgValues.push_back(MTracker->emitLoc(DbgOps, Var, Properties));
+      auto& [Var, DILoc] = DVMap.lookupDVID(VarEntry->ID);
+      PendingDbgValues.push_back(MTracker->emitLoc(DbgOps, Var, DILoc, Properties));
 
       // Update machine locations <=> variable locations maps. Defer updating
       // ActiveMLocs to avoid invalidating the ActiveMLocIt iterator.
@@ -1241,8 +1241,8 @@ public:
         }
       }
       if (ReState) {
-        const DebugVariable &Var = DVMap.lookupDVID(P.first);
-        PendingDbgValues.push_back(MTracker->emitLoc(P.second.Ops, Var, P.second.Properties));
+        auto& [Var, DILoc] = DVMap.lookupDVID(P.first);
+        PendingDbgValues.push_back(MTracker->emitLoc(P.second.Ops, Var, DILoc, P.second.Properties));
       }
     }
 
@@ -1284,8 +1284,8 @@ public:
         std::replace(CurV->Value.Ops.begin(),
                      CurV->Value.Ops.end(), SrcOp, DstOp);
 
-        const DebugVariable &Var = DVMap.lookupDVID(CurV->ID);
-        MachineInstr *MI = MTracker->emitLoc(CurV->Value.Ops, Var,
+        auto& [Var, DILoc] = DVMap.lookupDVID(CurV->ID);
+        MachineInstr *MI = MTracker->emitLoc(CurV->Value.Ops, Var, DILoc,
                                              CurV->Value.Properties);
         PendingDbgValues.push_back(MI);
 
@@ -1308,8 +1308,8 @@ public:
         }
       }
       if (ReState) {
-        const DebugVariable &Var = DVMap.lookupDVID(P.first);
-        PendingDbgValues.push_back(MTracker->emitLoc(P.second.Ops, Var, P.second.Properties));
+        auto& [Var, DILoc] = DVMap.lookupDVID(P.first);
+        PendingDbgValues.push_back(MTracker->emitLoc(P.second.Ops, Var, DILoc, P.second.Properties));
       }
     }
 
@@ -1565,10 +1565,10 @@ LLVM_DUMP_METHOD void MLocTracker::dump_mloc_map() {
 MachineInstrBuilder
 MLocTracker::emitLoc(const SmallVectorImpl<ResolvedDbgOp> &DbgOps,
                      const DebugVariable &Var,
+                     const DILocation *DILoc,
                      const DbgValueProperties &Properties) {
-  DebugLoc DL = DILocation::get(Var.getVariable()->getContext(), 0, 0,
-                                Var.getVariable()->getScope(),
-                                const_cast<DILocation *>(Var.getInlinedAt()));
+  //assert(DILoc->getLine() == 0); XXX should be fine, but isn't
+  DebugLoc DL = DebugLoc(DILoc);
 
   bool ExprIsVariadic = (Properties.DIExpr->getNumLocationOperands() > 0);
   const MCInstrDesc &Desc = ExprIsVariadic
@@ -2116,7 +2116,7 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
       LastUseBeforeDef = std::max(LastUseBeforeDef, NewID.getInst());
     }
     if (IsValidUseBeforeDef) {
-      DebugVariableID VID = DVMap.insertDVID(V);
+      DebugVariableID VID = DVMap.insertDVID(V, MI.getDebugLoc().get());
       bool IsVariadic = DbgOps.size() > 1;
       TTracker->addUseBeforeDef(VID, {MI.getDebugExpression(), false, IsVariadic},
                                 DbgOps, LastUseBeforeDef);
@@ -2127,7 +2127,7 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
   // This DBG_VALUE is potentially a $noreg / undefined location, if
   // FoundLoc is illegal.
   // (XXX -- could morph the DBG_INSTR_REF in the future).
-  MachineInstr *DbgMI = MTracker->emitLoc(NewLocs, V, Properties);
+  MachineInstr *DbgMI = MTracker->emitLoc(NewLocs, V, MI.getDebugLoc().get(), Properties);
 
   TTracker->PendingDbgValues.push_back(DbgMI);
   TTracker->flushDbgValues(MI.getIterator(), nullptr);
@@ -3738,8 +3738,9 @@ void InstrRefBasedLDV::buildVLocValueMap(
         continue;
       if (BlockLiveIn->Kind == DbgValue::VPHI)
         BlockLiveIn->Kind = DbgValue::Def;
+      auto& [Var, DILoc] = DVMap.lookupDVID(VarID);
       assert(BlockLiveIn->Properties.DIExpr->getFragmentInfo() ==
-             DVMap.lookupDVID(VarID).getFragment() && "Fragment info missing during value prop");
+             Var.getFragment() && "Fragment info missing during value prop");
       Output[MBB->getNumber()].push_back(std::make_pair(VarID, *BlockLiveIn));
     }
   } // Per-variable loop.
@@ -4179,7 +4180,8 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
       // No insts in scope -> shouldn't have been recorded.
       assert(Scope != nullptr);
 
-      AllVarsNumbering.insert(std::make_pair(DVMap.lookupDVID(VarID), AllVarsNumbering.size())); // XXX DVMap boundary.
+      auto& [Var, DILoc] = DVMap.lookupDVID(VarID);
+      AllVarsNumbering.insert(std::make_pair(Var, AllVarsNumbering.size())); // XXX DVMap boundary.
       ScopeToVars[Scope].insert(VarID);
       ScopeToAssignBlocks[Scope].insert(VTracker->MBB);
       ScopeToDILocation[Scope] = ScopeLoc;

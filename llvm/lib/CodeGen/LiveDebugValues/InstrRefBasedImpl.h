@@ -36,9 +36,10 @@ class DbgOpIDMap;
 using namespace llvm;
 
 using DebugVariableID = unsigned;
+using VarAndLoc = std::pair<DebugVariable, const DILocation *>;
 class DebugVariableMap {
   DenseMap<DebugVariable, unsigned> VarToIdx;
-  SmallVector<DebugVariable> IdxToVar;
+  SmallVector<VarAndLoc> IdxToVar;
 
 public:
   DebugVariableID getDVID(const DebugVariable &Var) const {
@@ -47,18 +48,18 @@ public:
     return It->second;
   }
 
-  DebugVariableID insertDVID(const DebugVariable &Var) {
+  DebugVariableID insertDVID(DebugVariable &Var, const DILocation *Loc) {
     unsigned Size = VarToIdx.size();
     auto ItPair = VarToIdx.insert({Var, Size});
     if (ItPair.second) {
-      IdxToVar.push_back(Var);
+      IdxToVar.push_back({Var, Loc});
       return Size;
     }
 
     return ItPair.first->second;
   }
 
-  const DebugVariable &lookupDVID(DebugVariableID ID) const {
+  const VarAndLoc &lookupDVID(DebugVariableID ID) const {
     return IdxToVar[ID];
   }
 
@@ -1023,6 +1024,7 @@ public:
   /// just return the builder for it.
   MachineInstrBuilder emitLoc(const SmallVectorImpl<ResolvedDbgOp> &DbgOps,
                               const DebugVariable &Var,
+                              const DILocation *DILoc,
                               const DbgValueProperties &Properties);
 };
 
@@ -1064,7 +1066,7 @@ public:
     assert(MI.isDebugValueLike());
     DebugVariable Var(MI.getDebugVariable(), MI.getDebugExpression(),
                       MI.getDebugLoc()->getInlinedAt());
-    DebugVariableID VarID = DVMap.insertDVID(Var);
+    DebugVariableID VarID = DVMap.insertDVID(Var, MI.getDebugLoc().get());
     DbgValue Rec = (DebugOps.size() > 0)
                        ? DbgValue(DebugOps, Properties)
                        : DbgValue(Properties, DbgValue::Undef);
@@ -1095,7 +1097,7 @@ public:
 
       DebugVariable Overlapped(Var.getVariable(), OptFragmentInfo,
                                Var.getInlinedAt());
-      DebugVariableID OverlappedID = DVMap.insertDVID(Overlapped);
+      DebugVariableID OverlappedID = DVMap.insertDVID(Overlapped, Loc);
       DbgValue Rec = DbgValue(EmptyProperties, DbgValue::Undef);
 
       // Attempt insertion; overwrite if it's already mapped.
