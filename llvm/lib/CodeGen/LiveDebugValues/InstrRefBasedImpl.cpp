@@ -237,6 +237,7 @@ public:
   /// VarLocs[Idx] != MTracker->LocIdxToIDNum[Idx].
   SmallDenseMap<LocIdx, std::pair<DebugVariableID, DebugVariableID>> ActiveMLocs;
   SmallDenseMap<DebugVariableID, DebugVariableID> ActiveMLocChain;
+  BitVector HasActiveMLocs;
 
   void insertActiveMLoc(LocIdx L, DebugVariableID ID) {
     auto InsertIt = ActiveMLocs.insert({L, {ID, ID}});
@@ -473,6 +474,7 @@ public:
     TLI = MF.getSubtarget().getTargetLowering();
     auto &TM = TPC.getTM<TargetMachine>();
     ShouldEmitDebugEntryValues = TM.Options.ShouldEmitDebugEntryValues();
+    HasActiveMLocs.resize(MTracker->getNumLocs(), false);
   }
 
   bool isCalleeSaved(LocIdx L) const {
@@ -621,6 +623,9 @@ public:
     // the transfer.
     auto NewValue = ResolvedDbgValue{ResolvedDbgOps, Value.Properties};
     if (ResolvedDbgOps.size() > 1) {
+      for (auto &Op : ResolvedDbgOps)
+        if (!Op.IsConst)
+          HasActiveMLocs.set(Op.Loc.asU64());
       ActiveVariadicLocs.insert(VarValuePair(VarID, NewValue));
     } else {
       ResolvedDbgOp &Op = ResolvedDbgOps[0];
@@ -810,6 +815,8 @@ public:
       const DebugVariable &Var = DVMap.lookupDVID(Use.VarID);
       PendingDbgValues.push_back(
           MTracker->emitLoc(DbgOps, Var, Use.Properties));
+#warning This doesn't enter these things into the tracking maps; and we didn't
+#warning in the past, so let's ignore for now.
     }
     flushDbgValues(pos, nullptr);
   }
@@ -901,6 +908,22 @@ public:
     return true;
   }
 
+  void scanAndClearDeadVariadicMLocs(SmallSet<LocIdx, 4> &LocsToScanFor) {
+    for (auto &Rec : ActiveVariadicLocs) {
+      for (auto &Op : Rec.second.Ops) {
+        if (Op.IsConst)
+          continue;
+        bool lol = LocsToScanFor.contains(Op.Loc);
+        if (lol)
+          LocsToScanFor.erase(Op.Loc);
+      }
+    }
+
+    // Hurr,
+    for (LocIdx L : LocsToScanFor)
+      HasActiveMLocs.reset(L.asU64());
+  }
+
   /// Change a variable value after encountering a DBG_VALUE inside a block.
   void redefVar(const MachineInstr &MI) {
     DebugVariable Var(MI.getDebugVariable(), MI.getDebugExpression(),
@@ -916,8 +939,16 @@ public:
       clearMlocsForVloc(It, VarID);
 #warning This will always assign, is there a cleaner way of testing and cleaning?
       clearActiveVLoc(It);
-      if (auto It2 = ActiveVariadicLocs.find(VarID); It2 != ActiveVariadicLocs.end())
+
+      SmallSet<LocIdx, 4> LocsToScanFor;
+      if (auto It2 = ActiveVariadicLocs.find(VarID); It2 != ActiveVariadicLocs.end()) {
+        for (auto &Op : It2->second.Ops)
+          if (!Op.IsConst)
+            LocsToScanFor.insert(Op.Loc);
         ActiveVariadicLocs.erase(It2);
+      }
+
+      scanAndClearDeadVariadicMLocs(LocsToScanFor);
 
       // Any use-before-defs no longer apply.
       UseBeforeDefVariables.erase(VarID);
@@ -965,8 +996,15 @@ public:
 
     // Then erase any variable-tracking information.
     clearActiveVLoc(It);
-    if (auto It2 = ActiveVariadicLocs.find(VarID); It2 != ActiveVariadicLocs.end())
+    SmallSet<LocIdx, 4> LocsToScanFor;
+    if (auto It2 = ActiveVariadicLocs.find(VarID); It2 != ActiveVariadicLocs.end()) {
+      for (auto &Op : It2->second.Ops)
+        if (!Op.IsConst)
+          LocsToScanFor.insert(Op.Loc);
       ActiveVariadicLocs.erase(It2);
+    }
+
+    scanAndClearDeadVariadicMLocs(LocsToScanFor);
 
     unsigned Size = NewLocs.size();
     if (Size == 0) {
@@ -990,17 +1028,24 @@ public:
     VarLocs[NewLoc.asU64()] = MTracker->readMLoc(NewLoc);
 
     // Check for any variadic locations that use this mloc.
-    SmallVector<DebugVariableID, 4> VariadicIDsToErase;
+    SmallSet<DebugVariableID, 4> VariadicIDsToErase;
     for (auto &P : ActiveVariadicLocs) {
       for (ResolvedDbgOp Op : P.second.Ops) {
         if (!Op.IsConst && Op.Loc == NewLoc)
-          VariadicIDsToErase.push_back(P.first);
+          VariadicIDsToErase.insert(P.first);
       }
     }
-    SmallVector<ResolvedDbgOp, 1> empty;
-    VarValuePair lookup(0, ResolvedDbgValue(empty, DbgValueProperties(nullptr, false, false)));
-    for (DebugVariableID ID : VariadicIDsToErase)
-      ActiveVariadicLocs.erase(ID);
+
+    SmallSet<LocIdx, 4> LocsToScanFor;
+    for (unsigned ID : VariadicIDsToErase) {
+      auto It2 = ActiveVariadicLocs.find(ID);
+      for (auto &Op : It2->second.Ops)
+        if (!Op.IsConst)
+          LocsToScanFor.insert(Op.Loc);
+      ActiveVariadicLocs.erase(It2);
+    }
+
+    scanAndClearDeadVariadicMLocs(LocsToScanFor);
 
     if (MLocIt == ActiveMLocs.end())
       // There weren't any active locations, we're fine.
@@ -1047,6 +1092,7 @@ public:
       if (Op.IsConst)
         continue;
       clearTrackingForStaleMLoc(Op.Loc);
+      HasActiveMLocs.set(Op.Loc.asU64());
     }
 
     auto NewRec = VarValuePair(VarID, ResolvedDbgValue(NewLocs, Properties));
@@ -1076,6 +1122,11 @@ public:
   void clobberMloc(LocIdx MLoc, ValueIDNum OldValue,
                    MachineBasicBlock::iterator Pos, bool MakeUndef = true) {
     auto ActiveMLocIt = ActiveMLocs.find(MLoc);
+    if (ActiveMLocIt == ActiveMLocs.end() && !HasActiveMLocs.test(MLoc.asU64()))
+      return;
+
+    // At the end of this, we will have moved variadics elsewhere,
+    HasActiveMLocs.reset(MLoc.asU64());
 
     VarLocs[MLoc.asU64()] = ValueIDNum::EmptyValue;
 
@@ -1196,6 +1247,7 @@ public:
         if (!Op.IsConst && Op.Loc == MLoc) {
           ReState = true;
           Op.Loc = *NewLoc;
+          HasActiveMLocs.set(NewLoc->asU64());
         }
       }
       if (ReState) {
@@ -1263,6 +1315,7 @@ public:
         if (!Op.IsConst && Op.Loc == Src) {
           ReState = true;
           Op.Loc = Dst;
+          HasActiveMLocs.set(Dst.asU64());
         }
       }
       if (ReState) {
@@ -1270,6 +1323,9 @@ public:
         PendingDbgValues.push_back(MTracker->emitLoc(P.second.Ops, Var, P.second.Properties));
       }
     }
+
+    // We've moved all of these,
+    HasActiveMLocs.reset(Src.asU64());
 
     flushDbgValues(Pos, nullptr);
 
