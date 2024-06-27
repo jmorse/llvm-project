@@ -3899,7 +3899,6 @@ bool InstrRefBasedLDV::depthFirstVLocAndEmit(
     const ScopeToVarsT &ScopeToVars, ScopeToAssignBlocksT &ScopeToAssignBlocks,
     LiveInsT &Output, FuncValueTable &MOutLocs, FuncValueTable &MInLocs,
     SmallVectorImpl<VLocTracker> &AllTheVLocs, MachineFunction &MF,
-    DenseMap<DebugVariable, unsigned> &AllVarsNumbering,
     const TargetPassConfig &TPC) {
   TTracker = new TransferTracker(TII, MTracker, MF, DVMap, *TRI, CalleeSavedRegs, TPC);
   unsigned NumLocs = MTracker->getNumLocs();
@@ -4005,11 +4004,10 @@ bool InstrRefBasedLDV::depthFirstVLocAndEmit(
     if (MInLocs.hasTableFor(*MBB))
       EjectBlock(*MBB);
 
-  return emitTransfers(AllVarsNumbering);
+  return emitTransfers();
 }
 
-bool InstrRefBasedLDV::emitTransfers(
-    DenseMap<DebugVariable, unsigned> &AllVarsNumbering) {
+bool InstrRefBasedLDV::emitTransfers() {
   // Go through all the transfers recorded in the TransferTracker -- this is
   // both the live-ins to a block, and any movements of values that happen
   // in the middle.
@@ -4017,12 +4015,13 @@ bool InstrRefBasedLDV::emitTransfers(
     // We have to insert DBG_VALUEs in a consistent order, otherwise they
     // appear in DWARF in different orders. Use the order that they appear
     // when walking through each block / each instruction, stored in
-    // AllVarsNumbering.
+    // DVMap.
     SmallVector<std::pair<unsigned, MachineInstr *>> Insts;
     for (MachineInstr *MI : P.Insts) {
       DebugVariable Var(MI->getDebugVariable(), MI->getDebugExpression(),
                         MI->getDebugLoc()->getInlinedAt());
-      Insts.emplace_back(AllVarsNumbering.find(Var)->second, MI);
+      DebugVariableID ID = DVMap.getDVID(Var);
+      Insts.emplace_back(ID, MI);
     }
     llvm::sort(Insts, llvm::less_first());
 
@@ -4150,10 +4149,6 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
     MTracker->reset();
   }
 
-  // Number all variables in the order that they appear, to be used as a stable
-  // insertion order later.
-  DenseMap<DebugVariable, unsigned> AllVarsNumbering;
-
   // Map from one LexicalScope to all the variables in that scope.
   ScopeToVarsT ScopeToVars;
 
@@ -4181,7 +4176,6 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
       assert(Scope != nullptr);
 
       auto& [Var, DILoc] = DVMap.lookupDVID(VarID);
-      AllVarsNumbering.insert(std::make_pair(Var, AllVarsNumbering.size())); // XXX DVMap boundary.
       ScopeToVars[Scope].insert(VarID);
       ScopeToAssignBlocks[Scope].insert(VTracker->MBB);
       ScopeToDILocation[Scope] = ScopeLoc;
@@ -4206,7 +4200,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
     // the "else" block of this condition.
     Changed = depthFirstVLocAndEmit(
         MaxNumBlocks, ScopeToDILocation, ScopeToVars, ScopeToAssignBlocks,
-        SavedLiveIns, MOutLocs, MInLocs, vlocs, MF, AllVarsNumbering, *TPC);
+        SavedLiveIns, MOutLocs, MInLocs, vlocs, MF, *TPC);
   }
 
   delete MTracker;

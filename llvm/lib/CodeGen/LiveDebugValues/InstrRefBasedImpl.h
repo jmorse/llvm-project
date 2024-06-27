@@ -1459,10 +1459,8 @@ private:
       const SmallVectorImpl<const MachineBasicBlock *> &BlockOrders);
 
   /// Take collections of DBG_VALUE instructions stored in TTracker, and
-  /// install them into their output blocks. Preserves a stable order of
-  /// DBG_VALUEs produced (which would otherwise cause nondeterminism) through
-  /// the AllVarsNumbering order.
-  bool emitTransfers(DenseMap<DebugVariable, unsigned> &AllVarsNumbering);
+  /// install them into their output blocks.
+  bool emitTransfers();
 
   /// Boilerplate computation of some initial sets, artifical blocks and
   /// RPOT block ordering.
@@ -1487,7 +1485,6 @@ private:
       const ScopeToVarsT &ScopeToVars, ScopeToAssignBlocksT &ScopeToBlocks,
       LiveInsT &Output, FuncValueTable &MOutLocs, FuncValueTable &MInLocs,
       SmallVectorImpl<VLocTracker> &AllTheVLocs, MachineFunction &MF,
-      DenseMap<DebugVariable, unsigned> &AllVarsNumbering,
       const TargetPassConfig &TPC);
 
   bool ExtendRanges(MachineFunction &MF, MachineDominatorTree *DomTree,
