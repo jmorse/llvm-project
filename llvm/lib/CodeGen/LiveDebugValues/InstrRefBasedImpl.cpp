@@ -470,6 +470,7 @@ public:
     auto &TM = TPC.getTM<TargetMachine>();
     ShouldEmitDebugEntryValues = TM.Options.ShouldEmitDebugEntryValues();
     HasActiveMLocs.resize(MTracker->getNumLocs(), false);
+    VarLocs.resize(MTracker->getNumLocs(), ValueIDNum::EmptyValue);
   }
 
   bool isCalleeSaved(LocIdx L) const {
@@ -649,8 +650,6 @@ public:
     ActiveVariadicLocs.setUniverse(DVMap.size());
     ActiveMLocs.clear();
     ActiveVLocs.clear();
-    VarLocs.clear();
-    VarLocs.reserve(NumLocs);
     UseBeforeDefs.clear();
     UseBeforeDefVariables.clear();
 
@@ -700,13 +699,14 @@ public:
       ValueIDNum &VNum = MLocs[Idx.asU64()];
       if (VNum == ValueIDNum::EmptyValue)
         continue;
-      VarLocs.push_back(VNum);
 
       // Is there a variable that wants a location for this value? If not, skip.
       ValueLocPair Probe(VNum, LocationAndQuality());
       auto VIt = std::lower_bound(ValueToLoc.begin(), ValueToLoc.end(), Probe, ValueToLocSort);
       if (VIt == ValueToLoc.end() || VIt->first != VNum)
         continue;
+
+      VarLocs[Idx.asU64()] = VNum; // we only track the active mlocs.
 
       auto &Previous = VIt->second;
       // If this is the first location with that value, pick it. Otherwise,
