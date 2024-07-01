@@ -689,6 +689,14 @@ public:
           }
 
     llvm::sort(ValueToLoc, ValueToLocSort);
+
+    uint64_t YoungestNum = ValueIDNum(0, 0, 0).asU64();
+    uint64_t OldestNum = ValueIDNum::EmptyValue.asU64();
+    if (!ValueToLoc.empty()) {
+      YoungestNum = ValueToLoc[0].first.asU64();
+      OldestNum = ValueToLoc[0].first.asU64();
+    }
+
     ActiveMLocs.reserve(VLocs.size());
 
     // Produce a map of value numbers to the current machine locs they live
@@ -698,6 +706,9 @@ public:
       LocIdx Idx = Location.Idx;
       ValueIDNum &VNum = MLocs[Idx.asU64()];
       if (VNum == ValueIDNum::EmptyValue)
+        continue;
+
+      if (VNum.asU64() < YoungestNum || VNum.asU64() > OldestNum)
         continue;
 
       // Is there a variable that wants a location for this value? If not, skip.
