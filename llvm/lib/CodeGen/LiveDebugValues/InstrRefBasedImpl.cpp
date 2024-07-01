@@ -677,11 +677,17 @@ public:
 
     // Initialized the preferred-location map with illegal locations, to be
     // filled in later.
+    SmallDenseSet<ValueIDNum, 32> AvoidDup;
     for (const auto &VLoc : VLocs)
       if (VLoc.second.Kind == DbgValue::Def)
         for (DbgOpID OpID : VLoc.second.getDbgOpIDs())
-          if (!OpID.ID.IsConst)
-            ValueToLoc.push_back({DbgOpStore.find(OpID).ID, LocationAndQuality()});
+          if (!OpID.ID.IsConst)  {
+            auto VID = DbgOpStore.find(OpID).ID;
+            auto InsertIt = AvoidDup.insert(VID);
+            if (InsertIt.second) { // Insert succeeded
+              ValueToLoc.push_back({VID, LocationAndQuality()});
+            }
+          }
 
     llvm::sort(ValueToLoc, ValueToLocSort);
     ActiveMLocs.reserve(VLocs.size());
