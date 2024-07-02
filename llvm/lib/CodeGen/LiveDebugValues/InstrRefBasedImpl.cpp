@@ -694,7 +694,7 @@ public:
     uint64_t OldestNum = ValueIDNum::EmptyValue.asU64();
     if (!ValueToLoc.empty()) {
       YoungestNum = ValueToLoc[0].first.asU64();
-      OldestNum = ValueToLoc[0].first.asU64();
+      OldestNum = ValueToLoc[ValueToLoc.size()-1].first.asU64();
     }
 
     ActiveMLocs.reserve(VLocs.size());
@@ -705,8 +705,6 @@ public:
     for (auto Location : MTracker->locations()) {
       LocIdx Idx = Location.Idx;
       ValueIDNum &VNum = MLocs[Idx.asU64()];
-      if (VNum == ValueIDNum::EmptyValue)
-        continue;
 
       if (VNum.asU64() < YoungestNum || VNum.asU64() > OldestNum)
         continue;
