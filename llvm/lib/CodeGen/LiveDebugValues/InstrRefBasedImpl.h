@@ -1454,13 +1454,11 @@ private:
   ///          to be joined.
   bool
   pickVPHILoc(SmallVectorImpl<DbgOpID> &OutValues, const MachineBasicBlock &MBB,
-              const LiveIdxT &LiveOuts, FuncValueTable &MOutLocs,
-              const SmallVectorImpl<const MachineBasicBlock *> &BlockOrders);
+              const LiveIdxT &LiveOuts, FuncValueTable &MOutLocs);
 
   std::optional<ValueIDNum> pickOperandPHILoc(
       unsigned DbgOpIdx, const MachineBasicBlock &MBB, const LiveIdxT &LiveOuts,
-      FuncValueTable &MOutLocs,
-      const SmallVectorImpl<const MachineBasicBlock *> &BlockOrders);
+      FuncValueTable &MOutLocs);
 
   /// Take collections of DBG_VALUE instructions stored in TTracker, and
   /// install them into their output blocks.

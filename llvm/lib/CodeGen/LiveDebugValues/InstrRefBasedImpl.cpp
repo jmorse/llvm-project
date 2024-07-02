@@ -3231,23 +3231,22 @@ void InstrRefBasedLDV::BlockPHIPlacement(
 
 bool InstrRefBasedLDV::pickVPHILoc(
     SmallVectorImpl<DbgOpID> &OutValues, const MachineBasicBlock &MBB,
-    const LiveIdxT &LiveOuts, FuncValueTable &MOutLocs,
-    const SmallVectorImpl<const MachineBasicBlock *> &BlockOrders) {
+    const LiveIdxT &LiveOuts, FuncValueTable &MOutLocs) {
 
   // No predecessors means no PHIs.
-  if (BlockOrders.empty())
+  if (MBB.pred_empty())
     return false;
 
   // All the location operands that do not already agree need to be joined,
   // track the indices of each such location operand here.
   SmallDenseSet<unsigned> LocOpsToJoin;
 
-  auto FirstValueIt = LiveOuts.find(BlockOrders[0]);
+  auto FirstValueIt = LiveOuts.find(*MBB.pred_begin());
   if (FirstValueIt == LiveOuts.end())
     return false;
   const DbgValue &FirstValue = *FirstValueIt->second;
 
-  for (const auto p : BlockOrders) {
+  for (const auto p : MBB.predecessors()) {
     auto OutValIt = LiveOuts.find(p);
     if (OutValIt == LiveOuts.end())
       // If we have a predecessor not in scope, we'll never find a PHI position.
@@ -3297,7 +3296,7 @@ bool InstrRefBasedLDV::pickVPHILoc(
     }
 
     std::optional<ValueIDNum> JoinedOpLoc =
-        pickOperandPHILoc(Idx, MBB, LiveOuts, MOutLocs, BlockOrders);
+        pickOperandPHILoc(Idx, MBB, LiveOuts, MOutLocs);
 
     if (!JoinedOpLoc)
       return false;
@@ -3311,15 +3310,14 @@ bool InstrRefBasedLDV::pickVPHILoc(
 
 std::optional<ValueIDNum> InstrRefBasedLDV::pickOperandPHILoc(
     unsigned DbgOpIdx, const MachineBasicBlock &MBB, const LiveIdxT &LiveOuts,
-    FuncValueTable &MOutLocs,
-    const SmallVectorImpl<const MachineBasicBlock *> &BlockOrders) {
+    FuncValueTable &MOutLocs) {
 
   // Collect a set of locations from predecessor where its live-out value can
   // be found.
   SmallVector<SmallVector<LocIdx, 4>, 8> Locs;
   unsigned NumLocs = MTracker->getNumLocs();
 
-  for (const auto p : BlockOrders) {
+  for (const auto p : MBB.predecessors()) {
     auto OutValIt = LiveOuts.find(p);
     assert(OutValIt != LiveOuts.end());
     const DbgValue &OutVal = *OutValIt->second;
@@ -3357,7 +3355,7 @@ std::optional<ValueIDNum> InstrRefBasedLDV::pickOperandPHILoc(
     }
   }
   // We should have found locations for all predecessors, or returned.
-  assert(Locs.size() == BlockOrders.size());
+  assert(Locs.size() == MBB.pred_size());
 
   // Starting with the first set of locations, take the intersection with
   // subsequent sets.
@@ -3701,10 +3699,6 @@ void InstrRefBasedLDV::buildVLocValueMap(
         bool InLocsChanged =
             vlocJoin(*MBB, LiveOutIdx, BlocksToExplore, *LiveIn);
 
-        SmallVector<const MachineBasicBlock *, 8> Preds;
-        for (const auto *Pred : MBB->predecessors())
-          Preds.push_back(Pred);
-
         // If this block's live-in value is a VPHI, try to pick a machine-value
         // for it. This makes the machine-value available and propagated
         // through all blocks by the time value propagation finishes. We can't
@@ -3716,7 +3710,7 @@ void InstrRefBasedLDV::buildVLocValueMap(
           // might change, so we need to re-compute it on each iteration.
           SmallVector<DbgOpID> JoinedOps;
 
-          if (pickVPHILoc(JoinedOps, *MBB, LiveOutIdx, MOutLocs, Preds)) {
+          if (pickVPHILoc(JoinedOps, *MBB, LiveOutIdx, MOutLocs)) {
             bool NewLocPicked = !equal(LiveIn->getDbgOpIDs(), JoinedOps);
             InLocsChanged |= NewLocPicked;
             if (NewLocPicked)
