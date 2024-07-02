@@ -2316,19 +2316,17 @@ void InstrRefBasedLDV::transferRegisterDef(MachineInstr &MI) {
 
   // Look for any clobbers performed by a register mask. Only test locations
   // that are actually being tracked.
-  if (!RegMaskPtrs.empty()) {
-    for (auto L : MTracker->locations()) {
-      // Stack locations can't be clobbered by regmasks.
-      if (MTracker->isSpill(L.Idx))
-        continue;
-
-      Register Reg = MTracker->LocIdxToLocID[L.Idx];
+  for (const MachineOperand *MO : RegMaskPtrs) {
+    const uint32_t *Mask = MO->getRegMask();
+    // All regmasks should have been seen, and thus be in this map:
+    auto DecodedMaskIt = DecodedRegMasks.find(Mask);
+    assert(DecodedMaskIt != DecodedRegMasks.end());
+    for (LocIdx L : DecodedMaskIt->second) {
+      Register Reg = MTracker->LocIdxToLocID[L];
       if (IgnoreSPAlias(Reg))
         continue;
 
-      for (const auto *MO : RegMaskPtrs)
-        if (MO->clobbersPhysReg(Reg))
-          TTracker->clobberMloc(L.Idx, MI.getIterator(), false);
+      TTracker->clobberMloc(L, MI.getIterator(), false);
     }
   }
 
@@ -2699,6 +2697,7 @@ void InstrRefBasedLDV::produceMLocTransferFunction(
   // appropriate clobbers.
   SmallVector<BitVector, 32> BlockMasks;
   BlockMasks.resize(MaxNumBlocks);
+  SmallPtrSet<const uint32_t *, 8> RegMaskPtrs;
 
   // Reserve one bit per register for the masks described above.
   unsigned BVWords = MachineOperand::getRegMaskSize(TRI->getNumRegs());
@@ -2762,7 +2761,9 @@ void InstrRefBasedLDV::produceMLocTransferFunction(
     // Accumulate any bitmask operands into the clobbered reg mask for this
     // block.
     for (auto &P : MTracker->Masks) {
-      BlockMasks[CurBB].clearBitsNotInMask(P.first->getRegMask(), BVWords);
+      const uint32_t *Mask = P.first->getRegMask();
+      RegMaskPtrs.insert(Mask);
+      BlockMasks[CurBB].clearBitsNotInMask(Mask, BVWords);
     }
   }
 
@@ -2806,6 +2807,20 @@ void InstrRefBasedLDV::produceMLocTransferFunction(
           ValueID = NotGeneratedNum;
       }
     }
+  }
+
+  // We've collected regmasks, and we'll have to deal with clobbers involving
+  // them in the future. Produce a list of 
+  for (const uint32_t *Ptr : RegMaskPtrs) {
+    SmallVector<LocIdx, 32> DecodedMask;
+    for (unsigned int I = 0; I < TRI->getNumRegs(); ++I) {
+      if (MachineOperand::clobbersPhysReg(Ptr, I))
+        if (MTracker->isRegisterTracked(I))
+          DecodedMask.push_back(MTracker->lookupOrTrackRegister(I));
+    }
+    auto P = DecodedRegMasks.insert(std::make_pair(Ptr, SmallVector<LocIdx, 0>()));
+    assert(P.second);
+    P.first->second = std::move(DecodedMask);
   }
 }
 
@@ -4227,6 +4242,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   SeenDbgPHIs.clear();
   DbgOpStore.clear();
   DVMap.clear();
+  DecodedRegMasks.clear();
 
   return Changed;
 }
