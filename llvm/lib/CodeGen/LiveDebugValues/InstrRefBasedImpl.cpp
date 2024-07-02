@@ -704,7 +704,7 @@ public:
     // location; when not, we get to pick.
     for (auto Location : MTracker->locations()) {
       LocIdx Idx = Location.Idx;
-      ValueIDNum &VNum = MLocs[Idx.asU64()];
+      ValueIDNum &VNum = Location.Value;
 
       if (VNum.asU64() < YoungestNum || VNum.asU64() > OldestNum)
         continue;
