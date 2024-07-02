@@ -1247,6 +1247,8 @@ private:
 
   DenseMap<const uint32_t *, SmallVector<LocIdx, 0>> DecodedRegMasks;
 
+  DenseMap<ValueIDNum, ResolvedDbgOp> FoundValueCache;
+
   /// True if we need to examine call instructions for stack clobbers. We
   /// normally assume that they don't clobber SP, but stack probes on Windows
   /// do.

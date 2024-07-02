@@ -2063,8 +2063,30 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
 
   // Pick a location for the machine value number, if such a location exists.
   // (This information could be stored in TransferTracker to make it faster).
+
+  // Observation on our workload: scanning all the locations is expensive, and
+  // it's common for several DBG_INSTR_REFs in a row to refer to the same value.
+  // This occurs when inlined functions refer to values in the outer function,
+  // or when variable locations are salvaged to refer to a non-redundant Value.
+  // Seeing packs of tens-of debug-records referring to the same Value isn't
+  // uncommon. Thus, this is the perfect place for a cache. Hit the common case
+  // first.
+
+
   SmallDenseMap<ValueIDNum, TransferTracker::LocationAndQuality> FoundLocs;
   SmallVector<ValueIDNum> ValuesToFind;
+  SmallVector<ResolvedDbgOp> NewLocs;
+
+  if (DbgOps.size() == 1) {
+    const DbgOp &Op = DbgOps[0];
+    if (!Op.IsConst) {
+      if (auto It = FoundValueCache.find(Op.ID); It != FoundValueCache.end()) {
+        NewLocs.push_back(It->second);
+        goto trolololo;
+      }
+    }
+  }
+
   // Initialized the preferred-location map with illegal locations, to be
   // filled in later.
   for (const DbgOp &Op : DbgOps) {
@@ -2095,7 +2117,6 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
     }
   }
 
-  SmallVector<ResolvedDbgOp> NewLocs;
   for (const DbgOp &DbgOp : DbgOps) {
     if (DbgOp.IsConst) {
       NewLocs.push_back(DbgOp.MO);
@@ -2107,7 +2128,10 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
       break;
     }
     NewLocs.push_back(FoundLoc);
+    FoundValueCache.insert(std::make_pair(DbgOp.ID, FoundLoc));
   }
+
+trolololo:
   // Tell transfer tracker that the variable value has changed.
   TTracker->redefVar(MI, Properties, NewLocs);
 
@@ -2677,6 +2701,8 @@ void InstrRefBasedLDV::process(MachineInstr &MI,
     return;
   if (transferDebugPHI(MI))
     return;
+  // If it's a real instruction, clear the ID-to-location cache.
+  FoundValueCache.clear();
   if (transferRegisterCopy(MI))
     return;
   if (transferSpillOrRestoreInst(MI))
@@ -4243,6 +4269,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   DbgOpStore.clear();
   DVMap.clear();
   DecodedRegMasks.clear();
+  FoundValueCache.clear();
 
   return Changed;
 }
