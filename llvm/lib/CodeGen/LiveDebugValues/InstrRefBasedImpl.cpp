@@ -2712,6 +2712,7 @@ void InstrRefBasedLDV::process(MachineInstr &MI,
 
 void InstrRefBasedLDV::produceMLocTransferFunction(
     MachineFunction &MF, SmallVectorImpl<MLocTransferMap> &MLocTransfer,
+    SmallVectorImpl<BitVector> &MLocTransferMask,
     unsigned MaxNumBlocks) {
   // Because we try to optimize around register mask operands by ignoring regs
   // that aren't currently tracked, we set up something ugly for later: RegMask
@@ -2771,6 +2772,7 @@ void InstrRefBasedLDV::produceMLocTransferFunction(
     // any machine location has the live-in phi value from the start of the
     // block, it's live-through and doesn't need recording in the transfer
     // function.
+    MLocTransferMask[CurBB].resize(MTracker->getNumLocs(), false);
     for (auto Location : MTracker->locations()) {
       LocIdx Idx = Location.Idx;
       ValueIDNum &P = Location.Value;
@@ -2779,6 +2781,7 @@ void InstrRefBasedLDV::produceMLocTransferFunction(
 
       // Insert-or-update.
       auto &TransferMap = MLocTransfer[CurBB];
+      MLocTransferMask[CurBB].set(Idx.asU64());
       auto Result = TransferMap.insert(std::make_pair(Idx.asU64(), P));
       if (!Result.second)
         Result.first->second = P;
@@ -2824,6 +2827,7 @@ void InstrRefBasedLDV::produceMLocTransferFunction(
       // first instruction in the block, def'ing this location, which we know
       // this block never used anyway.
       ValueIDNum NotGeneratedNum = ValueIDNum(I, 1, Idx);
+      MLocTransferMask[CurBB].set(Idx.asU64());
       auto Result =
         TransferMap.insert(std::make_pair(Idx.asU64(), NotGeneratedNum));
       if (!Result.second) {
@@ -2848,6 +2852,11 @@ void InstrRefBasedLDV::produceMLocTransferFunction(
     assert(P.second);
     P.first->second = std::move(DecodedMask);
   }
+
+
+  // Ensure all BB's have correctly sized masks in them. XXX too expensive?
+  for (BitVector &BV: MLocTransferMask)
+    BV.resize(MTracker->getNumLocs(), false);
 }
 
 bool InstrRefBasedLDV::mlocJoin(
@@ -2959,7 +2968,7 @@ void InstrRefBasedLDV::findStackIndexInterference(
 
 void InstrRefBasedLDV::placeMLocPHIs(
     MachineFunction &MF, SmallPtrSetImpl<MachineBasicBlock *> &AllBlocks,
-    FuncValueTable &MInLocs, SmallVectorImpl<MLocTransferMap> &MLocTransfer) {
+    FuncValueTable &MInLocs, SmallVectorImpl<BitVector> &MLocTransferMask) {
   SmallVector<unsigned, 4> StackUnits;
   findStackIndexInterference(StackUnits);
 
@@ -3012,8 +3021,7 @@ void InstrRefBasedLDV::placeMLocPHIs(
     SmallPtrSet<MachineBasicBlock *, 32> DefBlocks;
     for (unsigned int I = 0; I < OrderToBB.size(); ++I) {
       MachineBasicBlock *MBB = OrderToBB[I];
-      const auto &TransferFunc = MLocTransfer[MBB->getNumber()];
-      if (TransferFunc.contains(L))
+      if (MLocTransferMask[MBB->getNumber()].test(L.asU64()))
         DefBlocks.insert(MBB);
     }
 
@@ -3089,7 +3097,8 @@ void InstrRefBasedLDV::placeMLocPHIs(
 
 void InstrRefBasedLDV::buildMLocValueMap(
     MachineFunction &MF, FuncValueTable &MInLocs, FuncValueTable &MOutLocs,
-    SmallVectorImpl<MLocTransferMap> &MLocTransfer) {
+    SmallVectorImpl<MLocTransferMap> &MLocTransfer,
+    SmallVectorImpl<BitVector> &MLocTransferMask) {
   std::priority_queue<unsigned int, std::vector<unsigned int>,
                       std::greater<unsigned int>>
       Worklist, Pending;
@@ -3118,7 +3127,7 @@ void InstrRefBasedLDV::buildMLocValueMap(
   // Start by placing PHIs, using the usual SSA constructor algorithm. Consider
   // any machine-location that isn't live-through a block to be def'd in that
   // block.
-  placeMLocPHIs(MF, AllBlocks, MInLocs, MLocTransfer);
+  placeMLocPHIs(MF, AllBlocks, MInLocs, MLocTransferMask);
 
   // Propagate values to eliminate redundant PHIs. At the same time, this
   // produces the table of Block x Location => Value for the entry to each
@@ -4152,7 +4161,9 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   vlocs.resize(MaxNumBlocks, VLocTracker(DVMap, OverlapFragments, EmptyExpr));
   SavedLiveIns.resize(MaxNumBlocks);
 
-  produceMLocTransferFunction(MF, MLocTransfer, MaxNumBlocks);
+  SmallVector<BitVector, 32> MLocTransferMask;
+  MLocTransferMask.resize(MaxNumBlocks);
+  produceMLocTransferFunction(MF, MLocTransfer, MLocTransferMask, MaxNumBlocks);
 
   // Allocate and initialize two array-of-arrays for the live-in and live-out
   // machine values. The outer dimension is the block number; while the inner
@@ -4165,7 +4176,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   // storing the computed live-ins / live-outs into the array-of-arrays. We use
   // both live-ins and live-outs for decision making in the variable value
   // dataflow problem.
-  buildMLocValueMap(MF, MInLocs, MOutLocs, MLocTransfer);
+  buildMLocValueMap(MF, MInLocs, MOutLocs, MLocTransfer, MLocTransferMask);
 
   // Once we've computed where MLoc PHIs are etc, we can discard the transfer
   // function. We'll only consider mloc movements on a per-block basis now.

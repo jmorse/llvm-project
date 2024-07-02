@@ -1352,6 +1352,7 @@ private:
   void
   produceMLocTransferFunction(MachineFunction &MF,
                               SmallVectorImpl<MLocTransferMap> &MLocTransfer,
+                              SmallVectorImpl<BitVector> &MLocTransferMask,
                               unsigned MaxNumBlocks);
 
   /// Solve the machine value location dataflow problem. Takes as input the
@@ -1361,7 +1362,8 @@ private:
   /// number, the inner by LocIdx.
   void buildMLocValueMap(MachineFunction &MF, FuncValueTable &MInLocs,
                          FuncValueTable &MOutLocs,
-                         SmallVectorImpl<MLocTransferMap> &MLocTransfer);
+                         SmallVectorImpl<MLocTransferMap> &MLocTransfer,
+                         SmallVectorImpl<BitVector> &MLocTransferMask);
 
   /// Examine the stack indexes (i.e. offsets within the stack) to find the
   /// basic units of interference -- like reg units, but for the stack.
@@ -1372,7 +1374,7 @@ private:
   void placeMLocPHIs(MachineFunction &MF,
                      SmallPtrSetImpl<MachineBasicBlock *> &AllBlocks,
                      FuncValueTable &MInLocs,
-                     SmallVectorImpl<MLocTransferMap> &MLocTransfer);
+                     SmallVectorImpl<BitVector> &MLocTransferMask);
 
   /// Propagate variable values to blocks in the common case where there's
   /// only one value assigned to the variable. This function has better
