@@ -4167,6 +4167,10 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   // dataflow problem.
   buildMLocValueMap(MF, MInLocs, MOutLocs, MLocTransfer);
 
+  // Once we've computed where MLoc PHIs are etc, we can discard the transfer
+  // function. We'll only consider mloc movements on a per-block basis now.
+  MLocTransfer.clear();
+
   // Patch up debug phi numbers, turning unknown block-live-in values into
   // either live-through machine values, or PHIs.
   for (auto &DBG_PHI : DebugPHINumToValue) {
