@@ -3605,43 +3605,46 @@ void InstrRefBasedLDV::buildVLocValueMap(
   llvm::sort(BlockOrders, Cmp);
   unsigned NumBlocks = BlockOrders.size();
 
-  // Allocate some vectors for storing the live ins and live outs. Large.
-  SmallVector<DbgValue, 32> LiveIns, LiveOuts;
-  LiveIns.reserve(NumBlocks);
-  LiveOuts.reserve(NumBlocks);
-
-  // Initialize all values to start as NoVals. This signifies "it's live
-  // through, but we don't know what it is".
   DbgValueProperties EmptyProperties(EmptyExpr, false, false);
-  for (unsigned int I = 0; I < NumBlocks; ++I) {
-    DbgValue EmptyDbgValue(I, EmptyProperties, DbgValue::NoVal);
-    LiveIns.push_back(EmptyDbgValue);
-    LiveOuts.push_back(EmptyDbgValue);
-  }
-
-  // Produce by-MBB indexes of live-in/live-outs, to ease lookup within
-  // vlocJoin.
+  SmallVector<DbgValue, 32> LiveIns, LiveOuts;
   LiveIdxT LiveOutIdx, LiveInIdx;
-  LiveOutIdx.reserve(NumBlocks);
-  LiveInIdx.reserve(NumBlocks);
-  for (unsigned I = 0; I < NumBlocks; ++I) {
-    LiveOutIdx[BlockOrders[I]] = &LiveOuts[I];
-    LiveInIdx[BlockOrders[I]] = &LiveIns[I];
-  }
+
+  // Helper function to set up SSA exploration data structures. These can be
+  // large and expensive, and it's common for there to be a single variable
+  // assignment in a scope, where such setup isn't needed.
+  bool IsSetUp = false;
+  auto FirstTimeSetup = [&](void) -> void {
+    if (IsSetUp)
+      return;
+
+    // Allocate some vectors for storing the live ins and live outs. Large.
+    LiveIns.reserve(NumBlocks);
+    LiveOuts.reserve(NumBlocks);
+
+    // Initialize all values to start as NoVals. This signifies "it's live
+    // through, but we don't know what it is".
+    for (unsigned int I = 0; I < NumBlocks; ++I) {
+      DbgValue EmptyDbgValue(I, EmptyProperties, DbgValue::NoVal);
+      LiveIns.push_back(EmptyDbgValue);
+      LiveOuts.push_back(EmptyDbgValue);
+    }
+
+    // Produce by-MBB indexes of live-in/live-outs, to ease lookup within
+    // vlocJoin.
+    LiveOutIdx.reserve(NumBlocks);
+    LiveInIdx.reserve(NumBlocks);
+    for (unsigned I = 0; I < NumBlocks; ++I) {
+      LiveOutIdx[BlockOrders[I]] = &LiveOuts[I];
+      LiveInIdx[BlockOrders[I]] = &LiveIns[I];
+    }
+    IsSetUp = true;
+  };
 
   // Loop over each variable and place PHIs for it, then propagate values
   // between blocks. This keeps the locality of working on one lexical scope at
   // at time, but avoids re-processing variable values because some other
   // variable has been assigned.
   for (const DebugVariableID VarID : VarsWeCareAbout) {
-    // Re-initialize live-ins and live-outs, to clear the remains of previous
-    // variables live-ins / live-outs.
-    for (unsigned int I = 0; I < NumBlocks; ++I) {
-      DbgValue EmptyDbgValue(I, EmptyProperties, DbgValue::NoVal);
-      LiveIns[I] = EmptyDbgValue;
-      LiveOuts[I] = EmptyDbgValue;
-    }
-
     // Place PHIs for variable values, using the LLVM IDF calculator.
     // Collect the set of blocks where variables are def'd.
     SmallPtrSet<MachineBasicBlock *, 32> DefBlocks;
@@ -3651,8 +3654,6 @@ void InstrRefBasedLDV::buildVLocValueMap(
         DefBlocks.insert(const_cast<MachineBasicBlock *>(ExpMBB));
     }
 
-    SmallVector<MachineBasicBlock *, 32> PHIBlocks;
-
     // Request the set of PHIs we should insert for this variable. If there's
     // only one value definition, things are very simple.
     if (DefBlocks.size() == 1) {
@@ -3661,7 +3662,20 @@ void InstrRefBasedLDV::buildVLocValueMap(
       continue;
     }
 
-    // Otherwise: we need to place PHIs through SSA and propagate values.
+    // Definitely need to explore SSA structure, do first-time-setup.
+    FirstTimeSetup();
+
+    // Re-initialize live-ins and live-outs, to clear the remains of previous
+    // variables live-ins / live-outs.
+    for (unsigned int I = 0; I < NumBlocks; ++I) {
+      DbgValue EmptyDbgValue(I, EmptyProperties, DbgValue::NoVal);
+      LiveIns[I] = EmptyDbgValue;
+      LiveOuts[I] = EmptyDbgValue;
+    }
+
+    SmallVector<MachineBasicBlock *, 32> PHIBlocks;
+
+    // We need to place PHIs through SSA and propagate values.
     BlockPHIPlacement(MutBlocksToExplore, DefBlocks, PHIBlocks);
 
     // Insert PHIs into the per-block live-in tables for this variable.
