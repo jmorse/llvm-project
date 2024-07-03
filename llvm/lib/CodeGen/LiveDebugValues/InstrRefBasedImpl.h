@@ -1404,7 +1404,8 @@ private:
   /// is true, revisiting this block is necessary.
   bool mlocJoin(MachineBasicBlock &MBB,
                 SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
-                FuncValueTable &OutLocs, ValueTable &InLocs);
+                FuncValueTable &OutLocs, ValueTable &InLocs,
+                BitVector &ChangedMask, BitVector &NextChangedMask);
 
   /// Produce a set of blocks that are in the current lexical scope. This means
   /// those blocks that contain instructions "in" the scope, blocks where

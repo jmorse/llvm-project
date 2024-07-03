@@ -2861,7 +2861,8 @@ void InstrRefBasedLDV::produceMLocTransferFunction(
 
 bool InstrRefBasedLDV::mlocJoin(
     MachineBasicBlock &MBB, SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
-    FuncValueTable &OutLocs, ValueTable &InLocs) {
+    FuncValueTable &OutLocs, ValueTable &InLocs, BitVector &ChangedMask,
+    BitVector &NextChangedMask) {
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
 
@@ -2895,6 +2896,8 @@ bool InstrRefBasedLDV::mlocJoin(
   // whether we can eliminate redundant PHIs.
   for (auto Location : MTracker->locations()) {
     LocIdx Idx = Location.Idx;
+    if (!ChangedMask.test(Idx.asU64()))
+      continue;
 
     // Pick out the first predecessors live-out value for this location. It's
     // guaranteed to not be a backedge, as we order by RPO.
@@ -2905,6 +2908,7 @@ bool InstrRefBasedLDV::mlocJoin(
     if (InLocs[Idx.asU64()] != ValueIDNum(MBB.getNumber(), 0, Idx)) {
       if (InLocs[Idx.asU64()] != FirstVal) {
         InLocs[Idx.asU64()] = FirstVal;
+        NextChangedMask.set(Idx.asU64());
         Changed |= true;
       }
       continue;
@@ -2932,6 +2936,7 @@ bool InstrRefBasedLDV::mlocJoin(
     // No disagreement? No PHI. Otherwise, leave the PHI in live-ins.
     if (!Disagree) {
       InLocs[Idx.asU64()] = FirstVal;
+      NextChangedMask.set(Idx.asU64());
       Changed |= true;
     }
   }
@@ -3138,6 +3143,9 @@ void InstrRefBasedLDV::buildMLocValueMap(
   // code. Propagating values allows us to identify such un-necessary PHIs and
   // remove them.
   SmallPtrSet<const MachineBasicBlock *, 16> Visited;
+  BitVector ChangedMask, NextChangedMask;
+  ChangedMask.resize(MTracker->getNumLocs(), true);
+  NextChangedMask.resize(MTracker->getNumLocs(), false);
   while (!Worklist.empty() || !Pending.empty()) {
     // Vector for storing the evaluated block transfer function.
     SmallVector<std::pair<LocIdx, ValueIDNum>, 32> ToRemap;
@@ -3149,7 +3157,7 @@ void InstrRefBasedLDV::buildMLocValueMap(
 
       // Join the values in all predecessor blocks.
       bool InLocsChanged;
-      InLocsChanged = mlocJoin(*MBB, Visited, MOutLocs, MInLocs[*MBB]);
+      InLocsChanged = mlocJoin(*MBB, Visited, MOutLocs, MInLocs[*MBB], ChangedMask, NextChangedMask);
       InLocsChanged |= Visited.insert(MBB).second;
 
       // Don't examine transfer function if we've visited this loc at least
@@ -3163,6 +3171,7 @@ void InstrRefBasedLDV::buildMLocValueMap(
       // Each element of the transfer function can be a new def, or a read of
       // a live-in value. Evaluate each element, and store to "ToRemap".
       ToRemap.clear();
+#warning skip remapping for unchanged inputs?
       for (auto &P : MLocTransfer[CurBB]) {
         if (P.second.getBlock() == CurBB && P.second.isPHI()) {
           // This is a movement of whatever was live in. Read it.
@@ -3185,7 +3194,10 @@ void InstrRefBasedLDV::buildMLocValueMap(
       // the transfer function, and mlocJoin.
       bool OLChanged = false;
       for (auto Location : MTracker->locations()) {
-        OLChanged |= MOutLocs[*MBB][Location.Idx.asU64()] != Location.Value;
+        bool Different = MOutLocs[*MBB][Location.Idx.asU64()] != Location.Value;
+        OLChanged |= Different;
+        if (Different)
+          NextChangedMask.set(Location.Idx.asU64());
         MOutLocs[*MBB][Location.Idx.asU64()] = Location.Value;
       }
 
@@ -3215,6 +3227,8 @@ void InstrRefBasedLDV::buildMLocValueMap(
     Worklist.swap(Pending);
     std::swap(OnPending, OnWorklist);
     OnPending.clear();
+    ChangedMask.swap(NextChangedMask);
+    NextChangedMask.reset();
     // At this point, pending must be empty, since it was just the empty
     // worklist
     assert(Pending.empty() && "Pending should be empty");
