@@ -1374,7 +1374,7 @@ private:
   void placeMLocPHIs(MachineFunction &MF,
                      SmallPtrSetImpl<MachineBasicBlock *> &AllBlocks,
                      FuncValueTable &MInLocs,
-                     SmallVectorImpl<BitVector> &MLocTransferMask, BitVector &PHIMask);
+                     SmallVectorImpl<BitVector> &MLocTransferMask);
 
   /// Propagate variable values to blocks in the common case where there's
   /// only one value assigned to the variable. This function has better
@@ -1404,8 +1404,7 @@ private:
   /// is true, revisiting this block is necessary.
   bool mlocJoin(MachineBasicBlock &MBB,
                 SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
-                FuncValueTable &OutLocs, ValueTable &InLocs,
-                BitVector &PHIMask, bool lolfirst);
+                FuncValueTable &OutLocs, ValueTable &InLocs);
 
   /// Produce a set of blocks that are in the current lexical scope. This means
   /// those blocks that contain instructions "in" the scope, blocks where
