@@ -703,7 +703,7 @@ public:
   const TargetLowering &TLI;
 
   /// IndexedMap type, mapping from LocIdx to ValueIDNum.
-  using LocToValueType = IndexedMap<ValueIDNum, LocIdxToIndexFunctor>;
+  using LocToValueType = SmallVector<ValueIDNum>;
 
   /// Map of LocIdxes to the ValueIDNums that they store. This is tightly
   /// packed, entries only exist for locations that are being tracked.
@@ -766,22 +766,21 @@ public:
   /// and a reference to the value currently stored. Simplifies the process
   /// of seeking a particular location.
   class MLocIterator {
-    LocToValueType &ValueMap;
     LocIdx Idx;
+    ValueIDNum *Here;
 
   public:
     class value_type {
     public:
-      value_type(LocIdx Idx, ValueIDNum &Value) : Idx(Idx), Value(Value) {}
+      value_type(LocIdx Idx, ValueIDNum *Here) : Idx(Idx), Value(*Here) {}
       const LocIdx Idx;  /// Read-only index of this location.
       ValueIDNum &Value; /// Reference to the stored value at this location.
     };
 
-    MLocIterator(LocToValueType &ValueMap, LocIdx Idx)
-        : ValueMap(ValueMap), Idx(Idx) {}
+    MLocIterator(ValueIDNum *Here, LocIdx Idx)
+        : Here(Here), Idx(Idx) {}
 
     bool operator==(const MLocIterator &Other) const {
-      assert(&ValueMap == &Other.ValueMap);
       return Idx == Other.Idx;
     }
 
@@ -789,9 +788,9 @@ public:
       return !(*this == Other);
     }
 
-    void operator++() { Idx = LocIdx(Idx.asU64() + 1); }
+    void operator++() { Idx = LocIdx(Idx.asU64() + 1); ++Here; }
 
-    value_type operator*() { return value_type(Idx, ValueMap[LocIdx(Idx)]); }
+    value_type operator*() { return value_type(Idx, Here); }
   };
 
   MLocTracker(MachineFunction &MF, const TargetInstrInfo &TII,
@@ -898,13 +897,13 @@ public:
   /// Set a locaiton to a certain value.
   void setMLoc(LocIdx L, ValueIDNum Num) {
     assert(L.asU64() < LocIdxToIDNum.size());
-    LocIdxToIDNum[L] = Num;
+    LocIdxToIDNum[L.asU64()] = Num;
   }
 
   /// Read the value of a particular location
   ValueIDNum readMLoc(LocIdx L) {
     assert(L.asU64() < LocIdxToIDNum.size());
-    return LocIdxToIDNum[L];
+    return LocIdxToIDNum[L.asU64()];
   }
 
   /// Create a LocIdx for an untracked register ID. Initialize it to either an
@@ -931,7 +930,7 @@ public:
     unsigned ID = getLocID(R);
     LocIdx Idx = lookupOrTrackRegister(ID);
     ValueIDNum ValueID = {BB, Inst, Idx};
-    LocIdxToIDNum[Idx] = ValueID;
+    LocIdxToIDNum[Idx.asU64()] = ValueID;
   }
 
   /// Set a register to a value number. To be used if the value number is
@@ -939,13 +938,13 @@ public:
   void setReg(Register R, ValueIDNum ValueID) {
     unsigned ID = getLocID(R);
     LocIdx Idx = lookupOrTrackRegister(ID);
-    LocIdxToIDNum[Idx] = ValueID;
+    LocIdxToIDNum[Idx.asU64()] = ValueID;
   }
 
   ValueIDNum readReg(Register R) {
     unsigned ID = getLocID(R);
     LocIdx Idx = lookupOrTrackRegister(ID);
-    return LocIdxToIDNum[Idx];
+    return LocIdxToIDNum[Idx.asU64()];
   }
 
   /// Reset a register value to zero / empty. Needed to replicate the
@@ -955,7 +954,7 @@ public:
   void wipeRegister(Register R) {
     unsigned ID = getLocID(R);
     LocIdx Idx = LocIDToLocIdx[ID];
-    LocIdxToIDNum[Idx] = ValueIDNum::EmptyValue;
+    LocIdxToIDNum[Idx.asU64()] = ValueIDNum::EmptyValue;
   }
 
   /// Determine the LocIdx of an existing register.
@@ -998,10 +997,10 @@ public:
     }
   }
 
-  MLocIterator begin() { return MLocIterator(LocIdxToIDNum, 0); }
+  MLocIterator begin() { return MLocIterator(&*LocIdxToIDNum.begin(), 0); }
 
   MLocIterator end() {
-    return MLocIterator(LocIdxToIDNum, LocIdxToIDNum.size());
+    return MLocIterator(&*LocIdxToIDNum.begin(), LocIdxToIDNum.size());
   }
 
   /// Return a range over all locations currently tracked.

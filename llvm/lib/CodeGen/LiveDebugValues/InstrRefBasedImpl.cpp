@@ -1413,7 +1413,7 @@ MLocTracker::MLocTracker(MachineFunction &MF, const TargetInstrInfo &TII,
                          const TargetRegisterInfo &TRI,
                          const TargetLowering &TLI)
     : MF(MF), TII(TII), TRI(TRI), TLI(TLI),
-      LocIdxToIDNum(ValueIDNum::EmptyValue), LocIdxToLocID(0) {
+      LocIdxToIDNum(), LocIdxToLocID(0) {
   NumRegs = TRI.getNumRegs();
   reset();
   LocIDToLocIdx.resize(NumRegs, LocIdx::MakeIllegalLoc());
@@ -1480,7 +1480,8 @@ MLocTracker::MLocTracker(MachineFunction &MF, const TargetInstrInfo &TII,
 LocIdx MLocTracker::trackRegister(unsigned ID) {
   assert(ID != 0);
   LocIdx NewIdx = LocIdx(LocIdxToIDNum.size());
-  LocIdxToIDNum.grow(NewIdx);
+  if (LocIdxToIDNum.size() <= NewIdx.asU64())
+    LocIdxToIDNum.resize(NewIdx.asU64() + 1, ValueIDNum::EmptyValue);
   LocIdxToLocID.grow(NewIdx);
 
   // Default: it's an mphi.
@@ -1494,7 +1495,7 @@ LocIdx MLocTracker::trackRegister(unsigned ID) {
     }
   }
 
-  LocIdxToIDNum[NewIdx] = ValNum;
+  LocIdxToIDNum[NewIdx.asU64()] = ValNum;
   LocIdxToLocID[NewIdx] = ID;
   return NewIdx;
 }
@@ -1528,13 +1529,14 @@ std::optional<SpillLocationNo> MLocTracker::getOrTrackSpillLoc(SpillLoc L) {
     for (unsigned StackIdx = 0; StackIdx < NumSlotIdxes; ++StackIdx) {
       unsigned L = getSpillIDWithIdx(SpillID, StackIdx);
       LocIdx Idx = LocIdx(LocIdxToIDNum.size()); // New idx
-      LocIdxToIDNum.grow(Idx);
+      if (LocIdxToIDNum.size() <= Idx.asU64())
+        LocIdxToIDNum.resize(Idx.asU64() + 1, ValueIDNum::EmptyValue);
       LocIdxToLocID.grow(Idx);
       LocIDToLocIdx.push_back(Idx);
       LocIdxToLocID[Idx] = L;
       // Initialize to PHI value; corresponds to the location's live-in value
       // during transfer function construction.
-      LocIdxToIDNum[Idx] = ValueIDNum(CurBB, 0, Idx);
+      LocIdxToIDNum[Idx.asU64()] = ValueIDNum(CurBB, 0, Idx);
     }
   }
   return SpillID;
@@ -2099,7 +2101,7 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
 
   for (auto Location : MTracker->locations()) {
     LocIdx CurL = Location.Idx;
-    ValueIDNum ID = MTracker->readMLoc(CurL);
+    ValueIDNum &ID = Location.Value;
     auto ValueToFindIt = find(ValuesToFind, ID);
     if (ValueToFindIt == ValuesToFind.end())
       continue;
