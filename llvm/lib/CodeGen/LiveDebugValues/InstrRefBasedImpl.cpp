@@ -659,6 +659,7 @@ public:
     // Initialize and sort all the variable locations we might deal with. To avoid sorting
     // a lot of containers, do it with integers first.
     SmallVector<DebugVariableID, 32> IDs;
+#warning this can accumulate multiple entries right?
     IDs.reserve(VLocs.size() + TransferFunc.Vars.size());
     ActiveVLocs.reserve(VLocs.size() + TransferFunc.Vars.size());
     for (auto &V : VLocs)
@@ -2861,8 +2862,7 @@ void InstrRefBasedLDV::produceMLocTransferFunction(
 
 bool InstrRefBasedLDV::mlocJoin(
     MachineBasicBlock &MBB, SmallPtrSet<const MachineBasicBlock *, 16> &Visited,
-    FuncValueTable &OutLocs, ValueTable &InLocs, BitVector &ChangedMask,
-    BitVector &NextChangedMask) {
+    FuncValueTable &OutLocs, ValueTable &InLocs, BitVector &PHIMask, bool lolfirst) {
   LLVM_DEBUG(dbgs() << "join MBB: " << MBB.getNumber() << "\n");
   bool Changed = false;
 
@@ -2894,9 +2894,10 @@ bool InstrRefBasedLDV::mlocJoin(
 
   // Step through all machine locations, look at each predecessor and test
   // whether we can eliminate redundant PHIs.
+  unsigned PHIOffset = MBB.getNumber() * MTracker->getNumLocs();
   for (auto Location : MTracker->locations()) {
     LocIdx Idx = Location.Idx;
-    if (!ChangedMask.test(Idx.asU64()))
+    if (!lolfirst && !PHIMask.test(PHIOffset + Idx.asU64()))
       continue;
 
     // Pick out the first predecessors live-out value for this location. It's
@@ -2908,7 +2909,6 @@ bool InstrRefBasedLDV::mlocJoin(
     if (InLocs[Idx.asU64()] != ValueIDNum(MBB.getNumber(), 0, Idx)) {
       if (InLocs[Idx.asU64()] != FirstVal) {
         InLocs[Idx.asU64()] = FirstVal;
-        NextChangedMask.set(Idx.asU64());
         Changed |= true;
       }
       continue;
@@ -2936,7 +2936,6 @@ bool InstrRefBasedLDV::mlocJoin(
     // No disagreement? No PHI. Otherwise, leave the PHI in live-ins.
     if (!Disagree) {
       InLocs[Idx.asU64()] = FirstVal;
-      NextChangedMask.set(Idx.asU64());
       Changed |= true;
     }
   }
@@ -2973,9 +2972,12 @@ void InstrRefBasedLDV::findStackIndexInterference(
 
 void InstrRefBasedLDV::placeMLocPHIs(
     MachineFunction &MF, SmallPtrSetImpl<MachineBasicBlock *> &AllBlocks,
-    FuncValueTable &MInLocs, SmallVectorImpl<BitVector> &MLocTransferMask) {
+    FuncValueTable &MInLocs, SmallVectorImpl<BitVector> &MLocTransferMask,
+    BitVector &PHIMask) {
   SmallVector<unsigned, 4> StackUnits;
   findStackIndexInterference(StackUnits);
+
+PHIMask.resize(MTracker->getNumLocs() * MF.getNumBlockIDs(), false);
 
   // To avoid repeatedly running the PHI placement algorithm, leverage the
   // fact that a def of register MUST also def its register units. Find the
@@ -2984,6 +2986,7 @@ void InstrRefBasedLDV::placeMLocPHIs(
   // arguments) don't lead to register units being tracked, just place PHIs for
   // those registers directly. Stack slots have their own form of "unit",
   // store them to one side.
+  unsigned NumLocs = MTracker->getNumLocs();
   SmallSet<Register, 32> RegUnitsToPHIUp;
   SmallSet<LocIdx, 32> NormalLocsToPHI;
   SmallSet<SpillLocationNo, 32> StackSlots;
@@ -3042,9 +3045,11 @@ void InstrRefBasedLDV::placeMLocPHIs(
     BlockPHIPlacement(AllBlocks, DefBlocks, PHIBlocks);
   };
 
-  auto InstallPHIsAtLoc = [&PHIBlocks, &MInLocs](LocIdx L) {
-    for (const MachineBasicBlock *MBB : PHIBlocks)
+  auto InstallPHIsAtLoc = [&PHIBlocks, &MInLocs, &PHIMask, NumLocs](LocIdx L) {
+    for (const MachineBasicBlock *MBB : PHIBlocks) {
       MInLocs[*MBB][L.asU64()] = ValueIDNum(MBB->getNumber(), 0, L);
+      PHIMask.set((MBB->getNumber() * NumLocs) + L.asU64());
+    }
   };
 
   // For locations with no reg units, just place PHIs.
@@ -3132,7 +3137,8 @@ void InstrRefBasedLDV::buildMLocValueMap(
   // Start by placing PHIs, using the usual SSA constructor algorithm. Consider
   // any machine-location that isn't live-through a block to be def'd in that
   // block.
-  placeMLocPHIs(MF, AllBlocks, MInLocs, MLocTransferMask);
+BitVector PHIMask;
+  placeMLocPHIs(MF, AllBlocks, MInLocs, MLocTransferMask, PHIMask);
 
   // Propagate values to eliminate redundant PHIs. At the same time, this
   // produces the table of Block x Location => Value for the entry to each
@@ -3143,9 +3149,8 @@ void InstrRefBasedLDV::buildMLocValueMap(
   // code. Propagating values allows us to identify such un-necessary PHIs and
   // remove them.
   SmallPtrSet<const MachineBasicBlock *, 16> Visited;
-  BitVector ChangedMask, NextChangedMask;
-  ChangedMask.resize(MTracker->getNumLocs(), true);
-  NextChangedMask.resize(MTracker->getNumLocs(), false);
+unsigned PassCount = 0;
+bool lolfirst = true;
   while (!Worklist.empty() || !Pending.empty()) {
     // Vector for storing the evaluated block transfer function.
     SmallVector<std::pair<LocIdx, ValueIDNum>, 32> ToRemap;
@@ -3157,7 +3162,7 @@ void InstrRefBasedLDV::buildMLocValueMap(
 
       // Join the values in all predecessor blocks.
       bool InLocsChanged;
-      InLocsChanged = mlocJoin(*MBB, Visited, MOutLocs, MInLocs[*MBB], ChangedMask, NextChangedMask);
+      InLocsChanged = mlocJoin(*MBB, Visited, MOutLocs, MInLocs[*MBB], PHIMask, lolfirst);
       InLocsChanged |= Visited.insert(MBB).second;
 
       // Don't examine transfer function if we've visited this loc at least
@@ -3196,8 +3201,6 @@ void InstrRefBasedLDV::buildMLocValueMap(
       for (auto Location : MTracker->locations()) {
         bool Different = MOutLocs[*MBB][Location.Idx.asU64()] != Location.Value;
         OLChanged |= Different;
-        if (Different)
-          NextChangedMask.set(Location.Idx.asU64());
         MOutLocs[*MBB][Location.Idx.asU64()] = Location.Value;
       }
 
@@ -3223,12 +3226,11 @@ void InstrRefBasedLDV::buildMLocValueMap(
         }
       }
     }
+lolfirst = false;
 
     Worklist.swap(Pending);
     std::swap(OnPending, OnWorklist);
     OnPending.clear();
-    ChangedMask.swap(NextChangedMask);
-    NextChangedMask.reset();
     // At this point, pending must be empty, since it was just the empty
     // worklist
     assert(Pending.empty() && "Pending should be empty");
