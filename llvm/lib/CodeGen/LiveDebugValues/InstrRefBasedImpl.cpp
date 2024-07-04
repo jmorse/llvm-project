@@ -662,18 +662,14 @@ public:
     // Initialize and sort all the variable locations we might deal with. To avoid sorting
     // a lot of containers, do it with integers first.
     SmallVector<DebugVariableID, 32> IDs;
-    SmallDenseSet<DebugVariableID, 16> AvoidDupsLol;
 #warning this can accumulate multiple entries right?
     IDs.reserve(VLocs.size() + TransferFunc.Vars.size());
     ActiveVLocs.reserve(VLocs.size() + TransferFunc.Vars.size());
-    for (auto &V : VLocs) {
+    for (auto &V : VLocs)
       IDs.push_back(V.first);
-      AvoidDupsLol.insert(V.first);
-    }
     // We will also pick up all the variable locations mentioned in the transfer function.
     for (auto It : TransferFunc.Vars)
-      if (!AvoidDupsLol.contains(It.first))
-        IDs.push_back(It.first);
+      IDs.push_back(It.first);
     llvm::sort(IDs);
     // Now load into active-vlocs,
     SmallVector<ResolvedDbgOp, 1> lol;
