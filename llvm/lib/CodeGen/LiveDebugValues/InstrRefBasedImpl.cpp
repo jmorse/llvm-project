@@ -1805,6 +1805,12 @@ bool InstrRefBasedLDV::transferDebugValue(const MachineInstr &MI) {
   assert(MI.getDebugVariable()->isValidLocationForIntrinsic(MI.getDebugLoc()) &&
          "Expected inlined-at fields to agree");
 
+  // If there are no instructions in this lexical scope, do no location tracking
+  // at all, this variable shouldn't get a legitimate location range.
+  auto *Scope = LS.findLexicalScope(MI.getDebugLoc().get());
+  if (Scope == nullptr)
+    return true; // handled it; by doing nothing
+
   // MLocTracker needs to know that this register is read, even if it's only
   // read by a debug inst.
   for (const MachineOperand &MO : MI.debug_operands())
@@ -2007,6 +2013,10 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
          "Expected inlined-at fields to agree");
 
   DebugVariable V(Var, Expr, InlinedAt);
+
+  auto *Scope = LS.findLexicalScope(MI.getDebugLoc().get());
+  if (Scope == nullptr)
+    return true; // Handled by doing nothing. This variable is never in scope.
 
   SmallVector<DbgOpID> DbgOpIDs;
   for (const MachineOperand &MO : MI.debug_operands()) {
