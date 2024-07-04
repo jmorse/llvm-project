@@ -1055,7 +1055,6 @@ public:
   MachineBasicBlock *MBB = nullptr;
   const OverlapMap &OverlappingFragments;
   DbgValueProperties EmptyProperties;
-  SmallDenseMap<const MachineInstr *, DebugVariableID> batfacts;
 
 public:
   VLocTracker(DebugVariableMap &DVMap, const OverlapMap &O, const DIExpression *EmptyExpr)
@@ -1166,6 +1165,7 @@ private:
   BitVector CalleeSavedRegs;
   LexicalScopes LS;
   TargetPassConfig *TPC;
+  SmallDenseMap<const MachineInstr *, DebugVariableID> batfacts;
 
   // An empty DIExpression. Used default / placeholder DbgValueProperties
   // objects, as we can't have null expressions.

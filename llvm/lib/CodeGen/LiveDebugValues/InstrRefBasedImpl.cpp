@@ -187,7 +187,7 @@ public:
   const DebugVariableMap &DVMap;
   bool ShouldEmitDebugEntryValues;
 
-  VLocTracker *lolVTracker = nullptr;
+  SmallDenseMap<const MachineInstr *, DebugVariableID> &batfacts;
 
   /// Record of all changes in variable locations at a block position. Awkwardly
   /// we allow inserting either before or after the point: MBB != nullptr
@@ -465,9 +465,10 @@ public:
 
   TransferTracker(const TargetInstrInfo *TII, MLocTracker *MTracker,
                   MachineFunction &MF, const DebugVariableMap &DVMap, const TargetRegisterInfo &TRI,
-                  const BitVector &CalleeSavedRegs, const TargetPassConfig &TPC)
+                  const BitVector &CalleeSavedRegs, const TargetPassConfig &TPC,
+                  SmallDenseMap<const MachineInstr *, DebugVariableID> &batfacts)
       : TII(TII), MTracker(MTracker), MF(MF), DVMap(DVMap), TRI(TRI),
-        CalleeSavedRegs(CalleeSavedRegs) {
+        CalleeSavedRegs(CalleeSavedRegs), batfacts(batfacts) {
     TLI = MF.getSubtarget().getTargetLowering();
     auto &TM = TPC.getTM<TargetMachine>();
     ShouldEmitDebugEntryValues = TM.Options.ShouldEmitDebugEntryValues();
@@ -940,8 +941,8 @@ public:
 
   /// Change a variable value after encountering a DBG_VALUE inside a block.
   void redefVar(const MachineInstr &MI) {
-    auto It = lolVTracker->batfacts.find(&MI);
-    assert(It != lolVTracker->batfacts.end());
+    auto It = batfacts.find(&MI);
+    assert(It != batfacts.end());
     DebugVariableID VarID = It->second;
 
     DbgValueProperties Properties(MI);
@@ -998,8 +999,8 @@ public:
   /// that we can detect location transfers later on.
   void redefVar(const MachineInstr &MI, const DbgValueProperties &Properties,
                 SmallVectorImpl<ResolvedDbgOp> &NewLocs) {
-    auto VIDIt = lolVTracker->batfacts.find(&MI);
-    assert(VIDIt != lolVTracker->batfacts.end());
+    auto VIDIt = batfacts.find(&MI);
+    assert(VIDIt != batfacts.end());
     DebugVariableID VarID = VIDIt->second;
 
     // Any use-before-defs no longer apply.
@@ -1819,7 +1820,7 @@ bool InstrRefBasedLDV::transferDebugValue(const MachineInstr &MI) {
     Scope = LS.findLexicalScope(MI.getDebugLoc().get());
     if (Scope == nullptr)
       return true;
-  } else if (TTracker && !TTracker->lolVTracker->batfacts.contains(&MI)) {
+  } else if (TTracker && !batfacts.contains(&MI)) {
     return true;
   }
 
@@ -1850,7 +1851,7 @@ bool InstrRefBasedLDV::transferDebugValue(const MachineInstr &MI) {
       }
     }
     DebugVariableID ID = VTracker->defVar(MI, DbgValueProperties(MI), DebugOps);
-    VTracker->batfacts[&MI] = ID;
+    batfacts[&MI] = ID;
   }
 
   // If performing final tracking of transfers, report this variable definition
@@ -2032,7 +2033,7 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
     Scope = LS.findLexicalScope(MI.getDebugLoc().get());
     if (Scope == nullptr)
       return true;
-  } else if (TTracker && !TTracker->lolVTracker->batfacts.contains(&MI)) {
+  } else if (TTracker && !batfacts.contains(&MI)) {
     return true;
   }
 
@@ -2070,7 +2071,7 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
   DbgValueProperties Properties(Expr, false, IsVariadic);
   if (VTracker) {
     DebugVariableID ID = VTracker->defVar(MI, Properties, DbgOpIDs);
-    VTracker->batfacts[&MI] = ID;
+    batfacts[&MI] = ID;
   }
 
   // If we're on the final pass through the function, decompose this INSTR_REF
@@ -4009,7 +4010,7 @@ bool InstrRefBasedLDV::depthFirstVLocAndEmit(
     LiveInsT &Output, FuncValueTable &MOutLocs, FuncValueTable &MInLocs,
     SmallVectorImpl<VLocTracker> &AllTheVLocs, MachineFunction &MF,
     const TargetPassConfig &TPC) {
-  TTracker = new TransferTracker(TII, MTracker, MF, DVMap, *TRI, CalleeSavedRegs, TPC);
+  TTracker = new TransferTracker(TII, MTracker, MF, DVMap, *TRI, CalleeSavedRegs, TPC, batfacts);
   unsigned NumLocs = MTracker->getNumLocs();
   VTracker = nullptr;
 
@@ -4034,7 +4035,6 @@ bool InstrRefBasedLDV::depthFirstVLocAndEmit(
     MTracker->reset();
     MTracker->loadFromArray(MInLocs[MBB], BBNum);
     TTracker->loadInlocs(MBB, MInLocs[MBB], DbgOpStore, Output[BBNum], AllTheVLocs[BBNum], NumLocs);
-    TTracker->lolVTracker = &AllTheVLocs[BBNum];
 
     CurBB = BBNum;
     CurInst = 1;
@@ -4329,6 +4329,7 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
   DVMap.clear();
   DecodedRegMasks.clear();
   FoundValueCache.clear();
+  batfacts.clear();
 
   return Changed;
 }
