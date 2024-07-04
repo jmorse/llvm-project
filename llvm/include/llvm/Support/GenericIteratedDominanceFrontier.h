@@ -146,6 +146,10 @@ void IDFCalculatorBase<NodeTy, IsPostDom>::calculate(
   SmallVector<DomTreeNodeBase<NodeTy> *, 32> Worklist;
   SmallDenseSet<DomTreeNodeBase<NodeTy> *, 16> VisitedPQ;
   SmallDenseSet<DomTreeNodeBase<NodeTy> *, 16> VisitedWorklist;
+  if (useLiveIn) {
+    VisitedPQ.reserve(LiveInBlocks->size());
+    VisitedWorklist.reserve(LiveInBlocks->size());
+  }
 
   for (NodeTy *BB : *DefBlocks)
     if (DomTreeNodeBase<NodeTy> *Node = DT.getNode(BB)) {
