@@ -144,8 +144,8 @@ void IDFCalculatorBase<NodeTy, IsPostDom>::calculate(
   DT.updateDFSNumbers();
 
   SmallVector<DomTreeNodeBase<NodeTy> *, 32> Worklist;
-  SmallPtrSet<DomTreeNodeBase<NodeTy> *, 32> VisitedPQ;
-  SmallPtrSet<DomTreeNodeBase<NodeTy> *, 32> VisitedWorklist;
+  SmallPtrSet<DomTreeNodeBase<NodeTy> *, 16> VisitedPQ;
+  SmallPtrSet<DomTreeNodeBase<NodeTy> *, 16> VisitedWorklist;
 
   for (NodeTy *BB : *DefBlocks)
     if (DomTreeNodeBase<NodeTy> *Node = DT.getNode(BB)) {
