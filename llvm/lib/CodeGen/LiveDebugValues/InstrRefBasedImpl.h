@@ -1055,12 +1055,13 @@ public:
   MachineBasicBlock *MBB = nullptr;
   const OverlapMap &OverlappingFragments;
   DbgValueProperties EmptyProperties;
+  SmallDenseMap<const MachineInstr *, DebugVariableID> batfacts;
 
 public:
   VLocTracker(DebugVariableMap &DVMap, const OverlapMap &O, const DIExpression *EmptyExpr)
       : DVMap(DVMap), OverlappingFragments(O), EmptyProperties(EmptyExpr, false, false) {}
 
-  void defVar(const MachineInstr &MI, const DbgValueProperties &Properties,
+  DebugVariableID defVar(const MachineInstr &MI, const DbgValueProperties &Properties,
               const SmallVectorImpl<DbgOpID> &DebugOps) {
     assert(MI.isDebugValueLike());
     DebugVariable Var(MI.getDebugVariable(), MI.getDebugExpression(),
@@ -1077,6 +1078,7 @@ public:
     Scopes[VarID] = MI.getDebugLoc().get();
 
     considerOverlaps(Var, MI.getDebugLoc().get());
+    return VarID;
   }
 
   void considerOverlaps(const DebugVariable &Var, const DILocation *Loc) {

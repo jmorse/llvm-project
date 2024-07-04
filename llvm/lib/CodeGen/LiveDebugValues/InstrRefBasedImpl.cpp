@@ -187,6 +187,8 @@ public:
   const DebugVariableMap &DVMap;
   bool ShouldEmitDebugEntryValues;
 
+  VLocTracker *lolVTracker = nullptr;
+
   /// Record of all changes in variable locations at a block position. Awkwardly
   /// we allow inserting either before or after the point: MBB != nullptr
   /// indicates it's before, otherwise after.
@@ -938,10 +940,11 @@ public:
 
   /// Change a variable value after encountering a DBG_VALUE inside a block.
   void redefVar(const MachineInstr &MI) {
-    DebugVariable Var(MI.getDebugVariable(), MI.getDebugExpression(),
-                      MI.getDebugLoc()->getInlinedAt());
+    auto It = lolVTracker->batfacts.find(&MI);
+    assert(It != lolVTracker->batfacts.end());
+    DebugVariableID VarID = It->second;
+
     DbgValueProperties Properties(MI);
-    DebugVariableID VarID = DVMap.getDVID(Var);
 
     // Ignore non-register locations, we don't transfer those.
     if (MI.isUndefDebugValue() ||
@@ -995,9 +998,9 @@ public:
   /// that we can detect location transfers later on.
   void redefVar(const MachineInstr &MI, const DbgValueProperties &Properties,
                 SmallVectorImpl<ResolvedDbgOp> &NewLocs) {
-    DebugVariable Var(MI.getDebugVariable(), MI.getDebugExpression(),
-                      MI.getDebugLoc()->getInlinedAt());
-    DebugVariableID VarID = DVMap.getDVID(Var);
+    auto VIDIt = lolVTracker->batfacts.find(&MI);
+    assert(VIDIt != lolVTracker->batfacts.end());
+    DebugVariableID VarID = VIDIt->second;
 
     // Any use-before-defs no longer apply.
     UseBeforeDefVariables.erase(VarID);
@@ -1811,9 +1814,14 @@ bool InstrRefBasedLDV::transferDebugValue(const MachineInstr &MI) {
 
   // If there are no instructions in this lexical scope, do no location tracking
   // at all, this variable shouldn't get a legitimate location range.
-  auto *Scope = LS.findLexicalScope(MI.getDebugLoc().get());
-  if (Scope == nullptr)
-    return true; // handled it; by doing nothing
+  LexicalScope *Scope = nullptr;
+  if (VTracker) {
+    Scope = LS.findLexicalScope(MI.getDebugLoc().get());
+    if (Scope == nullptr)
+      return true;
+  } else if (TTracker && !TTracker->lolVTracker->batfacts.contains(&MI)) {
+    return true;
+  }
 
   // MLocTracker needs to know that this register is read, even if it's only
   // read by a debug inst.
@@ -1841,7 +1849,8 @@ bool InstrRefBasedLDV::transferDebugValue(const MachineInstr &MI) {
         }
       }
     }
-    VTracker->defVar(MI, DbgValueProperties(MI), DebugOps);
+    DebugVariableID ID = VTracker->defVar(MI, DbgValueProperties(MI), DebugOps);
+    VTracker->batfacts[&MI] = ID;
   }
 
   // If performing final tracking of transfers, report this variable definition
@@ -2018,9 +2027,14 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
 
   DebugVariable V(Var, Expr, InlinedAt);
 
-  auto *Scope = LS.findLexicalScope(MI.getDebugLoc().get());
-  if (Scope == nullptr)
-    return true; // Handled by doing nothing. This variable is never in scope.
+  LexicalScope *Scope = nullptr;
+  if (VTracker) {
+    Scope = LS.findLexicalScope(MI.getDebugLoc().get());
+    if (Scope == nullptr)
+      return true;
+  } else if (TTracker && !TTracker->lolVTracker->batfacts.contains(&MI)) {
+    return true;
+  }
 
   SmallVector<DbgOpID> DbgOpIDs;
   for (const MachineOperand &MO : MI.debug_operands()) {
@@ -2054,8 +2068,10 @@ bool InstrRefBasedLDV::transferDebugInstrRef(MachineInstr &MI,
   // refer to values that aren't immediately available).
   bool IsVariadic = DbgOpIDs.size() > 1;
   DbgValueProperties Properties(Expr, false, IsVariadic);
-  if (VTracker)
-    VTracker->defVar(MI, Properties, DbgOpIDs);
+  if (VTracker) {
+    DebugVariableID ID = VTracker->defVar(MI, Properties, DbgOpIDs);
+    VTracker->batfacts[&MI] = ID;
+  }
 
   // If we're on the final pass through the function, decompose this INSTR_REF
   // into a plain DBG_VALUE.
@@ -4018,6 +4034,7 @@ bool InstrRefBasedLDV::depthFirstVLocAndEmit(
     MTracker->reset();
     MTracker->loadFromArray(MInLocs[MBB], BBNum);
     TTracker->loadInlocs(MBB, MInLocs[MBB], DbgOpStore, Output[BBNum], AllTheVLocs[BBNum], NumLocs);
+    TTracker->lolVTracker = &AllTheVLocs[BBNum];
 
     CurBB = BBNum;
     CurInst = 1;
