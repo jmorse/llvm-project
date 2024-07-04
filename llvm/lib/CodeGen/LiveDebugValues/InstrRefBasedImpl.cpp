@@ -3593,12 +3593,8 @@ void InstrRefBasedLDV::buildVLocValueMap(
   SmallPtrSet<const MachineBasicBlock *, 8> BlocksToExplore;
 
   // The order in which to examine them (RPO).
-  SmallVector<MachineBasicBlock *, 8> BlockOrders;
-
-  // RPO ordering function.
-  auto Cmp = [&](MachineBasicBlock *A, MachineBasicBlock *B) {
-    return BBToOrder[A] < BBToOrder[B];
-  };
+  SmallVector<MachineBasicBlock *, 16> BlockOrders;
+  SmallVector<unsigned, 32> BlockOrderNums;
 
   getBlocksForScope(DILoc, BlocksToExplore, AssignBlocks);
 
@@ -3616,11 +3612,16 @@ void InstrRefBasedLDV::buildVLocValueMap(
   for (const auto *MBB : BlocksToExplore)
     MutBlocksToExplore.insert(const_cast<MachineBasicBlock *>(MBB));
 
-  // Picks out relevants blocks RPO order and sort them.
+  // Picks out relevants blocks RPO order and sort them. Sort their
+  // order-numbers and map back to MBB pointers later, to avoid repeated
+  // DenseMap queries during comparisons.
   for (const auto *MBB : BlocksToExplore)
-    BlockOrders.push_back(const_cast<MachineBasicBlock *>(MBB));
+    BlockOrderNums.push_back(BBToOrder[MBB]);
 
-  llvm::sort(BlockOrders, Cmp);
+  llvm::sort(BlockOrderNums);
+  for (unsigned int I : BlockOrderNums)
+    BlockOrders.push_back(OrderToBB[I]);
+  BlockOrderNums.clear();
   unsigned NumBlocks = BlockOrders.size();
 
   DbgValueProperties EmptyProperties(EmptyExpr, false, false);
@@ -3892,15 +3893,21 @@ void InstrRefBasedLDV::initialSetup(MachineFunction &MF) {
     return false;
   };
   // Collect a set of all the artificial blocks.
-  for (auto &MBB : MF)
+  unsigned int Size = 0; // MF.size() is O(n)
+  for (auto &MBB : MF) {
+    ++Size;
     if (none_of(MBB.instrs(), hasNonArtificialLocation))
       ArtificialBlocks.insert(&MBB);
+  }
 
   // Compute mappings of block <=> RPO order.
   ReversePostOrderTraversal<MachineFunction *> RPOT(&MF);
   unsigned int RPONumber = 0;
+  OrderToBB.reserve(Size);
+  BBToOrder.reserve(Size);
+  BBNumToRPO.reserve(Size);
   auto processMBB = [&](MachineBasicBlock *MBB) {
-    OrderToBB[RPONumber] = MBB;
+    OrderToBB.push_back(MBB);
     BBToOrder[MBB] = RPONumber;
     BBNumToRPO[MBB->getNumber()] = RPONumber;
     ++RPONumber;
@@ -4216,14 +4223,13 @@ bool InstrRefBasedLDV::ExtendRanges(MachineFunction &MF,
 
   // Walk back through each block / instruction, collecting DBG_VALUE
   // instructions and recording what machine value their operands refer to.
-  for (auto &OrderPair : OrderToBB) {
-    MachineBasicBlock &MBB = *OrderPair.second;
-    CurBB = MBB.getNumber();
+  for (MachineBasicBlock *MBB : OrderToBB) {
+    CurBB = MBB->getNumber();
     VTracker = &vlocs[CurBB];
-    VTracker->MBB = &MBB;
-    MTracker->loadFromArray(MInLocs[MBB], CurBB);
+    VTracker->MBB = MBB;
+    MTracker->loadFromArray(MInLocs[*MBB], CurBB);
     CurInst = 1;
-    for (auto &MI : MBB) {
+    for (auto &MI : *MBB) {
       process(MI, &MOutLocs, &MInLocs);
       ++CurInst;
     }
