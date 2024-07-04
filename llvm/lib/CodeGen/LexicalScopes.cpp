@@ -41,6 +41,7 @@ void LexicalScopes::reset() {
   MF = nullptr;
   CurrentFnLexicalScope = nullptr;
   LexicalScopeMap.clear();
+  LexicalScopeAllocator.Reset();
   AbstractScopeMap.clear();
   InlinedLexicalScopeMap.clear();
   AbstractScopesList.clear();
@@ -163,24 +164,25 @@ LexicalScopes::getOrCreateRegularScope(const DILocalScope *Scope) {
 
   auto I = LexicalScopeMap.find(Scope);
   if (I != LexicalScopeMap.end())
-    return &I->second;
+    return I->second;
 
   // FIXME: Should the following dyn_cast be DILexicalBlock?
   LexicalScope *Parent = nullptr;
   if (auto *Block = dyn_cast<DILexicalBlockBase>(Scope))
     Parent = getOrCreateLexicalScope(Block->getScope());
-  I = LexicalScopeMap.emplace(std::piecewise_construct,
-                              std::forward_as_tuple(Scope),
-                              std::forward_as_tuple(Parent, Scope, nullptr,
-                                                    false)).first;
+
+  void *VP = LexicalScopeAllocator.Allocate(sizeof(LexicalScope), alignof(LexicalScope));
+  LexicalScope *LSPtr = reinterpret_cast<LexicalScope*>(VP);
+  new (LSPtr) LexicalScope(Parent, Scope, nullptr, false);
+  LexicalScopeMap.insert(std::make_pair(Scope, LSPtr));
 
   if (!Parent) {
     assert(cast<DISubprogram>(Scope)->describes(&MF->getFunction()));
     assert(!CurrentFnLexicalScope);
-    CurrentFnLexicalScope = &I->second;
+    CurrentFnLexicalScope = LSPtr;
   }
 
-  return &I->second;
+  return LSPtr;
 }
 
 /// getOrCreateInlinedScope - Find or create an inlined lexical scope.

@@ -191,7 +191,7 @@ public:
   /// findLexicalScope - Find regular lexical scope or return null.
   LexicalScope *findLexicalScope(const DILocalScope *N) {
     auto I = LexicalScopeMap.find(N);
-    return I != LexicalScopeMap.end() ? &I->second : nullptr;
+    return I != LexicalScopeMap.end() ? I->second : nullptr;
   }
 
   /// getOrCreateAbstractScope - Find or create an abstract lexical scope.
@@ -226,8 +226,10 @@ private:
   const MachineFunction *MF = nullptr;
 
   /// LexicalScopeMap - Tracks the scopes in the current function.
-  // Use an unordered_map to ensure value pointer validity over insertion.
-  std::unordered_map<const DILocalScope *, LexicalScope> LexicalScopeMap;
+  DenseMap<const DILocalScope *, LexicalScope*> LexicalScopeMap;
+
+// XXX lalala
+  BumpPtrAllocator LexicalScopeAllocator;
 
   /// InlinedLexicalScopeMap - Tracks inlined function scopes in current
   /// function.
