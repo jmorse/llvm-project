@@ -133,7 +133,7 @@ LexicalScope *LexicalScopes::findLexicalScope(const DILocation *DL) {
 
   if (auto *IA = DL->getInlinedAt()) {
     auto I = InlinedLexicalScopeMap.find(std::make_pair(Scope, IA));
-    return I != InlinedLexicalScopeMap.end() ? &I->second : nullptr;
+    return I != InlinedLexicalScopeMap.end() ? I->second : nullptr;
   }
   return findLexicalScope(Scope);
 }
@@ -194,7 +194,7 @@ LexicalScopes::getOrCreateInlinedScope(const DILocalScope *Scope,
   std::pair<const DILocalScope *, const DILocation *> P(Scope, InlinedAt);
   auto I = InlinedLexicalScopeMap.find(P);
   if (I != InlinedLexicalScopeMap.end())
-    return &I->second;
+    return I->second;
 
   LexicalScope *Parent;
   if (auto *Block = dyn_cast<DILexicalBlockBase>(Scope))
@@ -202,11 +202,12 @@ LexicalScopes::getOrCreateInlinedScope(const DILocalScope *Scope,
   else
     Parent = getOrCreateLexicalScope(InlinedAt);
 
-  I = InlinedLexicalScopeMap
-          .emplace(std::piecewise_construct, std::forward_as_tuple(P),
-                   std::forward_as_tuple(Parent, Scope, InlinedAt, false))
-          .first;
-  return &I->second;
+  void *VP = LexicalScopeAllocator.Allocate(sizeof(LexicalScope), alignof(LexicalScope));
+  LexicalScope *LSPtr = reinterpret_cast<LexicalScope*>(VP);
+  new (LSPtr) LexicalScope(Parent, Scope, InlinedAt, false);
+  InlinedLexicalScopeMap.insert(std::make_pair(P, LSPtr));
+
+  return LSPtr;
 }
 
 /// getOrCreateAbstractScope - Find or create an abstract lexical scope.
@@ -216,20 +217,21 @@ LexicalScopes::getOrCreateAbstractScope(const DILocalScope *Scope) {
   Scope = Scope->getNonLexicalBlockFileScope();
   auto I = AbstractScopeMap.find(Scope);
   if (I != AbstractScopeMap.end())
-    return &I->second;
+    return I->second;
 
   // FIXME: Should the following isa be DILexicalBlock?
   LexicalScope *Parent = nullptr;
   if (auto *Block = dyn_cast<DILexicalBlockBase>(Scope))
     Parent = getOrCreateAbstractScope(Block->getScope());
 
-  I = AbstractScopeMap.emplace(std::piecewise_construct,
-                               std::forward_as_tuple(Scope),
-                               std::forward_as_tuple(Parent, Scope,
-                                                     nullptr, true)).first;
+  void *VP = LexicalScopeAllocator.Allocate(sizeof(LexicalScope), alignof(LexicalScope));
+  LexicalScope *LSPtr = reinterpret_cast<LexicalScope*>(VP);
+  new (LSPtr) LexicalScope(Parent, Scope, nullptr, true);
+  AbstractScopeMap.insert(std::make_pair(Scope, LSPtr));
+
   if (isa<DISubprogram>(Scope))
-    AbstractScopesList.push_back(&I->second);
-  return &I->second;
+    AbstractScopesList.push_back(LSPtr);
+  return LSPtr;
 }
 
 /// constructScopeNest - Traverse the Scope tree depth-first, storing

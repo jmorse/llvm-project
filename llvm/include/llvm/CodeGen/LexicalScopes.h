@@ -179,13 +179,13 @@ public:
   /// findAbstractScope - Find an abstract scope or return null.
   LexicalScope *findAbstractScope(const DILocalScope *N) {
     auto I = AbstractScopeMap.find(N);
-    return I != AbstractScopeMap.end() ? &I->second : nullptr;
+    return I != AbstractScopeMap.end() ? I->second : nullptr;
   }
 
   /// findInlinedScope - Find an inlined scope for the given scope/inlined-at.
   LexicalScope *findInlinedScope(const DILocalScope *N, const DILocation *IA) {
     auto I = InlinedLexicalScopeMap.find(std::make_pair(N, IA));
-    return I != InlinedLexicalScopeMap.end() ? &I->second : nullptr;
+    return I != InlinedLexicalScopeMap.end() ? I->second : nullptr;
   }
 
   /// findLexicalScope - Find regular lexical scope or return null.
@@ -233,14 +233,11 @@ private:
 
   /// InlinedLexicalScopeMap - Tracks inlined function scopes in current
   /// function.
-  std::unordered_map<std::pair<const DILocalScope *, const DILocation *>,
-                     LexicalScope,
-                     pair_hash<const DILocalScope *, const DILocation *>>
+  DenseMap<std::pair<const DILocalScope *, const DILocation *>, LexicalScope*>
       InlinedLexicalScopeMap;
 
   /// AbstractScopeMap - These scopes are  not included LexicalScopeMap.
-  // Use an unordered_map to ensure value pointer validity over insertion.
-  std::unordered_map<const DILocalScope *, LexicalScope> AbstractScopeMap;
+  DenseMap<const DILocalScope *, LexicalScope *> AbstractScopeMap;
 
   /// AbstractScopesList - Tracks abstract scopes constructed while processing
   /// a function.
