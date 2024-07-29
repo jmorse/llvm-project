@@ -356,7 +356,7 @@ public:
   ///    determine the values used by Value.
   void loadVarInloc(MachineBasicBlock &MBB, DbgOpIDMap &DbgOpStore,
                     const SmallVectorImpl<ValueLocPair> &ValueToLoc,
-                    DebugVariableID VarID, DbgValue Value) {
+                    DebugVariableID VarID, const DbgValue &Value) {
     SmallVector<DbgOp> DbgOps;
     SmallVector<ResolvedDbgOp> ResolvedDbgOps;
     bool IsValueValid = true;
