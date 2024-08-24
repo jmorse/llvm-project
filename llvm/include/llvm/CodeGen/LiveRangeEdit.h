@@ -86,10 +86,6 @@ private:
   /// tii.isTriviallyReMaterializable().
   SmallPtrSet<const VNInfo *, 4> Remattable;
 
-  /// Rematted - Values that were actually rematted, and so need to have their
-  /// live range trimmed or entirely removed.
-  SmallPtrSet<const VNInfo *, 4> Rematted;
-
   /// scanRemattable - Identify the Parent values that may rematerialize.
   void scanRemattable();
 
@@ -214,17 +210,6 @@ public:
                             const Remat &RM, const TargetRegisterInfo &,
                             bool Late = false, unsigned SubIdx = 0,
                             MachineInstr *ReplaceIndexMI = nullptr);
-
-  /// markRematerialized - explicitly mark a value as rematerialized after doing
-  /// it manually.
-  void markRematerialized(const VNInfo *ParentVNI) {
-    Rematted.insert(ParentVNI);
-  }
-
-  /// didRematerialize - Return true if ParentVNI was rematerialized anywhere.
-  bool didRematerialize(const VNInfo *ParentVNI) const {
-    return Rematted.count(ParentVNI);
-  }
 
   /// eraseVirtReg - Notify the delegate that Reg is no longer in use, and try
   /// to erase it from LIS.

@@ -191,7 +191,6 @@ SlotIndex LiveRangeEdit::rematerializeAt(MachineBasicBlock &MBB,
   // to false anyway in case the isDead flag of RM.OrigMI's dest register
   // is true.
   (*--MI).clearRegisterDeads(DestReg);
-  Rematted.insert(RM.ParentVNI);
   ++NumReMaterialization;
 
   if (ReplaceIndexMI)
