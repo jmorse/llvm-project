@@ -1446,6 +1446,7 @@ EliminateDuplicatePHINodesSetBasedImpl(BasicBlock *BB,
 
   // Set of unique PHINodes.
   DenseSet<PHINode *, PHIDenseMapInfo> PHISet;
+#warning initial allocation here?
   PHISet.reserve(4 * PHICSENumPHISmallSize);
 
   // Examine each PHI.

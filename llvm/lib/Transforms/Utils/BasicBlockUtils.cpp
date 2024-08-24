@@ -102,7 +102,9 @@ void llvm::DeleteDeadBlocks(ArrayRef <BasicBlock *> BBs, DomTreeUpdater *DTU,
                             bool KeepOneInputPHIs) {
 #ifndef NDEBUG
   // Make sure that all predecessors of each dead block is also dead.
-  SmallPtrSet<BasicBlock *, 4> Dead(BBs.begin(), BBs.end());
+  SmallPtrSet<BasicBlock *, 4> Dead
+  Dead.reserve(BBs.size());
+  Dead.insert(BBs.begin(), BBs.end());
   assert(Dead.size() == BBs.size() && "Duplicating blocks?");
   for (auto *BB : Dead)
     for (BasicBlock *Pred : predecessors(BB))
@@ -251,8 +253,9 @@ bool llvm::MergeBlockIntoPredecessor(BasicBlock *BB, DomTreeUpdater *DTU,
     assert(!DT && "cannot use both DT and DTU for updates");
     // To avoid processing the same predecessor more than once.
     SmallPtrSet<BasicBlock *, 8> SeenSuccs;
-    SmallPtrSet<BasicBlock *, 2> SuccsOfPredBB(succ_begin(PredBB),
-                                               succ_end(PredBB));
+    SmallPtrSet<BasicBlock *, 2> SuccsOfPredBB;
+    SuccsOfPredBB.reserve(succ_size(PredBB));
+    SuccsOfPredBB.insert(succ_begin(PredBB), succ_end(PredBB));
     Updates.reserve(Updates.size() + 2 * succ_size(BB) + 1);
     // Add insert edges first. Experimentally, for the particular case of two
     // blocks that can be merged, with a single successor and single predecessor
@@ -1260,7 +1263,9 @@ static void UpdatePHINodes(BasicBlock *OrigBB, BasicBlock *NewBB,
                            ArrayRef<BasicBlock *> Preds, BranchInst *BI,
                            bool HasLoopExit) {
   // Otherwise, create a new PHI node in NewBB for each PHI node in OrigBB.
-  SmallPtrSet<BasicBlock *, 16> PredSet(Preds.begin(), Preds.end());
+  SmallPtrSet<BasicBlock *, 16> PredSet;
+  PredSet.reserve(Preds.size());
+  PredSet.insert(Preds.begin(), Preds.end());
   for (BasicBlock::iterator I = OrigBB->begin(); isa<PHINode>(I); ) {
     PHINode *PN = cast<PHINode>(I++);
 

@@ -325,6 +325,7 @@ void LoopBase<BlockT, LoopT>::verifyLoop() const {
 
   // Keep track of the BBs visited.
   SmallPtrSet<BlockT *, 8> VisitedBBs;
+  VisitedBBs.reserve(VisitSet.size()); # warning this seems silly, but meh.
 
   // Check the individual blocks.
   for (BlockT *BB : depth_first_ext(getHeader(), VisitSet)) {

@@ -610,6 +610,15 @@ llvm::computeMinimumValueSizes(ArrayRef<BasicBlock *> Blocks, DemandedBits &DB,
   SmallPtrSet<Instruction *, 4> InstructionSet;
   MapVector<Instruction *, uint64_t> MinBWs;
 
+  unsigned InstrCount = 0;
+  for (auto *BB : Blocks)
+    InstrCount += BB->size();
+  // XXX jmorse: this involves pointer chasing again, but we''re going to
+  // chase them anyway, and this avoids filling/reallocating a load of things.
+  // In reality it wants an analysis of the normal workload. Only used in
+  // loopvectorize over a loop?
+  InstructionSet.reserve(InstrCount);
+
   // Determine the roots. We work bottom-up, from truncs or icmps.
   bool SeenExtFromIllegalType = false;
   for (auto *BB : Blocks)

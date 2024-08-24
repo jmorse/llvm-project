@@ -1077,6 +1077,7 @@ bool CodeGenPrepare::canMergeBlocks(const BasicBlock *BB,
 
   // Collect the preds of BB.
   SmallPtrSet<const BasicBlock *, 16> BBPreds;
+#warning maayyybeee?
   if (const PHINode *BBPN = dyn_cast<PHINode>(BB->begin())) {
     // It is faster to get preds from a PHI than with pred_iterator.
     for (unsigned i = 0, e = BBPN->getNumIncomingValues(); i != e; ++i)
@@ -7274,6 +7275,7 @@ bool CodeGenPrepare::optimizeSelectInst(SelectInst *SI) {
     FalseBlock = StartBlock;
 
   SmallPtrSet<const Instruction *, 2> INS;
+  INS.reserve(ASI.size());
   INS.insert(ASI.begin(), ASI.end());
   // Use reverse iterator because later select may use the value of the
   // earlier select, and we need to propagate value through earlier select

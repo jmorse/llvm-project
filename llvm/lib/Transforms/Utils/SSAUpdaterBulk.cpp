@@ -132,11 +132,15 @@ void SSAUpdaterBulk::RewriteAllUses(DominatorTree *DT,
                       << " use(s)\n");
 
     SmallPtrSet<BasicBlock *, 2> DefBlocks;
+    DefBlocks.reserve(R.Defines.size());
+#warning useless if it's usually one?
     for (auto &Def : R.Defines)
       DefBlocks.insert(Def.first);
     IDF.setDefiningBlocks(DefBlocks);
 
     SmallPtrSet<BasicBlock *, 2> UsingBlocks;
+    UsingBlocks.reserve(R.Uses.size());
+#warning useless if it's usually one?
     for (Use *U : R.Uses)
       UsingBlocks.insert(getUserBB(U));
 
@@ -167,6 +171,8 @@ void SSAUpdaterBulk::RewriteAllUses(DominatorTree *DT,
 
     // Rewrite actual uses with the inserted definitions.
     SmallPtrSet<Use *, 4> ProcessedUses;
+    ProcessedUses.reserve(R.Uses.size());
+#warning might be deduplicating?
     for (Use *U : R.Uses) {
       if (!ProcessedUses.insert(U).second)
         continue;

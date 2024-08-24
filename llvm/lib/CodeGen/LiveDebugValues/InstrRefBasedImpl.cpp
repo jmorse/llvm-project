@@ -2664,6 +2664,10 @@ void InstrRefBasedLDV::buildMLocValueMap(
   // Initialize worklist with every block to be visited. Also produce list of
   // all blocks.
   SmallPtrSet<MachineBasicBlock *, 32> AllBlocks;
+  AllBlocks.reserve(BBToOrder.size());
+  OnWorklist.reserve(BBToOrder.size());
+  Worklist.reserve(BBToOrder.size());
+  Pending.reserve(BBToOrder.size());
   for (unsigned int I = 0; I < BBToOrder.size(); ++I) {
     Worklist.push(I);
     OnWorklist.insert(OrderToBB[I]);
@@ -3156,16 +3160,19 @@ void InstrRefBasedLDV::buildVLocValueMap(
   // getMachineBasicBlocks returns const MBB pointers, IDF wants mutable ones.
   // (Neither of them mutate anything).
   SmallPtrSet<MachineBasicBlock *, 8> MutBlocksToExplore;
+  MutBlocksToExplore.reserve(BlocksToExplore.size());
   for (const auto *MBB : BlocksToExplore)
     MutBlocksToExplore.insert(const_cast<MachineBasicBlock *>(MBB));
 
   // Picks out relevants blocks RPO order and sort them. Sort their
   // order-numbers and map back to MBB pointers later, to avoid repeated
   // DenseMap queries during comparisons.
+  BlockOrderNums.reserve(BlocksToExplore.size());
   for (const auto *MBB : BlocksToExplore)
     BlockOrderNums.push_back(BBToOrder[MBB]);
 
   llvm::sort(BlockOrderNums);
+  BlockOrders.reserve(BlockOrderNums.size());
   for (unsigned int I : BlockOrderNums)
     BlockOrders.push_back(OrderToBB[I]);
   BlockOrderNums.clear();

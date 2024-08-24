@@ -14059,7 +14059,9 @@ void ScalarEvolution::forgetBackedgeTakenCounts(const Loop *L,
 }
 
 void ScalarEvolution::forgetMemoizedResults(ArrayRef<const SCEV *> SCEVs) {
-  SmallPtrSet<const SCEV *, 8> ToForget(SCEVs.begin(), SCEVs.end());
+  SmallPtrSet<const SCEV *, 8> ToForget;
+  ToForget.reserve(SCEVs.size());
+  ToForget.insert(SCEVs.begin(), SCEVs.end());
   SmallVector<const SCEV *, 8> Worklist(ToForget.begin(), ToForget.end());
 
   while (!Worklist.empty()) {
@@ -14200,7 +14202,9 @@ void ScalarEvolution::verify() const {
   ScalarEvolution &SE = *const_cast<ScalarEvolution *>(this);
   ScalarEvolution SE2(F, TLI, AC, DT, LI);
 
-  SmallVector<Loop *, 8> LoopStack(LI.begin(), LI.end());
+  SmallVector<Loop *, 8> LoopStack;
+  LoopStack.reserve(std::distance(LI.begin(), LI.end()));
+  LoopStack.insert(LoopStack.begin(), LI.begin(), LI.end());
 
   // Map's SCEV expressions from one ScalarEvolution "universe" to another.
   struct SCEVMapper : public SCEVRewriteVisitor<SCEVMapper> {
@@ -14221,6 +14225,7 @@ void ScalarEvolution::verify() const {
 
   SCEVMapper SCM(SE2);
   SmallPtrSet<BasicBlock *, 16> ReachableBlocks;
+#warning is this predictable?
   SE2.getReachableBlocks(ReachableBlocks, F);
 
   auto GetDelta = [&](const SCEV *Old, const SCEV *New) -> const SCEV * {
@@ -14289,7 +14294,9 @@ void ScalarEvolution::verify() const {
 
   // Collect all valid loops currently in LoopInfo.
   SmallPtrSet<Loop *, 32> ValidLoops;
-  SmallVector<Loop *, 32> Worklist(LI.begin(), LI.end());
+  SmallVector<Loop *, 32> Worklist;
+  Worklist.reserve(std::distance(LI.begin(), LI.end()));
+  Worklist.insert(Worklist.begin(), LI.begin(), LI.end());
   while (!Worklist.empty()) {
     Loop *L = Worklist.pop_back_val();
     if (ValidLoops.insert(L).second)

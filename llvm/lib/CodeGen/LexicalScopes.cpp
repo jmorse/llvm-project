@@ -287,6 +287,7 @@ void LexicalScopes::getMachineBasicBlocks(
     return;
 
   if (Scope == CurrentFnLexicalScope) {
+    MBBs.reserve(MF->size());
     for (const auto &MBB : *MF)
       MBBs.insert(&MBB);
     return;

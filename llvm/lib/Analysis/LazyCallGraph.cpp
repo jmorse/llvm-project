@@ -343,6 +343,7 @@ void LazyCallGraph::RefSCC::verify() {
 
   // Verify basic properties of the SCCs.
   SmallPtrSet<SCC *, 4> SCCSet;
+  SCCSet.reserve(SCCs.size()); // XXX jmorse -- if insertion fails due to duplication, we assert anyway
   for (SCC *C : SCCs) {
     assert(C && "Can't have a null SCC!");
     C->verify();
@@ -1082,7 +1083,9 @@ LazyCallGraph::RefSCC::insertIncomingRefEdge(Node &SourceN, Node &TargetN) {
 
   // Build a set, so we can do fast tests for whether a RefSCC will end up as
   // part of the merged RefSCC.
-  SmallPtrSet<RefSCC *, 16> MergeSet(MergeRange.begin(), MergeRange.end());
+  SmallPtrSet<RefSCC *, 16> MergeSet;
+  MergeSet.reserve(std::distance(MergeRange.begin(), MergeRange.end()));
+  MergeSet.insert(MergeRange.begin(), MergeRange.end());
 
   // This RefSCC will always be part of that set, so just insert it here.
   MergeSet.insert(this);

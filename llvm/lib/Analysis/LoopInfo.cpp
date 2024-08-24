@@ -573,6 +573,7 @@ bool Loop::isAnnotatedParallel() const {
   SmallPtrSet<MDNode *, 4>
       ParallelAccessGroups; // For scalable 'contains' check.
   if (ParallelAccesses) {
+    ParallelAccessGroups.reserve(ParallelAccesses->getNumOperands() - 1);
     for (const MDOperand &MD : drop_begin(ParallelAccesses->operands())) {
       MDNode *AccGroup = cast<MDNode>(MD.get());
       assert(isValidAsAccessGroup(AccGroup) &&

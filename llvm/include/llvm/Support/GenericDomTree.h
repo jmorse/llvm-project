@@ -77,6 +77,7 @@ template <class NodeT> class DomTreeNodeBase {
   iterator end() { return Children.end(); }
   const_iterator begin() const { return Children.begin(); }
   const_iterator end() const { return Children.end(); }
+  size_t size() const { return Children.size(); }
 
   DomTreeNodeBase *const &back() const { return Children.back(); }
   DomTreeNodeBase *&back() { return Children.back(); }
@@ -104,6 +105,7 @@ template <class NodeT> class DomTreeNodeBase {
     if (Level != Other->Level) return true;
 
     SmallPtrSet<const NodeT *, 4> OtherChildren;
+    OtherChildren.reserve(Other->size());
     for (const DomTreeNodeBase *I : *Other) {
       const NodeT *Nd = I->getBlock();
       OtherChildren.insert(Nd);

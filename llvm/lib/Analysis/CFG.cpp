@@ -41,6 +41,7 @@ void llvm::FindFunctionBackedges(const Function &F,
   SmallVector<std::pair<const BasicBlock *, const_succ_iterator>, 8> VisitStack;
   SmallPtrSet<const BasicBlock*, 8> InStack;
 
+  Visited.reserve(F.size()); // XXX jmorse, linear walk?
   Visited.insert(BB);
   VisitStack.push_back(std::make_pair(BB, succ_begin(BB)));
   InStack.insert(BB);
@@ -163,6 +164,7 @@ static bool isReachableImpl(SmallVectorImpl<BasicBlock *> &Worklist,
   }
 
   SmallPtrSet<const Loop *, 2> StopLoops;
+#warning examine how often this fires?
   if (LI) {
     for (auto *StopSetBB : StopSet) {
       if (const Loop *L = getOutermostLoop(LI, StopSetBB))

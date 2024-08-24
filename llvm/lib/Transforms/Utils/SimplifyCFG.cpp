@@ -952,6 +952,7 @@ bool SimplifyCFGOpt::simplifyEqualityComparisonWithOnlyPredecessor(
     SwitchInstProfUpdateWrapper SI = *cast<SwitchInst>(TI);
     // Okay, TI has cases that are statically dead, prune them away.
     SmallPtrSet<Constant *, 16> DeadCases;
+    DeadCases.reserve(PredCases.size());
     for (unsigned i = 0, e = PredCases.size(); i != e; ++i)
       DeadCases.insert(PredCases[i].Value);
 
@@ -974,6 +975,7 @@ bool SimplifyCFGOpt::simplifyEqualityComparisonWithOnlyPredecessor(
 
     if (DTU) {
       std::vector<DominatorTree::UpdateType> Updates;
+#warning vector?
       for (const std::pair<BasicBlock *, int> &I : NumPerSuccessorCases)
         if (I.second == 0)
           Updates.push_back({DominatorTree::Delete, PredDef, I.first});
@@ -1169,9 +1171,11 @@ bool SimplifyCFGOpt::performValueComparisonIntoPredecessorFolding(
 
   // Figure out which 'cases' to copy from SI to PSI.
   std::vector<ValueEqualityComparisonCase> BBCases;
+#warning stdvector
   BasicBlock *BBDefault = getValueEqualityComparisonCases(TI, BBCases);
 
   std::vector<ValueEqualityComparisonCase> PredCases;
+#warning stdvector
   BasicBlock *PredDefault = getValueEqualityComparisonCases(PTI, PredCases);
 
   // Based on whether the default edge from PTI goes to BB or not, fill in
@@ -1208,6 +1212,7 @@ bool SimplifyCFGOpt::performValueComparisonIntoPredecessorFolding(
     // If this is the default destination from PTI, only the edges in TI
     // that don't occur in PTI, or that branch to BB will be activated.
     std::set<ConstantInt *, ConstantIntOrdering> PTIHandled;
+#warning set!
     for (unsigned i = 0, e = PredCases.size(); i != e; ++i)
       if (PredCases[i].Dest != BB)
         PTIHandled.insert(PredCases[i].Value);
@@ -1265,6 +1270,7 @@ bool SimplifyCFGOpt::performValueComparisonIntoPredecessorFolding(
     // activated.
     std::set<ConstantInt *, ConstantIntOrdering> PTIHandled;
     std::map<ConstantInt *, uint64_t> WeightsForHandled;
+#warning set and map
     for (unsigned i = 0, e = PredCases.size(); i != e; ++i)
       if (PredCases[i].Dest == BB) {
         PTIHandled.insert(PredCases[i].Value);
@@ -1308,6 +1314,7 @@ bool SimplifyCFGOpt::performValueComparisonIntoPredecessorFolding(
   // successors.
   SmallPtrSet<BasicBlock *, 2> SuccsOfPred;
   if (DTU) {
+    SuccsOfPred.reserve(succ_size(Pred));
     SuccsOfPred = {succ_begin(Pred), succ_end(Pred)};
     Updates.reserve(Updates.size() + NewSuccessors.size());
   }
@@ -2308,6 +2315,7 @@ static bool sinkCommonCodeFromPredecessors(BasicBlock *BB,
   int ScanIdx = 0;
   SmallPtrSet<Value*,4> InstructionsToSink;
   LockstepReverseIterator LRI(UnconditionalPreds);
+#warning don't understand this
   while (LRI.isValid() &&
          canSinkInstructions(*LRI, PHIOperands)) {
     LLVM_DEBUG(dbgs() << "SINK: instruction can be sunk: " << *(*LRI)[0]
@@ -2358,6 +2366,7 @@ static bool sinkCommonCodeFromPredecessors(BasicBlock *BB,
     LRI.reset();
     int Idx = 0;
     SmallPtrSet<Value *, 4> InstructionsProfitableToSink;
+#warning study isprofitable?
     while (Idx < ScanIdx) {
       if (!ProfitableToSinkInstruction(LRI)) {
         // Too many PHIs would be created.
@@ -2561,7 +2570,9 @@ bool CompatibleSets::shouldBelongToSameSet(ArrayRef<InvokeInst *> Invokes) {
 
     // In the normal destination, the incoming values for these two `invoke`s
     // must be compatible.
-    SmallPtrSet<Value *, 16> EquivalenceSet(Invokes.begin(), Invokes.end());
+    SmallPtrSet<Value *, 16> EquivalenceSet;
+    EquivalenceSet.reserve(Invokes.size());
+    EquivalenceSet.insert(Invokes.begin(), Invokes.end());
     if (!incomingValuesAreCompatible(
             NormalBB, {Invokes[0]->getParent(), Invokes[1]->getParent()},
             &EquivalenceSet))
@@ -2797,6 +2808,7 @@ namespace {
 /// purposes. Requires walking instructions in reverse order.
 class EphemeralValueTracker {
   SmallPtrSet<const Instruction *, 32> EphValues;
+#warning how to do this?
 
   bool isEphemeral(const Instruction *I) {
     if (isa<AssumeInst>(I))
@@ -3556,6 +3568,7 @@ static bool foldTwoEntryPHINode(PHINode *PN, const TargetTransformInfo &TTI,
   // instructions.  While we are at it, keep track of the instructions
   // that need to be moved to the dominating block.
   SmallPtrSet<Instruction *, 4> AggressiveInsts;
+#warning can't study this?
   InstructionCost Cost = 0;
   InstructionCost Budget =
       TwoEntryPHINodeFoldingThreshold * TargetTransformInfo::TCC_Basic;
@@ -4304,6 +4317,7 @@ static bool mergeConditionalStores(BranchInst *PBI, BranchInst *QBI,
   // OK, this is a sequence of two diamonds or triangles.
   // Check if there are stores in PTB or PFB that are repeated in QTB or QFB.
   SmallPtrSet<Value *, 4> PStoreAddresses, QStoreAddresses;
+#warning same as previous
   for (auto *BB : {PTB, PFB}) {
     if (!BB)
       continue;
@@ -6153,6 +6167,7 @@ static void removeSwitchAfterSelectFold(SwitchInst *SI, PHINode *PHI,
   PHI->addIncoming(SelectValue, SelectBB);
 
   SmallPtrSet<BasicBlock *, 4> RemovedSuccessors;
+#warning pre-requires knowing number of duplicates, so can't mangle?
   for (unsigned i = 0, e = SI->getNumSuccessors(); i < e; ++i) {
     BasicBlock *Succ = SI->getSuccessor(i);
 

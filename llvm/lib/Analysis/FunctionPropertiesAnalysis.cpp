@@ -314,12 +314,6 @@ FunctionPropertiesUpdater::FunctionPropertiesUpdater(
   // contribution. Some features, like max loop counts or depths, are left
   // invalid, as they will be updated post-inlining.
   SmallPtrSet<const BasicBlock *, 4> LikelyToChangeBBs;
-  // The CB BB will change - it'll either be split or the callee's body (single
-  // BB) will be pasted in.
-  LikelyToChangeBBs.insert(&CallSiteBB);
-
-  // The caller's entry BB may change due to new alloca instructions.
-  LikelyToChangeBBs.insert(&*Caller.begin());
 
   // The successors may become unreachable in the case of `invoke` inlining.
   // We track successors separately, too, because they form a boundary, together
@@ -344,6 +338,15 @@ FunctionPropertiesUpdater::FunctionPropertiesUpdater(
   // the callsite BB in this case would prematurely stop the traversal in
   // finish().
   Successors.erase(&CallSiteBB);
+
+  LikelyToChangeBBs.reserve(Successors.size() + 2); // XXX this is unlikely to be different to 4, isn't it?
+
+  // The CB BB will change - it'll either be split or the callee's body (single
+  // BB) will be pasted in.
+  LikelyToChangeBBs.insert(&CallSiteBB);
+
+  // The caller's entry BB may change due to new alloca instructions.
+  LikelyToChangeBBs.insert(&*Caller.begin());
 
   for (const auto *BB : Successors)
     LikelyToChangeBBs.insert(BB);
