@@ -104,6 +104,7 @@ template <class NodeT> class DomTreeNodeBase {
     if (Level != Other->Level) return true;
 
     SmallPtrSet<const NodeT *, 4> OtherChildren;
+    OtherChildren.reserve(Other->size());
     for (const DomTreeNodeBase *I : *Other) {
       const NodeT *Nd = I->getBlock();
       OtherChildren.insert(Nd);

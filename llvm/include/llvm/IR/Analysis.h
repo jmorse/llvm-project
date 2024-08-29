@@ -303,7 +303,8 @@ private:
   static AnalysisSetKey AllAnalysesKey;
 
   /// The IDs of analyses and analysis sets that are preserved.
-  SmallPtrSet<void *, 2> PreservedIDs;
+// XXX jmorse -- LICM, JT, and so forth all preserve 4 passes, why reallocate?
+  SmallPtrSet<void *, 8> PreservedIDs;
 
   /// The IDs of explicitly not-preserved analyses.
   ///

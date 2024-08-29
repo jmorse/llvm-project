@@ -527,6 +527,7 @@ void JumpThreadingPass::findLoopHeaders(Function &F) {
   SmallVector<std::pair<const BasicBlock*,const BasicBlock*>, 32> Edges;
   FindFunctionBackedges(F, Edges);
 
+  LoopHeaders.reserve(Edges.size());
   for (const auto &Edge : Edges)
     LoopHeaders.insert(Edge.second);
 }

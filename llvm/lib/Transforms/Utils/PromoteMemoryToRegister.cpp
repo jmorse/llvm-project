@@ -282,7 +282,7 @@ struct AllocaInfo {
 /// Data package used by RenamePass().
 struct RenamePassData {
   using ValVector = std::vector<Value *>;
-  using LocationVector = std::vector<DebugLoc>;
+  using LocationVector = etd::vector<DebugLoc>;
 
   RenamePassData(BasicBlock *B, BasicBlock *P, ValVector V, LocationVector L)
       : BB(B), Pred(P), Values(std::move(V)), Locations(std::move(L)) {}
@@ -809,12 +809,14 @@ void PromoteMem2Reg::run() {
     AllocaLookup[Allocas[AllocaNum]] = AllocaNum;
 
     // Unique the set of defining blocks for efficient lookup.
-    SmallPtrSet<BasicBlock *, 32> DefBlocks(Info.DefiningBlocks.begin(),
-                                            Info.DefiningBlocks.end());
+    SmallPtrSet<BasicBlock *, 32> DefBlocks
+    DefBlocks.reserve(Info.DefiningBlocks.size());
+    DefBlocks.insert(Info.DefiningBlocks.begin(), Info.DefiningBlocks.end());
 
     // Determine which blocks the value is live in.  These are blocks which lead
     // to uses.
     SmallPtrSet<BasicBlock *, 32> LiveInBlocks;
+#warning can't compute these?
     ComputeLiveInBlocks(AI, Info, DefBlocks, LiveInBlocks);
 
     // At this point, we're committed to promoting the alloca using IDF's, and
@@ -857,6 +859,7 @@ void PromoteMem2Reg::run() {
   // Walks all basic blocks in the function performing the SSA rename algorithm
   // and inserting the phi nodes we marked as necessary
   std::vector<RenamePassData> RenamePassWorkList;
+#warning vector, also internal vectors in renamepassdata.
   RenamePassWorkList.emplace_back(&F.front(), nullptr, std::move(Values),
                                   std::move(Locations));
   do {
@@ -1218,6 +1221,7 @@ NextIteration:
 
   // Keep track of the successors so we don't visit the same successor twice
   SmallPtrSet<BasicBlock *, 8> VisitedSuccs;
+  VisitedSuccs.reserve(BB.succ_size());
 
   // Handle the first successor without using the worklist.
   VisitedSuccs.insert(*I);

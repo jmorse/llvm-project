@@ -54,6 +54,7 @@ class FunctionImportGlobalProcessing {
 
   /// Set of llvm.*used values, in order to validate that we don't try
   /// to promote any non-renamable values.
+#warning where does this get used?
   SmallPtrSet<GlobalValue *, 4> Used;
 
   /// Keep track of any COMDATs that require renaming (because COMDAT

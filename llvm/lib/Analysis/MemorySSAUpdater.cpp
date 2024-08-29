@@ -362,6 +362,7 @@ void MemorySSAUpdater::insertDef(MemoryDef *MD, bool RenameUses) {
     // If this is the first def in the block and this insert is in an arbitrary
     // place, compute IDF and place phis.
     SmallPtrSet<BasicBlock *, 2> DefiningBlocks;
+#warning could this be too slow? pls2measure, we always insert one already.
 
     // If this is the last Def in the block, we may need additional Phis.
     // Compute IDF in all cases, as renaming needs to be done even when MD is
@@ -673,8 +674,9 @@ void MemorySSAUpdater::updateForClonedLoop(const LoopBlocksRPO &LoopBlocks,
   auto FixPhiIncomingValues = [&](MemoryPhi *Phi, MemoryPhi *NewPhi) {
     assert(Phi && NewPhi && "Invalid Phi nodes.");
     BasicBlock *NewPhiBB = NewPhi->getBlock();
-    SmallPtrSet<BasicBlock *, 4> NewPhiBBPreds(pred_begin(NewPhiBB),
-                                               pred_end(NewPhiBB));
+    SmallPtrSet<BasicBlock *, 4> NewPhiBBPreds;
+    NewPhiBBPreds.reserve(NewPhiBB.size());
+    NewPhiBBPreds.insert(pred_begin(NewPhiBB), pred_end(NewPhiBB));
     for (unsigned It = 0, E = Phi->getNumIncomingValues(); It < E; ++It) {
       MemoryAccess *IncomingAccess = Phi->getIncomingValue(It);
       BasicBlock *IncBB = Phi->getIncomingBlock(It);
@@ -1074,8 +1076,9 @@ void MemorySSAUpdater::applyInsertUpdates(ArrayRef<CFGUpdate> Updates,
   SmallVector<BasicBlock *, 32> IDFBlocks;
   if (!BlocksToProcess.empty()) {
     ForwardIDFCalculator IDFs(DT, GD);
-    SmallPtrSet<BasicBlock *, 16> DefiningBlocks(BlocksToProcess.begin(),
-                                                 BlocksToProcess.end());
+    SmallPtrSet<BasicBlock *, 16> DefiningBlocks;
+    DefiningBlocks.reserve(BlocksToProcess.size());
+    DefiningBlocks.insert(BlocksToProcess.begin(), BlocksToProcess.end());
     IDFs.setDefiningBlocks(DefiningBlocks);
     IDFs.calculate(IDFBlocks);
 
@@ -1256,7 +1259,9 @@ void MemorySSAUpdater::wireOldPredecessorsToNewImmediatePredecessor(
     assert(!Preds.empty() && "Must be moving at least one predecessor to the "
                              "new immediate predecessor.");
     MemoryPhi *NewPhi = MSSA->createMemoryPhi(New);
-    SmallPtrSet<BasicBlock *, 16> PredsSet(Preds.begin(), Preds.end());
+    SmallPtrSet<BasicBlock *, 16> PredsSet;
+    PredsSet.reserve(Preds.size());
+    PredsSet.insert(Preds.begin(), Preds.end());
     // Currently only support the case of removing a single incoming edge when
     // identical edges were not merged.
     if (!IdenticalEdgesWereMerged)

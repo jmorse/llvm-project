@@ -59,6 +59,7 @@ template <class N, class M> class LoopBase;
 template <class BlockT, class LoopT> class LoopBase {
   LoopT *ParentLoop;
   // Loops contained entirely within this one.
+#warning initial allocator with stdvector? And below. Then again, how to determine size?
   std::vector<LoopT *> SubLoops;
 
   // The list of blocks in this loop. First entry is the header node.

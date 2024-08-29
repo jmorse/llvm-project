@@ -131,7 +131,9 @@ template <class G> void AbstractDependenceGraphBuilder<G>::createPiBlocks() {
 
     // Build a set to speed up the lookup for edges whose targets
     // are inside the SCC.
-    SmallPtrSet<NodeType *, 4> NodesInSCC(NL.begin(), NL.end());
+    SmallPtrSet<NodeType *, 4> NodesInSCC;
+    NodesInSCC.reserve(NL.size());
+    NodesInSCC.insert(NL.begin(), NL.end());
 
     // We have the set of nodes in the SCC. We go through the set of nodes
     // that are outside of the SCC and look for edges that cross the two sets.
@@ -390,6 +392,7 @@ template <class G> void AbstractDependenceGraphBuilder<G>::simplify() {
   // A mapping between nodes and their in-degree. To save space, this map
   // only contains nodes that are targets of nodes in the CandidateSourceNodes.
   DenseMap<NodeType *, unsigned> TargetInDegreeMap;
+#warning initial allocation?
 
   for (NodeType *N : Graph) {
     if (N->getEdges().size() != 1)
