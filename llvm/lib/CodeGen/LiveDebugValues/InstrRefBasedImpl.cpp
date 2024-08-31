@@ -2666,8 +2666,6 @@ void InstrRefBasedLDV::buildMLocValueMap(
   SmallPtrSet<MachineBasicBlock *, 32> AllBlocks;
   AllBlocks.reserve(BBToOrder.size());
   OnWorklist.reserve(BBToOrder.size());
-  Worklist.reserve(BBToOrder.size());
-  Pending.reserve(BBToOrder.size());
   for (unsigned int I = 0; I < BBToOrder.size(); ++I) {
     Worklist.push(I);
     OnWorklist.insert(OrderToBB[I]);
