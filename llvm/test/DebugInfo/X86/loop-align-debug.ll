@@ -5,10 +5,11 @@
 
 ; OBJ: 1:{{.*}}nop
 
+;; No prologue produced here as there are no source-locations in the entry block.
 ;;     Address            Line   Column File   ISA Discriminator OpIndex Flags
 ; DBG: 0x0000000000000000      3      0      0   0             0       0  is_stmt
 ; DBG: 0x0000000000000001      0      0      0   0             0       0
-; DBG: 0x0000000000000010      5      0      0   0             0       0  is_stmt prologue_end
+; DBG: 0x0000000000000010      5      0      0   0             0       0  is_stmt
 ; DBG: 0x0000000000000017      5      0      0   0             0       0  is_stmt end_sequence
 
 ; ASM:      .loc    0 0 0 is_stmt 0

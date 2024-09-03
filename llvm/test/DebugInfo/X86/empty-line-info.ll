@@ -8,7 +8,9 @@
 ; CHECK-LABEL: foo:
 ; CHECK-NEXT:   .Lfunc_begin0:
 ; CHECK-NEXT:   .file   0 "." "foobar.c"
-; CHECK-NEXT:   .loc    0 1 0
+; CHECK-NEXT:   .cfi_startproc
+; CHECK-NEXT:   # %bb.0:
+; CHECK-NEXT:   .loc 0 1 0 prologue_end
 
 define dso_local noundef i32 @foo(ptr nocapture noundef writeonly %bar) local_unnamed_addr !dbg !10 {
 entry:

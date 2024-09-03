@@ -2061,6 +2061,14 @@ void DwarfDebug::beginInstruction(const MachineInstr *MI) {
   unsigned LastAsmLine =
       Asm->OutStreamer->getContext().getCurrentDwarfLoc().getLine();
 
+  if (!DL && MI == PrologEndLoc) {
+    // In rare situations, we might want to place the end of the prologue
+    // somewhere that doesn't have a source location already. There should
+    // not have been any "real" previous source location.
+    recordSourceLine(SP->getScopeLine(), 0, SP, DWARF2_FLAG_PROLOGUE_END | DWARF2_FLAG_IS_STMT);
+    return;
+  }
+
   bool PrevInstInSameSection =
       (!PrevInstBB ||
        PrevInstBB->getSectionID() == MI->getParent()->getSectionID());
@@ -2132,36 +2140,62 @@ void DwarfDebug::beginInstruction(const MachineInstr *MI) {
     PrevInstLoc = DL;
 }
 
-static std::pair<const MachineInstr *, bool>
+std::pair<const MachineInstr *, bool>
 findPrologueEndLoc(const MachineFunction *MF) {
   // First known non-DBG_VALUE and non-frame setup location marks
   // the beginning of the function body.
-  const MachineInstr *LineZeroLoc = nullptr;
+  const auto &TII = *MF->getSubtarget().getInstrInfo();
+  const MachineInstr *LineZeroLoc = nullptr, *NonTrivialInst = nullptr;
   const Function &F = MF->getFunction();
 
   // Some instructions may be inserted into prologue after this function. Must
   // keep prologue for these cases.
   bool IsEmptyPrologue =
       !(F.hasPrologueData() || F.getMetadata(LLVMContext::MD_func_sanitize));
-  for (const auto &MBB : *MF) {
-    for (const auto &MI : MBB) {
-      if (!MI.isMetaInstruction()) {
-        if (!MI.getFlag(MachineInstr::FrameSetup) && MI.getDebugLoc()) {
-          // Scan forward to try to find a non-zero line number. The
-          // prologue_end marks the first breakpoint in the function after the
-          // frame setup, and a compiler-generated line 0 location is not a
-          // meaningful breakpoint. If none is found, return the first
-          // location after the frame setup.
-          if (MI.getDebugLoc().getLine())
-            return std::make_pair(&MI, IsEmptyPrologue);
+  const MachineBasicBlock &Entry = *MF->begin();
+  for (const auto &MI : Entry) {
+    if (MI.isMetaInstruction())
+      continue;
 
-          LineZeroLoc = &MI;
-        }
-        IsEmptyPrologue = false;
-      }
+    bool isCopy = (TII.isCopyInstr(MI) ? true : false);
+    bool isTrivRemat = TII.isTriviallyReMaterializable(MI);
+    bool isFrameSetup = MI.getFlag(MachineInstr::FrameSetup);
+
+    if (!isFrameSetup && MI.getDebugLoc()) {
+      // Scan forward to try to find a non-zero line number. The
+      // prologue_end marks the first breakpoint in the function after the
+      // frame setup, and a compiler-generated line 0 location is not a
+      // meaningful breakpoint. If none is found, return the first
+      // location after the frame setup.
+      if (MI.getDebugLoc().getLine())
+        return std::make_pair(&MI, IsEmptyPrologue);
+
+      LineZeroLoc = &MI;
     }
+
+    // Keep track of the first "non-trivial" instruction seen, i.e. anything
+    // that doesn't involve shuffling data around or is a frame-setup.
+    if (!isCopy && !isTrivRemat && !isFrameSetup && !NonTrivialInst)
+      NonTrivialInst = &MI;
+
+    IsEmptyPrologue = false;
   }
-  return std::make_pair(LineZeroLoc, IsEmptyPrologue);
+
+  // Was there an empty-line location? Return that, and it'll have the
+  // scope-line "flow" into it when it becomes the prologue_end position.
+  if (LineZeroLoc)
+    return std::make_pair(LineZeroLoc, IsEmptyPrologue);
+
+  // We couldn't find any source-location, suggesting all meaningful information
+  // got optimised away. Set the prologue_end to be the first non-trivial
+  // instruction, which will get the scope line number. This is better than
+  // nothing. Return IsEmptyPrologue==true if we've picked the first
+  // instruction.
+  if (NonTrivialInst)
+    return std::make_pair(NonTrivialInst, NonTrivialInst == &*MF->begin()->begin());
+
+  // If the entry block is pretty empty, just don't have a prologue_end at all.
+  return std::make_pair(nullptr, IsEmptyPrologue);
 }
 
 /// Register a source line with debug info. Returns the  unique label that was
