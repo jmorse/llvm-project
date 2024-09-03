@@ -86,6 +86,11 @@ const void *const *SmallPtrSetImplBase::FindBucketFor(const void *Ptr) const {
   unsigned ProbeAmt = 1;
   const void *const *Array = CurArray;
   const void *const *Tombstone = nullptr;
+
+  // jmorse loop rotation,
+  if (LLVM_LIKELY(Array[Bucket] == getEmptyMarker()))
+    return &Array[Bucket];
+
   while (true) {
     // If we found an empty bucket, the pointer doesn't exist in the set.
     // Return a tombstone if we've seen one so far, or the empty bucket if
