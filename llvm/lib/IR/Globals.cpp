@@ -354,7 +354,7 @@ bool GlobalObject::canIncreaseAlignment() const {
 
 template <typename Operation>
 static const GlobalObject *
-findBaseObject(const Constant *C, DenseSet<const GlobalAlias *> &Aliases,
+findBaseObject(const Constant *C, SmallDenseSet<const GlobalAlias *, 4> &Aliases,
                const Operation &Op) {
   if (auto *GO = dyn_cast<GlobalObject>(C)) {
     Op(*GO);
@@ -392,7 +392,7 @@ findBaseObject(const Constant *C, DenseSet<const GlobalAlias *> &Aliases,
 }
 
 const GlobalObject *GlobalValue::getAliaseeObject() const {
-  DenseSet<const GlobalAlias *> Aliases;
+  SmallDenseSet<const GlobalAlias *, 4> Aliases;
   return findBaseObject(this, Aliases, [](const GlobalValue &) {});
 }
 
@@ -587,7 +587,7 @@ void GlobalAlias::setAliasee(Constant *Aliasee) {
 }
 
 const GlobalObject *GlobalAlias::getAliaseeObject() const {
-  DenseSet<const GlobalAlias *> Aliases;
+  SmallDenseSet<const GlobalAlias *, 4> Aliases;
   return findBaseObject(getOperand(0), Aliases, [](const GlobalValue &) {});
 }
 
@@ -621,6 +621,6 @@ const Function *GlobalIFunc::getResolverFunction() const {
 
 void GlobalIFunc::applyAlongResolverPath(
     function_ref<void(const GlobalValue &)> Op) const {
-  DenseSet<const GlobalAlias *> Aliases;
+  SmallDenseSet<const GlobalAlias *, 4> Aliases;
   findBaseObject(getResolver(), Aliases, Op);
 }

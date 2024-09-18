@@ -186,7 +186,7 @@ namespace {
     /// the bail out for the same pair many times over a limit, we won't
     /// consider the StoreNode with the same RootNode as store merging
     /// candidate again.
-    DenseMap<SDNode *, std::pair<SDNode *, unsigned>> StoreRootCountMap;
+    SmallDenseMap<SDNode *, std::pair<SDNode *, unsigned>, 4> StoreRootCountMap;
 
     // AA - Used for DAG load/store alias analysis.
     AliasAnalysis *AA;
