@@ -28,7 +28,7 @@ using namespace llvm;
 
 #define DEBUG_TYPE "must-execute"
 
-const DenseMap<BasicBlock *, ColorVector> &
+const SmallDenseMap<BasicBlock *, ColorVector, 16> &
 LoopSafetyInfo::getBlockColors() const {
   return BlockColors;
 }

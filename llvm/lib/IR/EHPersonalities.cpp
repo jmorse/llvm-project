@@ -102,10 +102,10 @@ bool llvm::canSimplifyInvokeNoUnwind(const Function *F) {
   return !EHa && !isAsynchronousEHPersonality(Personality);
 }
 
-DenseMap<BasicBlock *, ColorVector> llvm::colorEHFunclets(Function &F) {
+SmallDenseMap<BasicBlock *, ColorVector, 16> llvm::colorEHFunclets(Function &F) {
   SmallVector<std::pair<BasicBlock *, BasicBlock *>, 16> Worklist;
   BasicBlock *EntryBlock = &F.getEntryBlock();
-  DenseMap<BasicBlock *, ColorVector> BlockColors;
+  SmallDenseMap<BasicBlock *, ColorVector, 16> BlockColors;
 
   // Build up the color map, which maps each block to its set of 'colors'.
   // For any block B the "colors" of B are the set of funclets F (possibly

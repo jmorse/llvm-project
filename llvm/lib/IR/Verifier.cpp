@@ -362,7 +362,7 @@ class Verifier : public InstVisitor<Verifier>, VerifierSupport {
 
   /// Cache which blocks are in which funclet, if an EH funclet personality is
   /// in use. Otherwise empty.
-  DenseMap<BasicBlock *, ColorVector> BlockEHFuncletColors;
+  SmallDenseMap<BasicBlock *, ColorVector, 16> BlockEHFuncletColors;
 
   /// Cache of constants visited in search of ConstantExprs.
   SmallPtrSet<const Constant *, 32> ConstantExprVisited;

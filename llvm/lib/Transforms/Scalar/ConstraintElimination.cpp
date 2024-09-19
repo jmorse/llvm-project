@@ -285,10 +285,10 @@ public:
     }
   }
 
-  DenseMap<Value *, unsigned> &getValue2Index(bool Signed) {
+  SmallDenseMap<Value *, unsigned, 16> &getValue2Index(bool Signed) {
     return Signed ? SignedCS.getValue2Index() : UnsignedCS.getValue2Index();
   }
-  const DenseMap<Value *, unsigned> &getValue2Index(bool Signed) const {
+  const SmallDenseMap<Value *, unsigned, 16> &getValue2Index(bool Signed) const {
     return Signed ? SignedCS.getValue2Index() : UnsignedCS.getValue2Index();
   }
 

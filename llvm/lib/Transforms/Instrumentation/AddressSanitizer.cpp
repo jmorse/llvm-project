@@ -669,7 +669,7 @@ public:
       return;
     assert(TrackInsertedCalls && "Calls were wrongly tracked");
 
-    DenseMap<BasicBlock *, ColorVector> BlockColors = colorEHFunclets(*OwnerFn);
+    SmallDenseMap<BasicBlock *, ColorVector, 16> BlockColors = colorEHFunclets(*OwnerFn);
     for (CallInst *CI : InsertedCalls) {
       BasicBlock *BB = CI->getParent();
       assert(BB && "Instruction doesn't belong to a BasicBlock");
