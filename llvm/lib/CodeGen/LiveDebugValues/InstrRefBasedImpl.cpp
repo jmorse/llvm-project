@@ -3071,7 +3071,7 @@ void InstrRefBasedLDV::getBlocksForScope(
   BlocksToExplore.insert(AssignBlocks.begin(), AssignBlocks.end());
 
   // Storage for artificial blocks we intend to add to BlocksToExplore.
-  SmallDenseSet<const MachineBasicBlock *, 9> ToAdd;
+  SmallDenseSet<const MachineBasicBlock *, 16> ToAdd;
 
   // To avoid needlessly dropping large volumes of variable locations, propagate
   // variables through aritifical blocks, i.e. those that don't have any
