@@ -173,7 +173,7 @@ private:
   // Each interference is an SUnit and set of physical registers.
   SmallVector<SUnit*, 4> Interferences;
 
-  using LRegsMapT = DenseMap<SUnit *, SmallVector<unsigned, 4>>;
+  using LRegsMapT = SmallDenseMap<SUnit *, SmallVector<unsigned, 4>, 4>;
 
   LRegsMapT LRegsMap;
 
@@ -183,7 +183,7 @@ private:
 
   // Hack to keep track of the inverse of FindCallSeqStart without more crazy
   // DAG crawling.
-  DenseMap<SUnit*, SUnit*> CallSeqEndForStart;
+  SmallDenseMap<SUnit*, SUnit*, 16> CallSeqEndForStart;
 
 public:
   ScheduleDAGRRList(MachineFunction &mf, bool needlatency,
