@@ -241,7 +241,7 @@ namespace {
 
     bool IsCheapInstruction(MachineInstr &MI) const;
 
-    bool CanCauseHighRegPressure(const DenseMap<unsigned, int> &Cost,
+    bool CanCauseHighRegPressure(const SmallDenseMap<unsigned, int> &Cost,
                                  bool Cheap);
 
     void UpdateBackTraceRegPressure(const MachineInstr *MI);
@@ -266,7 +266,7 @@ namespace {
 
     void InitRegPressure(MachineBasicBlock *BB);
 
-    DenseMap<unsigned, int> calcRegisterCost(const MachineInstr *MI,
+    SmallDenseMap<unsigned, int> calcRegisterCost(const MachineInstr *MI,
                                              bool ConsiderSeen,
                                              bool ConsiderUnseenAsDef);
 
@@ -939,10 +939,10 @@ void MachineLICMBase::UpdateRegPressure(const MachineInstr *MI,
 /// If 'ConsiderSeen' is true, updates 'RegSeen' and uses the information to
 /// figure out which usages are live-ins.
 /// FIXME: Figure out a way to consider 'RegSeen' from all code paths.
-DenseMap<unsigned, int>
+SmallDenseMap<unsigned, int>
 MachineLICMBase::calcRegisterCost(const MachineInstr *MI, bool ConsiderSeen,
                                   bool ConsiderUnseenAsDef) {
-  DenseMap<unsigned, int> Cost;
+  SmallDenseMap<unsigned, int> Cost;
   if (MI->isImplicitDef())
     return Cost;
   for (unsigned i = 0, e = MI->getDesc().getNumOperands(); i != e; ++i) {
@@ -1210,7 +1210,7 @@ bool MachineLICMBase::IsCheapInstruction(MachineInstr &MI) const {
 /// Visit BBs from header to current BB, check if hoisting an instruction of the
 /// given cost matrix can cause high register pressure.
 bool
-MachineLICMBase::CanCauseHighRegPressure(const DenseMap<unsigned, int>& Cost,
+MachineLICMBase::CanCauseHighRegPressure(const SmallDenseMap<unsigned, int>& Cost,
                                          bool CheapInstr) {
   for (const auto &RPIdAndCost : Cost) {
     if (RPIdAndCost.second <= 0)
