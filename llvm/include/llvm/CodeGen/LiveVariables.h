@@ -85,13 +85,14 @@ public:
     /// Kills - List of MachineInstruction's which are the last use of this
     /// virtual register (kill it) in their basic block.
     ///
-    std::vector<MachineInstr*> Kills;
+    SmallVector<MachineInstr*, 2> Kills; // XXX jmorse: of 700k allocs, 99% are <= 2 elements. 575k one elem.
+// XXX jmorse: could argue over usage, the VirtRegInfo map uses this as Values.  I feel this saves net memory in 99% of cases though, by avoiding more mallocs.
 
     /// removeKill - Delete a kill corresponding to the specified
     /// machine instruction. Returns true if there was a kill
     /// corresponding to this instruction, false otherwise.
     bool removeKill(MachineInstr &MI) {
-      std::vector<MachineInstr *>::iterator I = find(Kills, &MI);
+      SmallVectorImpl<MachineInstr *>::iterator I = find(Kills, &MI);
       if (I == Kills.end())
         return false;
       Kills.erase(I);

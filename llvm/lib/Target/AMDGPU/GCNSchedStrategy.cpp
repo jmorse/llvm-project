@@ -1134,7 +1134,7 @@ static void printScheduleModel(std::set<std::pair<MachineInstr *, unsigned>,
 #endif
 
 ScheduleMetrics
-GCNSchedStage::getScheduleMetrics(const std::vector<SUnit> &InputSchedule) {
+GCNSchedStage::getScheduleMetrics(const SmallVectorImpl<SUnit> &InputSchedule) {
 #ifndef NDEBUG
   std::set<std::pair<MachineInstr *, unsigned>, EarlierIssuingCycle>
       ReadyCyclesSorted;

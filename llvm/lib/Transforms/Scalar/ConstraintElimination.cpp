@@ -893,7 +893,7 @@ void ConstraintInfo::transferToOtherSystem(
 #ifndef NDEBUG
 
 static void dumpConstraint(ArrayRef<int64_t> C,
-                           const DenseMap<Value *, unsigned> &Value2Index) {
+                           const SmallDenseMap<Value *, unsigned, 16> &Value2Index) {
   ConstraintSystem CS(Value2Index);
   CS.addVariableRowFill(C);
   CS.dump();

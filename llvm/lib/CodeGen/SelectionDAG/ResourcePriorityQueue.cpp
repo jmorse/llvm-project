@@ -160,7 +160,7 @@ static unsigned numberCtrlPredInSU(SUnit *SU) {
 ///
 /// Initialize nodes.
 ///
-void ResourcePriorityQueue::initNodes(std::vector<SUnit> &sunits) {
+void ResourcePriorityQueue::initNodes(SmallVectorImpl<SUnit> &sunits) {
   SUnits = &sunits;
   NumNodesSolelyBlocking.resize(SUnits->size(), 0);
 

@@ -426,7 +426,7 @@ class SIScheduleDAGMI final : public ScheduleDAGMILive {
   const SIInstrInfo *SITII;
   const SIRegisterInfo *SITRI;
 
-  std::vector<SUnit> SUnitsLinksBackup;
+  SmallVector<SUnit, 32> SUnitsLinksBackup;
 
   // For moveLowLatencies. After all Scheduling variants are tested.
   std::vector<unsigned> ScheduledSUnits;

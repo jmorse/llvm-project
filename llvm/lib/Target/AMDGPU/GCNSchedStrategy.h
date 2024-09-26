@@ -297,7 +297,7 @@ public:
   void checkScheduling();
 
   // computes the given schedule virtual execution time in clocks
-  ScheduleMetrics getScheduleMetrics(const std::vector<SUnit> &InputSchedule);
+  ScheduleMetrics getScheduleMetrics(const SmallVectorImpl<SUnit> &InputSchedule);
   ScheduleMetrics getScheduleMetrics(const GCNScheduleDAGMILive &DAG);
   unsigned computeSUnitReadyCycle(const SUnit &SU, unsigned CurrCycle,
                                   DenseMap<unsigned, unsigned> &ReadyCycles,

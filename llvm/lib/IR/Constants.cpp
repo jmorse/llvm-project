@@ -2500,7 +2500,9 @@ Constant *ConstantExpr::getGetElementPtr(Type *Ty, Constant *C,
     EltCount = VecTy->getElementCount();
 
   // Look up the constant in the table first to ensure uniqueness
-  std::vector<Constant*> ArgVec;
+// XXX jmorse, never allocs more than 8 when it _does_ alloc.
+// Also, it always allocs.
+  SmallVector<Constant*, 8> ArgVec;
   ArgVec.reserve(1 + Idxs.size());
   ArgVec.push_back(C);
   auto GTI = gep_type_begin(Ty, Idxs), GTE = gep_type_end(Ty, Idxs);

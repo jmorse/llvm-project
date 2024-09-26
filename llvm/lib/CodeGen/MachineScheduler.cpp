@@ -1798,7 +1798,7 @@ public:
 protected:
   void clusterNeighboringMemOps(ArrayRef<MemOpInfo> MemOps, bool FastCluster,
                                 ScheduleDAGInstrs *DAG);
-  void collectMemOpRecords(std::vector<SUnit> &SUnits,
+  void collectMemOpRecords(SmallVectorImpl<SUnit> &SUnits,
                            SmallVectorImpl<MemOpInfo> &MemOpRecords);
   bool groupMemOps(ArrayRef<MemOpInfo> MemOps, ScheduleDAGInstrs *DAG,
                    DenseMap<unsigned, SmallVector<MemOpInfo, 32>> &Groups);
@@ -1940,7 +1940,7 @@ void BaseMemOpClusterMutation::clusterNeighboringMemOps(
 }
 
 void BaseMemOpClusterMutation::collectMemOpRecords(
-    std::vector<SUnit> &SUnits, SmallVectorImpl<MemOpInfo> &MemOpRecords) {
+    SmallVectorImpl<SUnit> &SUnits, SmallVectorImpl<MemOpInfo> &MemOpRecords) {
   for (auto &SU : SUnits) {
     if ((IsLoad && !SU.getInstr()->mayLoad()) ||
         (!IsLoad && !SU.getInstr()->mayStore()))

@@ -166,7 +166,7 @@ class SwingSchedulerDAG : public ScheduleDAGInstrs {
 
   /// Helper class to implement Johnson's circuit finding algorithm.
   class Circuits {
-    std::vector<SUnit> &SUnits;
+    SmallVectorImpl<SUnit> &SUnits;
     SetVector<SUnit *> Stack;
     BitVector Blocked;
     SmallVector<SmallPtrSet<SUnit *, 4>, 10> B;
@@ -177,7 +177,7 @@ class SwingSchedulerDAG : public ScheduleDAGInstrs {
     static unsigned MaxPaths;
 
   public:
-    Circuits(std::vector<SUnit> &SUs, ScheduleDAGTopologicalSort &Topo)
+    Circuits(SmallVectorImpl<SUnit> &SUs, ScheduleDAGTopologicalSort &Topo)
         : SUnits(SUs), Blocked(SUs.size()), B(SUs.size()), AdjK(SUs.size()) {
       Node2Idx = new std::vector<int>(SUs.size());
       unsigned Idx = 0;

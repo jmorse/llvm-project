@@ -50,7 +50,8 @@ class InstrItineraryData;
     const InstrItineraryData *InstrItins;
 
     /// The schedule. Null SUnit*'s represent noop instructions.
-    std::vector<SUnit*> Sequence;
+// XXX jmorse: 75% under 12, really really long tail. But probably worth it.
+    SmallVector<SUnit*, 32> Sequence;
 
     explicit ScheduleDAGSDNodes(MachineFunction &mf);
 

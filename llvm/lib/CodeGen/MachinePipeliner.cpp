@@ -1627,7 +1627,7 @@ unsigned SwingSchedulerDAG::calculateRecMII(NodeSetType &NodeSets) {
 
 /// Swap all the anti dependences in the DAG. That means it is no longer a DAG,
 /// but we do this to find the circuits, and then change them back.
-static void swapAntiDependences(std::vector<SUnit> &SUnits) {
+static void swapAntiDependences(SmallVectorImpl<SUnit> &SUnits) {
   SmallVector<std::pair<SUnit *, SDep>, 8> DepsAdded;
   for (SUnit &SU : SUnits) {
     for (SDep &Pred : SU.Preds)

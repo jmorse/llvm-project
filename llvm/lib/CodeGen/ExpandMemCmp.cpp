@@ -80,7 +80,8 @@ class MemCmpExpansion {
   unsigned MaxLoadSize = 0;
   uint64_t NumLoadsNonOneByte = 0;
   const uint64_t NumLoadsPerBlockForZeroCmp;
-  std::vector<BasicBlock *> LoadCmpBlocks;
+// XXX jmorse, still no zero accounting, but when we alloc 99% of the time there's <= 2 elems.
+  SmallVector<BasicBlock *, 2> LoadCmpBlocks;
   BasicBlock *EndBlock = nullptr;
   PHINode *PhiRes = nullptr;
   const bool IsUsedForZeroCmp;

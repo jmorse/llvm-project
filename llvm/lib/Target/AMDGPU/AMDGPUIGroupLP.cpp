@@ -216,7 +216,7 @@ public:
   // SchedGroup even when the other conditions for adding it are satisfied.
   // RIter will be added to the SchedGroup as well, and dependencies will be
   // added so that RIter will always be scheduled at the end of the group.
-  void initSchedGroup(std::vector<SUnit>::reverse_iterator RIter,
+  void initSchedGroup(SmallVectorImpl<SUnit>::reverse_iterator RIter,
                       SUnitsToCandidateSGsMap &SyncedInstrs);
 
   void initSchedGroup(SUnitsToCandidateSGsMap &SyncedInstrs);
@@ -2346,7 +2346,7 @@ private:
 
   // Create SchedGroups for a SCHED_GROUP_BARRIER.
   void initSchedGroupBarrierPipelineStage(
-      std::vector<SUnit>::reverse_iterator RIter);
+      SmallVectorImpl<SUnit>::reverse_iterator RIter);
 
   bool initIGLPOpt(SUnit &SU);
 
@@ -2514,7 +2514,7 @@ void SchedGroup::initSchedGroup() {
   }
 }
 
-void SchedGroup::initSchedGroup(std::vector<SUnit>::reverse_iterator RIter,
+void SchedGroup::initSchedGroup(SmallVectorImpl<SUnit>::reverse_iterator RIter,
                                 SUnitsToCandidateSGsMap &SyncedInstrs) {
   SUnit &InitSU = *RIter;
   for (auto E = DAG->SUnits.rend(); RIter != E; ++RIter) {
@@ -2644,7 +2644,7 @@ IGroupLPDAGMutation::invertSchedBarrierMask(SchedGroupMask Mask) const {
 }
 
 void IGroupLPDAGMutation::initSchedGroupBarrierPipelineStage(
-    std::vector<SUnit>::reverse_iterator RIter) {
+    SmallVectorImpl<SUnit>::reverse_iterator RIter) {
   // Remove all existing edges from the SCHED_GROUP_BARRIER that were added due
   // to the instruction having side effects.
   resetEdges(*RIter, DAG);

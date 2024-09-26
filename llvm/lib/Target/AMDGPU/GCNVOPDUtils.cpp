@@ -162,7 +162,7 @@ struct VOPDPairingMutation : ScheduleDAGMutation {
       return;
     }
 
-    std::vector<SUnit>::iterator ISUI, JSUI;
+    SmallVectorImpl<SUnit>::iterator ISUI, JSUI;
     for (ISUI = DAG->SUnits.begin(); ISUI != DAG->SUnits.end(); ++ISUI) {
       const MachineInstr *IMI = ISUI->getInstr();
       if (!shouldScheduleAdjacent(TII, ST, nullptr, *IMI))

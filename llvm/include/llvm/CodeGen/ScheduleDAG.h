@@ -524,7 +524,7 @@ class TargetRegisterInfo;
 
     virtual bool isBottomUp() const = 0;
 
-    virtual void initNodes(std::vector<SUnit> &SUnits) = 0;
+    virtual void initNodes(SmallVectorImpl<SUnit> &SUnits) = 0;
     virtual void addNode(const SUnit *SU) = 0;
     virtual void updateNode(const SUnit *SU) = 0;
     virtual void releaseState() = 0;
@@ -576,7 +576,8 @@ class TargetRegisterInfo;
     const TargetRegisterInfo *TRI;      ///< Target processor register info
     MachineFunction &MF;                ///< Machine function
     MachineRegisterInfo &MRI;           ///< Virtual/real register map
-    std::vector<SUnit> SUnits;          ///< The scheduling units.
+// XXX jmorse: long tail, 75% under 12, mostly all under 32, but there are some massive vectors out there.
+    SmallVector<SUnit, 32> SUnits;      ///< The scheduling units.
     SUnit EntrySU;                      ///< Special node for the region entry.
     SUnit ExitSU;                       ///< Special node for the region exit.
 
@@ -704,7 +705,7 @@ class TargetRegisterInfo;
   };
 
   template <> struct GraphTraits<ScheduleDAG*> : public GraphTraits<SUnit*> {
-    typedef pointer_iterator<std::vector<SUnit>::iterator> nodes_iterator;
+    typedef pointer_iterator<SmallVectorImpl<SUnit>::iterator> nodes_iterator;
     static nodes_iterator nodes_begin(ScheduleDAG *G) {
       return nodes_iterator(G->SUnits.begin());
     }
@@ -719,7 +720,7 @@ class TargetRegisterInfo;
   /// This allows a very fast implementation of IsReachable, for example.
   class ScheduleDAGTopologicalSort {
     /// A reference to the ScheduleDAG's SUnits.
-    std::vector<SUnit> &SUnits;
+    SmallVectorImpl<SUnit> &SUnits;
     SUnit *ExitSU;
 
     // Have any new nodes been added?
@@ -753,7 +754,7 @@ class TargetRegisterInfo;
     void FixOrder();
 
   public:
-    ScheduleDAGTopologicalSort(std::vector<SUnit> &SUnits, SUnit *ExitSU);
+    ScheduleDAGTopologicalSort(SmallVectorImpl<SUnit> &SUnits, SUnit *ExitSU);
 
     /// Add a SUnit without predecessors to the end of the topological order. It
     /// also must be the first new node added to the DAG.

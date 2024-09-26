@@ -614,9 +614,11 @@ private:
 
   const TargetLibraryInfo &TLI;
 
-  std::vector<std::unique_ptr<Concept>> AAs;
+// XXX jmorse: only ever instances of this being 3 or 4, not accounting for zero-allocations.
+  SmallVector<std::unique_ptr<Concept>, 4> AAs;
 
-  std::vector<AnalysisKey *> AADeps;
+// Only ever allocates 3, not accounting for zero-allocs.
+  SmallVector<AnalysisKey *, 4> AADeps;
 
   friend class BatchAAResults;
 };

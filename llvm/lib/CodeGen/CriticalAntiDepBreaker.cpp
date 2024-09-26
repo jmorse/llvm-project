@@ -434,7 +434,7 @@ findSuitableFreeRegister(RegRefIter RegRefBegin,
 }
 
 unsigned CriticalAntiDepBreaker::
-BreakAntiDependencies(const std::vector<SUnit> &SUnits,
+BreakAntiDependencies(const SmallVectorImpl<SUnit> &SUnits,
                       MachineBasicBlock::iterator Begin,
                       MachineBasicBlock::iterator End,
                       unsigned InsertPosIndex,

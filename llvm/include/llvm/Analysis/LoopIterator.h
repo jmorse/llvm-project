@@ -97,8 +97,8 @@ struct LoopBodyTraits {
 class LoopBlocksDFS {
 public:
   /// Postorder list iterators.
-  typedef SmallVector<BasicBlock*, 16>::const_iterator POIterator;
-  typedef SmallVector<BasicBlock*, 16>::const_reverse_iterator RPOIterator;
+  typedef SmallVectorImpl<BasicBlock*>::const_iterator POIterator;
+  typedef SmallVectorImpl<BasicBlock*>::const_reverse_iterator RPOIterator;
 
   friend class LoopBlocksTraversal;
 

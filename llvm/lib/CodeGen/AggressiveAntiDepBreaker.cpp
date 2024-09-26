@@ -726,7 +726,7 @@ bool AggressiveAntiDepBreaker::FindSuitableFreeRegisters(
 /// BreakAntiDependencies - Identifiy anti-dependencies within the
 /// ScheduleDAG and break them by renaming registers.
 unsigned AggressiveAntiDepBreaker::BreakAntiDependencies(
-                              const std::vector<SUnit> &SUnits,
+                              const SmallVectorImpl<SUnit> &SUnits,
                               MachineBasicBlock::iterator Begin,
                               MachineBasicBlock::iterator End,
                               unsigned InsertPosIndex,

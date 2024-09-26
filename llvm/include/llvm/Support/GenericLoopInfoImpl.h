@@ -453,7 +453,8 @@ static void discoverAndMapSubloop(LoopT *L, ArrayRef<BlockT *> Backedges,
   unsigned NumSubloops = 0;
 
   // Perform a backward CFG traversal using a worklist.
-  std::vector<BlockT *> ReverseCFGWorklist(Backedges.begin(), Backedges.end());
+  SmallVector<BlockT *, 8> ReverseCFGWorklist(Backedges.begin(), Backedges.end());
+// XXX jmorse: can be large, but mostly fewer than 8
   while (!ReverseCFGWorklist.empty()) {
     BlockT *PredBB = ReverseCFGWorklist.back();
     ReverseCFGWorklist.pop_back();

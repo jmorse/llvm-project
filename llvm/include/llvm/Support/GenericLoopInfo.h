@@ -62,7 +62,8 @@ template <class BlockT, class LoopT> class LoopBase {
   std::vector<LoopT *> SubLoops;
 
   // The list of blocks in this loop. First entry is the header node.
-  std::vector<BlockT *> Blocks;
+// XXX jmorse: 90% <= 8, maybe 98% <= 16? Didn't count. Also always allocates.
+  SmallVector<BlockT *, 16> Blocks;
 
   SmallPtrSet<const BlockT *, 8> DenseBlockSet;
 
@@ -191,7 +192,7 @@ public:
 
   /// Return a direct, mutable handle to the blocks vector so that we can
   /// mutate it efficiently with techniques like `std::remove`.
-  std::vector<BlockT *> &getBlocksVector() {
+  SmallVectorImpl<BlockT *> &getBlocksVector() {
     assert(!isInvalid() && "Loop not in a valid state!");
     return Blocks;
   }

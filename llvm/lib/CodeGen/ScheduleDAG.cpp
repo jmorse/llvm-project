@@ -748,7 +748,7 @@ void ScheduleDAGTopologicalSort::Allocate(int n, int index) {
 }
 
 ScheduleDAGTopologicalSort::
-ScheduleDAGTopologicalSort(std::vector<SUnit> &sunits, SUnit *exitsu)
+ScheduleDAGTopologicalSort(SmallVectorImpl<SUnit> &sunits, SUnit *exitsu)
   : SUnits(sunits), ExitSU(exitsu) {}
 
 ScheduleHazardRecognizer::~ScheduleHazardRecognizer() = default;

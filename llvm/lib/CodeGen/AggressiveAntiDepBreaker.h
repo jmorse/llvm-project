@@ -142,7 +142,7 @@ class LLVM_LIBRARY_VISIBILITY AggressiveAntiDepState {
 
     /// Identifiy anti-dependencies along the critical path
     /// of the ScheduleDAG and break them by renaming registers.
-    unsigned BreakAntiDependencies(const std::vector<SUnit> &SUnits,
+    unsigned BreakAntiDependencies(const SmallVectorImpl<SUnit> &SUnits,
                                    MachineBasicBlock::iterator Begin,
                                    MachineBasicBlock::iterator End,
                                    unsigned InsertPosIndex,

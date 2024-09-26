@@ -31,7 +31,7 @@ namespace llvm {
 
   class LatencyPriorityQueue : public SchedulingPriorityQueue {
     // SUnits - The SUnits for the current graph.
-    std::vector<SUnit> *SUnits = nullptr;
+    SmallVectorImpl<SUnit> *SUnits = nullptr;
 
     /// NumNodesSolelyBlocking - This vector contains, for every node in the
     /// Queue, the number of nodes that the node is the sole unscheduled
@@ -49,7 +49,7 @@ namespace llvm {
 
     bool isBottomUp() const override { return false; }
 
-    void initNodes(std::vector<SUnit> &sunits) override {
+    void initNodes(SmallVectorImpl<SUnit> &sunits) override {
       SUnits = &sunits;
       NumNodesSolelyBlocking.resize(SUnits->size(), 0);
     }

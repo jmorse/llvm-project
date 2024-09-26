@@ -934,7 +934,7 @@ void ScheduleDAGRRList::RestoreHazardCheckerBottomUp() {
   if (LookAhead == 0)
     return;
 
-  std::vector<SUnit *>::const_iterator I = (Sequence.end() - LookAhead);
+  SmallVectorImpl<SUnit *>::const_iterator I = (Sequence.end() - LookAhead);
   unsigned HazardCycle = (*I)->getHeight();
   for (auto E = Sequence.end(); I != E; ++I) {
     SUnit *SU = *I;
@@ -1731,13 +1731,23 @@ struct ilp_ls_rr_sort : public queue_sort {
 
 class RegReductionPQBase : public SchedulingPriorityQueue {
 protected:
-  std::vector<SUnit *> Queue;
+  SmallVector<SUnit *, 8> Queue;
+// XXX jmorse, usually <= 8... but not clear if this is the correct vector
+// XXX
+// XXX The other vectors below might want tweaking.
+// XXX
+// std::__1::vector<llvm::SUnit*, std::__1::allocator<llvm::SUnit*> >::vector[abi:sn200000]()
+// /fast/fs/llvm-main/build/bin/../include/c++/v1/vector:438:5
+// (anonymous namespace)::RegReductionPQBase::RegReductionPQBase(llvm::MachineFunction&, bool, bool, bool, llvm::TargetInstrInfo const*, llvm::TargetRegisterInfo const*, llvm::TargetLowering const*)
+// /fast/fs/llvm-main/llvm/lib/CodeGen/SelectionDAG/ScheduleDAGRRList.cpp:1759:3
+
+
   unsigned CurQueueId = 0;
   bool TracksRegPressure;
   bool SrcOrder;
 
   // SUnits - The SUnits for the current graph.
-  std::vector<SUnit> *SUnits = nullptr;
+  SmallVectorImpl<SUnit> *SUnits = nullptr;
 
   MachineFunction &MF;
   const TargetInstrInfo *TII = nullptr;
@@ -1784,7 +1794,7 @@ public:
     return scheduleDAG->getHazardRec();
   }
 
-  void initNodes(std::vector<SUnit> &sunits) override;
+  void initNodes(SmallVectorImpl<SUnit> &sunits) override;
 
   void addNode(const SUnit *SU) override;
 
@@ -1815,7 +1825,7 @@ public:
   void remove(SUnit *SU) override {
     assert(!Queue.empty() && "Queue is empty!");
     assert(SU->NodeQueueId != 0 && "Not in queue!");
-    std::vector<SUnit *>::iterator I = llvm::find(Queue, SU);
+    SmallVectorImpl<SUnit *>::iterator I = llvm::find(Queue, SU);
     if (I != std::prev(Queue.end()))
       std::swap(*I, Queue.back());
     Queue.pop_back();
@@ -1844,7 +1854,7 @@ protected:
 };
 
 template<class SF>
-static SUnit *popFromQueueImpl(std::vector<SUnit *> &Q, SF &Picker) {
+static SUnit *popFromQueueImpl(SmallVectorImpl<SUnit *> &Q, SF &Picker) {
   unsigned BestIdx = 0;
   // Only compute the cost for the first 1000 items in the queue, to avoid
   // excessive compile-times for very large queues.
@@ -1860,7 +1870,7 @@ static SUnit *popFromQueueImpl(std::vector<SUnit *> &Q, SF &Picker) {
 }
 
 template<class SF>
-SUnit *popFromQueue(std::vector<SUnit *> &Q, SF &Picker, ScheduleDAG *DAG) {
+SUnit *popFromQueue(SmallVectorImpl<SUnit *> &Q, SF &Picker, ScheduleDAG *DAG) {
 #ifndef NDEBUG
   if (DAG->StressSched) {
     reverse_sort<SF> RPicker(Picker);
@@ -1910,7 +1920,7 @@ public:
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   LLVM_DUMP_METHOD void dump(ScheduleDAG *DAG) const override {
     // Emulate pop() without clobbering NodeQueueIds.
-    std::vector<SUnit *> DumpQueue = Queue;
+    SmallVector<SUnit *, 8> DumpQueue = Queue;
     SF DumpPicker = Picker;
     while (!DumpQueue.empty()) {
       SUnit *SU = popFromQueue(DumpQueue, DumpPicker, scheduleDAG);
@@ -2811,7 +2821,7 @@ bool ilp_ls_rr_sort::operator()(SUnit *left, SUnit *right) const {
   return BURRSort(left, right, SPQ);
 }
 
-void RegReductionPQBase::initNodes(std::vector<SUnit> &sunits) {
+void RegReductionPQBase::initNodes(SmallVectorImpl<SUnit> &sunits) {
   SUnits = &sunits;
   // Add pseudo dependency edges for two-address nodes.
   if (!Disable2AddrHack)
