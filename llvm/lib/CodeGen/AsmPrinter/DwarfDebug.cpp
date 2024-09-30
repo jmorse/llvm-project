@@ -1828,8 +1828,10 @@ bool DwarfDebug::buildLocationList(SmallVectorImpl<DebugLocEntry> &DebugLoc,
   auto *NextEntry = std::next(CurEntry);
   auto NextRangeIt = std::next(RangeIt);
   while (NextEntry != DebugLoc.end()) {
-    if (NextRangeIt == Asm->MBBSectionRanges.end())
+    if (NextRangeIt == Asm->MBBSectionRanges.end()) {
+__asm__("int $3");
       return false;
+    }
     // CurEntry should end the current section and NextEntry should start
     // the next section and the Values must match for these two ranges to be
     // merged.  Do not match the section label end if it is the entry block
@@ -1838,8 +1840,10 @@ bool DwarfDebug::buildLocationList(SmallVectorImpl<DebugLocEntry> &DebugLoc,
     if ((RangeIt->second.EndLabel != Asm->getFunctionEnd() &&
          CurEntry->getEndSym() != RangeIt->second.EndLabel) ||
         NextEntry->getBeginSym() != NextRangeIt->second.BeginLabel ||
-        CurEntry->getValues() != NextEntry->getValues())
+        CurEntry->getValues() != NextEntry->getValues()) {
+__asm__("int $3");
       return false;
+    }
     RangeIt = NextRangeIt;
     NextRangeIt = std::next(RangeIt);
     CurEntry = NextEntry;
