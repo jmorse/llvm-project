@@ -173,7 +173,7 @@ private:
   // Each interference is an SUnit and set of physical registers.
   SmallVector<SUnit*, 4> Interferences;
 
-  using LRegsMapT = SmallDenseMap<SUnit *, SmallVector<unsigned, 4>, 4>;
+  using LRegsMapT = DenseMap<SUnit *, SmallVector<unsigned, 4>>;
 
   LRegsMapT LRegsMap;
 
