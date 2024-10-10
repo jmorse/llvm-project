@@ -18823,7 +18823,7 @@ bool SLPVectorizerPass::vectorizeHorReduction(
 bool SLPVectorizerPass::vectorizeRootInstruction(PHINode *P, Instruction *Root,
                                                  BasicBlock *BB, BoUpSLP &R,
                                                  TargetTransformInfo *TTI) {
-  SmallVector<WeakTrackingVH> PostponedInsts;
+  SmallVector<WeakTrackingVH, 8> PostponedInsts;
   bool Res = vectorizeHorReduction(P, Root, BB, R, TTI, PostponedInsts);
   Res |= tryToVectorize(PostponedInsts, R);
   return Res;

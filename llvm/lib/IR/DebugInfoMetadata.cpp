@@ -1661,9 +1661,9 @@ bool DIExpression::isEqualExpression(const DIExpression *FirstExpr,
                                      bool FirstIndirect,
                                      const DIExpression *SecondExpr,
                                      bool SecondIndirect) {
-  SmallVector<uint64_t> FirstOps;
+  SmallVector<uint64_t, 8> FirstOps;
   DIExpression::canonicalizeExpressionOps(FirstOps, FirstExpr, FirstIndirect);
-  SmallVector<uint64_t> SecondOps;
+  SmallVector<uint64_t, 8> SecondOps;
   DIExpression::canonicalizeExpressionOps(SecondOps, SecondExpr,
                                           SecondIndirect);
   return FirstOps == SecondOps;

@@ -194,7 +194,7 @@ public:
     MachineBasicBlock *MBB; /// non-null if we should insert after.
     /// Vector of DBG_VALUEs to insert. Store with their DebugVariableID so that
     /// they can be sorted into a stable order for emission at a later time.
-    SmallVector<std::pair<DebugVariableID, MachineInstr *>, 4> Insts;
+    SmallVector<std::pair<DebugVariableID, MachineInstr *>, 8> Insts;
   };
 
   /// Stores the resolved operands (machine locations and constants) and
@@ -238,7 +238,7 @@ public:
   DenseMap<DebugVariableID, ResolvedDbgValue> ActiveVLocs;
 
   /// Temporary cache of DBG_VALUEs to be entered into the Transfers collection.
-  SmallVector<std::pair<DebugVariableID, MachineInstr *>, 4> PendingDbgValues;
+  SmallVector<std::pair<DebugVariableID, MachineInstr *>, 8> PendingDbgValues;
 
   /// Record of a use-before-def: created when a value that's live-in to the
   /// current block isn't available in any machine location, but it will be

@@ -594,7 +594,7 @@ public:
   const SCEV *getMulExpr(const SCEV *LHS, const SCEV *RHS,
                          SCEV::NoWrapFlags Flags = SCEV::FlagAnyWrap,
                          unsigned Depth = 0) {
-    SmallVector<const SCEV *, 2> Ops = {LHS, RHS};
+    SmallVector<const SCEV *, 8> Ops = {LHS, RHS};
     return getMulExpr(Ops, Flags, Depth);
   }
   const SCEV *getMulExpr(const SCEV *Op0, const SCEV *Op1, const SCEV *Op2,

@@ -6383,7 +6383,7 @@ struct SCEVDbgValueBuilder {
   }
 
   /// The DIExpression as we translate the SCEV.
-  SmallVector<uint64_t, 6> Expr;
+  SmallVector<uint64_t, 16> Expr;
   /// The location ops of the DIExpression.
   SmallVector<Value *, 2> LocationOps;
 

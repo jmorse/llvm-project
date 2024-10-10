@@ -7416,7 +7416,7 @@ const SCEV *ScalarEvolution::createSCEVIter(Value *V) {
   // Worklist item with a Value and a bool indicating whether all operands have
   // been visited already.
   using PointerTy = PointerIntPair<Value *, 1, bool>;
-  SmallVector<PointerTy> Stack;
+  SmallVector<PointerTy, 8> Stack;
 
   Stack.emplace_back(V, true);
   Stack.emplace_back(V, false);

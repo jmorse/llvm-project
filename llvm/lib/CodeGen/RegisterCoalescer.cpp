@@ -4120,7 +4120,7 @@ RegisterCoalescer::copyCoalesceInMBB(MachineBasicBlock *MBB) {
     WorkList.append(GlobalTerminals.begin(), GlobalTerminals.end());
   }
   else {
-    SmallVector<MachineInstr*, 2> Terminals;
+    SmallVector<MachineInstr*, 8> Terminals;
     for (MachineInstr &MII : *MBB)
       if (MII.isCopyLike()) {
         if (applyTerminalRule(MII))

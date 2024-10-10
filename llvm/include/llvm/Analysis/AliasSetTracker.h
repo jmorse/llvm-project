@@ -52,6 +52,8 @@ class AliasSet : public ilist_node<AliasSet> {
   AliasSet *Forward = nullptr;
 
   /// Memory locations in this alias set.
+// XXX jmorse: this has 141322 avoidable allocations?
+// XXX examine whether we actually want this to be zero sized or not...
   SmallVector<MemoryLocation, 0> MemoryLocs;
 
   /// All instructions without a specific address in this alias set.

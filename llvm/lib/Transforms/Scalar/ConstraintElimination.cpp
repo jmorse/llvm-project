@@ -224,7 +224,7 @@ struct ConstraintTy {
   SmallVector<int64_t, 8> Coefficients;
   SmallVector<ConditionTy, 2> Preconditions;
 
-  SmallVector<SmallVector<int64_t, 8>> ExtraInfo;
+  SmallVector<SmallVector<int64_t, 16>> ExtraInfo;
 
   bool IsSigned = false;
 
@@ -692,7 +692,7 @@ ConstraintInfo::getConstraint(CmpInst::Predicate Pred, Value *Op0, Value *Op1,
   // Build result constraint, by first adding all coefficients from A and then
   // subtracting all coefficients from B.
   ConstraintTy Res(
-      SmallVector<int64_t, 8>(Value2Index.size() + NewVariables.size() + 1, 0),
+      SmallVector<int64_t, 16>(Value2Index.size() + NewVariables.size() + 1, 0),
       IsSigned, IsEq, IsNe);
   // Collect variables that are known to be positive in all uses in the
   // constraint.
@@ -739,7 +739,7 @@ ConstraintInfo::getConstraint(CmpInst::Predicate Pred, Value *Op0, Value *Op1,
     if (!KV.second ||
         (!Value2Index.contains(KV.first) && !NewIndexMap.contains(KV.first)))
       continue;
-    SmallVector<int64_t, 8> C(Value2Index.size() + NewVariables.size() + 1, 0);
+    SmallVector<int64_t, 16> C(Value2Index.size() + NewVariables.size() + 1, 0);
     C[GetOrAddIndex(KV.first)] = -1;
     Res.ExtraInfo.push_back(C);
   }

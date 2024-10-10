@@ -87,7 +87,7 @@ class BitVector {
   static_assert(BITWORD_SIZE == 64 || BITWORD_SIZE == 32,
                 "Unsupported word size");
 
-  using Storage = SmallVector<BitWord>;
+  using Storage = SmallVector<BitWord, 8>;
 
   Storage Bits;  // Actual bits.
   unsigned Size = 0; // Size of bitvector in bits.

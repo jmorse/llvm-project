@@ -197,8 +197,8 @@ namespace llvm {
       void dump() const;
     };
 
-    using Segments = SmallVector<Segment, 2>;
-    using VNInfoList = SmallVector<VNInfo *, 2>;
+    using Segments = SmallVector<Segment, 8>;
+    using VNInfoList = SmallVector<VNInfo *, 8>;
 
     Segments segments;   // the liveness segments
     VNInfoList valnos;   // value#'s
