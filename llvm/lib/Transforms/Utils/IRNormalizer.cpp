@@ -490,11 +490,11 @@ void IRNormalizer::reorderDefinition(
 
   {
     const auto *BasicBlock = Definition->getParent();
-    const auto FirstNonPHIOrDbgOrAlloca =
-        BasicBlock->getFirstNonPHIOrDbgOrAlloca();
-    if (FirstNonPHIOrDbgOrAlloca == BasicBlock->end())
+    const auto FirstNonPHIOrAlloca =
+        BasicBlock->getFirstNonPHIOrAllocaIt();
+    if (FirstNonPHIOrAlloca == BasicBlock->end())
       return; // TODO: Is this necessary?
-    if (Definition->comesBefore(&*FirstNonPHIOrDbgOrAlloca))
+    if (Definition->comesBefore(&*FirstNonPHIOrAlloca))
       return; // TODO: Do some kind of ordering for these instructions.
   }
 

@@ -770,7 +770,7 @@ static bool unswitchTrivialSwitch(Loop &L, SwitchInst &SI, DominatorTree &DT,
     // instruction in the block.
     auto *TI = BBToCheck.getTerminator();
     bool isUnreachable = isa<UnreachableInst>(TI);
-    return !isUnreachable || BBToCheck.getFirstNonPHIOrDbg() != TI;
+    return !isUnreachable || &*BBToCheck.getFirstNonPHIIt() != TI;
   };
 
   SmallVector<int, 4> ExitCaseIndices;
@@ -3303,7 +3303,7 @@ static bool isSafeForNoNTrivialUnswitching(Loop &L, LoopInfo &LI) {
   // FIXME: We should teach SplitBlock to handle this and remove this
   // restriction.
   for (auto *ExitBB : ExitBlocks) {
-    auto *I = ExitBB->getFirstNonPHI();
+    auto It = ExitBB->getFirstNonPHIIt();
     if (isa<CleanupPadInst>(I) || isa<CatchSwitchInst>(I)) {
       LLVM_DEBUG(dbgs() << "Cannot unswitch because of cleanuppad/catchswitch "
                            "in exit block\n");

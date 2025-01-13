@@ -122,7 +122,7 @@ llvm::SplitKnownCriticalEdge(Instruction *TI, unsigned SuccNum,
   if (DestBB->isEHPad()) return nullptr;
 
   if (Options.IgnoreUnreachableDests &&
-      isa<UnreachableInst>(DestBB->getFirstNonPHIOrDbgOrLifetime()))
+      isa<UnreachableInst>(DestBB->getFirstNonPHIOrLifetimeIt())) // XXX wants new OrLifetime variant
     return nullptr;
 
   auto *LI = Options.LI;
@@ -366,8 +366,8 @@ bool llvm::SplitIndirectBrCriticalEdges(Function &F,
       continue;
 
     // Don't even think about ehpads/landingpads.
-    Instruction *FirstNonPHI = Target->getFirstNonPHI();
-    if (FirstNonPHI->isEHPad() || Target->isLandingPad())
+    auto FirstNonPHIIt = Target->getFirstNonPHIIt();
+    if (FirstNonPHIIt->isEHPad() || Target->isLandingPad())
       continue;
 
     // Remember edge probabilities if needed.
@@ -380,7 +380,7 @@ bool llvm::SplitIndirectBrCriticalEdges(Function &F,
       BPI->eraseBlock(Target);
     }
 
-    BasicBlock *BodyBlock = Target->splitBasicBlock(FirstNonPHI, ".split");
+    BasicBlock *BodyBlock = Target->splitBasicBlock(FirstNonPHIIt, ".split");
     if (ShouldUpdateAnalysis) {
       // Copy the BFI/BPI from Target to BodyBlock.
       BPI->setEdgeProbability(BodyBlock, EdgeProbabilities);

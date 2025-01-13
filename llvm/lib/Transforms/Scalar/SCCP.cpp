@@ -102,7 +102,7 @@ static bool runSCCP(Function &F, const DataLayout &DL,
 
   // Remove unreachable blocks and non-feasible edges.
   for (BasicBlock *DeadBB : BlocksToErase)
-    NumInstRemoved += changeToUnreachable(DeadBB->getFirstNonPHI(),
+    NumInstRemoved += changeToUnreachable(&*DeadBB->getFirstNonPHIIt(), // XXX jmorse, this changed dbg.values, difference now is unremarkable.
                                           /*PreserveLCSSA=*/false, &DTU);
 
   BasicBlock *NewUnreachableBB = nullptr;
