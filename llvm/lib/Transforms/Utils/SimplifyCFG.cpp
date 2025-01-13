@@ -5412,7 +5412,6 @@ static bool removeEmptyCleanup(CleanupReturnInst *RI, DomTreeUpdater *DTU) {
   // If the cleanup return we are simplifying unwinds to the caller, this will
   // set UnwindDest to nullptr.
   BasicBlock *UnwindDest = RI->getUnwindDest();
-  Instruction *DestEHPad = UnwindDest ? UnwindDest->getFirstNonPHI() : nullptr;
 
   // We're about to remove BB from the control flow.  Before we do, sink any
   // PHINodes into the unwind destination.  Doing this before changing the
@@ -5449,7 +5448,7 @@ static bool removeEmptyCleanup(CleanupReturnInst *RI, DomTreeUpdater *DTU) {
     }
 
     // Sink any remaining PHI nodes directly into UnwindDest.
-    Instruction *InsertPt = DestEHPad;
+    BasicBlock::iterator InsertPt = UnwindDest->getFirstNonPHIIt(); // XXX unsafe faff
     for (PHINode &PN : make_early_inc_range(BB->phis())) {
       if (PN.use_empty() || !PN.isUsedOutsideOfBlock(BB))
         // If the PHI node has no uses or all of its uses are in this basic

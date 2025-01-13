@@ -651,7 +651,7 @@ void OpenMPIRBuilder::initialize() { initializeTypes(M); }
 static void raiseUserConstantDataAllocasToEntryBlock(IRBuilderBase &Builder,
                                                      Function *Function) {
   BasicBlock &EntryBlock = Function->getEntryBlock();
-  Instruction *MoveLocInst = EntryBlock.getFirstNonPHI();
+  BasicBlock::iterator MoveLocInst = EntryBlock.getFirstNonPHIIt(); // XXX unsafe faff
 
   // Loop over blocks looking for constant allocas, skipping the entry block
   // as any allocas there are already in the desired location.
@@ -4094,7 +4094,7 @@ OpenMPIRBuilder::applyStaticWorkshareLoop(DebugLoc DL, CanonicalLoopInfo *CLI,
       getOrCreateRuntimeFunction(M, omp::OMPRTL___kmpc_for_static_fini);
 
   // Allocate space for computed loop bounds as expected by the "init" function.
-  Builder.SetInsertPoint(AllocaIP.getBlock()->getFirstNonPHIOrDbgOrAlloca());
+  Builder.SetInsertPoint(AllocaIP.getBlock()->getFirstNonPHIOrAllocaIt()); // XXX wants more alloca
 
   Type *I32Type = Type::getInt32Ty(M.getContext());
   Value *PLastIter = Builder.CreateAlloca(I32Type, nullptr, "p.lastiter");
@@ -4678,7 +4678,7 @@ OpenMPIRBuilder::applyDynamicWorkshareLoop(DebugLoc DL, CanonicalLoopInfo *CLI,
   FunctionCallee DynamicNext = getKmpcForDynamicNextForType(IVTy, M, *this);
 
   // Allocate space for computed loop bounds as expected by the "init" function.
-  Builder.SetInsertPoint(AllocaIP.getBlock()->getFirstNonPHIOrDbgOrAlloca());
+  Builder.SetInsertPoint(AllocaIP.getBlock()->getFirstNonPHIOrAlloca()); // XXX wants more alloca
   Type *I32Type = Type::getInt32Ty(M.getContext());
   Value *PLastIter = Builder.CreateAlloca(I32Type, nullptr, "p.lastiter");
   Value *PLowerBound = Builder.CreateAlloca(IVTy, nullptr, "p.lowerbound");
@@ -6824,10 +6824,10 @@ static Expected<Function *> createOutlinedFunction(
   Builder.CreateRetVoid();
 
   // New Alloca IP at entry point of created device function.
-  Builder.SetInsertPoint(EntryBB->getFirstNonPHI());
+  Builder.SetInsertPoint(EntryBB->getFirstNonPHIIt()); // XXX unsafe faff
   auto AllocaIP = Builder.saveIP();
 
-  Builder.SetInsertPoint(UserCodeEntryBB->getFirstNonPHIOrDbg());
+  Builder.SetInsertPoint(UserCodeEntryBB->getFirstNonPHIIt()); // XXX unsafe faff
 
   // Skip the artificial dyn_ptr on the device.
   const auto &ArgRange =
