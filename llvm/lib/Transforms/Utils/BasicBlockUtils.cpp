@@ -1729,7 +1729,7 @@ void llvm::SplitBlockAndInsertIfThenElse(
 }
 
 std::pair<Instruction*, Value*>
-llvm::SplitBlockAndInsertSimpleForLoop(Value *End, Instruction *SplitBefore) {
+llvm::SplitBlockAndInsertSimpleForLoop(Value *End, BasicBlock::iterator SplitBefore) {
   BasicBlock *LoopPred = SplitBefore->getParent();
   BasicBlock *LoopBody = SplitBlock(SplitBefore->getParent(), SplitBefore);
   BasicBlock *LoopExit = SplitBlock(SplitBefore->getParent(), SplitBefore);
@@ -1752,11 +1752,11 @@ llvm::SplitBlockAndInsertSimpleForLoop(Value *End, Instruction *SplitBefore) {
   IV->addIncoming(ConstantInt::get(Ty, 0), LoopPred);
   IV->addIncoming(IVNext, LoopBody);
 
-  return std::make_pair(LoopBody->getFirstNonPHI(), IV);
+  return std::make_pair(&*LoopBody->getFirstNonPHIIt(), IV);
 }
 
 void llvm::SplitBlockAndInsertForEachLane(ElementCount EC,
-     Type *IndexTy, Instruction *InsertBefore,
+     Type *IndexTy, BasicBlock::iterator InsertBefore,
      std::function<void(IRBuilderBase&, Value*)> Func) {
 
   IRBuilder<> IRB(InsertBefore);
@@ -1780,7 +1780,7 @@ void llvm::SplitBlockAndInsertForEachLane(ElementCount EC,
 }
 
 void llvm::SplitBlockAndInsertForEachLane(
-    Value *EVL, Instruction *InsertBefore,
+    Value *EVL, BasicBlock::iterator InsertBefore,
     std::function<void(IRBuilderBase &, Value *)> Func) {
 
   IRBuilder<> IRB(InsertBefore);
