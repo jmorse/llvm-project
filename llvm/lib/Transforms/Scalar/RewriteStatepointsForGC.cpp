@@ -2185,7 +2185,7 @@ static void relocationViaAlloca(
         // InvokeInst is a terminator so the store need to be inserted into its
         // normal destination block.
         BasicBlock *NormalDest = Invoke->getNormalDest();
-        Store->insertBefore(NormalDest->getFirstNonPHI());
+        Store->insertBefore(NormalDest->getFirstNonPHIIt()); // XXX not safe until faff
       } else {
         assert(!Inst->isTerminator() &&
                "The only terminator that can produce a value is "
