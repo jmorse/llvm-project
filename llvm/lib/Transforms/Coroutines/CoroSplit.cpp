@@ -804,16 +804,17 @@ static void updateScopeLine(Instruction *ActiveSuspend,
   if (!ActiveSuspend)
     return;
 
-  auto *Successor = ActiveSuspend->getNextNonDebugInstruction();
+  BasicBlock::iterator Successor =
+    ActiveSuspend->getNextNonDebugInstruction()->getIterator();
   // Corosplit splits the BB around ActiveSuspend, so the meaningful
   // instructions are not in the same BB.
   if (auto *Branch = dyn_cast_or_null<BranchInst>(Successor);
       Branch && Branch->isUnconditional())
-    Successor = Branch->getSuccessor(0)->getFirstNonPHIOrDbg();
+    Successor = Branch->getSuccessor(0)->getFirstNonPHIIt();
 
   // Find the first successor of ActiveSuspend with a non-zero line location.
   // If that matches the file of ActiveSuspend, use it.
-  for (; Successor; Successor = Successor->getNextNonDebugInstruction()) {
+  for (; Successor; Successor = Successor->getNextNonDebugInstruction()->getIterator()) {
     auto DL = Successor->getDebugLoc();
     if (!DL || DL.getLine() == 0)
       continue;
@@ -1199,8 +1200,8 @@ static void handleNoSuspendCoroutine(coro::Shape &Shape) {
 // SimplifySuspendPoint needs to check that there is no calls between
 // coro_save and coro_suspend, since any of the calls may potentially resume
 // the coroutine and if that is the case we cannot eliminate the suspend point.
-static bool hasCallsInBlockBetween(Instruction *From, Instruction *To) {
-  for (Instruction *I = From; I != To; I = I->getNextNode()) {
+static bool hasCallsInBlockBetween(iterator_range<BasicBlock::iterator> R) {
+  for (I : R) {
     // Assume that no intrinsic can resume the coroutine.
     if (isa<IntrinsicInst>(I))
       continue;
@@ -1234,7 +1235,7 @@ static bool hasCallsInBlocksBetween(BasicBlock *SaveBB, BasicBlock *ResDesBB) {
   Set.erase(ResDesBB);
 
   for (auto *BB : Set)
-    if (hasCallsInBlockBetween(BB->getFirstNonPHI(), nullptr))
+    if (hasCallsInBlockBetween({BB->getFirstNonPHIIt(), BB->end()}))
       return true;
 
   return false;
@@ -1243,17 +1244,19 @@ static bool hasCallsInBlocksBetween(BasicBlock *SaveBB, BasicBlock *ResDesBB) {
 static bool hasCallsBetween(Instruction *Save, Instruction *ResumeOrDestroy) {
   auto *SaveBB = Save->getParent();
   auto *ResumeOrDestroyBB = ResumeOrDestroy->getParent();
+  BasicBlock::iterator SaveIt = Save->getIterator();
+  BasicBlock::iterator ResumeOrDestroyIt = ResumeOrDestroy->getIterator();
 
   if (SaveBB == ResumeOrDestroyBB)
-    return hasCallsInBlockBetween(Save->getNextNode(), ResumeOrDestroy);
+    return hasCallsInBlockBetween({std::next(SaveIt), ResumeOrDestroyIt});
 
   // Any calls from Save to the end of the block?
-  if (hasCallsInBlockBetween(Save->getNextNode(), nullptr))
+  if (hasCallsInBlockBetween({std::next(SaveIt), SaveBB->end()}))
     return true;
 
   // Any calls from begging of the block up to ResumeOrDestroy?
-  if (hasCallsInBlockBetween(ResumeOrDestroyBB->getFirstNonPHI(),
-                             ResumeOrDestroy))
+  if (hasCallsInBlockBetween({ResumeOrDestroyBB->getFirstNonPHIIt(),
+                             ResumeOrDestroyIt}))
     return true;
 
   // Any calls in all of the blocks between SaveBB and ResumeOrDestroyBB?

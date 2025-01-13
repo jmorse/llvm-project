@@ -1368,8 +1368,8 @@ bool LoopInterchangeTransform::transform() {
 
   // Ensure the inner loop phi nodes have a separate basic block.
   BasicBlock *InnerLoopHeader = InnerLoop->getHeader();
-  if (InnerLoopHeader->getFirstNonPHI() != InnerLoopHeader->getTerminator()) {
-    SplitBlock(InnerLoopHeader, InnerLoopHeader->getFirstNonPHI(), DT, LI);
+  if (&*InnerLoopHeader->getFirstNonPHIIt() != InnerLoopHeader->getTerminator()) {
+    SplitBlock(InnerLoopHeader, InnerLoopHeader->getFirstNonPHIIt(), DT, LI);
     LLVM_DEBUG(dbgs() << "splitting InnerLoopHeader done\n");
   }
 

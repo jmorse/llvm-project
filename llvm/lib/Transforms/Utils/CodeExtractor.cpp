@@ -411,7 +411,7 @@ CodeExtractor::findOrCreateBlockForHoisting(BasicBlock *CommonExitBlock) {
 #endif
 
   BasicBlock *NewExitBlock = CommonExitBlock->splitBasicBlock(
-      CommonExitBlock->getFirstNonPHI()->getIterator());
+      CommonExitBlock->getFirstNonPHIIt());
 
   for (BasicBlock *Pred :
        llvm::make_early_inc_range(predecessors(CommonExitBlock))) {
@@ -701,7 +701,7 @@ void CodeExtractor::severSplitPHINodesOfEntry(BasicBlock *&Header) {
   // containing PHI nodes merging values from outside of the region, and a
   // second that contains all of the code for the block and merges back any
   // incoming values from inside of the region.
-  BasicBlock *NewBB = SplitBlock(Header, Header->getFirstNonPHI(), DT);
+  BasicBlock *NewBB = SplitBlock(Header, Header->getFirstNonPHIIt(), DT);
 
   // We only want to code extract the second block now, and it becomes the new
   // header of the region.

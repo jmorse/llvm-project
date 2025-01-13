@@ -2763,7 +2763,7 @@ bool CompatibleSets::shouldBelongToSameSet(ArrayRef<InvokeInst *> Invokes) {
   // Either both `invoke`s must not have a normal destination,
   // or     both `invoke`s must     have a normal destination,
   auto HasNormalDest = [](InvokeInst *II) {
-    return !isa<UnreachableInst>(II->getNormalDest()->getFirstNonPHIOrDbg());
+    return !isa<UnreachableInst>(II->getNormalDest()->getFirstNonPHIIt());
   };
   if (any_of(Invokes, HasNormalDest)) {
     // Do not merge `invoke` that does not have a normal destination with one
@@ -2850,7 +2850,7 @@ static void mergeCompatibleInvokesImpl(ArrayRef<InvokeInst *> Invokes,
     Updates.reserve(2 + 3 * Invokes.size());
 
   bool HasNormalDest =
-      !isa<UnreachableInst>(Invokes[0]->getNormalDest()->getFirstNonPHIOrDbg());
+      !isa<UnreachableInst>(Invokes[0]->getNormalDest()->getFirstNonPHIIt());
 
   // Clone one of the invokes into a new basic block.
   // Since they are all compatible, it doesn't matter which invoke is cloned.
@@ -5262,8 +5262,8 @@ bool SimplifyCFGOpt::simplifyBranchOnICmpChain(BranchInst *BI,
 bool SimplifyCFGOpt::simplifyResume(ResumeInst *RI, IRBuilder<> &Builder) {
   if (isa<PHINode>(RI->getValue()))
     return simplifyCommonResume(RI);
-  else if (isa<LandingPadInst>(RI->getParent()->getFirstNonPHI()) &&
-           RI->getValue() == RI->getParent()->getFirstNonPHI())
+  else if (isa<LandingPadInst>(RI->getParent()->getFirstNonPHIIt()) &&
+           RI->getValue() == &*RI->getParent()->getFirstNonPHIIt())
     // The resume must unwind the exception that caused control to branch here.
     return simplifySingleResume(RI);
 
@@ -5298,7 +5298,7 @@ bool SimplifyCFGOpt::simplifyCommonResume(ResumeInst *RI) {
   // Check that there are no other instructions except for debug and lifetime
   // intrinsics between the phi's and resume instruction.
   if (!isCleanupBlockEmpty(
-          make_range(RI->getParent()->getFirstNonPHI(), BB->getTerminator())))
+          make_range(RI->getParent()->getFirstNonPHIIt(), BB->getTerminator()->getIterator())))
     return false;
 
   SmallSetVector<BasicBlock *, 4> TrivialUnwindBlocks;
@@ -5315,7 +5315,7 @@ bool SimplifyCFGOpt::simplifyCommonResume(ResumeInst *RI) {
     if (IncomingBB->getUniqueSuccessor() != BB)
       continue;
 
-    auto *LandingPad = dyn_cast<LandingPadInst>(IncomingBB->getFirstNonPHI());
+    auto *LandingPad = dyn_cast<LandingPadInst>(IncomingBB->getFirstNonPHIIt());
     // Not the landing pad that caused the control to branch here.
     if (IncomingValue != LandingPad)
       continue;
@@ -5364,7 +5364,7 @@ bool SimplifyCFGOpt::simplifyCommonResume(ResumeInst *RI) {
 // Simplify resume that is only used by a single (non-phi) landing pad.
 bool SimplifyCFGOpt::simplifySingleResume(ResumeInst *RI) {
   BasicBlock *BB = RI->getParent();
-  auto *LPInst = cast<LandingPadInst>(BB->getFirstNonPHI());
+  auto *LPInst = cast<LandingPadInst>(BB->getFirstNonPHIIt());
   assert(RI->getValue() == LPInst &&
          "Resume must unwind the exception that caused control to here");
 
@@ -5776,7 +5776,7 @@ bool SimplifyCFGOpt::turnSwitchRangeIntoICmp(SwitchInst *SI,
   assert(SI->getNumCases() > 1 && "Degenerate switch?");
 
   bool HasDefault =
-      !isa<UnreachableInst>(SI->getDefaultDest()->getFirstNonPHIOrDbg());
+      !isa<UnreachableInst>(SI->getDefaultDest()->getFirstNonPHIIt());
 
   auto *BB = SI->getParent();
 
@@ -5939,7 +5939,7 @@ static bool eliminateDeadSwitchCases(SwitchInst *SI, DomTreeUpdater *DTU,
   // of the bits in the value, we can use that to more precisely compute the
   // number of possible unique case values.
   bool HasDefault =
-      !isa<UnreachableInst>(SI->getDefaultDest()->getFirstNonPHIOrDbg());
+      !isa<UnreachableInst>(SI->getDefaultDest()->getFirstNonPHIIt());
   const unsigned NumUnknownBits =
       Known.getBitWidth() - (Known.Zero | Known.One).popcount();
   assert(NumUnknownBits <= Known.getBitWidth());
@@ -6004,7 +6004,7 @@ static bool eliminateDeadSwitchCases(SwitchInst *SI, DomTreeUpdater *DTU,
 /// the phi node, and set PhiIndex to BB's index in the phi node.
 static PHINode *findPHIForConditionForwarding(ConstantInt *CaseValue,
                                               BasicBlock *BB, int *PhiIndex) {
-  if (BB->getFirstNonPHIOrDbg() != BB->getTerminator())
+  if (&*BB->getFirstNonPHIIt() != BB->getTerminator())
     return nullptr; // BB must be empty to be a candidate for simplification.
   if (!BB->getSinglePredecessor())
     return nullptr; // BB must be dominated by the switch.
@@ -6297,7 +6297,7 @@ static bool initializeUniqueCases(SwitchInst *SI, PHINode *&PHI,
   DefaultResult =
       DefaultResults.size() == 1 ? DefaultResults.begin()->second : nullptr;
   if ((!DefaultResult &&
-       !isa<UnreachableInst>(DefaultDest->getFirstNonPHIOrDbg())))
+       !isa<UnreachableInst>(DefaultDest->getFirstNonPHIIt())))
     return false;
 
   return true;
@@ -7339,7 +7339,7 @@ static bool simplifySwitchOfPowersOfTwo(SwitchInst *SI, IRBuilder<> &Builder,
   // We perform this optimization only for switches with
   // unreachable default case.
   // This assumtion will save us from checking if `Condition` is a power of two.
-  if (!isa<UnreachableInst>(SI->getDefaultDest()->getFirstNonPHIOrDbg()))
+  if (!isa<UnreachableInst>(SI->getDefaultDest()->getFirstNonPHIIt()))
     return false;
 
   // Check that switch cases are powers of two.
@@ -7885,7 +7885,7 @@ bool SimplifyCFGOpt::simplifyUncondBranch(BranchInst *BI,
       Options.NeedCanonicalLoop &&
       (!LoopHeaders.empty() && BB->hasNPredecessorsOrMore(2) &&
        (is_contained(LoopHeaders, BB) || is_contained(LoopHeaders, Succ)));
-  BasicBlock::iterator I = BB->getFirstNonPHIOrDbg(true)->getIterator();
+  BasicBlock::iterator I = BB->getFirstNonPHIIt(); // XXX XXX XXX does this skip pseudo ops too?
   if (I->isTerminator() && BB != &BB->getParent()->getEntryBlock() &&
       !NeedCanonicalLoop && TryToSimplifyUncondBranchFromEmptyBlock(BB, DTU))
     return true;
