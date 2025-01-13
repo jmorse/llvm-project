@@ -910,9 +910,9 @@ populateEHOperandBundle(VPCandidateInfo &Cand,
     if (!BlockColors.empty()) {
       const ColorVector &CV = BlockColors.find(OrigCall->getParent())->second;
       assert(CV.size() == 1 && "non-unique color for block!");
-      Instruction *EHPad = CV.front()->getFirstNonPHI();
+      BasicBlock::iterator EHPadIt = CV.front()->getFirstNonPHIIt();
       if (EHPad->isEHPad())
-        OpBundles.emplace_back("funclet", EHPad);
+        OpBundles.emplace_back("funclet", &*EHPad);
     }
   }
 }

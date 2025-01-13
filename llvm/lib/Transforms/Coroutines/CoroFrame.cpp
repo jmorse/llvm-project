@@ -1449,7 +1449,7 @@ static void rewritePHIs(BasicBlock &BB) {
   // Special case for CleanupPad: all EH blocks must have the same unwind edge
   // so we need to create an additional "dispatcher" block.
   if (auto *CleanupPad =
-          dyn_cast_or_null<CleanupPadInst>(BB.getFirstNonPHI())) {
+          dyn_cast_or_null<CleanupPadInst>(BB.getFirstNonPHIIt())) {
     SmallVector<BasicBlock *, 8> Preds(predecessors(&BB));
     for (BasicBlock *Pred : Preds) {
       if (CatchSwitchInst *CS =
@@ -1466,7 +1466,7 @@ static void rewritePHIs(BasicBlock &BB) {
 
   LandingPadInst *LandingPad = nullptr;
   PHINode *ReplPHI = nullptr;
-  if ((LandingPad = dyn_cast_or_null<LandingPadInst>(BB.getFirstNonPHI()))) {
+  if ((LandingPad = dyn_cast_or_null<LandingPadInst>(BB.getFirstNonPHIIt()))) {
     // ehAwareSplitEdge will clone the LandingPad in all the edge blocks.
     // We replace the original landing pad with a PHINode that will collect the
     // results from all of them.

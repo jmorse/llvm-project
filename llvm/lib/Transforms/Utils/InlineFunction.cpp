@@ -184,14 +184,14 @@ namespace {
 } // end anonymous namespace
 
 static IntrinsicInst *getConvergenceEntry(BasicBlock &BB) {
-  auto *I = BB.getFirstNonPHI();
-  while (I) {
-    if (auto *IntrinsicCall = dyn_cast<ConvergenceControlInst>(I)) {
+  BasicBlock::iterator It = BB.getFirstNonPHIIt();
+  while (It != BB.end()) {
+    if (auto *IntrinsicCall = dyn_cast<ConvergenceControlInst>(It)) {
       if (IntrinsicCall->isEntry()) {
         return IntrinsicCall;
       }
     }
-    I = I->getNextNode();
+    I = std::next(I);
   }
   return nullptr;
 }
@@ -276,6 +276,8 @@ static Value *getUnwindDestTokenHelper(Instruction *EHPad,
     Value *UnwindDestToken = nullptr;
     if (auto *CatchSwitch = dyn_cast<CatchSwitchInst>(CurrentPad)) {
       if (CatchSwitch->hasUnwindDest()) {
+// XXX jmorse -- don't know what this function is doing, it might be using
+// the first instruction as a key, but then what? Needs more examination.
         UnwindDestToken = CatchSwitch->getUnwindDest()->getFirstNonPHI();
       } else {
         // Catchswitch doesn't have a 'nounwind' variant, and one might be
@@ -678,7 +680,7 @@ static void HandleInlinedEHPad(InvokeInst *II, BasicBlock *FirstNewBlock,
   BasicBlock *UnwindDest = II->getUnwindDest();
   Function *Caller = FirstNewBlock->getParent();
 
-  assert(UnwindDest->getFirstNonPHI()->isEHPad() && "unexpected BasicBlock!");
+  assert(UnwindDest->getFirstNonPHIIt()->isEHPad() && "unexpected BasicBlock!");
 
   // If there are PHI nodes in the unwind destination block, we need to keep
   // track of which values came into them from the invoke before removing the
@@ -723,7 +725,7 @@ static void HandleInlinedEHPad(InvokeInst *II, BasicBlock *FirstNewBlock,
       }
     }
 
-    Instruction *I = BB->getFirstNonPHI();
+    BasicBlock::iterator I = BB->getFirstNonPHIIt();
     if (!I->isEHPad())
       continue;
 
@@ -2581,7 +2583,7 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
             // Ok, the call site is within a cleanuppad.  Let's check the callee
             // for catchpads.
             for (const BasicBlock &CalledBB : *CalledFunc) {
-              if (isa<CatchSwitchInst>(CalledBB.getFirstNonPHI()))
+              if (isa<CatchSwitchInst>(CalledBB.getFirstNonPHIIt()))
                 return InlineResult::failure("catch in cleanup funclet");
             }
           }
@@ -3029,7 +3031,7 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
   // rewriting the "parent pad" links.
   if (auto *II = dyn_cast<InvokeInst>(&CB)) {
     BasicBlock *UnwindDest = II->getUnwindDest();
-    Instruction *FirstNonPHI = UnwindDest->getFirstNonPHI();
+    BasicBlock::iterator FirstNonPHI = UnwindDest->getFirstNonPHIIt();
     if (isa<LandingPadInst>(FirstNonPHI)) {
       HandleInlinedLandingPad(II, &*FirstNewBlock, InlinedFunctionInfo);
     } else {
@@ -3055,7 +3057,7 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
         if (CleanupRet->unwindsToCaller() && EHPadForCallUnwindsLocally)
           changeToUnreachable(CleanupRet);
 
-      Instruction *I = BB->getFirstNonPHI();
+      BasicBlock::iterator I = BB->getFirstNonPHI();
       if (!I->isEHPad())
         continue;
 
