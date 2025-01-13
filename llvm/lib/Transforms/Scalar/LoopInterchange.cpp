@@ -1330,7 +1330,7 @@ bool LoopInterchangeTransform::transform() {
         // Duplicate instruction and move it the new latch. Update uses that
         // have been moved.
         Instruction *NewI = WorkList[i]->clone();
-        NewI->insertBefore(NewLatch->getFirstNonPHI());
+        NewI->insertBefore(NewLatch->getFirstNonPHIIt()); // XXX not safe wants faff
         assert(!NewI->mayHaveSideEffects() &&
                "Moving instructions with side-effects may change behavior of "
                "the loop nest!");
@@ -1506,12 +1506,12 @@ static void moveLCSSAPhis(BasicBlock *InnerExit, BasicBlock *InnerHeader,
   // InnerLatch, which will become the new exit block for the innermost
   // loop after interchanging.
   for (PHINode *P : LcssaInnerExit)
-    P->moveBefore(InnerLatch->getFirstNonPHI());
+    P->moveBefore(InnerLatch->getFirstNonPHIIt()); // XXX requires faffa
 
   // If the inner loop latch contains LCSSA PHIs, those come from a child loop
   // and we have to move them to the new inner latch.
   for (PHINode *P : LcssaInnerLatch)
-    P->moveBefore(InnerExit->getFirstNonPHI());
+    P->moveBefore(InnerExit->getFirstNonPHIIt()); // XXX requires faff
 
   // Deal with LCSSA PHI nodes in the loop nest exit block. For PHIs that have
   // incoming values defined in the outer loop, we have to add a new PHI
@@ -1537,7 +1537,7 @@ static void moveLCSSAPhis(BasicBlock *InnerExit, BasicBlock *InnerHeader,
           continue;
         NewPhi->addIncoming(P.getIncomingValue(0), Pred);
       }
-      NewPhi->insertBefore(InnerLatch->getFirstNonPHI());
+      NewPhi->insertBefore(InnerLatch->getFirstNonPHIIt()); // XXX requires faff
       P.setIncomingValue(0, NewPhi);
     }
   }
@@ -1677,12 +1677,12 @@ bool LoopInterchangeTransform::adjustLoopBranches() {
   // outer loop and all the remains to do is and updating the incoming blocks.
   for (PHINode *PHI : OuterLoopPHIs) {
     LLVM_DEBUG(dbgs() << "Outer loop reduction PHIs:\n"; PHI->dump(););
-    PHI->moveBefore(InnerLoopHeader->getFirstNonPHI());
+    PHI->moveBefore(InnerLoopHeader->getFirstNonPHIIt()); // XXX requires faff
     assert(OuterInnerReductions.count(PHI) && "Expected a reduction PHI node");
   }
   for (PHINode *PHI : InnerLoopPHIs) {
     LLVM_DEBUG(dbgs() << "Inner loop reduction PHIs:\n"; PHI->dump(););
-    PHI->moveBefore(OuterLoopHeader->getFirstNonPHI());
+    PHI->moveBefore(OuterLoopHeader->getFirstNonPHIIt()); // XXX requires faff
     assert(OuterInnerReductions.count(PHI) && "Expected a reduction PHI node");
   }
 
