@@ -8239,7 +8239,7 @@ static bool programUndefinedIfUndefOrPoison(const Value *V,
     if (!BB || !Visited.insert(BB).second)
       break;
 
-    Begin = BB->getFirstNonPHI()->getIterator();
+    Begin = BB->getFirstNonPHIIt();
     End = BB->end();
   }
   return false;

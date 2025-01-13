@@ -318,7 +318,7 @@ Value *VPTransformState::get(VPValue *Def, bool NeedsScalar) {
   auto OldIP = Builder.saveIP();
   auto NewIP =
       isa<PHINode>(LastInst)
-          ? BasicBlock::iterator(LastInst->getParent()->getFirstNonPHI())
+          ? LastInst->getParent()->getFirstNonPHIIt()
           : std::next(BasicBlock::iterator(LastInst));
   Builder.SetInsertPoint(&*NewIP);
 

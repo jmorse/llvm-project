@@ -109,8 +109,8 @@ void llvm::createMemCpyLoopKnownSize(
   uint64_t BytesCopied = LoopEndCount;
   uint64_t RemainingBytes = CopyLen->getZExtValue() - BytesCopied;
   if (RemainingBytes) {
-    IRBuilder<> RBuilder(PostLoopBB ? PostLoopBB->getFirstNonPHI()
-                                    : InsertBefore);
+    IRBuilder<> RBuilder(PostLoopBB ? PostLoopBB->getFirstNonPHIIt()
+                                    : InsertBefore->getIterator());
 
     SmallVector<Type *, 5> RemainingOps;
     TTI.getMemcpyLoopResidualLoweringType(RemainingOps, Ctx, RemainingBytes,

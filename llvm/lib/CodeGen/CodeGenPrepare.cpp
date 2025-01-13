@@ -990,7 +990,7 @@ bool CodeGenPrepare::isMergingEmptyBlockProfitable(BasicBlock *BB,
                  isa<IndirectBrInst>(Pred->getTerminator())))
     return true;
 
-  if (BB->getTerminator() != BB->getFirstNonPHIOrDbg())
+  if (BB->getTerminator() != &*BB->getFirstNonPHIIt())
     return true;
 
   // We use a simple cost heuristic which determine skipping merging is
@@ -2935,13 +2935,13 @@ bool CodeGenPrepare::dupRetToEnableTailCallOpts(BasicBlock *BB,
 
   // Make sure there are no instructions between the first instruction
   // and return.
-  const Instruction *BI = BB->getFirstNonPHI();
+  BasicBlock::const_iterator BI = BB->getFirstNonPHIIt();
   // Skip over debug and the bitcast.
-  while (isa<DbgInfoIntrinsic>(BI) || BI == BCI || BI == EVI ||
+  while (isa<DbgInfoIntrinsic>(BI) || &*BI == BCI || &*BI == EVI ||
          isa<PseudoProbeInst>(BI) || isLifetimeEndOrBitCastFor(BI) ||
          isFakeUse(BI))
-    BI = BI->getNextNode();
-  if (BI != RetI)
+    BI = std::next(BI);
+  if (&*BI != RetI)
     return false;
 
   /// Only dup the ReturnInst if the CallInst is likely to be emitted as a tail
