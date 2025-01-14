@@ -96,10 +96,6 @@ BasicBlock::iterator Instruction::eraseFromParent() {
   return getParent()->getInstList().erase(getIterator());
 }
 
-void Instruction::insertBefore(Instruction *InsertPos) {
-  insertBefore(InsertPos->getIterator());
-}
-
 /// Insert an unlinked instruction into a basic block immediately before the
 /// specified instruction.
 void Instruction::insertBefore(BasicBlock::iterator InsertPos) {
@@ -108,10 +104,10 @@ void Instruction::insertBefore(BasicBlock::iterator InsertPos) {
 
 /// Insert an unlinked instruction into a basic block immediately after the
 /// specified instruction.
-void Instruction::insertAfter(Instruction *InsertPos) {
+void Instruction::insertAfter(BasicBlock::iterator InsertPos) {
   BasicBlock *DestParent = InsertPos->getParent();
 
-  DestParent->getInstList().insertAfter(InsertPos->getIterator(), this);
+  DestParent->getInstList().insertAfter(InsertPos, this);
 }
 
 BasicBlock::iterator Instruction::insertInto(BasicBlock *ParentBB,
@@ -166,12 +162,12 @@ void Instruction::insertBefore(BasicBlock &BB,
 
 /// Unlink this instruction from its current basic block and insert it into the
 /// basic block that MovePos lives in, right before MovePos.
-void Instruction::moveBefore(Instruction *MovePos) {
-  moveBeforeImpl(*MovePos->getParent(), MovePos->getIterator(), false);
+void Instruction::moveBefore(BasicBlock::iterator MovePos) {
+  moveBeforeImpl(*MovePos->getParent(), MovePos, false);
 }
 
-void Instruction::moveBeforePreserving(Instruction *MovePos) {
-  moveBeforeImpl(*MovePos->getParent(), MovePos->getIterator(), true);
+void Instruction::moveBeforePreserving(BasicBlock::iterator MovePos) {
+  moveBeforeImpl(*MovePos->getParent(), MovePos, true);
 }
 
 void Instruction::moveAfter(Instruction *MovePos) {

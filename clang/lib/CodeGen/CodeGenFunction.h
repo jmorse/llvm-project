@@ -450,7 +450,8 @@ public:
              "EBB should be entry block of the current code gen function");
       PostAllocaInsertPt = AllocaInsertPt->clone();
       PostAllocaInsertPt->setName("postallocapt");
-      PostAllocaInsertPt->insertAfter(AllocaInsertPt);
+      PostAllocaInsertPt->insertAfter(AllocaInsertPt->getIterator());
+      // XXX unclear what's going on here. Should be no debug considerations though?
     }
 
     return PostAllocaInsertPt;

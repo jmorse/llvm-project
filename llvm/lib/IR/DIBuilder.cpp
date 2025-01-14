@@ -1009,7 +1009,7 @@ DbgInstPtr DIBuilder::insertDbgAssign(Instruction *LinkedInstr, Value *Val,
   B.SetCurrentDebugLocation(DL);
 
   auto *DVI = cast<DbgAssignIntrinsic>(B.CreateCall(AssignFn, Args));
-  DVI->insertAfter(LinkedInstr);
+  DVI->insertAfter(LinkedInstr->getIterator()); // Iterators: inserting after the instruction always means the head of the next, so no bit-concerns
   return DVI;
 }
 

@@ -975,7 +975,7 @@ void VPlan::execute(VPTransformState *State) {
   BasicBlock *MiddleBB = State->CFG.ExitBB;
   BasicBlock *ScalarPh = MiddleBB->getSingleSuccessor();
   auto *BrInst = new UnreachableInst(MiddleBB->getContext());
-  BrInst->insertBefore(MiddleBB->getTerminator());
+  BrInst->insertBefore(MiddleBB->getTerminator()->getIterator());
   MiddleBB->getTerminator()->eraseFromParent();
   State->CFG.DTU.applyUpdates({{DominatorTree::Delete, MiddleBB, ScalarPh}});
   // Disconnect scalar preheader and scalar header, as the dominator tree edge
@@ -1025,7 +1025,7 @@ void VPlan::execute(VPTransformState *State) {
       // Move the last step to the end of the latch block. This ensures
       // consistent placement of all induction updates.
       Instruction *Inc = cast<Instruction>(Phi->getIncomingValue(1));
-      Inc->moveBefore(VectorLatchBB->getTerminator()->getPrevNode());
+      Inc->moveBefore(std::prev(VectorLatchBB->getTerminator()->getIterator()));
 
       // Use the steps for the last part as backedge value for the induction.
       if (auto *IV = dyn_cast<VPWidenIntOrFpInductionRecipe>(&R))

@@ -811,7 +811,7 @@ Instruction *PPCLoopInstrFormPrep::rewriteForBucketElement(
     if (PtrIP)
       NewPtr->insertBefore(*(*PtrIP)->getParent(), *PtrIP);
     else
-      NewPtr->insertAfter(cast<Instruction>(PtrInc));
+      NewPtr->insertAfter(cast<Instruction>(PtrInc)->getIterator());
     NewPtr->setIsInBounds(IsPtrInBounds(Ptr));
     RealNewPtr = NewPtr;
   }
@@ -820,7 +820,7 @@ Instruction *PPCLoopInstrFormPrep::rewriteForBucketElement(
   if (Ptr->getType() != RealNewPtr->getType()) {
     ReplNewPtr = new BitCastInst(RealNewPtr, Ptr->getType(),
                                  getInstrName(Ptr, CastNodeNameSuffix));
-    ReplNewPtr->insertAfter(RealNewPtr);
+    ReplNewPtr->insertAfter(RealNewPtr->getIterator()); // reaaalllyy unclear
   } else
     ReplNewPtr = RealNewPtr;
 

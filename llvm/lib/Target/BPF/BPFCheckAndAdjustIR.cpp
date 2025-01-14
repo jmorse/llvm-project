@@ -375,8 +375,8 @@ static void unrollGEPLoad(CallInst *Call) {
 
 static void unrollGEPStore(CallInst *Call) {
   auto [GEP, Store] = BPFPreserveStaticOffsetPass::reconstructStore(Call);
-  GEP->insertBefore(Call);
-  Store->insertBefore(Call);
+  GEP->insertBefore(Call->getIterator());
+  Store->insertBefore(Call->getIterator());
   Call->eraseFromParent();
 }
 
@@ -436,7 +436,7 @@ static Value *aspaceWrapValue(DenseMap<Value *, Value *> &Cache, Function *F,
     Value *WrappedPtr = aspaceWrapValue(Cache, F, Ptr);
     auto *GEPTy = cast<PointerType>(GEP->getType());
     auto *NewGEP = GEP->clone();
-    NewGEP->insertAfter(GEP);
+    NewGEP->insertAfter(GEP->getIterator());
     NewGEP->mutateType(PointerType::getUnqual(GEPTy->getContext()));
     NewGEP->setOperand(GEP->getPointerOperandIndex(), WrappedPtr);
     NewGEP->setName(GEP->getName());

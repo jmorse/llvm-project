@@ -467,8 +467,9 @@ Instruction *InstCombinerImpl::visitAllocaInst(AllocaInst &AI) {
 
       // Get the first instruction in the entry block.
       BasicBlock &EntryBlock = AI.getParent()->getParent()->getEntryBlock();
-      Instruction *FirstInst = EntryBlock.getFirstNonPHIOrDbg();
-      if (FirstInst != &AI) {
+      BasicBlock::iterator FirstInst = EntryBlock.getFirstNonPHIIt();
+      FirstInst.setHeadBit(false);
+      if (&*FirstInst != &AI) {
         // If the entry block doesn't start with a zero-size alloca then move
         // this one to the start of the entry block.  There is no problem with
         // dominance as the array size was forced to a constant earlier already.

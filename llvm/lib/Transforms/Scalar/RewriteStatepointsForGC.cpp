@@ -1115,7 +1115,7 @@ static Value *findBasePointer(Value *I, DefiningValueMapTy &Cache,
     };
 
     Instruction *BaseInst = I->clone();
-    BaseInst->insertBefore(I);
+    BaseInst->insertBefore(I->getIterator()); // Uuuhhhh, is some kind of base pointer mangling. Should be safe.
     BaseInst->setName(getMangledName(I));
     // Add metadata marking this as a base value
     BaseInst->setMetadata("is_base_value", MDNode::get(I->getContext(), {}));
@@ -1371,7 +1371,7 @@ static void recomputeLiveInValues(
 // and inserts them before "InsertBefore". Returns rematerialized value
 // which should be used after statepoint.
 static Instruction *rematerializeChain(ArrayRef<Instruction *> ChainToBase,
-                                       Instruction *InsertBefore,
+                                       BasicBlock::iterator InsertBefore,
                                        Value *RootOfChain,
                                        Value *AlternateLiveBase) {
   Instruction *LastClonedValue = nullptr;
@@ -2190,11 +2190,11 @@ static void relocationViaAlloca(
         assert(!Inst->isTerminator() &&
                "The only terminator that can produce a value is "
                "InvokeInst which is handled above.");
-        Store->insertAfter(Inst);
+        Store->insertAfter(Inst->getIterator());
       }
     } else {
       assert(isa<Argument>(Def));
-      Store->insertAfter(cast<Instruction>(Alloca));
+      Store->insertAfter(cast<Instruction>(Alloca)->getIterator());
     }
   }
 
@@ -2500,7 +2500,7 @@ static void rematerializeLiveValuesAtUses(
     while (!Cand->user_empty()) {
       Instruction *UserI = cast<Instruction>(*Cand->user_begin());
       Instruction *RematChain = rematerializeChain(
-          Record.ChainToBase, UserI, Record.RootOfChain, PointerToBase[Cand]);
+          Record.ChainToBase, UserI->getIterator(), Record.RootOfChain, PointerToBase[Cand]);
       UserI->replaceUsesOfWith(Cand, RematChain);
       PointerToBase[RematChain] = PointerToBase[Cand];
     }
@@ -2573,16 +2573,17 @@ static void rematerializeLiveValues(CallBase *Call,
       Instruction *InsertBefore = Call->getNextNode();
       assert(InsertBefore);
       Instruction *RematerializedValue =
-          rematerializeChain(Record.ChainToBase, InsertBefore,
+// XXX XXX XXX getNextNode etc above is not debug-info-iterator safe, have skipped for now
+          rematerializeChain(Record.ChainToBase, InsertBefore->getIterator(),
                              Record.RootOfChain, PointerToBase[LiveValue]);
       Info.RematerializedValues[RematerializedValue] = LiveValue;
     } else {
       auto *Invoke = cast<InvokeInst>(Call);
 
-      Instruction *NormalInsertBefore =
-          &*Invoke->getNormalDest()->getFirstInsertionPt();
-      Instruction *UnwindInsertBefore =
-          &*Invoke->getUnwindDest()->getFirstInsertionPt();
+      BasicBlock::iterator NormalInsertBefore =
+          Invoke->getNormalDest()->getFirstInsertionPt();
+      BasicBlock::iterator UnwindInsertBefore =
+          Invoke->getUnwindDest()->getFirstInsertionPt();
 
       Instruction *NormalRematerializedValue =
           rematerializeChain(Record.ChainToBase, NormalInsertBefore,
@@ -3131,7 +3132,7 @@ bool RewriteStatepointsForGC::runOnFunction(Function &F, DominatorTree &DT,
       // most instructions without side effects or memory access.
       if (isa<ICmpInst>(Cond) && Cond->hasOneUse()) {
         MadeChange = true;
-        Cond->moveBefore(TI);
+        Cond->moveBefore(TI->getIterator());
       }
   }
 

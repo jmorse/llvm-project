@@ -451,7 +451,8 @@ DbgVariableRecord::createDebugIntrinsic(Module *M,
   DVI->setTailCall();
   DVI->setDebugLoc(getDebugLoc());
   if (InsertBefore)
-    DVI->insertBefore(InsertBefore);
+#warning This needs to not-be-tolerated, conversion isn't sound.
+    DVI->insertBefore(InsertBefore->getIterator());
 
   return DVI;
 }
@@ -467,7 +468,8 @@ DbgLabelRecord::createDebugIntrinsic(Module *M,
   DbgLabel->setTailCall();
   DbgLabel->setDebugLoc(getDebugLoc());
   if (InsertBefore)
-    DbgLabel->insertBefore(InsertBefore);
+#warning This needs to not-be-tolerated, conversion isn't sound.
+    DbgLabel->insertBefore(InsertBefore->getIterator());
   return DbgLabel;
 }
 

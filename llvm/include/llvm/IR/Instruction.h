@@ -206,12 +206,11 @@ public:
 
   /// Insert an unlinked instruction into a basic block immediately before
   /// the specified instruction.
-  void insertBefore(Instruction *InsertPos);
   void insertBefore(InstListType::iterator InsertPos);
 
   /// Insert an unlinked instruction into a basic block immediately after the
   /// specified instruction.
-  void insertAfter(Instruction *InsertPos);
+  void insertAfter(InstListType::iterator InsertPos);
 
   /// Inserts an unlinked instruction into \p ParentBB at position \p It and
   /// returns the iterator of the inserted instruction.
@@ -222,10 +221,6 @@ public:
 
   /// Unlink this instruction from its current basic block and insert it into
   /// the basic block that MovePos lives in, right before MovePos.
-  LLVM_DEPRECATED("Use BasicBlock::iterators for moves instead",
-                  "BasicBlock::iterator")
-  void moveBefore(Instruction *MovePos);
-
   void moveBefore(InstListType::iterator MovePos);
 
   /// Perform a \ref moveBefore operation, while signalling that the caller
@@ -233,10 +228,6 @@ public:
   /// means that any adjacent debug-info should move with this instruction.
   /// This method is currently a no-op placeholder, but it will become meaningful
   /// when the "RemoveDIs" project is enabled.
-  LLVM_DEPRECATED("Use BasicBlock::iterators for moves instead",
-                  "BasicBlock::iterator")
-  void moveBeforePreserving(Instruction *MovePos);
-
   void moveBeforePreserving(InstListType::iterator MovePos);
 
 private:

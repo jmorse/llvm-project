@@ -2290,7 +2290,7 @@ remapIndices(Function &Caller, BasicBlock *StartBB,
       // this may be the entryblock from the inlined callee, coming into a BB
       // that didn't have instrumentation because of MST decisions. Let's make
       // sure it's placed accordingly. This is a noop elsewhere.
-      BBID->moveBefore(&*BB->getFirstInsertionPt());
+      BBID->moveBefore(BB->getFirstInsertionPt());
     }
     for (auto &I : llvm::make_early_inc_range(*BB)) {
       if (auto *Inc = dyn_cast<InstrProfIncrementInst>(&I)) {

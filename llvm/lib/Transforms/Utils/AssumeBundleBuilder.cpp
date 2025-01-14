@@ -298,7 +298,7 @@ bool llvm::salvageKnowledge(Instruction *I, AssumptionCache *AC,
   AssumeBuilderState Builder(I->getModule(), I, AC, DT);
   Builder.addInstruction(I);
   if (auto *Intr = Builder.build()) {
-    Intr->insertBefore(I);
+    Intr->insertBefore(I->getIterator()); // inserting at location where salvaged knowledge is; so never from the head-of-block
     Changed = true;
     if (AC)
       AC->registerAssumption(Intr);

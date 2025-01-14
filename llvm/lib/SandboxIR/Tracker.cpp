@@ -175,7 +175,7 @@ void EraseFromParent::revert(Tracker &Tracker) {
   // Place the bottom-most instruction first.
   auto [Operands, BotLLVMI] = InstrData[0];
   if (auto *NextLLVMI = dyn_cast<llvm::Instruction *>(NextLLVMIOrBB)) {
-    BotLLVMI->insertBefore(NextLLVMI);
+    BotLLVMI->insertBefore(NextLLVMI->getIterator());
   } else {
     auto *LLVMBB = cast<llvm::BasicBlock *>(NextLLVMIOrBB);
     BotLLVMI->insertInto(LLVMBB, LLVMBB->end());

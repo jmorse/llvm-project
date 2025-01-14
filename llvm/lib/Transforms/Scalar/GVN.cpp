@@ -2877,7 +2877,7 @@ bool GVNPass::performScalarPREInsertion(Instruction *Instr, BasicBlock *Pred,
   if (!success)
     return false;
 
-  Instr->insertBefore(Pred->getTerminator());
+  Instr->insertBefore(Pred->getTerminator()->getIterator());
   Instr->setName(Instr->getName() + ".pre");
   Instr->setDebugLoc(Instr->getDebugLoc());
 

@@ -426,7 +426,7 @@ static bool tryToReplaceWithGEPBuiltin(Instruction *LoadOrStoreTemplate,
   }
   if (auto *Store = dyn_cast<StoreInst>(LoadOrStoreTemplate)) {
     Instruction *Replacement = makeGEPAndStore(M, GEPChain, Store);
-    Replacement->insertBefore(InsnToReplace);
+    Replacement->insertBefore(InsnToReplace->getIterator()); // Uuuhh, unclear. Comes from rewriteAccessChain, so not order-dependent.
   }
   return true;
 }
