@@ -191,7 +191,7 @@ static IntrinsicInst *getConvergenceEntry(BasicBlock &BB) {
         return IntrinsicCall;
       }
     }
-    I = std::next(I);
+    It = std::next(It);
   }
   return nullptr;
 }
@@ -774,7 +774,7 @@ static void HandleInlinedEHPad(InvokeInst *II, BasicBlock *FirstNewBlock,
     }
 
     if (Replacement) {
-      Replacement->takeName(I);
+      Replacement->takeName(&*I);
       I->replaceAllUsesWith(Replacement);
       I->eraseFromParent();
       UpdatePHINodes(&*BB);
@@ -3057,7 +3057,7 @@ llvm::InlineResult llvm::InlineFunction(CallBase &CB, InlineFunctionInfo &IFI,
         if (CleanupRet->unwindsToCaller() && EHPadForCallUnwindsLocally)
           changeToUnreachable(CleanupRet);
 
-      BasicBlock::iterator I = BB->getFirstNonPHI();
+      BasicBlock::iterator I = BB->getFirstNonPHIIt();
       if (!I->isEHPad())
         continue;
 

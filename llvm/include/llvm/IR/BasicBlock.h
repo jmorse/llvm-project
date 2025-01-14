@@ -279,6 +279,8 @@ public:
   /// When adding instructions to the beginning of the basic block, they should
   /// be added before the returned value, not before the first instruction,
   /// which might be PHI. Returns 0 is there's no non-PHI instruction.
+  LLVM_DEPRECATED("Use loliterators for getFirstNonPHi instead",
+                  "BasicBlock::iterator")
   const Instruction* getFirstNonPHI() const;
   Instruction* getFirstNonPHI() {
     return const_cast<Instruction *>(

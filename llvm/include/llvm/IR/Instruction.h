@@ -222,14 +222,22 @@ public:
 
   /// Unlink this instruction from its current basic block and insert it into
   /// the basic block that MovePos lives in, right before MovePos.
+  LLVM_DEPRECATED("Use BasicBlock::iterators for moves instead",
+                  "BasicBlock::iterator")
   void moveBefore(Instruction *MovePos);
+
+  void moveBefore(InstListType::iterator MovePos);
 
   /// Perform a \ref moveBefore operation, while signalling that the caller
   /// intends to preserve the original ordering of instructions. This implicitly
   /// means that any adjacent debug-info should move with this instruction.
   /// This method is currently a no-op placeholder, but it will become meaningful
   /// when the "RemoveDIs" project is enabled.
+  LLVM_DEPRECATED("Use BasicBlock::iterators for moves instead",
+                  "BasicBlock::iterator")
   void moveBeforePreserving(Instruction *MovePos);
+
+  void moveBeforePreserving(InstListType::iterator MovePos);
 
 private:
   /// RemoveDIs project: all other moves implemented with this method,

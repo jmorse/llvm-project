@@ -146,7 +146,7 @@ TEST_F(ProfileSummaryInfoTest, TestNoProfile) {
   EXPECT_FALSE(PSI.isHotBlock(&BB0, &BFI));
   EXPECT_FALSE(PSI.isColdBlock(&BB0, &BFI));
 
-  CallBase &CS1 = cast<CallBase>(*BB1->getFirstNonPHI());
+  CallBase &CS1 = cast<CallBase>(*BB1->getFirstNonPHIIt());
   EXPECT_FALSE(PSI.isHotCallSite(CS1, &BFI));
   EXPECT_FALSE(PSI.isColdCallSite(CS1, &BFI));
 }

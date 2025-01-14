@@ -6366,7 +6366,7 @@ TEST_F(OpenMPIRBuilderTest, TargetRegionDevice) {
 
   // Check entry block
   auto &EntryBlock = OutlinedFn->getEntryBlock();
-  Instruction *Alloca1 = EntryBlock.getFirstNonPHI();
+  Instruction *Alloca1 = &*EntryBlock.getFirstNonPHIIt();
   EXPECT_NE(Alloca1, nullptr);
 
   EXPECT_TRUE(isa<AllocaInst>(Alloca1));

@@ -578,7 +578,7 @@ static void replaceSwiftErrorOps(Function &F, coro::Shape &Shape,
     }
 
     // Create a swifterror alloca.
-    IRBuilder<> Builder(F.getEntryBlock().getFirstNonPHIIt()); // XXX wants faff
+    IRBuilder<> Builder(&F.getEntryBlock(), F.getEntryBlock().getFirstNonPHIIt()); // XXX wants faff
     auto Alloca = Builder.CreateAlloca(ValueTy);
     Alloca->setSwiftError(true);
 
@@ -814,7 +814,8 @@ static void updateScopeLine(Instruction *ActiveSuspend,
 
   // Find the first successor of ActiveSuspend with a non-zero line location.
   // If that matches the file of ActiveSuspend, use it.
-  for (; Successor; Successor = Successor->getNextNonDebugInstruction()->getIterator()) {
+  BasicBlock *PBB = Successor->getParent();
+  for (; Successor != PBB->end(); Successor = Successor->getNextNonDebugInstruction()->getIterator()) {
     auto DL = Successor->getDebugLoc();
     if (!DL || DL.getLine() == 0)
       continue;
@@ -1201,7 +1202,7 @@ static void handleNoSuspendCoroutine(coro::Shape &Shape) {
 // coro_save and coro_suspend, since any of the calls may potentially resume
 // the coroutine and if that is the case we cannot eliminate the suspend point.
 static bool hasCallsInBlockBetween(iterator_range<BasicBlock::iterator> R) {
-  for (I : R) {
+  for (Instruction &I : R) {
     // Assume that no intrinsic can resume the coroutine.
     if (isa<IntrinsicInst>(I))
       continue;

@@ -1384,7 +1384,7 @@ void RegionGenerator::copyPHIInstruction(ScopStmt &Stmt, PHINode *PHI,
   unsigned NumIncoming = PHI->getNumIncomingValues();
   PHINode *PHICopy =
       Builder.CreatePHI(PHI->getType(), NumIncoming, "polly." + PHI->getName());
-  PHICopy->moveBefore(PHICopy->getParent()->getFirstNonPHI());
+  PHICopy->moveBefore(PHICopy->getParent()->getFirstNonPHIIt()); // XXX unsafe faff
   BBMap[PHI] = PHICopy;
 
   for (BasicBlock *IncomingBB : PHI->blocks())

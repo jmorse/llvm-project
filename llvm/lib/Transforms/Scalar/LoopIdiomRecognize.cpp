@@ -1746,7 +1746,7 @@ static bool detectPopcountIdiom(Loop *CurLoop, BasicBlock *PreCondBB,
   {
     CountInst = nullptr;
     for (Instruction &Inst : llvm::make_range(
-             LoopEntry->getFirstNonPHIIt, LoopEntry->end())) {
+             LoopEntry->getFirstNonPHIIt(), LoopEntry->end())) {
       if (Inst.getOpcode() != Instruction::Add)
         continue;
 
@@ -1870,7 +1870,7 @@ static bool detectShiftUntilZeroIdiom(Loop *CurLoop, const DataLayout &DL,
   //       This step could be used to detect POPCNT instruction:
   //       cnt.next = cnt + (x.next & 1)
   for (Instruction &Inst : llvm::make_range(
-           LoopEntry->getFirstNonPHIIt, LoopEntry->end())) {
+           LoopEntry->getFirstNonPHIIt(), LoopEntry->end())) {
     if (Inst.getOpcode() != Instruction::Add)
       continue;
 
@@ -2630,7 +2630,7 @@ bool LoopIdiomRecognize::recognizeShiftUntilBitTest() {
     if (auto *BitPosI = dyn_cast<Instruction>(BitPos))
       InsertPt = BitPosI->getInsertionPointAfterDef();
     else
-      InsertPt = DT->getRoot()->getFirstNonPHIOrAllocaIt(); // XXX wants an OrAlloca defined...
+      InsertPt = DT->getRoot()->getFirstNonPHIOrDbgOrAlloca(); // XXX wants an OrAlloca defined...
     if (!InsertPt)
       return false;
     FreezeInst *BitPosFrozen =

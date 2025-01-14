@@ -3304,7 +3304,7 @@ static bool isSafeForNoNTrivialUnswitching(Loop &L, LoopInfo &LI) {
   // restriction.
   for (auto *ExitBB : ExitBlocks) {
     auto It = ExitBB->getFirstNonPHIIt();
-    if (isa<CleanupPadInst>(I) || isa<CatchSwitchInst>(I)) {
+    if (isa<CleanupPadInst>(It) || isa<CatchSwitchInst>(It)) {
       LLVM_DEBUG(dbgs() << "Cannot unswitch because of cleanuppad/catchswitch "
                            "in exit block\n");
       return false;

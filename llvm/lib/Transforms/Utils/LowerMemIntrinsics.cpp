@@ -109,8 +109,9 @@ void llvm::createMemCpyLoopKnownSize(
   uint64_t BytesCopied = LoopEndCount;
   uint64_t RemainingBytes = CopyLen->getZExtValue() - BytesCopied;
   if (RemainingBytes) {
-    IRBuilder<> RBuilder(PostLoopBB ? PostLoopBB->getFirstNonPHIIt()
-                                    : InsertBefore->getIterator());
+    BasicBlock::iterator InsertIt = PostLoopBB ? PostLoopBB->getFirstNonPHIIt()
+                                    : InsertBefore->getIterator();
+    IRBuilder<> RBuilder(InsertIt->getParent(), InsertIt);
 
     SmallVector<Type *, 5> RemainingOps;
     TTI.getMemcpyLoopResidualLoweringType(RemainingOps, Ctx, RemainingBytes,
@@ -735,14 +736,14 @@ static void createMemMoveLoopKnownSize(Instruction *InsertBefore,
     // the same way, except that we change the IRBuilder insert point for each
     // load/store pair so that each one is inserted before the previous one
     // instead of after it.
-    IRBuilder<> BwdResBuilder(CopyBackwardsBB->getFirstNonPHIIt()); // XXX not safe faff
+    IRBuilder<> BwdResBuilder(CopyBackwardsBB, CopyBackwardsBB->getFirstNonPHIIt()); // XXX not safe faff
     SmallVector<Type *, 5> RemainingOps;
     TTI.getMemcpyLoopResidualLoweringType(RemainingOps, Ctx, RemainingBytes,
                                           SrcAS, DstAS, PartSrcAlign,
                                           PartDstAlign);
     for (auto *OpTy : RemainingOps) {
       // reverse the order of the emitted operations
-      BwdResBuilder.SetInsertPoint(CopyBackwardsBB->getFirstNonPHIIt()); // XXX not safe faff
+      BwdResBuilder.SetInsertPoint(CopyBackwardsBB, CopyBackwardsBB->getFirstNonPHIIt()); // XXX not safe faff
       GenerateResidualLdStPair(OpTy, BwdResBuilder, BytesCopied);
     }
   }

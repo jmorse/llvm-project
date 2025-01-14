@@ -169,7 +169,7 @@ class MaximalStaticExpansionImpl {
     } else if (SAI->isExitPHIKind()) {
       // For now, we are not able to expand ExitPhi.
       emitRemark(SAI->getName() + " is a ExitPhi node.",
-                 S.getEnteringBlock()->getFirstNonPHI());
+                 &*S.getEnteringBlock()->getFirstNonPHIIt());
       return false;
     }
 

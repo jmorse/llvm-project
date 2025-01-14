@@ -468,7 +468,7 @@ void IRNormalizer::reorderInstructions(Function &F) const {
     // Reorder based on the topological sort.
     while (!TopologicalSort.empty()) {
       auto *Instruction = TopologicalSort.top();
-      auto FirstNonPHIOrAlloca = BB.getFirstNonPHIOrAllocaIt();
+      auto FirstNonPHIOrAlloca = BB.getFirstNonPHIOrDbgOrAlloca();
       if (auto *Call = dyn_cast<CallInst>(&*FirstNonPHIOrAlloca)) {
         if (Call->getIntrinsicID() ==
                 Intrinsic::experimental_convergence_entry ||
@@ -491,7 +491,7 @@ void IRNormalizer::reorderDefinition(
   {
     const auto *BasicBlock = Definition->getParent();
     const auto FirstNonPHIOrAlloca =
-        BasicBlock->getFirstNonPHIOrAllocaIt();
+        BasicBlock->getFirstNonPHIOrDbgOrAlloca();
     if (FirstNonPHIOrAlloca == BasicBlock->end())
       return; // TODO: Is this necessary?
     if (Definition->comesBefore(&*FirstNonPHIOrAlloca))

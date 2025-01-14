@@ -4804,7 +4804,7 @@ void Verifier::visitCatchSwitchInst(CatchSwitchInst &CatchSwitch) {
           &CatchSwitch);
 
     // Record catchswitch sibling unwinds for verifySiblingFuncletUnwinds
-    if (getParentPad(I) == ParentPad)
+    if (getParentPad(&*I) == ParentPad)
       SiblingFuncletInfo[&CatchSwitch] = &CatchSwitch;
   }
 

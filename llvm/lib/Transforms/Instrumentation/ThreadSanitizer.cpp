@@ -479,7 +479,7 @@ static bool isTsanAtomic(const Instruction *I) {
 }
 
 void ThreadSanitizer::InsertRuntimeIgnores(Function &F) {
-  InstrumentationIRBuilder IRB(F.getEntryBlock().getFirstNonPHIIt()); // XXX requires faff
+  InstrumentationIRBuilder IRB(&F.getEntryBlock(), F.getEntryBlock().getFirstNonPHIIt()); // XXX requires faff
   IRB.CreateCall(TsanIgnoreBegin);
   EscapeEnumerator EE(F, "tsan_ignore_cleanup", ClHandleCxxExceptions);
   while (IRBuilder<> *AtExit = EE.Next()) {
@@ -569,7 +569,7 @@ bool ThreadSanitizer::sanitizeFunction(Function &F,
 
   // Instrument function entry/exit points if there were instrumented accesses.
   if ((Res || HasCalls) && ClInstrumentFuncEntryExit) {
-    InstrumentationIRBuilder IRB(F.getEntryBlock().getFirstNonPHIIt()); // XXX requires faff
+    InstrumentationIRBuilder IRB(&F.getEntryBlock(), F.getEntryBlock().getFirstNonPHIIt()); // XXX requires faff
     Value *ReturnAddress =
         IRB.CreateIntrinsic(Intrinsic::returnaddress, {}, IRB.getInt32(0));
     IRB.CreateCall(TsanFuncEntry, ReturnAddress);

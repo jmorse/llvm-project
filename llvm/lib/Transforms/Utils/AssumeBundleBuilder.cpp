@@ -488,7 +488,7 @@ struct AssumeSimplify {
         if (auto *I = dyn_cast_or_null<Instruction>(RK.WasOn))
           if (I->getParent() == InsertPt->getParent() &&
               (InsertPt->comesBefore(I) || &*InsertPt == I))
-            InsertPt = std::next(I);
+            InsertPt = I->getNextNode()->getIterator();
       }
     }
 

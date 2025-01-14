@@ -122,7 +122,7 @@ llvm::SplitKnownCriticalEdge(Instruction *TI, unsigned SuccNum,
   if (DestBB->isEHPad()) return nullptr;
 
   if (Options.IgnoreUnreachableDests &&
-      isa<UnreachableInst>(DestBB->getFirstNonPHIOrLifetimeIt())) // XXX wants new OrLifetime variant
+      isa<UnreachableInst>(DestBB->getFirstNonPHIOrDbgOrLifetime())) // XXX wants new OrLifetime variant
     return nullptr;
 
   auto *LI = Options.LI;

@@ -693,7 +693,7 @@ public:
 
       if (EHPadIt != Color->end() && EHPadIt->isEHPad()) {
         // Replace CI with a clone with an added funclet OperandBundle
-        OperandBundleDef OB("funclet", &*EHPad);
+        OperandBundleDef OB("funclet", &*EHPadIt);
         auto *NewCall = CallBase::addOperandBundle(CI, LLVMContext::OB_funclet,
                                                    OB, CI->getIterator());
         NewCall->copyMetadata(*CI);
@@ -1660,7 +1660,7 @@ void AddressSanitizer::instrumentMaskedLoadOrStore(
   if (Stride)
     Stride = IB.CreateZExtOrTrunc(Stride, IntptrTy);
 
-  SplitBlockAndInsertForEachLane(EVL, LoopInsertBefore,
+  SplitBlockAndInsertForEachLane(EVL, LoopInsertBefore->getIterator(),
                                  [&](IRBuilderBase &IRB, Value *Index) {
     Value *MaskElem = IRB.CreateExtractElement(Mask, Index);
     if (auto *MaskElemC = dyn_cast<ConstantInt>(MaskElem)) {

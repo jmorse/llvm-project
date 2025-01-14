@@ -2938,8 +2938,8 @@ bool CodeGenPrepare::dupRetToEnableTailCallOpts(BasicBlock *BB,
   BasicBlock::const_iterator BI = BB->getFirstNonPHIIt();
   // Skip over debug and the bitcast.
   while (isa<DbgInfoIntrinsic>(BI) || &*BI == BCI || &*BI == EVI ||
-         isa<PseudoProbeInst>(BI) || isLifetimeEndOrBitCastFor(BI) ||
-         isFakeUse(BI))
+         isa<PseudoProbeInst>(BI) || isLifetimeEndOrBitCastFor(&*BI) ||
+         isFakeUse(&*BI))
     BI = std::next(BI);
   if (&*BI != RetI)
     return false;

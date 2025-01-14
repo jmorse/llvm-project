@@ -1198,7 +1198,7 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
     removeUnreachableBlocks(F);
 
     MS.initializeCallbacks(*F.getParent(), TLI);
-    FnPrologueEnd = IRBuilder<>(F.getEntryBlock().getFirstNonPHIIt()) // XXX not safe wants faff
+    FnPrologueEnd = IRBuilder<>(&F.getEntryBlock(), F.getEntryBlock().getFirstNonPHIIt())
                         .CreateIntrinsic(Intrinsic::donothing, {}, {});
 
     if (MS.CompileKernel) {
@@ -1264,7 +1264,7 @@ struct MemorySanitizerVisitor : public InstVisitor<MemorySanitizerVisitor> {
       Value *End =
           IRB.CreateUDiv(RoundUp, ConstantInt::get(MS.IntptrTy, kOriginSize));
       auto [InsertPt, Index] =
-          SplitBlockAndInsertSimpleForLoop(End, &*IRB.GetInsertPoint());
+          SplitBlockAndInsertSimpleForLoop(End, IRB.GetInsertPoint());
       IRB.SetInsertPoint(InsertPt);
 
       Value *GEP = IRB.CreateGEP(MS.OriginTy, OriginPtr, Index);
