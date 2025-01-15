@@ -185,7 +185,7 @@ void EraseFromParent::revert(Tracker &Tracker) {
 
   // Go over the rest of the instructions and stack them on top.
   for (auto [Operands, LLVMI] : drop_begin(InstrData)) {
-    LLVMI->insertBefore(BotLLVMI);
+    LLVMI->insertBefore(BotLLVMI->getIterator()); // XXX highly sketchy, return to this
     for (auto [OpNum, Op] : enumerate(Operands))
       LLVMI->setOperand(OpNum, Op);
     BotLLVMI = LLVMI;

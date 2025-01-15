@@ -421,7 +421,7 @@ static bool tryToReplaceWithGEPBuiltin(Instruction *LoadOrStoreTemplate,
   Module *M = InsnToReplace->getModule();
   if (auto *Load = dyn_cast<LoadInst>(LoadOrStoreTemplate)) {
     Instruction *Replacement = makeGEPAndLoad(M, GEPChain, Load);
-    Replacement->insertBefore(InsnToReplace);
+    Replacement->insertBefore(InsnToReplace->getIterator());
     InsnToReplace->replaceAllUsesWith(Replacement);
   }
   if (auto *Store = dyn_cast<StoreInst>(LoadOrStoreTemplate)) {

@@ -815,7 +815,8 @@ static void updateScopeLine(Instruction *ActiveSuspend,
   // Find the first successor of ActiveSuspend with a non-zero line location.
   // If that matches the file of ActiveSuspend, use it.
   BasicBlock *PBB = Successor->getParent();
-  for (; Successor != PBB->end(); Successor = Successor->getNextNonDebugInstruction()->getIterator()) {
+  for (; Successor != PBB->end(); Successor = std::next(Successor)) {
+    Successor = skipDebugIntrinsics(Successor);
     auto DL = Successor->getDebugLoc();
     if (!DL || DL.getLine() == 0)
       continue;

@@ -161,7 +161,7 @@ bool BPFCheckAndAdjustIR::removeCompareBuiltin(Module &M) {
         CmpInst::Predicate Opcode = (CmpInst::Predicate)OpVal;
 
         auto *ICmp = new ICmpInst(Opcode, Arg1, Arg2);
-        ICmp->insertBefore(Call);
+        ICmp->insertBefore(Call->getIterator());
 
         Call->replaceAllUsesWith(ICmp);
         ToBeDeleted = Call;
@@ -367,8 +367,8 @@ void BPFCheckAndAdjustIR::getAnalysisUsage(AnalysisUsage &AU) const {
 
 static void unrollGEPLoad(CallInst *Call) {
   auto [GEP, Load] = BPFPreserveStaticOffsetPass::reconstructLoad(Call);
-  GEP->insertBefore(Call);
-  Load->insertBefore(Call);
+  GEP->insertBefore(Call->getIterator());
+  Load->insertBefore(Call->getIterator());
   Call->replaceAllUsesWith(Load);
   Call->eraseFromParent();
 }

@@ -3320,7 +3320,7 @@ class TypePromotionTransaction {
     /// Move \p Inst before \p Before.
     InstructionMoveBefore(Instruction *Inst, BasicBlock::iterator Before)
         : TypePromotionAction(Inst), Position(Inst) {
-      LLVM_DEBUG(dbgs() << "Do: move: " << *Inst << "\nbefore: " << Before
+      LLVM_DEBUG(dbgs() << "Do: move: " << *Inst << "\nbefore: " << *Before
                         << "\n");
       Inst->moveBefore(Before);
     }

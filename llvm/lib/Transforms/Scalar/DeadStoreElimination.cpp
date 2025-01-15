@@ -553,7 +553,7 @@ static void shortenAssignment(Instruction *Inst, Value *OriginalDest,
 
     // Fragments overlap: insert a new dbg.assign for this dead part.
     auto *NewAssign = static_cast<decltype(Assign)>(Assign->clone());
-    NewAssign->insertAfter(Assign->getIterator()); // Is insertion of dbg.assign after ???. Means nothing for DDD? In that it gets inserted into the debug program.
+    NewAssign->insertAfter(Assign->getIterator());
     NewAssign->setAssignId(GetDeadLink());
     if (NewFragment)
       SetDeadFragExpr(NewAssign, *NewFragment);
