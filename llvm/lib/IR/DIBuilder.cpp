@@ -961,9 +961,16 @@ DILexicalBlock *DIBuilder::createLexicalBlock(DIScope *Scope, DIFile *File,
 
 DbgInstPtr DIBuilder::insertDeclare(Value *Storage, DILocalVariable *VarInfo,
                                     DIExpression *Expr, const DILocation *DL,
-                                    Instruction *InsertBefore) {
+                                    BasicBlock::iterator InsertBefore) {
   return insertDeclare(Storage, VarInfo, Expr, DL, InsertBefore->getParent(),
                        InsertBefore);
+}
+
+DbgInstPtr DIBuilder::insertDeclare(Value *Storage, DILocalVariable *VarInfo,
+                                    DIExpression *Expr, const DILocation *DL,
+                                    Instruction *InsertBefore) {
+  return insertDeclare(Storage, VarInfo, Expr, DL, InsertBefore->getParent(),
+                       InsertBefore->getIterator());
 }
 
 DbgInstPtr DIBuilder::insertDeclare(Value *Storage, DILocalVariable *VarInfo,
@@ -972,7 +979,10 @@ DbgInstPtr DIBuilder::insertDeclare(Value *Storage, DILocalVariable *VarInfo,
   // If this block already has a terminator then insert this intrinsic before
   // the terminator. Otherwise, put it at the end of the block.
   Instruction *InsertBefore = InsertAtEnd->getTerminator();
-  return insertDeclare(Storage, VarInfo, Expr, DL, InsertAtEnd, InsertBefore);
+  std::optional<BasicBlock::iterator> It = std::nullopt;
+  if (InsertBefore)
+    It = InsertBefore->getIterator();
+  return insertDeclare(Storage, VarInfo, Expr, DL, InsertAtEnd, It);
 }
 
 DbgInstPtr DIBuilder::insertDbgAssign(Instruction *LinkedInstr, Value *Val,
@@ -990,8 +1000,8 @@ DbgInstPtr DIBuilder::insertDbgAssign(Instruction *LinkedInstr, Value *Val,
     BasicBlock *InsertBB = LinkedInstr->getParent();
     // Insert after LinkedInstr.
     BasicBlock::iterator NextIt = std::next(LinkedInstr->getIterator());
-    Instruction *InsertBefore = NextIt == InsertBB->end() ? nullptr : &*NextIt;
-    insertDbgVariableRecord(DVR, InsertBB, InsertBefore, true);
+    NextIt.setHeadBit(true);
+    insertDbgVariableRecord(DVR, InsertBB, NextIt);
     return DVR;
   }
 
@@ -1019,14 +1029,28 @@ DbgInstPtr DIBuilder::insertDbgAssign(Instruction *LinkedInstr, Value *Val,
 
 DbgInstPtr DIBuilder::insertLabel(DILabel *LabelInfo, const DILocation *DL,
                                   Instruction *InsertBefore) {
-  return insertLabel(LabelInfo, DL,
-                     InsertBefore ? InsertBefore->getParent() : nullptr,
-                     InsertBefore);
+  BasicBlock *BB = InsertBefore ? InsertBefore->getParent() : nullptr;
+  std::optional<BasicBlock::iterator> It = std::nullopt;
+  if (InsertBefore)
+    It = InsertBefore->getIterator();
+  return insertLabel(LabelInfo, DL, BB, It);
 }
 
 DbgInstPtr DIBuilder::insertLabel(DILabel *LabelInfo, const DILocation *DL,
                                   BasicBlock *InsertAtEnd) {
-  return insertLabel(LabelInfo, DL, InsertAtEnd, nullptr);
+  return insertLabel(LabelInfo, DL, InsertAtEnd, std::nullopt);
+}
+
+DbgInstPtr DIBuilder::insertDbgValueIntrinsic(Value *V,
+                                              DILocalVariable *VarInfo,
+                                              DIExpression *Expr,
+                                              const DILocation *DL,
+                                              BasicBlock::iterator InsertBefore) {
+  BasicBlock *BB = InsertBefore->getParent();
+  DbgInstPtr DVI = insertDbgValueIntrinsic(V, VarInfo, Expr, DL, BB, InsertBefore);
+  if (auto *Inst = dyn_cast<Instruction *>(DVI))
+    cast<CallInst>(Inst)->setTailCall();
+  return DVI;
 }
 
 DbgInstPtr DIBuilder::insertDbgValueIntrinsic(Value *V,
@@ -1034,9 +1058,11 @@ DbgInstPtr DIBuilder::insertDbgValueIntrinsic(Value *V,
                                               DIExpression *Expr,
                                               const DILocation *DL,
                                               Instruction *InsertBefore) {
-  DbgInstPtr DVI = insertDbgValueIntrinsic(
-      V, VarInfo, Expr, DL, InsertBefore ? InsertBefore->getParent() : nullptr,
-      InsertBefore);
+  BasicBlock *BB = InsertBefore ? InsertBefore->getParent() : nullptr;
+  std::optional<BasicBlock::iterator> It = std::nullopt;
+  if (InsertBefore)
+    It = InsertBefore->getIterator();
+  DbgInstPtr DVI = insertDbgValueIntrinsic(V, VarInfo, Expr, DL, BB, It);
   if (auto *Inst = dyn_cast<Instruction *>(DVI))
     cast<CallInst>(Inst)->setTailCall();
   return DVI;
@@ -1047,15 +1073,16 @@ DbgInstPtr DIBuilder::insertDbgValueIntrinsic(Value *V,
                                               DIExpression *Expr,
                                               const DILocation *DL,
                                               BasicBlock *InsertAtEnd) {
-  return insertDbgValueIntrinsic(V, VarInfo, Expr, DL, InsertAtEnd, nullptr);
+  return insertDbgValueIntrinsic(V, VarInfo, Expr, DL, InsertAtEnd, std::nullopt);
 }
 
 /// Initialize IRBuilder for inserting dbg.declare and dbg.value intrinsics.
 /// This abstracts over the various ways to specify an insert position.
 static void initIRBuilder(IRBuilder<> &Builder, const DILocation *DL,
-                          BasicBlock *InsertBB, Instruction *InsertBefore) {
+                          BasicBlock *InsertBB,
+                          std::optional<BasicBlock::iterator> InsertBefore) {
   if (InsertBefore)
-    Builder.SetInsertPoint(InsertBefore);
+    Builder.SetInsertPoint(InsertBB, *InsertBefore);
   else if (InsertBB)
     Builder.SetInsertPoint(InsertBB);
   Builder.SetCurrentDebugLocation(DL);
@@ -1072,7 +1099,9 @@ static Function *getDeclareIntrin(Module &M) {
 
 DbgInstPtr DIBuilder::insertDbgValueIntrinsic(
     llvm::Value *Val, DILocalVariable *VarInfo, DIExpression *Expr,
-    const DILocation *DL, BasicBlock *InsertBB, Instruction *InsertBefore) {
+    const DILocation *DL, BasicBlock *InsertBB,
+    std::optional<BasicBlock::iterator> InsertBefore) {
+
   if (M.IsNewDbgInfoFormat) {
     DbgVariableRecord *DVR =
         DbgVariableRecord::createDbgVariableRecord(Val, VarInfo, Expr, DL);
@@ -1089,7 +1118,7 @@ DbgInstPtr DIBuilder::insertDbgValueIntrinsic(
 DbgInstPtr DIBuilder::insertDeclare(Value *Storage, DILocalVariable *VarInfo,
                                     DIExpression *Expr, const DILocation *DL,
                                     BasicBlock *InsertBB,
-                                    Instruction *InsertBefore) {
+                                    std::optional<BasicBlock::iterator> InsertBefore) {
   assert(VarInfo && "empty or invalid DILocalVariable* passed to dbg.declare");
   assert(DL && "Expected debug loc");
   assert(DL->getScope()->getSubprogram() ==
@@ -1119,8 +1148,7 @@ DbgInstPtr DIBuilder::insertDeclare(Value *Storage, DILocalVariable *VarInfo,
 
 void DIBuilder::insertDbgVariableRecord(DbgVariableRecord *DVR,
                                         BasicBlock *InsertBB,
-                                        Instruction *InsertBefore,
-                                        bool InsertAtHead) {
+                                        std::optional<BasicBlock::iterator> InsertBefore) {
   assert(InsertBefore || InsertBB);
   trackIfUnresolved(DVR->getVariable());
   trackIfUnresolved(DVR->getExpression());
@@ -1129,10 +1157,9 @@ void DIBuilder::insertDbgVariableRecord(DbgVariableRecord *DVR,
 
   BasicBlock::iterator InsertPt;
   if (InsertBB && InsertBefore)
-    InsertPt = InsertBefore->getIterator();
+    InsertPt = *InsertBefore;
   else if (InsertBB)
     InsertPt = InsertBB->end();
-  InsertPt.setHeadBit(InsertAtHead);
   InsertBB->insertDbgRecordBefore(DVR, InsertPt);
 }
 
@@ -1141,7 +1168,7 @@ Instruction *DIBuilder::insertDbgIntrinsic(llvm::Function *IntrinsicFn,
                                            DIExpression *Expr,
                                            const DILocation *DL,
                                            BasicBlock *InsertBB,
-                                           Instruction *InsertBefore) {
+                                           std::optional<BasicBlock::iterator> InsertBefore) {
   assert(IntrinsicFn && "must pass a non-null intrinsic function");
   assert(V && "must pass a value to a dbg intrinsic");
   assert(VarInfo &&
@@ -1164,7 +1191,7 @@ Instruction *DIBuilder::insertDbgIntrinsic(llvm::Function *IntrinsicFn,
 
 DbgInstPtr DIBuilder::insertLabel(DILabel *LabelInfo, const DILocation *DL,
                                   BasicBlock *InsertBB,
-                                  Instruction *InsertBefore) {
+                                  std::optional<BasicBlock::iterator> InsertBefore) {
   assert(LabelInfo && "empty or invalid DILabel* passed to dbg.label");
   assert(DL && "Expected debug loc");
   assert(DL->getScope()->getSubprogram() ==
@@ -1175,7 +1202,7 @@ DbgInstPtr DIBuilder::insertLabel(DILabel *LabelInfo, const DILocation *DL,
   if (M.IsNewDbgInfoFormat) {
     DbgLabelRecord *DLR = new DbgLabelRecord(LabelInfo, DL);
     if (InsertBB && InsertBefore)
-      InsertBB->insertDbgRecordBefore(DLR, InsertBefore->getIterator());
+      InsertBB->insertDbgRecordBefore(DLR, *InsertBefore);
     else if (InsertBB)
       InsertBB->insertDbgRecordBefore(DLR, InsertBB->end());
     return DLR;
