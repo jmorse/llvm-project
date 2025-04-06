@@ -973,6 +973,8 @@ public:
   virtual void emitAbsoluteSymbolDiffAsULEB128(const MCSymbol *Hi,
                                                const MCSymbol *Lo);
 
+  virtual MCDwarfLoclistFragment *emitDwarfLoclistElem(int8_t OffsetPair, const MCSymbol *Base, const MCSymbol *Begin, const MCSymbol *End);
+
   virtual MCSymbol *getDwarfLineTableSymbol(unsigned CUID);
   virtual void emitCFISections(bool EH, bool Debug);
   void emitCFIStartProc(bool IsSimple, SMLoc Loc = SMLoc());

@@ -200,6 +200,8 @@ public:
   void emitAbsoluteSymbolDiffAsULEB128(const MCSymbol *Hi,
                                        const MCSymbol *Lo) override;
 
+  MCDwarfLoclistFragment *emitDwarfLoclistElem(int8_t OffsetPair, const MCSymbol *Base, const MCSymbol *Begin, const MCSymbol *End) override;
+
   bool mayHaveInstructions(MCSection &Sec) const override;
 
   /// Emits pending conditional assignments that depend on \p Symbol

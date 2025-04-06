@@ -334,6 +334,8 @@ uint64_t MCAssembler::computeFragmentSize(const MCFragment &F) const {
     return cast<MCDwarfLineAddrFragment>(F).getContents().size();
   case MCFragment::FT_DwarfFrame:
     return cast<MCDwarfCallFrameFragment>(F).getContents().size();
+  case MCFragment::FT_DwarfLoclist:
+    return cast<MCDwarfLoclistFragment>(F).getContents().size();
   case MCFragment::FT_CVInlineLines:
     return cast<MCCVInlineLineTableFragment>(F).getContents().size();
   case MCFragment::FT_CVDefRange:
@@ -796,6 +798,11 @@ static void writeFragment(raw_ostream &OS, const MCAssembler &Asm,
     OS << CF.getContents();
     break;
   }
+  case MCFragment::FT_DwarfLoclist: {
+    const MCDwarfLoclistFragment &OF = cast<MCDwarfLoclistFragment>(F);
+    OS << OF.getContents();
+    break;
+  }
   case MCFragment::FT_CVInlineLines: {
     const auto &OF = cast<MCCVInlineLineTableFragment>(F);
     OS << OF.getContents();
@@ -1244,6 +1251,44 @@ bool MCAssembler::relaxDwarfCallFrameFragment(MCDwarfCallFrameFragment &DF) {
   return OldSize != Data.size();
 }
 
+// Skip OFfsetPair, leave it in prev fragment?
+// Just have a fixed constant for start/end difference? fewer exprs
+// Accumulate the expr into this -- it makes up 6% of memory, how much of that is fragment base?
+// Better customise to distribution of expr-sizes and num of fixups. 208 bytes in MCDataFragment!
+//   And we can just defer to MCDataFragment if there's a fixup in the expr!
+bool MCAssembler::relaxDwarfLoclist(MCDwarfLoclistFragment &DF) {
+//const MCExpr *foo = DF.Base->getVariableValue();
+  uint8_t Arr[16];
+  SmallVectorImpl<char> &Data = DF.getContents();
+
+  MCContext &Context = getContext();
+
+  int64_t DiffAInt, DiffBInt;
+  bool Abs = DF.DiffStart->evaluateKnownAbsolute(DiffAInt, *this);
+  assert(Abs && "I like trains");
+  Abs = DF.DiffEnd->evaluateKnownAbsolute(DiffBInt, *this);
+  assert(Abs && "Do you like trains?");
+  (void)Abs;
+
+  unsigned OldSize = Data.size();
+  Data.clear();
+  // Do encoding,
+  Arr[0] = DF.OffsetPair;
+  unsigned Offs = encodeULEB128(DiffAInt, &Arr[1]) + 1;
+  Offs += encodeULEB128(DiffBInt, &Arr[Offs]);
+  Data.append(Arr, Arr + Offs);
+
+  // XXX emit expression? If there's anything in the ExprLol field, append
+  // its length and then the data. There might be nothing too.
+  if (unsigned Sz = DF.ExprLol.size()) {
+    Offs = encodeULEB128(Sz, Arr);
+    Data.append(Arr, Arr + Offs);
+    Data.append(DF.ExprLol.begin(), DF.ExprLol.begin() + Sz);
+  }
+
+  return OldSize != Data.size();
+}
+
 bool MCAssembler::relaxCVInlineLineTable(MCCVInlineLineTableFragment &F) {
   unsigned OldSize = F.getContents().size();
   getContext().getCVContext().encodeInlineLineTable(*this, F);
@@ -1284,6 +1329,8 @@ bool MCAssembler::relaxFragment(MCFragment &F) {
     return relaxDwarfLineAddr(cast<MCDwarfLineAddrFragment>(F));
   case MCFragment::FT_DwarfFrame:
     return relaxDwarfCallFrameFragment(cast<MCDwarfCallFrameFragment>(F));
+  case MCFragment::FT_DwarfLoclist:
+    return relaxDwarfLoclist(cast<MCDwarfLoclistFragment>(F));
   case MCFragment::FT_LEB:
     return relaxLEB(cast<MCLEBFragment>(F));
   case MCFragment::FT_BoundaryAlign:

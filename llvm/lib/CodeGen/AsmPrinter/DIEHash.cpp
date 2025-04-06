@@ -240,7 +240,7 @@ void DIEHash::hashLocList(const DIELocList &LocList) {
   const DebugLocStream &Locs = DD.getDebugLocs();
   const DebugLocStream::List &List = Locs.getList(LocList.getValue());
   for (const DebugLocStream::Entry &Entry : Locs.getEntries(List))
-    DD.emitDebugLocEntry(Streamer, Entry, List.CU);
+    DD.emitDebugLocEntry(Streamer, Entry, List.CU, nullptr);
 }
 
 // Hash an individual attribute \param Attr based on the type of attribute and

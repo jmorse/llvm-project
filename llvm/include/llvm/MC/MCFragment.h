@@ -44,6 +44,7 @@ public:
     FT_Org,
     FT_Dwarf,
     FT_DwarfFrame,
+    FT_DwarfLoclist,
     FT_LEB,
     FT_BoundaryAlign,
     FT_SymbolId,
@@ -142,6 +143,7 @@ public:
     case MCFragment::FT_Data:
     case MCFragment::FT_Dwarf:
     case MCFragment::FT_DwarfFrame:
+    case MCFragment::FT_DwarfLoclist:
     case MCFragment::FT_PseudoProbe:
       return true;
     }
@@ -204,7 +206,7 @@ public:
     MCFragment::FragmentType Kind = F->getKind();
     return Kind == MCFragment::FT_Relaxable || Kind == MCFragment::FT_Data ||
            Kind == MCFragment::FT_CVDefRange || Kind == MCFragment::FT_Dwarf ||
-           Kind == MCFragment::FT_DwarfFrame;
+           Kind == MCFragment::FT_DwarfFrame || Kind == MCFragment::FT_DwarfLoclist;
   }
 };
 
@@ -441,6 +443,23 @@ public:
 
   static bool classof(const MCFragment *F) {
     return F->getKind() == MCFragment::FT_DwarfFrame;
+  }
+};
+
+class MCContext;
+
+// XXX use base bytes for the expression, is 8 bytes a good number?
+class MCDwarfLoclistFragment : public MCEncodedFragmentWithFixups<16, 0> {
+public:
+  SmallVector<char, 16> ExprLol; // 1.8Mb in sqlite3.
+  const MCExpr *DiffStart;
+  const MCExpr *DiffEnd;
+  int8_t OffsetPair;
+
+  MCDwarfLoclistFragment(MCContext &Context, int8_t OffsetPair, const MCSymbol *Base, const MCSymbol *Begin, const MCSymbol *End);
+
+  static bool classof(const MCFragment *F) {
+    return F->getKind() == MCFragment::FT_DwarfLoclist;
   }
 };
 

@@ -325,6 +325,7 @@ Error DWARFDebugLoclists::visitLocationList(
         E.Kind != dwarf::DW_LLE_base_addressx &&
         E.Kind != dwarf::DW_LLE_end_of_list) {
       unsigned Bytes = Version >= 5 ? Data.getULEB128(C) : Data.getU16(C);
+dbgs() << "Got a loclist entry with bytes " << Bytes << "\n";
       // A single location description describing the location of the object...
       Data.getU8(C, E.Loc, Bytes);
     }

@@ -120,6 +120,15 @@ void MCObjectStreamer::emitAbsoluteSymbolDiffAsULEB128(const MCSymbol *Hi,
   MCStreamer::emitAbsoluteSymbolDiffAsULEB128(Hi, Lo);
 }
 
+MCDwarfLoclistFragment *MCObjectStreamer::emitDwarfLoclistElem(int8_t OffsetPair, const MCSymbol *Base, const MCSymbol *Begin, const MCSymbol *End) {
+  if (Base->getFragment() == Begin->getFragment() || Base->getFragment() == End->getFragment())
+    return MCStreamer::emitDwarfLoclistElem(OffsetPair, Base, Begin, End);
+
+  MCDwarfLoclistFragment *ptr = getContext().allocFragment<MCDwarfLoclistFragment>(getContext(), OffsetPair, Base, Begin, End);
+  insert(ptr);
+  return ptr;
+}
+
 void MCObjectStreamer::reset() {
   if (Assembler) {
     Assembler->reset();
@@ -462,6 +471,21 @@ void MCObjectStreamer::emitDwarfAdvanceLineAddr(int64_t LineDelta,
                          Label, PointerSize);
     return;
   }
+
+  // Uuuuhhh. If they're labels in the same fragment, then we don't need to
+  // compute that much actually.
+  if (LastLabel->getFragment() == Label->getFragment()) {
+    // We can just compute this right now.
+    uint64_t AddrDelta = Label->getOffset() - LastLabel->getOffset();
+    // And then directly encode it immediately.
+    SmallString<16> Tmp;
+    MCDwarfLineAddr::encode(getContext(), Assembler->getDWARFLinetableParams(), LineDelta,
+                              AddrDelta, Tmp);
+    emitBytes(Tmp);
+    return;
+  }
+
+
   const MCExpr *AddrDelta = buildSymbolDiff(*this, Label, LastLabel, SMLoc());
   insert(getContext().allocFragment<MCDwarfLineAddrFragment>(LineDelta,
                                                              *AddrDelta));

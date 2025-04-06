@@ -2860,10 +2860,33 @@ void DwarfDebug::emitDebugStr() {
 
 void DwarfDebug::emitDebugLocEntry(ByteStreamer &Streamer,
                                    const DebugLocStream::Entry &Entry,
-                                   const DwarfCompileUnit *CU) {
+                                   const DwarfCompileUnit *CU, MCDwarfLoclistFragment *beans) {
   auto &&Comments = DebugLocs.getComments(Entry);
   auto Comment = Comments.begin();
   auto End = Comments.end();
+
+  auto emitInt8 = [&](uint8_t Op, auto Comment) { // "lol"
+    if (!beans) {
+      Streamer.emitInt8(Op, Comment);
+    } else {
+      beans->ExprLol.push_back(Op);
+    }
+  };
+
+  auto emitDIERef = [&](DIE &D) -> unsigned {
+    if (!beans) {
+      return Streamer.emitDIERef(D);
+    } else {
+      uint64_t Offset = D.getOffset();
+      static constexpr unsigned ULEB128PadSize = 4;
+      assert(Offset < (1ULL << (ULEB128PadSize * 7)) && "Offset wont fit");
+      uint8_t foo[12];
+      unsigned sz = encodeULEB128(Offset, &foo[0]);
+      beans->ExprLol.append(&foo[0], &foo[sz]);
+      return ULEB128PadSize; // some kind of padding for comments?
+    }
+  };
+
 
   // The expressions are inserted into a byte stream rather early (see
   // DwarfExpression::addExpression) so for those ops (e.g. DW_OP_convert) that
@@ -2882,19 +2905,19 @@ void DwarfDebug::emitDebugLocEntry(ByteStreamer &Streamer,
     assert(Op.getCode() != dwarf::DW_OP_const_type &&
            "3 operand ops not yet supported");
     assert(!Op.getSubCode() && "SubOps not yet supported");
-    Streamer.emitInt8(Op.getCode(), Comment != End ? *(Comment++) : "");
+    emitInt8(Op.getCode(), Comment != End ? *(Comment++) : "");
     Offset++;
     for (unsigned I = 0; I < Op.getDescription().Op.size(); ++I) {
       if (Op.getDescription().Op[I] == Encoding::BaseTypeRef) {
         unsigned Length =
-          Streamer.emitDIERef(*CU->ExprRefedBaseTypes[Op.getRawOperand(I)].Die);
+          emitDIERef(*CU->ExprRefedBaseTypes[Op.getRawOperand(I)].Die);
         // Make sure comments stay aligned.
         for (unsigned J = 0; J < Length; ++J)
           if (Comment != End)
             Comment++;
       } else {
         for (uint64_t J = Offset; J < Op.getOperandEndOffset(I); ++J)
-          Streamer.emitInt8(Data.getData()[J], Comment != End ? *(Comment++) : "");
+          emitInt8(Data.getData()[J], Comment != End ? *(Comment++) : "");
       }
       Offset = Op.getOperandEndOffset(I);
     }
@@ -3028,7 +3051,14 @@ void DebugLocEntry::finalize(const AsmPrinter &AP,
 }
 
 void DwarfDebug::emitDebugLocEntryLocation(const DebugLocStream::Entry &Entry,
-                                           const DwarfCompileUnit *CU) {
+                                           const DwarfCompileUnit *CU, MCDwarfLoclistFragment *beans) {
+  if (beans) {
+    assert(getDwarfVersion() >= 5);
+    APByteStreamer Streamer(*Asm);
+    emitDebugLocEntry(Streamer, Entry, CU, beans);
+    return;
+  }
+
   // Emit the size.
   Asm->OutStreamer->AddComment("Loc expr size");
   if (getDwarfVersion() >= 5)
@@ -3043,7 +3073,7 @@ void DwarfDebug::emitDebugLocEntryLocation(const DebugLocStream::Entry &Entry,
   }
   // Emit the entry.
   APByteStreamer Streamer(*Asm);
-  emitDebugLocEntry(Streamer, Entry, CU);
+  emitDebugLocEntry(Streamer, Entry, CU, nullptr);
 }
 
 // Emit the header of a DWARF 5 range list table list table. Returns the symbol
@@ -3149,6 +3179,7 @@ static void emitRangeList(
     }
 
     for (const auto *RS : P.second) {
+      MCDwarfLoclistFragment *beans = nullptr;
       const MCSymbol *Begin = RS->Begin;
       const MCSymbol *End = RS->End;
       assert(Begin && "Range without a begin symbol?");
@@ -3156,12 +3187,13 @@ static void emitRangeList(
       if (Base) {
         if (UseDwarf5) {
           // Emit offset_pair when we have a base.
-          Asm->OutStreamer->AddComment(StringifyEnum(OffsetPair));
-          Asm->emitInt8(OffsetPair);
-          Asm->OutStreamer->AddComment("  starting offset");
-          Asm->emitLabelDifferenceAsULEB128(Begin, Base);
-          Asm->OutStreamer->AddComment("  ending offset");
-          Asm->emitLabelDifferenceAsULEB128(End, Base);
+          beans = Asm->emitDwarfLoclistElem(OffsetPair, Base, Begin, End);
+//          Asm->OutStreamer->AddComment(StringifyEnum(OffsetPair));
+//          Asm->emitInt8(OffsetPair);
+//          Asm->OutStreamer->AddComment("  starting offset");
+//          Asm->emitLabelDifferenceAsULEB128(Begin, Base);
+//          Asm->OutStreamer->AddComment("  ending offset");
+//          Asm->emitLabelDifferenceAsULEB128(End, Base);
         } else {
           Asm->emitLabelDifference(Begin, Base, Size);
           Asm->emitLabelDifference(End, Base, Size);
@@ -3177,7 +3209,7 @@ static void emitRangeList(
         Asm->OutStreamer->emitSymbolValue(Begin, Size);
         Asm->OutStreamer->emitSymbolValue(End, Size);
       }
-      EmitPayload(*RS);
+      EmitPayload(*RS, beans);
     }
   }
 
@@ -3198,8 +3230,8 @@ static void emitLocList(DwarfDebug &DD, AsmPrinter *Asm, const DebugLocStream::L
                 dwarf::DW_LLE_offset_pair, dwarf::DW_LLE_startx_length,
                 dwarf::DW_LLE_end_of_list, llvm::dwarf::LocListEncodingString,
                 /* ShouldUseBaseAddress */ true,
-                [&](const DebugLocStream::Entry &E) {
-                  DD.emitDebugLocEntryLocation(E, List.CU);
+                [&](const DebugLocStream::Entry &E, MCDwarfLoclistFragment *beans) {
+                  DD.emitDebugLocEntryLocation(E, List.CU, beans);
                 });
 }
 
@@ -3257,7 +3289,7 @@ void DwarfDebug::emitDebugLocDWO() {
       // Also the pre-standard encoding is slightly different, emitting this as
       // an address-length entry here, but its a ULEB128 in DWARFv5 loclists.
       Asm->emitLabelDifference(Entry.End, Entry.Begin, 4);
-      emitDebugLocEntryLocation(Entry, List.CU);
+      emitDebugLocEntryLocation(Entry, List.CU, nullptr);
     }
     Asm->emitInt8(dwarf::DW_LLE_end_of_list);
   }
@@ -3426,7 +3458,7 @@ static void emitRangeList(DwarfDebug &DD, AsmPrinter *Asm,
                 llvm::dwarf::RangeListEncodingString,
                 List.CU->getCUNode()->getRangesBaseAddress() ||
                     DD.getDwarfVersion() >= 5,
-                [](auto) {});
+                [](auto, auto) {});
 }
 
 void DwarfDebug::emitDebugRangesImpl(const DwarfFile &Holder, MCSection *Section) {

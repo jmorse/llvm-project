@@ -1204,6 +1204,14 @@ void MCStreamer::emitAbsoluteSymbolDiffAsULEB128(const MCSymbol *Hi,
   emitULEB128Value(Diff);
 }
 
+MCDwarfLoclistFragment *MCStreamer::emitDwarfLoclistElem(int8_t OffsetPair, const MCSymbol *Base, const MCSymbol *Begin, const MCSymbol *End) {
+// Dummy implementation,
+emitInt8(OffsetPair);
+emitAbsoluteSymbolDiffAsULEB128(Begin, Base);
+emitAbsoluteSymbolDiffAsULEB128(End, Base);
+return nullptr;
+}
+
 void MCStreamer::emitAssemblerFlag(MCAssemblerFlag Flag) {}
 void MCStreamer::emitSymbolDesc(MCSymbol *Symbol, unsigned DescValue) {}
 void MCStreamer::beginCOFFSymbolDef(const MCSymbol *Symbol) {
