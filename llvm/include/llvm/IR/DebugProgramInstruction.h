@@ -145,12 +145,16 @@ public:
   using const_self_iterator = typename simple_ilist<CRTP>::const_iterator;
   using BaseT = ilist_node<CRTP>;
 
+  /// Subclass discriminator.
+  enum Kind : uint8_t { ValueKind, LabelKind };
+
 protected:
   DebugLoc DbgLoc;
+  Kind RecordKind; ///< Subclass discriminator.
 
 public:
-  DbgRecordBase(DebugLoc DL)
-      : DbgLoc(DL) {}
+  DbgRecordBase(DebugLoc DL, Kind RecordKind)
+      : DbgLoc(DL), RecordKind(RecordKind) {}
 
   /// Same as isIdenticalToWhenDefined but checks DebugLoc too.
 //  LLVM_ABI bool isEquivalentTo(const DbgRecordBase &R) const;
@@ -243,6 +247,8 @@ public:
   DebugLoc getDebugLoc() const { return DbgLoc; }
   void setDebugLoc(DebugLoc Loc) { DbgLoc = std::move(Loc); }
 
+  Kind getRecordKind() const { return RecordKind; }
+
 protected:
   /// Similarly to Value, we avoid paying the cost of a vtable
   /// by protecting the dtor and having deleteRecord dispatch
@@ -256,17 +262,9 @@ public:
   using BaseT = DbgRecordBase<Instruction, BasicBlock, Function, DbgInfoIntrinsic, DbgRecord>;
   using self_iterator = typename BaseT::self_iterator;
 
-  /// Subclass discriminator.
-  enum Kind : uint8_t { ValueKind, LabelKind };
-
-protected:
-  Kind RecordKind; ///< Subclass discriminator.
-
 public:
   DbgRecord(Kind RecordKind, DebugLoc DL)
-      : DbgRecordBase(DL), RecordKind(RecordKind) { }
-
-  Kind getRecordKind() const { return RecordKind; }
+      : DbgRecordBase(DL, RecordKind) { }
 
   LLVM_ABI void dump() const;
   LLVM_ABI void deleteRecord();
