@@ -505,32 +505,37 @@ bool DbgVariableRecord::isKillAddress() const {
 
 // An empty, global, DbgMarker for the purpose of describing empty ranges of
 // DbgRecords.
-DbgMarker DbgMarker::EmptyDbgMarker;
+//DbgMarker DbgMarker::EmptyDbgMarker;
 
-void DbgMarker::dropDbgRecords() {
+template <typename RecT, typename InstT, typename BlockT, typename CRTP>
+void DbgMarkerBase<RecT, InstT, BlockT, CRTP>::dropDbgRecords() {
   while (!StoredDbgRecords.empty()) {
     auto It = StoredDbgRecords.begin();
-    DbgRecord *DR = &*It;
+    RecT *DR = &*It;
     StoredDbgRecords.erase(It);
     DR->deleteRecord();
   }
 }
 
-void DbgMarker::dropOneDbgRecord(DbgRecord *DR) {
+template <typename RecT, typename InstT, typename BlockT, typename CRTP>
+void DbgMarkerBase<RecT, InstT, BlockT, CRTP>::dropOneDbgRecord(RecT *DR) {
   assert(DR->getMarker() == this);
   StoredDbgRecords.erase(DR->getIterator());
   DR->deleteRecord();
 }
 
-const BasicBlock *DbgMarker::getParent() const {
+template <typename RecT, typename InstT, typename BlockT, typename CRTP>
+const BlockT *DbgMarkerBase<RecT, InstT, BlockT, CRTP>::getParent() const {
   return MarkedInstr->getParent();
 }
 
-BasicBlock *DbgMarker::getParent() { return MarkedInstr->getParent(); }
+template <typename RecT, typename InstT, typename BlockT, typename CRTP>
+BlockT *DbgMarkerBase<RecT, InstT, BlockT, CRTP>::getParent() { return MarkedInstr->getParent(); }
 
-void DbgMarker::removeMarker() {
+template <typename RecT, typename InstT, typename BlockT, typename CRTP>
+void DbgMarkerBase<RecT, InstT, BlockT, CRTP>::removeMarker() {
   // Are there any DbgRecords in this DbgMarker? If not, nothing to preserve.
-  Instruction *Owner = MarkedInstr;
+  InstT *Owner = MarkedInstr;
   if (StoredDbgRecords.empty()) {
     eraseFromParent();
     Owner->DebugMarker = nullptr;
@@ -540,7 +545,7 @@ void DbgMarker::removeMarker() {
   // The attached DbgRecords need to be preserved; attach them to the next
   // instruction. If there isn't a next instruction, put them on the
   // "trailing" list.
-  DbgMarker *NextMarker = Owner->getParent()->getNextMarker(Owner);
+  DbgMarkerBase *NextMarker = Owner->getParent()->getNextMarker(Owner);
   if (NextMarker) {
     NextMarker->absorbDebugValues(*this, true);
     eraseFromParent();
@@ -548,69 +553,80 @@ void DbgMarker::removeMarker() {
     // We can avoid a deallocation -- just store this marker onto the next
     // instruction. Unless we're at the end of the block, in which case this
     // marker becomes the trailing marker of a degenerate block.
-    BasicBlock::iterator NextIt = std::next(Owner->getIterator());
+    typename BlockT::iterator NextIt = std::next(Owner->getIterator());
+    CRTP *Derived = static_cast<CRTP*>(this);
     if (NextIt == getParent()->end()) {
-      getParent()->setTrailingDbgRecords(this);
+      getParent()->setTrailingDbgRecords(Derived);
       MarkedInstr = nullptr;
     } else {
-      NextIt->DebugMarker = this;
+      NextIt->DebugMarker = Derived;
       MarkedInstr = &*NextIt;
     }
   }
   Owner->DebugMarker = nullptr;
 }
 
-void DbgMarker::removeFromParent() {
+template <typename RecT, typename InstT, typename BlockT, typename CRTP>
+void DbgMarkerBase<RecT, InstT, BlockT, CRTP>::removeFromParent() {
   MarkedInstr->DebugMarker = nullptr;
   MarkedInstr = nullptr;
 }
 
-void DbgMarker::eraseFromParent() {
+template <typename RecT, typename InstT, typename BlockT, typename CRTP>
+void DbgMarkerBase<RecT, InstT, BlockT, CRTP>::eraseFromParent() {
   if (MarkedInstr)
     removeFromParent();
   dropDbgRecords();
   delete this;
 }
 
-iterator_range<DbgRecord::self_iterator> DbgMarker::getDbgRecordRange() {
+template <typename RecT, typename InstT, typename BlockT, typename CRTP>
+iterator_range<typename simple_ilist<RecT>::iterator>
+DbgMarkerBase<RecT, InstT, BlockT, CRTP>::getDbgRecordRange() {
   return make_range(StoredDbgRecords.begin(), StoredDbgRecords.end());
 }
-iterator_range<DbgRecord::const_self_iterator>
-DbgMarker::getDbgRecordRange() const {
+template <typename RecT, typename InstT, typename BlockT, typename CRTP>
+iterator_range<typename simple_ilist<RecT>::const_iterator>
+DbgMarkerBase<RecT, InstT, BlockT, CRTP>::getDbgRecordRange() const {
   return make_range(StoredDbgRecords.begin(), StoredDbgRecords.end());
 }
 
-void DbgMarker::insertDbgRecord(DbgRecord *New, bool InsertAtHead) {
+template <typename RecT, typename InstT, typename BlockT, typename CRTP>
+void DbgMarkerBase<RecT, InstT, BlockT, CRTP>::insertDbgRecord(RecT *New, bool InsertAtHead) {
   auto It = InsertAtHead ? StoredDbgRecords.begin() : StoredDbgRecords.end();
   StoredDbgRecords.insert(It, *New);
-  New->setMarker(this);
+  New->setMarker(static_cast<CRTP*>(this));
 }
-void DbgMarker::insertDbgRecord(DbgRecord *New, DbgRecord *InsertBefore) {
+template <typename RecT, typename InstT, typename BlockT, typename CRTP>
+void DbgMarkerBase<RecT, InstT, BlockT, CRTP>::insertDbgRecord(RecT *New, RecT *InsertBefore) {
   assert(InsertBefore->getMarker() == this &&
          "DbgRecord 'InsertBefore' must be contained in this DbgMarker!");
   StoredDbgRecords.insert(InsertBefore->getIterator(), *New);
-  New->setMarker(this);
+  New->setMarker(static_cast<CRTP*>(this));
 }
-void DbgMarker::insertDbgRecordAfter(DbgRecord *New, DbgRecord *InsertAfter) {
+template <typename RecT, typename InstT, typename BlockT, typename CRTP>
+void DbgMarkerBase<RecT, InstT, BlockT, CRTP>::insertDbgRecordAfter(RecT *New, RecT *InsertAfter) {
   assert(InsertAfter->getMarker() == this &&
          "DbgRecord 'InsertAfter' must be contained in this DbgMarker!");
   StoredDbgRecords.insert(++(InsertAfter->getIterator()), *New);
-  New->setMarker(this);
+  New->setMarker(static_cast<CRTP*>(this));
 }
 
-void DbgMarker::absorbDebugValues(DbgMarker &Src, bool InsertAtHead) {
+template <typename RecT, typename InstT, typename BlockT, typename CRTP>
+void DbgMarkerBase<RecT, InstT, BlockT, CRTP>::absorbDebugValues(DbgMarkerBase &Src, bool InsertAtHead) {
   auto It = InsertAtHead ? StoredDbgRecords.begin() : StoredDbgRecords.end();
-  for (DbgRecord &DVR : Src.StoredDbgRecords)
-    DVR.setMarker(this);
+  for (RecT &DVR : Src.StoredDbgRecords)
+    DVR.setMarker(static_cast<CRTP*>(this));
 
   StoredDbgRecords.splice(It, Src.StoredDbgRecords);
 }
 
-void DbgMarker::absorbDebugValues(
-    iterator_range<DbgRecord::self_iterator> Range, DbgMarker &Src,
+template <typename RecT, typename InstT, typename BlockT, typename CRTP>
+void DbgMarkerBase<RecT, InstT, BlockT, CRTP>::absorbDebugValues(
+    iterator_range<typename RecT::self_iterator> Range, DbgMarkerBase &Src,
     bool InsertAtHead) {
-  for (DbgRecord &DR : Range)
-    DR.setMarker(this);
+  for (RecT &DR : Range)
+    DR.setMarker(static_cast<CRTP*>(this));
 
   auto InsertPos =
       (InsertAtHead) ? StoredDbgRecords.begin() : StoredDbgRecords.end();
@@ -619,10 +635,12 @@ void DbgMarker::absorbDebugValues(
                           Range.end());
 }
 
-iterator_range<simple_ilist<DbgRecord>::iterator> DbgMarker::cloneDebugInfoFrom(
-    DbgMarker *From, std::optional<simple_ilist<DbgRecord>::iterator> from_here,
+template <typename RecT, typename InstT, typename BlockT, typename CRTP>
+iterator_range<typename simple_ilist<RecT>::iterator>
+DbgMarkerBase<RecT, InstT, BlockT, CRTP>::cloneDebugInfoFrom(
+    DbgMarkerBase *From, std::optional<typename simple_ilist<RecT>::iterator> from_here,
     bool InsertAtHead) {
-  DbgRecord *First = nullptr;
+  RecT *First = nullptr;
   // Work out what range of DbgRecords to clone: normally all the contents of
   // the "From" marker, optionally we can start from the from_here position down
   // to end().
@@ -634,9 +652,9 @@ iterator_range<simple_ilist<DbgRecord>::iterator> DbgMarker::cloneDebugInfoFrom(
   // Clone each DbgVariableRecord and insert into StoreDbgVariableRecords;
   // optionally place them at the start or the end of the list.
   auto Pos = (InsertAtHead) ? StoredDbgRecords.begin() : StoredDbgRecords.end();
-  for (DbgRecord &DR : Range) {
-    DbgRecord *New = DR.clone();
-    New->setMarker(this);
+  for (RecT &DR : Range) {
+    RecT *New = DR.clone();
+    New->setMarker(static_cast<CRTP*>(this));
     StoredDbgRecords.insert(Pos, *New);
     if (!First)
       First = New;
@@ -653,5 +671,11 @@ iterator_range<simple_ilist<DbgRecord>::iterator> DbgMarker::cloneDebugInfoFrom(
     // We inserted a block at the end, return that range.
     return {First->getIterator(), StoredDbgRecords.end()};
 }
+
+
+template <typename RecT, typename InstT, typename BlockT, typename CRTP>
+DbgMarkerBase<RecT, InstT, BlockT, CRTP> DbgMarkerBase<RecT, InstT, BlockT, CRTP>::EmptyDbgMarker = {};
+
+template class DbgMarkerBase<DbgRecord, Instruction, BasicBlock, DbgMarker>;
 
 } // end namespace llvm

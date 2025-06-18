@@ -629,6 +629,88 @@ filterDbgVars(iterator_range<simple_ilist<DbgRecord>::iterator> R) {
       [](DbgRecord &E) { return std::ref(cast<DbgVariableRecord>(E)); });
 }
 
+template <typename RecT, typename InstT, typename BlockT, typename CRTP>
+class DbgMarkerBase {
+public:
+  DbgMarkerBase() {}
+  /// Link back to the Instruction that owns this marker. Can be null during
+  /// operations that move a marker from one instruction to another.
+  InstT *MarkedInstr = nullptr;
+
+  /// List of DbgRecords (or similar), the non-instruction equivalent of
+  /// llvm.dbg.* intrinsics. There is a one-to-one relationship between each
+  /// debug intrinsic in a block and each DbgRecord once the representation has
+  /// been converted, and the ordering is meaningful in the same way.
+  simple_ilist<RecT> StoredDbgRecords;
+  bool empty() const { return StoredDbgRecords.empty(); }
+
+  LLVM_ABI const BlockT *getParent() const;
+  LLVM_ABI BlockT *getParent();
+
+  /// Handle the removal of a marker: the position of debug-info has gone away,
+  /// but the stored debug records should not. Drop them onto the next
+  /// instruction, or otherwise work out what to do with them.
+  LLVM_ABI void removeMarker();
+
+  LLVM_ABI void removeFromParent();
+  LLVM_ABI void eraseFromParent();
+
+  /// Produce a range over all the DbgRecords in this Marker.
+  LLVM_ABI iterator_range<typename simple_ilist<RecT>::iterator>
+  getDbgRecordRange();
+  LLVM_ABI iterator_range<typename simple_ilist<RecT>::const_iterator>
+  getDbgRecordRange() const;
+  /// Transfer any DbgRecords from \p Src into this DbgMarker. If \p
+  /// InsertAtHead is true, place them before existing DbgRecords, otherwise
+  /// afterwards.
+  LLVM_ABI void absorbDebugValues(DbgMarkerBase &Src, bool InsertAtHead);
+  /// Transfer the DbgRecords in \p Range from \p Src into this DbgMarker. If
+  /// \p InsertAtHead is true, place them before existing DbgRecords, otherwise
+  // afterwards.
+  LLVM_ABI void
+  absorbDebugValues(iterator_range<typename RecT::self_iterator> Range,
+                    DbgMarkerBase &Src, bool InsertAtHead);
+  /// Insert a DbgRecord into this DbgMarker, at the end of the list. If
+  /// \p InsertAtHead is true, at the start.
+  LLVM_ABI void insertDbgRecord(RecT *New, bool InsertAtHead);
+  /// Insert a DbgRecord prior to a DbgRecord contained within this marker.
+  LLVM_ABI void insertDbgRecord(RecT *New, RecT *InsertBefore);
+  /// Insert a DbgRecord after a DbgRecord contained within this marker.
+  LLVM_ABI void insertDbgRecordAfter(RecT *New, RecT *InsertAfter);
+  /// Clone all DbgMarkers from \p From into this marker. There are numerous
+  /// options to customise the source/destination, due to gnarliness, see class
+  /// comment.
+  /// \p FromHere If non-null, copy from FromHere to the end of From's
+  /// DbgRecords
+  /// \p InsertAtHead Place the cloned DbgRecords at the start of
+  /// StoredDbgRecords
+  /// \returns Range over all the newly cloned DbgRecords
+  LLVM_ABI iterator_range<typename simple_ilist<RecT>::iterator>
+  cloneDebugInfoFrom(DbgMarkerBase *From,
+                     std::optional<typename simple_ilist<RecT>::iterator> FromHere,
+                     bool InsertAtHead = false);
+  /// Erase all DbgRecords in this DbgMarker.
+  LLVM_ABI void dropDbgRecords();
+  /// Erase a single DbgRecord from this marker. In an ideal future, we would
+  /// never erase an assignment in this way, but it's the equivalent to
+  /// erasing a debug intrinsic from a block.
+  LLVM_ABI void dropOneDbgRecord(RecT *DR);
+
+  /// We generally act like all llvm Instructions have a range of DbgRecords
+  /// attached to them, but in reality sometimes we don't allocate the DbgMarker
+  /// to save time and memory, but still have to return ranges of DbgRecords.
+  /// When we need to describe such an unallocated DbgRecord range, use this
+  /// static markers range instead. This will bite us if someone tries to insert
+  /// a DbgRecord in that range, but they should be using the Official (TM) API
+  /// for that.
+  LLVM_ABI static DbgMarkerBase<RecT, InstT, BlockT, CRTP> EmptyDbgMarker;
+  static iterator_range<typename simple_ilist<RecT>::iterator>
+  getEmptyDbgRecordRange() {
+    return make_range(EmptyDbgMarker.StoredDbgRecords.end(),
+                      EmptyDbgMarker.StoredDbgRecords.end());
+  }
+};
+
 /// Per-instruction record of debug-info. If an Instruction is the position of
 /// some debugging information, it points at a DbgMarker storing that info. Each
 /// marker points back at the instruction that owns it. Various utilities are
@@ -650,92 +732,18 @@ filterDbgVars(iterator_range<simple_ilist<DbgRecord>::iterator> R) {
 /// which we can improve in the future. Additionally, many improvements in the
 /// way that debug-info is stored can be achieved in this class, at a future
 /// date.
-class DbgMarker {
+class DbgMarker : public DbgMarkerBase<DbgRecord, Instruction, BasicBlock, DbgMarker> {
 public:
-  DbgMarker() {}
-  /// Link back to the Instruction that owns this marker. Can be null during
-  /// operations that move a marker from one instruction to another.
-  Instruction *MarkedInstr = nullptr;
-
-  /// List of DbgRecords, the non-instruction equivalent of llvm.dbg.*
-  /// intrinsics. There is a one-to-one relationship between each debug
-  /// intrinsic in a block and each DbgRecord once the representation has been
-  /// converted, and the ordering is meaningful in the same way.
-  simple_ilist<DbgRecord> StoredDbgRecords;
-  bool empty() const { return StoredDbgRecords.empty(); }
-
-  LLVM_ABI const BasicBlock *getParent() const;
-  LLVM_ABI BasicBlock *getParent();
-
-  /// Handle the removal of a marker: the position of debug-info has gone away,
-  /// but the stored debug records should not. Drop them onto the next
-  /// instruction, or otherwise work out what to do with them.
-  LLVM_ABI void removeMarker();
-  LLVM_ABI void dump() const;
-
-  LLVM_ABI void removeFromParent();
-  LLVM_ABI void eraseFromParent();
-
-  /// Implement operator<< on DbgMarker.
+  DbgMarker() : DbgMarkerBase() {}
+  // All the implementation detail is in the base class.
+  /// Implement operator<< on DbgMarkerBase.
   LLVM_ABI void print(raw_ostream &O, bool IsForDebug = false) const;
   LLVM_ABI void print(raw_ostream &ROS, ModuleSlotTracker &MST,
                       bool IsForDebug) const;
-
-  /// Produce a range over all the DbgRecords in this Marker.
-  LLVM_ABI iterator_range<simple_ilist<DbgRecord>::iterator>
-  getDbgRecordRange();
-  LLVM_ABI iterator_range<simple_ilist<DbgRecord>::const_iterator>
-  getDbgRecordRange() const;
-  /// Transfer any DbgRecords from \p Src into this DbgMarker. If \p
-  /// InsertAtHead is true, place them before existing DbgRecords, otherwise
-  /// afterwards.
-  LLVM_ABI void absorbDebugValues(DbgMarker &Src, bool InsertAtHead);
-  /// Transfer the DbgRecords in \p Range from \p Src into this DbgMarker. If
-  /// \p InsertAtHead is true, place them before existing DbgRecords, otherwise
-  // afterwards.
-  LLVM_ABI void
-  absorbDebugValues(iterator_range<DbgRecord::self_iterator> Range,
-                    DbgMarker &Src, bool InsertAtHead);
-  /// Insert a DbgRecord into this DbgMarker, at the end of the list. If
-  /// \p InsertAtHead is true, at the start.
-  LLVM_ABI void insertDbgRecord(DbgRecord *New, bool InsertAtHead);
-  /// Insert a DbgRecord prior to a DbgRecord contained within this marker.
-  LLVM_ABI void insertDbgRecord(DbgRecord *New, DbgRecord *InsertBefore);
-  /// Insert a DbgRecord after a DbgRecord contained within this marker.
-  LLVM_ABI void insertDbgRecordAfter(DbgRecord *New, DbgRecord *InsertAfter);
-  /// Clone all DbgMarkers from \p From into this marker. There are numerous
-  /// options to customise the source/destination, due to gnarliness, see class
-  /// comment.
-  /// \p FromHere If non-null, copy from FromHere to the end of From's
-  /// DbgRecords
-  /// \p InsertAtHead Place the cloned DbgRecords at the start of
-  /// StoredDbgRecords
-  /// \returns Range over all the newly cloned DbgRecords
-  LLVM_ABI iterator_range<simple_ilist<DbgRecord>::iterator>
-  cloneDebugInfoFrom(DbgMarker *From,
-                     std::optional<simple_ilist<DbgRecord>::iterator> FromHere,
-                     bool InsertAtHead = false);
-  /// Erase all DbgRecords in this DbgMarker.
-  LLVM_ABI void dropDbgRecords();
-  /// Erase a single DbgRecord from this marker. In an ideal future, we would
-  /// never erase an assignment in this way, but it's the equivalent to
-  /// erasing a debug intrinsic from a block.
-  LLVM_ABI void dropOneDbgRecord(DbgRecord *DR);
-
-  /// We generally act like all llvm Instructions have a range of DbgRecords
-  /// attached to them, but in reality sometimes we don't allocate the DbgMarker
-  /// to save time and memory, but still have to return ranges of DbgRecords.
-  /// When we need to describe such an unallocated DbgRecord range, use this
-  /// static markers range instead. This will bite us if someone tries to insert
-  /// a DbgRecord in that range, but they should be using the Official (TM) API
-  /// for that.
-  LLVM_ABI static DbgMarker EmptyDbgMarker;
-  static iterator_range<simple_ilist<DbgRecord>::iterator>
-  getEmptyDbgRecordRange() {
-    return make_range(EmptyDbgMarker.StoredDbgRecords.end(),
-                      EmptyDbgMarker.StoredDbgRecords.end());
-  }
+  LLVM_ABI void dump() const;
 };
+
+extern template class DbgMarkerBase<DbgRecord, Instruction, BasicBlock, DbgMarker>;
 
 inline raw_ostream &operator<<(raw_ostream &OS, const DbgMarker &Marker) {
   Marker.print(OS);
