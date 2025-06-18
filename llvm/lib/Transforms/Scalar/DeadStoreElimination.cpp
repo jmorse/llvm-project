@@ -542,16 +542,12 @@ static void shortenAssignment(Instruction *Inst, Value *OriginalDest,
     return LinkToNothing;
   };
 
-  // Insert an unlinked dbg.assign intrinsic for the dead fragment after each
-  // overlapping dbg.assign intrinsic. The loop invalidates the iterators
-  // returned by getAssignmentMarkers so save a copy of the markers to iterate
-  // over.
-  auto LinkedRange = at::getAssignmentMarkers(Inst);
+  // Insert an unlinked DVRAssign for the dead fragment after each overlapping
+  // DVRAssign. The loop invalidates the iterators returned by
+  // getAssignmentMarkers so save a copy of the markers to iterate over.
   SmallVector<DbgVariableRecord *> LinkedDVRAssigns =
       at::getDVRAssignmentMarkers(Inst);
-  SmallVector<DbgAssignIntrinsic *> Linked(LinkedRange.begin(),
-                                           LinkedRange.end());
-  auto InsertAssignForOverlap = [&](auto *Assign) {
+  auto InsertAssignForOverlap = [&](DbgVariableRecord *Assign) {
     std::optional<DIExpression::FragmentInfo> NewFragment;
     if (!at::calculateFragmentIntersect(DL, OriginalDest, DeadSliceOffsetInBits,
                                         DeadSliceSizeInBits, Assign,
@@ -569,13 +565,12 @@ static void shortenAssignment(Instruction *Inst, Value *OriginalDest,
 
     // Fragments overlap: insert a new dbg.assign for this dead part.
     auto *NewAssign = static_cast<decltype(Assign)>(Assign->clone());
-    NewAssign->insertAfter(Assign->getIterator());
+    NewAssign->insertAfter(Assign);
     NewAssign->setAssignId(GetDeadLink());
     if (NewFragment)
       SetDeadFragExpr(NewAssign, *NewFragment);
     NewAssign->setKillAddress();
   };
-  for_each(Linked, InsertAssignForOverlap);
   for_each(LinkedDVRAssigns, InsertAssignForOverlap);
 }
 

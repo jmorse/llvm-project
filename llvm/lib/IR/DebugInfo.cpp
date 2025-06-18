@@ -194,7 +194,7 @@ DebugLoc llvm::getDebugValueLoc(DbgVariableRecord *DVR) {
   // and inlinedAt is significant. Zero line numbers are used in case this
   // DebugLoc leaks into any adjacent instructions. Produce an unknown location
   // with the correct scope / inlinedAt fields.
-  return DILocation::get(DVR->getContext(), 0, 0, Scope, InlinedAt);
+  return DILocation::get(DeclareLoc->getContext(), 0, 0, Scope, InlinedAt);
 }
 
 //===----------------------------------------------------------------------===//

@@ -128,9 +128,9 @@ bool DbgRecord::isIdenticalToWhenDefined(const DbgRecord &R) const {
   llvm_unreachable("unsupported DbgRecord kind");
 }
 
-bool DbgRecord::isEquivalentTo(const DbgRecord &R) const {
-  return getDebugLoc() == R.getDebugLoc() && isIdenticalToWhenDefined(R);
-}
+//bool DbgRecord::isEquivalentTo(const DbgRecord &R) const {
+//  return getDebugLoc() == R.getDebugLoc() && isIdenticalToWhenDefined(R);
+//}
 
 DbgInfoIntrinsic *
 DbgRecord::createDebugIntrinsic(Module *M, Instruction *InsertBefore) const {
@@ -501,98 +501,6 @@ bool DbgVariableRecord::isKillAddress() const {
   return !Addr || isa<UndefValue>(Addr);
 }
 
-const Instruction *DbgRecord::getInstruction() const {
-  return Marker->MarkedInstr;
-}
-
-const BasicBlock *DbgRecord::getParent() const {
-  return Marker->MarkedInstr->getParent();
-}
-
-BasicBlock *DbgRecord::getParent() { return Marker->MarkedInstr->getParent(); }
-
-BasicBlock *DbgRecord::getBlock() { return Marker->getParent(); }
-
-const BasicBlock *DbgRecord::getBlock() const { return Marker->getParent(); }
-
-Function *DbgRecord::getFunction() { return getBlock()->getParent(); }
-
-const Function *DbgRecord::getFunction() const {
-  return getBlock()->getParent();
-}
-
-Module *DbgRecord::getModule() { return getFunction()->getParent(); }
-
-const Module *DbgRecord::getModule() const {
-  return getFunction()->getParent();
-}
-
-LLVMContext &DbgRecord::getContext() { return getBlock()->getContext(); }
-
-const LLVMContext &DbgRecord::getContext() const {
-  return getBlock()->getContext();
-}
-
-void DbgRecord::insertBefore(DbgRecord *InsertBefore) {
-  assert(!getMarker() &&
-         "Cannot insert a DbgRecord that is already has a DbgMarker!");
-  assert(InsertBefore->getMarker() &&
-         "Cannot insert a DbgRecord before a DbgRecord that does not have a "
-         "DbgMarker!");
-  InsertBefore->getMarker()->insertDbgRecord(this, InsertBefore);
-}
-void DbgRecord::insertAfter(DbgRecord *InsertAfter) {
-  assert(!getMarker() &&
-         "Cannot insert a DbgRecord that is already has a DbgMarker!");
-  assert(InsertAfter->getMarker() &&
-         "Cannot insert a DbgRecord after a DbgRecord that does not have a "
-         "DbgMarker!");
-  InsertAfter->getMarker()->insertDbgRecordAfter(this, InsertAfter);
-}
-
-void DbgRecord::insertBefore(self_iterator InsertBefore) {
-  assert(!getMarker() &&
-         "Cannot insert a DbgRecord that is already has a DbgMarker!");
-  assert(InsertBefore->getMarker() &&
-         "Cannot insert a DbgRecord before a DbgRecord that does not have a "
-         "DbgMarker!");
-  InsertBefore->getMarker()->insertDbgRecord(this, &*InsertBefore);
-}
-void DbgRecord::insertAfter(self_iterator InsertAfter) {
-  assert(!getMarker() &&
-         "Cannot insert a DbgRecord that is already has a DbgMarker!");
-  assert(InsertAfter->getMarker() &&
-         "Cannot insert a DbgRecord after a DbgRecord that does not have a "
-         "DbgMarker!");
-  InsertAfter->getMarker()->insertDbgRecordAfter(this, &*InsertAfter);
-}
-
-void DbgRecord::moveBefore(DbgRecord *MoveBefore) {
-  assert(getMarker() &&
-         "Canot move a DbgRecord that does not currently have a DbgMarker!");
-  removeFromParent();
-  insertBefore(MoveBefore);
-}
-void DbgRecord::moveAfter(DbgRecord *MoveAfter) {
-  assert(getMarker() &&
-         "Canot move a DbgRecord that does not currently have a DbgMarker!");
-  removeFromParent();
-  insertAfter(MoveAfter);
-}
-
-void DbgRecord::moveBefore(self_iterator MoveBefore) {
-  assert(getMarker() &&
-         "Canot move a DbgRecord that does not currently have a DbgMarker!");
-  removeFromParent();
-  insertBefore(MoveBefore);
-}
-void DbgRecord::moveAfter(self_iterator MoveAfter) {
-  assert(getMarker() &&
-         "Canot move a DbgRecord that does not currently have a DbgMarker!");
-  removeFromParent();
-  insertAfter(MoveAfter);
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 
 // An empty, global, DbgMarker for the purpose of describing empty ranges of
@@ -670,16 +578,6 @@ iterator_range<DbgRecord::self_iterator> DbgMarker::getDbgRecordRange() {
 iterator_range<DbgRecord::const_self_iterator>
 DbgMarker::getDbgRecordRange() const {
   return make_range(StoredDbgRecords.begin(), StoredDbgRecords.end());
-}
-
-void DbgRecord::removeFromParent() {
-  getMarker()->StoredDbgRecords.erase(getIterator());
-  Marker = nullptr;
-}
-
-void DbgRecord::eraseFromParent() {
-  removeFromParent();
-  deleteRecord();
 }
 
 void DbgMarker::insertDbgRecord(DbgRecord *New, bool InsertAtHead) {

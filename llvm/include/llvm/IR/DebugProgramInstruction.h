@@ -136,29 +136,148 @@ extern template class LLVM_TEMPLATE_ABI DbgRecordParamRef<DILocalVariable>;
 ///   isIdenticalToWhenDefined
 ///   both print methods
 ///   createDebugIntrinsic
-class DbgRecord : public ilist_node<DbgRecord> {
+template <typename InstT, typename BlockT, typename FuncT, typename IntrinT, typename CRTP>
+class DbgRecordBase : public ilist_node<CRTP> {
 public:
-  /// Marker that this DbgRecord is linked into.
+  /// Marker that this DbgRecordBase is linked into.
   DbgMarker *Marker = nullptr;
+  using self_iterator = typename ilist_node<CRTP>::self_iterator;
+  using const_self_iterator = typename simple_ilist<CRTP>::const_iterator;
+  using BaseT = ilist_node<CRTP>;
+
+protected:
+  DebugLoc DbgLoc;
+
+public:
+  DbgRecordBase(DebugLoc DL)
+      : DbgLoc(DL) {}
+
+  /// Same as isIdenticalToWhenDefined but checks DebugLoc too.
+//  LLVM_ABI bool isEquivalentTo(const DbgRecordBase &R) const;
+
+  void setMarker(DbgMarker *M) { Marker = M; }
+
+  DbgMarker *getMarker() { return Marker; }
+  const DbgMarker *getMarker() const { return Marker; }
+
+  BlockT *getBlock() {
+    return getInstruction()->getParent();
+  }
+  const BlockT *getBlock() const {
+    return getInstruction()->getParent();
+  }
+
+  FuncT *getFunction() {
+    return getBlock()->getParent();
+  }
+  const FuncT *getFunction() const {
+    return getBlock()->getParent();
+  }
+
+  Module *getModule() {
+    return getFunction()->getParent();
+  }
+  const Module *getModule() const {
+    return getFunction()->getParent();
+  }
+
+  LLVMContext &getContext() {
+    return getBlock()->getContext();
+  }
+  const LLVMContext &getContext() const {
+    return getBlock()->getContext();
+  }
+
+  const InstT *getInstruction() const;
+  InstT *getInstruction();
+
+  const BlockT *getParent() const {
+    return getBlock();
+  }
+  BlockT *getParent() {
+    return getBlock();
+  }
+
+  void removeFromParent() {
+    getMarker()->StoredDbgRecords.erase(BaseT::getIterator());
+    Marker = nullptr;
+  }
+
+  DbgRecordBase *getNextNode() { return &*std::next(ilist_node<CRTP>::getIterator()); }
+  DbgRecordBase *getPrevNode() { return &*std::prev(ilist_node<CRTP>::getIterator()); }
+
+  void insertBefore(DbgRecordBase *InsertBefore) {
+    assert(!getMarker() &&
+           "Cannot insert a DbgRecord that is already has a DbgMarker!");
+    assert(InsertBefore->getMarker() &&
+           "Cannot insert a DbgRecord before a DbgRecord that does not have a "
+           "DbgMarker!");
+    CRTP *Derived = static_cast<CRTP*>(this);
+    CRTP *DerivedBefore = static_cast<CRTP*>(InsertBefore);
+    InsertBefore->getMarker()->insertDbgRecord(Derived, DerivedBefore);
+  }
+  void insertAfter(DbgRecordBase *InsertAfter) {
+    assert(!getMarker() &&
+           "Cannot insert a DbgRecord that is already has a DbgMarker!");
+    assert(InsertAfter->getMarker() &&
+           "Cannot insert a DbgRecord after a DbgRecord that does not have a "
+           "DbgMarker!");
+    CRTP *Derived = static_cast<CRTP*>(this);
+    CRTP *DerivedAfter = static_cast<CRTP*>(InsertAfter);
+    InsertAfter->getMarker()->insertDbgRecordAfter(Derived, DerivedAfter);
+  }
+
+  void moveBefore(DbgRecordBase *MoveBefore) {
+    assert(getMarker() &&
+           "Canot move a DbgRecord that does not currently have a DbgMarker!");
+    removeFromParent();
+    insertBefore(MoveBefore);
+  }
+  void moveAfter(DbgRecordBase *MoveAfter) {
+    assert(getMarker() &&
+           "Canot move a DbgRecord that does not currently have a DbgMarker!");
+    removeFromParent();
+    insertAfter(MoveAfter);
+  }
+
+  DebugLoc getDebugLoc() const { return DbgLoc; }
+  void setDebugLoc(DebugLoc Loc) { DbgLoc = std::move(Loc); }
+
+protected:
+  /// Similarly to Value, we avoid paying the cost of a vtable
+  /// by protecting the dtor and having deleteRecord dispatch
+  /// cleanup.
+  /// Use deleteRecord to delete a generic record.
+  ~DbgRecordBase() = default;
+};
+
+class DbgRecord : public DbgRecordBase<Instruction, BasicBlock, Function, DbgInfoIntrinsic, DbgRecord> {
+public:
+  using BaseT = DbgRecordBase<Instruction, BasicBlock, Function, DbgInfoIntrinsic, DbgRecord>;
+  using self_iterator = typename BaseT::self_iterator;
+
   /// Subclass discriminator.
   enum Kind : uint8_t { ValueKind, LabelKind };
 
 protected:
-  DebugLoc DbgLoc;
   Kind RecordKind; ///< Subclass discriminator.
 
 public:
   DbgRecord(Kind RecordKind, DebugLoc DL)
-      : DbgLoc(DL), RecordKind(RecordKind) {}
+      : DbgRecordBase(DL), RecordKind(RecordKind) { }
+
+  Kind getRecordKind() const { return RecordKind; }
+
+  LLVM_ABI void dump() const;
+  LLVM_ABI void deleteRecord();
+  LLVM_ABI void print(raw_ostream &O, ModuleSlotTracker &MST,
+                      bool IsForDebug) const;
 
   /// Methods that dispatch to subclass implementations. These need to be
   /// manually updated when a new subclass is added.
   ///@{
-  LLVM_ABI void deleteRecord();
   LLVM_ABI DbgRecord *clone() const;
   LLVM_ABI void print(raw_ostream &O, bool IsForDebug = false) const;
-  LLVM_ABI void print(raw_ostream &O, ModuleSlotTracker &MST,
-                      bool IsForDebug) const;
   LLVM_ABI bool isIdenticalToWhenDefined(const DbgRecord &R) const;
   /// Convert this DbgRecord back into an appropriate llvm.dbg.* intrinsic.
   /// \p InsertBefore Optional position to insert this intrinsic.
@@ -167,64 +286,10 @@ public:
   createDebugIntrinsic(Module *M, Instruction *InsertBefore) const;
   ///@}
 
-  /// Same as isIdenticalToWhenDefined but checks DebugLoc too.
-  LLVM_ABI bool isEquivalentTo(const DbgRecord &R) const;
-
-  Kind getRecordKind() const { return RecordKind; }
-
-  void setMarker(DbgMarker *M) { Marker = M; }
-
-  DbgMarker *getMarker() { return Marker; }
-  const DbgMarker *getMarker() const { return Marker; }
-
-  LLVM_ABI BasicBlock *getBlock();
-  LLVM_ABI const BasicBlock *getBlock() const;
-
-  LLVM_ABI Function *getFunction();
-  LLVM_ABI const Function *getFunction() const;
-
-  LLVM_ABI Module *getModule();
-  LLVM_ABI const Module *getModule() const;
-
-  LLVM_ABI LLVMContext &getContext();
-  LLVM_ABI const LLVMContext &getContext() const;
-
-  LLVM_ABI const Instruction *getInstruction() const;
-  LLVM_ABI const BasicBlock *getParent() const;
-  LLVM_ABI BasicBlock *getParent();
-
-  LLVM_ABI void removeFromParent();
-  LLVM_ABI void eraseFromParent();
-
-  DbgRecord *getNextNode() { return &*std::next(getIterator()); }
-  DbgRecord *getPrevNode() { return &*std::prev(getIterator()); }
-
-  // Some generic lambdas supporting intrinsic-based debug-info mean we need
-  // to support both iterator and instruction position based insertion.
-  LLVM_ABI void insertBefore(DbgRecord *InsertBefore);
-  LLVM_ABI void insertAfter(DbgRecord *InsertAfter);
-  LLVM_ABI void moveBefore(DbgRecord *MoveBefore);
-  LLVM_ABI void moveAfter(DbgRecord *MoveAfter);
-
-  LLVM_ABI void insertBefore(self_iterator InsertBefore);
-  LLVM_ABI void insertAfter(self_iterator InsertAfter);
-  LLVM_ABI void moveBefore(self_iterator MoveBefore);
-  LLVM_ABI void moveAfter(self_iterator MoveAfter);
-
-  DebugLoc getDebugLoc() const { return DbgLoc; }
-  void setDebugLoc(DebugLoc Loc) { DbgLoc = std::move(Loc); }
-
-  LLVM_ABI void dump() const;
-
-  using self_iterator = simple_ilist<DbgRecord>::iterator;
-  using const_self_iterator = simple_ilist<DbgRecord>::const_iterator;
-
-protected:
-  /// Similarly to Value, we avoid paying the cost of a vtable
-  /// by protecting the dtor and having deleteRecord dispatch
-  /// cleanup.
-  /// Use deleteRecord to delete a generic record.
-  ~DbgRecord() = default;
+  void eraseFromParent() {
+    removeFromParent();
+    deleteRecord();
+  }
 };
 
 inline raw_ostream &operator<<(raw_ostream &OS, const DbgRecord &R) {
@@ -691,6 +756,16 @@ getDbgRecordRange(DbgMarker *DebugMarker) {
 }
 
 DEFINE_ISA_CONVERSION_FUNCTIONS(DbgRecord, LLVMDbgRecordRef)
+
+template <typename InstT, typename BlockT, typename FuncT, typename IntrinT, typename CRTP>
+auto DbgRecordBase<InstT, BlockT, FuncT, IntrinT, CRTP>::getInstruction() -> InstT* {
+  return Marker->MarkedInstr;
+}
+
+template <typename InstT, typename BlockT, typename FuncT, typename IntrinT, typename CRTP>
+auto DbgRecordBase<InstT, BlockT, FuncT, IntrinT, CRTP>::getInstruction() const -> const InstT* {
+  return Marker->MarkedInstr;
+}
 
 } // namespace llvm
 
