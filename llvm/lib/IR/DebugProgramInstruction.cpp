@@ -128,10 +128,6 @@ bool DbgRecord::isIdenticalToWhenDefined(const DbgRecord &R) const {
   llvm_unreachable("unsupported DbgRecord kind");
 }
 
-//bool DbgRecord::isEquivalentTo(const DbgRecord &R) const {
-//  return getDebugLoc() == R.getDebugLoc() && isIdenticalToWhenDefined(R);
-//}
-
 DbgInfoIntrinsic *
 DbgRecord::createDebugIntrinsic(Module *M, Instruction *InsertBefore) const {
   switch (RecordKind) {

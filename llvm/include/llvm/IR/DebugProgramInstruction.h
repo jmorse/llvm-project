@@ -136,11 +136,11 @@ extern template class LLVM_TEMPLATE_ABI DbgRecordParamRef<DILocalVariable>;
 ///   isIdenticalToWhenDefined
 ///   both print methods
 ///   createDebugIntrinsic
-template <typename InstT, typename BlockT, typename FuncT, typename IntrinT, typename CRTP>
+template <typename InstT, typename BlockT, typename FuncT, typename MarkerT, typename CRTP>
 class DbgRecordBase : public ilist_node<CRTP> {
 public:
   /// Marker that this DbgRecordBase is linked into.
-  DbgMarker *Marker = nullptr;
+  MarkerT *Marker = nullptr;
   using self_iterator = typename ilist_node<CRTP>::self_iterator;
   using const_self_iterator = typename simple_ilist<CRTP>::const_iterator;
   using BaseT = ilist_node<CRTP>;
@@ -156,13 +156,10 @@ public:
   DbgRecordBase(DebugLoc DL, Kind RecordKind)
       : DbgLoc(DL), RecordKind(RecordKind) {}
 
-  /// Same as isIdenticalToWhenDefined but checks DebugLoc too.
-//  LLVM_ABI bool isEquivalentTo(const DbgRecordBase &R) const;
+  void setMarker(MarkerT *M) { Marker = M; }
 
-  void setMarker(DbgMarker *M) { Marker = M; }
-
-  DbgMarker *getMarker() { return Marker; }
-  const DbgMarker *getMarker() const { return Marker; }
+  MarkerT *getMarker() { return Marker; }
+  const MarkerT *getMarker() const { return Marker; }
 
   BlockT *getBlock() {
     return getInstruction()->getParent();
@@ -257,9 +254,9 @@ protected:
   ~DbgRecordBase() = default;
 };
 
-class DbgRecord : public DbgRecordBase<Instruction, BasicBlock, Function, DbgInfoIntrinsic, DbgRecord> {
+class DbgRecord : public DbgRecordBase<Instruction, BasicBlock, Function, DbgMarker, DbgRecord> {
 public:
-  using BaseT = DbgRecordBase<Instruction, BasicBlock, Function, DbgInfoIntrinsic, DbgRecord>;
+  using BaseT = DbgRecordBase<Instruction, BasicBlock, Function, DbgMarker, DbgRecord>;
   using self_iterator = typename BaseT::self_iterator;
 
 public:
@@ -763,13 +760,13 @@ getDbgRecordRange(DbgMarker *DebugMarker) {
 
 DEFINE_ISA_CONVERSION_FUNCTIONS(DbgRecord, LLVMDbgRecordRef)
 
-template <typename InstT, typename BlockT, typename FuncT, typename IntrinT, typename CRTP>
-auto DbgRecordBase<InstT, BlockT, FuncT, IntrinT, CRTP>::getInstruction() -> InstT* {
+template <typename InstT, typename BlockT, typename FuncT, typename MarkerT, typename CRTP>
+auto DbgRecordBase<InstT, BlockT, FuncT, MarkerT, CRTP>::getInstruction() -> InstT* {
   return Marker->MarkedInstr;
 }
 
-template <typename InstT, typename BlockT, typename FuncT, typename IntrinT, typename CRTP>
-auto DbgRecordBase<InstT, BlockT, FuncT, IntrinT, CRTP>::getInstruction() const -> const InstT* {
+template <typename InstT, typename BlockT, typename FuncT, typename MarkerT, typename CRTP>
+auto DbgRecordBase<InstT, BlockT, FuncT, MarkerT, CRTP>::getInstruction() const -> const InstT* {
   return Marker->MarkedInstr;
 }
 
