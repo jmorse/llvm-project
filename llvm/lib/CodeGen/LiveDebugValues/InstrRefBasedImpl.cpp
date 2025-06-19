@@ -624,9 +624,6 @@ public:
     if (Var.getInlinedAt())
       return false;
 
-    if (Expr->getNumElements() > 0 && !Expr->isDeref())
-      return false;
-
     return true;
   }
 
@@ -1416,6 +1413,43 @@ InstrRefBasedLDV::findLocationForMemOperand(const MachineInstr &MI) {
   return MTracker->getSpillMLoc(SpillID);
 }
 
+std::optional<std::pair<ValueIDNum, const DIExpression *>>
+InstrRefBasedLDV::handleEntryValueDef(const MachineInstr &MI, const DIExpression *Expr, const SmallVectorImpl<DbgOpID> &DbgOps) {
+  assert(Expr->isEntryValue());
+  // Look at the expression: if there's a single input value (it's not variadic),
+  // remove the entry-value portion of the expression and select a machine-value
+  // identifying that ValueIDNum: the initial value, in the entry block, in that
+  // register.
+
+  // 
+  auto OperandRange = MI.debug_operands();
+  if (std::distance(OperandRange.begin(), OperandRange.end()) != 1)
+    return std::nullopt;
+  const MachineOperand &MO = *OperandRange.begin();
+  if (!MO.isReg() || !MO.getReg())
+    return std::nullopt;
+
+  // Two formats we're willing to recognise:
+  //   DW_OP_LLVM_entry_value, 1, [...]
+  //   DW_OP_LLVM_arg, 0, DW_OP_LLVM_entry_value, 1, [...]
+  // Which mean the same thing, but one is in variadic form.
+  
+  // Strip off any leading "arg 0" portion. If this fails, something is very wrong.
+  std::optional<ArrayRef<uint64_t>> OptElems = Expr->getSingleLocationExpressionElements();
+  assert(OptElems);
+  ArrayRef<uint64_t> Elems = *OptElems;
+  assert(Elems[0] == dwarf::DW_OP_LLVM_entry_value);
+  // Index 1 is the fixed-size operand 1.
+  DIExpression *NonEntryExpr = DIExpression::get(Expr->getContext(), Elems.drop_front(2));
+  
+  // Name the entry value as a ValueIDNum: the entry value is defined in block
+  // zero, at "instruction zero" (aka the incoming value in that register),
+  // at the location corresponding to this register:
+  LocIdx RegLoc = MTracker->lookupOrTrackRegister(MO.getReg());
+  ValueIDNum EntryValue = ValueIDNum(0, 0, RegLoc);
+  return std::make_pair(EntryValue, NonEntryExpr);
+}
+
 /// End all previous ranges related to @MI and start a new range from @MI
 /// if it is a DBG_VALUE instr.
 bool InstrRefBasedLDV::transferDebugValue(const MachineInstr &MI) {
@@ -1437,14 +1471,26 @@ bool InstrRefBasedLDV::transferDebugValue(const MachineInstr &MI) {
     if (MO.isReg() && MO.getReg() != 0)
       (void)MTracker->readReg(MO.getReg());
 
+  const DIExpression *DIExpr = MI.getDebugExpression();
+
   // If we're preparing for the second analysis (variables), the machine value
   // locations are already solved, and we report this DBG_VALUE and the value
   // it refers to to VLocTracker.
   if (VTracker) {
     SmallVector<DbgOpID> DebugOps;
+    DbgValueProperties Props(MI);
     // Feed defVar the new variable location, or if this is a DBG_VALUE $noreg,
     // feed defVar None.
-    if (!MI.isUndefDebugValue()) {
+    if (DIExpr->isEntryValue()) {
+      std::optional<std::pair<ValueIDNum, const DIExpression *>> Result =
+        handleEntryValueDef(MI, DIExpr, DebugOps);
+      if (Result) {
+        DebugOps.push_back(DbgOpStore.insert(Result->first));
+        Props.DIExpr = Result->second;
+      }
+      // Else: we can't decompile this entry-value expression. Treat it like
+      // an undefined location, by leaving DebugOps empty.
+    } else if (!MI.isUndefDebugValue()) {
       for (const MachineOperand &MO : MI.debug_operands()) {
         // There should be no undef registers here, as we've screened for undef
         // debug values.
@@ -1457,7 +1503,7 @@ bool InstrRefBasedLDV::transferDebugValue(const MachineInstr &MI) {
         }
       }
     }
-    VTracker->defVar(MI, DbgValueProperties(MI), DebugOps);
+    VTracker->defVar(MI, Props, DebugOps);
   }
 
   // If performing final tracking of transfers, report this variable definition

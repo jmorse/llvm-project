@@ -1517,6 +1517,10 @@ public:
   DebugVariableMap &getDVMap() {
     return DVMap;
   }
+
+  std::optional<std::pair<ValueIDNum, const DIExpression *>>
+  handleEntryValueDef(const MachineInstr &MI, const DIExpression *Expr,
+                      const SmallVectorImpl<DbgOpID> &DbgOps);
 };
 
 } // namespace LiveDebugValues
