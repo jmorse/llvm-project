@@ -57,6 +57,8 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Compiler.h"
 
+#include "llvm/CodeGen/MachineInstr.h"
+
 namespace llvm {
 
 class Instruction;
@@ -70,6 +72,8 @@ class DIAssignID;
 class DbgMarker;
 class DbgVariableRecord;
 class raw_ostream;
+class DbgMachineRecord;
+class DbgMachineMarker;
 
 /// A typed tracking MDNode reference that does not require a definition for its
 /// parameter type. Necessary to avoid including DebugInfoMetadata.h, which has
@@ -626,6 +630,73 @@ filterDbgVars(iterator_range<simple_ilist<DbgRecord>::iterator> R) {
       [](DbgRecord &E) { return std::ref(cast<DbgVariableRecord>(E)); });
 }
 
+class DbgMachineRecord : public DbgRecordBase<MachineInstr, MachineBasicBlock, MachineFunction, DbgMachineMarker, DbgMachineRecord> {
+public:
+  using BaseT = DbgRecordBase<MachineInstr, MachineBasicBlock, MachineFunction, DbgMachineMarker, DbgMachineRecord>;
+  using self_iterator = typename BaseT::self_iterator;
+
+public:
+  DbgMachineRecord(Kind RecordKind, DebugLoc DL)
+      : DbgRecordBase(DL, RecordKind) { }
+
+  LLVM_ABI void dump() const;
+  LLVM_ABI void deleteRecord();
+  LLVM_ABI void print(raw_ostream &O, ModuleSlotTracker &MST,
+                      bool IsForDebug) const;
+
+  /// Methods that dispatch to subclass implementations. These need to be
+  /// manually updated when a new subclass is added.
+  ///@{
+  LLVM_ABI DbgMachineRecord *clone() const;
+  LLVM_ABI void print(raw_ostream &O, bool IsForDebug = false) const;
+  LLVM_ABI bool isIdenticalToWhenDefined(const DbgMachineRecord &R) const;
+  LLVM_ABI MachineInstr *
+  createDebugInstr(MachineInstr *InsertBefore) const;
+  ///@}
+
+  void eraseFromParent() {
+    removeFromParent();
+    deleteRecord();
+  }
+};
+
+/// XXX docs
+class DbgMachineLabelRecord : public DbgMachineRecord {
+  DbgRecordParamRef<DILabel> Label;
+
+  /// This constructor intentionally left private, so that it is only called via
+  /// "createUnresolvedDbgLabelRecord", which clearly expresses that it is for
+  /// parsing only.
+  DbgMachineLabelRecord(MDNode *Label, MDNode *DL);
+
+public:
+  LLVM_ABI DbgMachineLabelRecord(DILabel *Label, DebugLoc DL);
+
+  /// For use during parsing; creates a DbgLabelRecord from as-of-yet unresolved
+  /// MDNodes. Trying to access the resulting DbgLabelRecord's fields before
+  /// they are resolved, or if they resolve to the wrong type, will result in a
+  /// crash.
+  LLVM_ABI static DbgMachineLabelRecord *createUnresolvedDbgMachineLabelRecord(MDNode *Label,
+                                                                 MDNode *DL);
+
+  LLVM_ABI DbgMachineLabelRecord *clone() const;
+  LLVM_ABI void print(raw_ostream &O, bool IsForDebug = false) const;
+  LLVM_ABI void print(raw_ostream &ROS, ModuleSlotTracker &MST,
+                      bool IsForDebug) const;
+  LLVM_ABI MachineInstr *createMachineInstr(Module *M,
+                                              Instruction *InsertBefore) const;
+
+  void setLabel(DILabel *NewLabel) { Label = NewLabel; }
+  DILabel *getLabel() const { return Label.get(); }
+  MDNode *getRawLabel() const { return Label.getAsMDNode(); };
+
+  /// Support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const DbgMachineRecord *E) {
+    return E->getRecordKind() == LabelKind;
+  }
+};
+
+
 template <typename RecT, typename InstT, typename BlockT, typename CRTP>
 class DbgMarkerBase {
 public:
@@ -740,7 +811,19 @@ public:
   LLVM_ABI void dump() const;
 };
 
+class DbgMachineMarker : public DbgMarkerBase<DbgMachineRecord, MachineInstr, MachineBasicBlock, DbgMachineMarker> {
+public:
+  DbgMachineMarker() : DbgMarkerBase() {}
+  // All the implementation detail is in the base class.
+  /// Implement operator<< on DbgMarkerBase.
+  LLVM_ABI void print(raw_ostream &O, bool IsForDebug = false) const;
+  LLVM_ABI void print(raw_ostream &ROS, ModuleSlotTracker &MST,
+                      bool IsForDebug) const;
+  LLVM_ABI void dump() const;
+};
+
 extern template class DbgMarkerBase<DbgRecord, Instruction, BasicBlock, DbgMarker>;
+extern template class DbgMarkerBase<DbgMachineRecord, MachineInstr, MachineBasicBlock, DbgMachineMarker>;
 
 inline raw_ostream &operator<<(raw_ostream &OS, const DbgMarker &Marker) {
   Marker.print(OS);

@@ -1469,6 +1469,16 @@ public:
   unsigned getNewDebugInstrNum() {
     return ++DebugInstrNumberingCount;
   }
+
+  SmallDenseMap<MachineBasicBlock *, DbgMachineMarker *> MachineTrailingDbgRecords;
+  void setTrailingDbgRecords(MachineBasicBlock *B, DbgMachineMarker *M) {
+    assert(!MachineTrailingDbgRecords.count(B));
+    MachineTrailingDbgRecords[B] = M;
+  }
+  DbgMachineMarker *getTrailingDbgRecords(MachineBasicBlock *B) {
+    return MachineTrailingDbgRecords.lookup(B);
+  }
+  void deleteTrailingDbgRecords(MachineBasicBlock *B) { MachineTrailingDbgRecords.erase(B); }
 };
 
 //===--------------------------------------------------------------------===//

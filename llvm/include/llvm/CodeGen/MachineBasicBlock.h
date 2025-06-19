@@ -1314,6 +1314,13 @@ private:
   /// unless you know what you're doing, because it doesn't update Pred's
   /// successors list. Use Pred->removeSuccessor instead.
   void removePredecessor(MachineBasicBlock *Pred);
+
+public:
+  DbgMachineMarker *getNextMarker(MachineInstr *I);
+  DbgMachineMarker *getMarker(iterator It);
+  void setTrailingDbgRecords(DbgMachineMarker *M);
+  DbgMachineMarker *getTrailingDbgRecords();
+  void deleteTrailingDbgRecords();
 };
 
 LLVM_ABI raw_ostream &operator<<(raw_ostream &OS, const MachineBasicBlock &MBB);

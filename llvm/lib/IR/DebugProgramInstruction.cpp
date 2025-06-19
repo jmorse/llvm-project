@@ -12,6 +12,8 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Support/Compiler.h"
 
+#include "llvm/CodeGen/MachineBasicBlock.h"
+
 namespace llvm {
 
 template <typename T>
@@ -497,6 +499,38 @@ bool DbgVariableRecord::isKillAddress() const {
   return !Addr || isa<UndefValue>(Addr);
 }
 
+
+void DbgMachineRecord::deleteRecord() {
+abort();
+#if 0
+  switch (RecordKind) {
+  case ValueKind:
+    delete cast<DbgVariableRecord>(this);
+    return;
+  case LabelKind:
+    delete cast<DbgLabelRecord>(this);
+    return;
+  }
+  llvm_unreachable("unsupported DbgRecord kind");
+#endif
+}
+
+DbgMachineRecord *DbgMachineRecord::clone() const {
+abort();
+#if 0
+  switch (RecordKind) {
+  case ValueKind:
+    return cast<DbgVariableRecord>(this)->clone();
+  case LabelKind:
+    return cast<DbgLabelRecord>(this)->clone();
+  };
+  llvm_unreachable("unsupported DbgRecord kind");
+#endif
+}
+
+
+
+
 ///////////////////////////////////////////////////////////////////////////////
 
 // An empty, global, DbgMarker for the purpose of describing empty ranges of
@@ -673,5 +707,6 @@ template <typename RecT, typename InstT, typename BlockT, typename CRTP>
 DbgMarkerBase<RecT, InstT, BlockT, CRTP> DbgMarkerBase<RecT, InstT, BlockT, CRTP>::EmptyDbgMarker = {};
 
 template class DbgMarkerBase<DbgRecord, Instruction, BasicBlock, DbgMarker>;
+template class DbgMarkerBase<DbgMachineRecord, MachineInstr, MachineBasicBlock, DbgMachineMarker>;
 
 } // end namespace llvm

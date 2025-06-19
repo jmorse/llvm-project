@@ -1808,3 +1808,24 @@ bool MachineBasicBlock::sizeWithoutDebugLargerThan(unsigned Limit) const {
 const MBBSectionID MBBSectionID::ColdSectionID(MBBSectionID::SectionType::Cold);
 const MBBSectionID
     MBBSectionID::ExceptionSectionID(MBBSectionID::SectionType::Exception);
+
+DbgMachineMarker *MachineBasicBlock::getNextMarker(MachineInstr *I) {
+  return getMarker(std::next(I->getIterator()));
+}
+
+DbgMachineMarker *MachineBasicBlock::getMarker(iterator It) {
+  if (It == end()) {
+    DbgMachineMarker *DM = getTrailingDbgRecords();
+    return DM;
+  }
+  return It->DebugMarker;
+}
+
+void MachineBasicBlock::setTrailingDbgRecords(DbgMachineMarker *foo) {
+  getParent()->setTrailingDbgRecords(this, foo);
+}
+
+DbgMachineMarker *MachineBasicBlock::getTrailingDbgRecords() {
+  return getParent()->getTrailingDbgRecords(this);
+}
+

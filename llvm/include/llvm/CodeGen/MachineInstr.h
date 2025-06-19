@@ -59,6 +59,7 @@ class StringRef;
 class TargetInstrInfo;
 class TargetRegisterClass;
 class TargetRegisterInfo;
+class DbgMachineMarker;
 
 //===----------------------------------------------------------------------===//
 /// Representation of each machine instruction.
@@ -303,6 +304,10 @@ private:
       Info;
 
   DebugLoc DbgLoc; // Source line information.
+
+public:
+  DbgMachineMarker *DebugMarker; // "lol"
+private:
 
   /// Unique instruction number. Used by DBG_INSTR_REFs to refer to the values
   /// defined by this instruction.
