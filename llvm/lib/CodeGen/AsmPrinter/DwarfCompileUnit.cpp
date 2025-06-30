@@ -1154,7 +1154,7 @@ DIE *DwarfCompileUnit::createAndAddScopeChildren(LexicalScope *Scope,
   DIE *ObjectPointer = nullptr;
 
   // Emit function arguments (order is significant).
-  auto Vars = DU->getScopeVariables().lookup(Scope);
+  auto &Vars = DU->getScopeVariables().lookup(Scope);
   for (auto &DV : Vars.Args)
     ScopeDIE.addChild(constructVariableDIE(*DV.second, *Scope, ObjectPointer));
 
