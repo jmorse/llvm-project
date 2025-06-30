@@ -1155,7 +1155,8 @@ DIE *DwarfCompileUnit::createAndAddScopeChildren(LexicalScope *Scope,
 
   // Emit function arguments (order is significant).
   auto VarsIt = DU->getScopeVariables().find(Scope);
-  assert(VarsIt != DU->getScopeVariables().end());
+  if (VarsIt == DU->getScopeVariables().end())
+    VarsIt = DU->getScopeVariables().insert({Scope, {}}).first;
   for (auto &DV : VarsIt->second.Args)
     ScopeDIE.addChild(constructVariableDIE(*DV.second, *Scope, ObjectPointer));
 
@@ -1181,7 +1182,9 @@ DIE *DwarfCompileUnit::createAndAddScopeChildren(LexicalScope *Scope,
     if (isa<DISubprogram>(S->getScopeNode()))
       return false;
     auto VarsIt = DU->getScopeVariables().find(S);
-    assert(VarsIt != DU->getScopeVariables().end());
+    if (VarsIt == DU->getScopeVariables().end())
+      VarsIt = DU->getScopeVariables().insert({S, {}}).first;
+  
     if (!VarsIt->second.Args.empty() || !VarsIt->second.Locals.empty())
       return false;
     return includeMinimalInlineScopes() ||
