@@ -1154,12 +1154,13 @@ DIE *DwarfCompileUnit::createAndAddScopeChildren(LexicalScope *Scope,
   DIE *ObjectPointer = nullptr;
 
   // Emit function arguments (order is significant).
-  auto &Vars = DU->getScopeVariables().lookup(Scope);
-  for (auto &DV : Vars.Args)
+  auto VarsIt = DU->getScopeVariables().find(Scope);
+  assert(VarsIt != DU->getScopeVariables().end());
+  for (auto &DV : VarsIt->second.Args)
     ScopeDIE.addChild(constructVariableDIE(*DV.second, *Scope, ObjectPointer));
 
   // Emit local variables.
-  auto Locals = sortLocalVars(Vars.Locals);
+  auto Locals = sortLocalVars(VarsIt->second.Locals);
   for (DbgVariable *DV : Locals)
     ScopeDIE.addChild(constructVariableDIE(*DV, *Scope, ObjectPointer));
 
@@ -1179,8 +1180,9 @@ DIE *DwarfCompileUnit::createAndAddScopeChildren(LexicalScope *Scope,
   auto skipLexicalScope = [this](LexicalScope *S) -> bool {
     if (isa<DISubprogram>(S->getScopeNode()))
       return false;
-    auto Vars = DU->getScopeVariables().lookup(S);
-    if (!Vars.Args.empty() || !Vars.Locals.empty())
+    auto VarsIt = DU->getScopeVariables().find(S);
+    assert(VarsIt != DU->getScopeVariables().end());
+    if (!VarsIt->second.Args.empty() || !VarsIt->second.Locals.empty())
       return false;
     return includeMinimalInlineScopes() ||
            DD->getLocalDeclsForScope(S->getScopeNode()).empty();
