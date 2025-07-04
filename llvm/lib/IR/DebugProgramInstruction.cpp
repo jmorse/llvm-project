@@ -709,4 +709,36 @@ DbgMarkerBase<RecT, InstT, BlockT, CRTP> DbgMarkerBase<RecT, InstT, BlockT, CRTP
 template class DbgMarkerBase<DbgRecord, Instruction, BasicBlock, DbgMarker>;
 template class DbgMarkerBase<DbgMachineRecord, MachineInstr, MachineBasicBlock, DbgMachineMarker>;
 
+DbgMachineVariableRecord::DbgMachineVariableRecord(DILocalVariable *Var, DIExpression *Expr, const DILocation *DILoc)
+  : DbgMachineRecord(ValueKind, DILoc), Variable(Var), Expression(Expr) {
+  Reg = Register(0);
+}
+
+DbgMachineVariableRecord *
+DbgMachineVariableRecord::createDMVRValue(Register R, DILocalVariable *Variable,
+                  DIExpression *Expression, const DILocation *DI) {
+  auto *NewThing = new DbgMachineVariableRecord(Variable, Expression, DI);
+  NewThing->Reg = R;
+  NewThing->Type = MachineLocationType::Value;
+  return NewThing;
+}
+
+DbgMachineVariableRecord *
+DbgMachineVariableRecord::createDMVRRef(ArrayRef<std::pair<unsigned, unsigned>> Refs,
+           DILocalVariable *DV, DIExpression *Expr, const DILocation *DI) {
+  auto *NewThing = new DbgMachineVariableRecord(DV, Expr, DI);
+  NewThing->Refs.insert(NewThing->Refs.begin(), Refs.begin(), Refs.end());
+  NewThing->Type = MachineLocationType::Ref;
+  return NewThing;
+}
+
+DbgMachineVariableRecord *
+DbgMachineVariableRecord::createDMVRPHI(Register R, DILocalVariable *Variable,
+           DIExpression *Expression, const DILocation *DI) {
+  auto *NewThing = new DbgMachineVariableRecord(Variable, Expression, DI);
+  NewThing->Reg = R;
+  NewThing->Type = MachineLocationType::PHI;
+  return NewThing;
+}
+
 } // end namespace llvm

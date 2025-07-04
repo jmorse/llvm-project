@@ -696,6 +696,66 @@ public:
   }
 };
 
+class DbgMachineVariableRecord : public DbgMachineRecord {
+public:
+  enum class MachineLocationType : uint8_t {
+    Value, // i.e. DBG_VALUE,
+    Ref,   // i.e. DBG_INSTR_REF
+    PHI    // i.e. DBG_PHI. I suspect we can't fly with this?
+  };
+  MachineLocationType Type;
+
+  DbgRecordParamRef<DILocalVariable> Variable;
+  DbgRecordParamRef<DIExpression> Expression;
+
+public:
+  LLVM_ABI DbgMachineVariableRecord(DILocalVariable *Var, DIExpression *Expr, const DILocation *DILoc);
+
+  // XXX private parsing?
+
+  // Correctness before memory usage: Register for DBG_VALUE, DBG_PHI,
+  // Vector for DBG_INSTR_REFs.
+  Register Reg;
+  SmallVector<std::pair<unsigned, unsigned>, 1> Refs;
+
+  LLVM_ABI static DbgMachineVariableRecord *
+  createDMVRValue(Register R, DILocalVariable *Variable,
+                  DIExpression *Expression, const DILocation *DI);
+
+  LLVM_ABI static DbgMachineVariableRecord *
+  createDMVRRef(ArrayRef<std::pair<unsigned, unsigned>>,
+                          DILocalVariable *DV,
+                          DIExpression *Expr, const DILocation *DI);
+
+  LLVM_ABI static DbgMachineVariableRecord *
+  createDMVRPHI(Register R, DILocalVariable *Variable,
+                  DIExpression *Expression, const DILocation *DI);
+
+  // XXX -- storage for _arrays_ of variadic DBG_INSTR_REFs?
+
+  bool isValue() const { return Type == MachineLocationType::Value; }
+  bool isRef() const { return Type == MachineLocationType::Ref; }
+  bool isPHI() const { return Type == MachineLocationType::PHI; }
+
+  void setVariable(DILocalVariable *NewVar) { Variable = NewVar; }
+  DILocalVariable *getVariable() const { return Variable.get(); };
+  MDNode *getRawVariable() const { return Variable.getAsMDNode(); }
+
+  void setExpression(DIExpression *NewExpr) { Expression = NewExpr; }
+  DIExpression *getExpression() const { return Expression.get(); }
+  MDNode *getRawExpression() const { return Expression.getAsMDNode(); }
+
+#if 0
+  LLVM_ABI void print(raw_ostream &O, bool IsForDebug = false) const;
+  LLVM_ABI void print(raw_ostream &ROS, ModuleSlotTracker &MST,
+                      bool IsForDebug) const;
+#endif
+
+  /// Support type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const DbgMachineRecord *E) {
+    return E->getRecordKind() == ValueKind;
+  }
+};
 
 template <typename RecT, typename InstT, typename BlockT, typename CRTP>
 class DbgMarkerBase {
