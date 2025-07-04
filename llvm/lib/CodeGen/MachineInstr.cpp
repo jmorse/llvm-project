@@ -767,6 +767,7 @@ MachineInstr *MachineInstr::removeFromBundle() {
 
 void MachineInstr::eraseFromParent() {
   assert(getParent() && "Not embedded in a basic block!");
+  handleMarkerRemoval();
   getParent()->erase(this);
 }
 
@@ -2684,6 +2685,7 @@ MachineInstr::getFirst5RegLLTs() const {
 
 void MachineInstr::insert(mop_iterator InsertBefore,
                           ArrayRef<MachineOperand> Ops) {
+  assert(!DebugMarker);
   assert(InsertBefore != nullptr && "invalid iterator");
   assert(InsertBefore->getParent() == this &&
          "iterator points to operand of other inst");
@@ -2743,3 +2745,54 @@ bool MachineInstr::mayFoldInlineAsmRegOp(unsigned OpId) const {
     return F.getRegMayBeFolded();
   return false;
 }
+
+void MachineInstr::adoptDbgRecords(MachineBasicBlock *MBB, MachineBasicBlock::instr_iterator It,
+                                  bool InsertAtHead) {
+  DbgMachineMarker *SrcMarker = MBB->getMarker(It);
+  auto ReleaseTrailingDbgRecords = [MBB, It, SrcMarker]() {
+    if (MBB->end() == It) {
+      SrcMarker->eraseFromParent();
+      MBB->deleteTrailingDbgRecords();
+    }
+  };
+
+  if (!SrcMarker || SrcMarker->StoredDbgRecords.empty()) {
+    ReleaseTrailingDbgRecords();
+    return;
+  }
+
+  // If we have DbgMarkers attached to this instruction, we have to honour the
+  // ordering of DbgRecords between this and the other marker. Fall back to just
+  // absorbing from the source.
+  if (DebugMarker || It == MBB->end()) {
+    // Ensure we _do_ have a marker.
+    getParent()->createMarker(this);
+    DebugMarker->absorbDebugValues(*SrcMarker, InsertAtHead);
+
+    // Having transferred everything out of SrcMarker, we _could_ clean it up
+    // and free the marker now. However, that's a lot of heap-accounting for a
+    // small amount of memory with a good chance of re-use. Leave it for the
+    // moment. It will be released when the Instruction is freed in the worst
+    // case.
+    // However: if we transferred from a trailing marker off the end of the
+    // block, it's important to not leave the empty marker trailing. It will
+    // give a misleading impression that some debug records have been left
+    // trailing.
+    ReleaseTrailingDbgRecords();
+  } else {
+    // Optimisation: we're transferring all the DbgRecords from the source
+    // marker onto this empty location: just adopt the other instructions
+    // marker.
+    DebugMarker = SrcMarker;
+    DebugMarker->MarkedInstr = this;
+    It->DebugMarker = nullptr;
+  }
+}
+
+void MachineInstr::handleMarkerRemoval() {
+  if (!DebugMarker)
+    return;
+
+  DebugMarker->removeMarker();
+}
+

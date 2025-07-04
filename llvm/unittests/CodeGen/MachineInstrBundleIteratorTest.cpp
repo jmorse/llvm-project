@@ -15,7 +15,7 @@ using namespace llvm;
 namespace {
 
 struct MyBundledInstr
-    : public ilist_node<MyBundledInstr, ilist_sentinel_tracking<true>> {
+    : public ilist_node<MyBundledInstr, ilist_iterator_bits<true>, ilist_sentinel_tracking<true>> {
   bool isBundledWithPred() const { return true; }
   bool isBundledWithSucc() const { return true; }
 };
@@ -130,7 +130,7 @@ TEST(MachineInstrBundleIteratorTest, CompareToBundledMI) {
 }
 
 struct MyUnbundledInstr
-    : ilist_node<MyUnbundledInstr, ilist_sentinel_tracking<true>> {
+    : ilist_node<MyUnbundledInstr, ilist_iterator_bits<true>, ilist_sentinel_tracking<true>> {
   bool isBundledWithPred() const { return false; }
   bool isBundledWithSucc() const { return false; }
 };
@@ -143,7 +143,7 @@ typedef MachineInstrBundleIterator<const MyUnbundledInstr, true>
     const_reverse_unbundled_iterator;
 
 TEST(MachineInstrBundleIteratorTest, ReverseConstructor) {
-  simple_ilist<MyUnbundledInstr, ilist_sentinel_tracking<true>> L;
+  simple_ilist<MyUnbundledInstr, ilist_iterator_bits<true>, ilist_sentinel_tracking<true>> L;
   const auto &CL = L;
   MyUnbundledInstr A, B;
   L.insert(L.end(), A);

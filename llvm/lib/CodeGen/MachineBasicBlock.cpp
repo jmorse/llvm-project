@@ -1461,6 +1461,7 @@ MachineInstr *MachineBasicBlock::remove_instr(MachineInstr *MI) {
 
 MachineBasicBlock::instr_iterator
 MachineBasicBlock::insert(instr_iterator I, MachineInstr *MI) {
+  assert(!MI->DebugMarker);
   assert(!MI->isBundledWithPred() && !MI->isBundledWithSucc() &&
          "Cannot insert instruction with bundle flags");
   // Set the bundle flags when inserting inside a bundle.
@@ -1468,7 +1469,30 @@ MachineBasicBlock::insert(instr_iterator I, MachineInstr *MI) {
     MI->setFlag(MachineInstr::BundledPred);
     MI->setFlag(MachineInstr::BundledSucc);
   }
-  return Insts.insert(I, MI);
+
+  MachineBasicBlock::instr_iterator Inserted = Insts.insert(I, MI);
+
+  // We've inserted MI: if InsertAtHead is set then it comes before any
+  // DbgRecords attached to InsertPos. But if it's not set, then any
+  // DbgRecords should now come before MI.
+  bool InsertAtHead = I.getHeadBit();
+  if (!InsertAtHead) {
+    DbgMachineMarker *SrcMarker = getMarker(I);
+    if (SrcMarker && !SrcMarker->empty()) {
+      // See corresponding comment in Instruction::insertBefore, having an
+      // intermingling of PHIs and debug records is de-normal.
+      assert(!MI->isPHI() && "Inserting PHI after debug-records!");
+      MI->adoptDbgRecords(this, I, false);
+    }
+  }
+
+  // If we're inserting a terminator, check if we need to flush out
+  // TrailingDbgRecords. Inserting instructions at the end of an incomplete
+  // block is handled by the code block above.
+  if (MI->isTerminator())
+    flushTerminatorDbgRecords();
+
+  return Inserted;
 }
 
 /// This method unlinks 'this' from the containing function, and returns it, but
@@ -1829,3 +1853,43 @@ DbgMachineMarker *MachineBasicBlock::getTrailingDbgRecords() {
   return getParent()->getTrailingDbgRecords(this);
 }
 
+void MachineBasicBlock::deleteTrailingDbgRecords() {
+  getParent()->deleteTrailingDbgRecords(this);
+}
+
+void MachineBasicBlock::flushTerminatorDbgRecords() {
+// XXX reword for MIs
+  // If we erase the terminator in a block, any DbgRecords will sink and "fall
+  // off the end", existing after any terminator that gets inserted. With
+  // dbg.value intrinsics we would just insert the terminator at end() and
+  // the dbg.values would come before the terminator. With DbgRecords, we must
+  // do this manually.
+  // To get out of this unfortunate form, whenever we insert a terminator,
+  // check whether there's anything trailing at the end and move those
+  // DbgRecords in front of the terminator.
+
+  // If there's no terminator, there's nothing to do.
+  MachineInstr *Term = &*getFirstTerminator();
+  if (!Term)
+    return;
+
+  // Are there any dangling DbgRecords?
+  DbgMachineMarker *TrailingDbgRecords = getTrailingDbgRecords();
+  if (!TrailingDbgRecords)
+    return;
+
+  // Transfer DbgRecords from the trailing position onto the terminator.
+  createMarker(Term);
+  Term->DebugMarker->absorbDebugValues(*TrailingDbgRecords, false);
+  TrailingDbgRecords->eraseFromParent();
+  deleteTrailingDbgRecords();
+}
+
+DbgMachineMarker *MachineBasicBlock::createMarker(MachineInstr *I) {
+  if (I->DebugMarker)
+    return I->DebugMarker;
+  DbgMachineMarker *Marker = new DbgMachineMarker();
+  Marker->MarkedInstr = I;
+  I->DebugMarker = Marker;
+  return Marker;
+}
