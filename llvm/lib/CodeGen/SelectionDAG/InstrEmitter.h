@@ -15,6 +15,8 @@
 #ifndef LLVM_LIB_CODEGEN_SELECTIONDAG_INSTREMITTER_H
 #define LLVM_LIB_CODEGEN_SELECTIONDAG_INSTREMITTER_H
 
+#include <variant>
+
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
@@ -117,12 +119,12 @@ public:
 
   /// EmitDbgValue - Generate machine instruction for a dbg_value node.
   ///
-  MachineInstr *EmitDbgValue(SDDbgValue *SD, VRBaseMapType &VRBaseMap);
+  std::variant<MachineInstr *, DbgMachineRecord *> EmitDbgValue(SDDbgValue *SD, VRBaseMapType &VRBaseMap);
 
   /// Emit a dbg_value as a DBG_INSTR_REF. May produce DBG_VALUE $noreg instead
   /// if there is no variable location; alternately a half-formed DBG_INSTR_REF
   /// that refers to a virtual register and is corrected later in isel.
-  MachineInstr *EmitDbgInstrRef(SDDbgValue *SD, VRBaseMapType &VRBaseMap);
+  std::variant<MachineInstr *, DbgMachineRecord *> EmitDbgInstrRef(SDDbgValue *SD, VRBaseMapType &VRBaseMap);
 
   /// Emit a DBG_VALUE $noreg, indicating a variable has no location.
   MachineInstr *EmitDbgNoLocation(SDDbgValue *SD);

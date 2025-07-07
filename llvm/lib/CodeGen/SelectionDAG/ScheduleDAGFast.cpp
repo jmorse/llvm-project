@@ -778,9 +778,21 @@ ScheduleDAGLinearize::EmitSchedule(MachineBasicBlock::iterator &InsertPos) {
     if (N->getHasDebugValue()) {
       MachineBasicBlock::iterator InsertPos = Emitter.getInsertPos();
       for (auto *DV : DAG->GetDbgValues(N)) {
-        if (!DV->isEmitted())
-          if (auto *DbgMI = Emitter.EmitDbgValue(DV, VRBaseMap))
-            BB->insert(InsertPos, DbgMI);
+        if (!DV->isEmitted()) {
+          auto DbgMI = Emitter.EmitDbgValue(DV, VRBaseMap);
+          if (std::holds_alternative<MachineInstr*>(DbgMI)) {
+            MachineInstr *MI = std::get<MachineInstr*>(DbgMI);
+            if (!MI)
+              continue;
+            BB->insert(InsertPos, MI);
+          } else {
+            // It's a DDD record!
+            DbgMachineRecord *DMVR = std::get<DbgMachineRecord*>(DbgMI);
+            DbgMachineMarker *Marker = BB->createMarker(&*InsertPos);
+            // Insert this at the end.
+            Marker->insertDbgRecord(DMVR, false);
+          }
+        }
       }
     }
   }

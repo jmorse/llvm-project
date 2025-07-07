@@ -37,6 +37,8 @@ using namespace llvm;
 
 #define DEBUG_TYPE "pre-RA-sched"
 
+extern bool UsingDDDISel;
+
 STATISTIC(LoadsClustered, "Number of loads clustered together");
 
 // This allows the latency-based scheduler to notice high latency instructions
@@ -768,11 +770,20 @@ ProcessSDDbgValues(SDNode *N, SelectionDAG *DAG, InstrEmitter &Emitter,
     // dependent nodes have been visited.
     if (!DV->isInvalidated() && HasUnknownVReg(DV))
       continue;
-    MachineInstr *DbgMI = Emitter.EmitDbgValue(DV, VRBaseMap);
-    if (!DbgMI)
-      continue;
-    Orders.push_back({DVOrder, DbgMI});
-    BB->insert(InsertPos, DbgMI);
+    auto DbgMI = Emitter.EmitDbgValue(DV, VRBaseMap);
+    if (std::holds_alternative<MachineInstr*>(DbgMI)) {
+      MachineInstr *MI = std::get<MachineInstr*>(DbgMI);
+      if (!MI)
+        continue;
+      Orders.push_back({DVOrder, MI});
+      BB->insert(InsertPos, MI);
+    } else {
+      // It's a DDD record!
+      DbgMachineRecord *DMVR = std::get<DbgMachineRecord*>(DbgMI);
+      DbgMachineMarker *Marker = BB->createMarker(InsertPos);
+      // Insert this at the end.
+      Marker->insertDbgRecord(DMVR, false);
+    }
   }
 }
 
@@ -919,11 +930,21 @@ EmitSchedule(MachineBasicBlock::iterator &InsertPos) {
     SDDbgInfo::DbgIterator PDI = DAG->ByvalParmDbgBegin();
     SDDbgInfo::DbgIterator PDE = DAG->ByvalParmDbgEnd();
     for (; PDI != PDE; ++PDI) {
-      MachineInstr *DbgMI= Emitter.EmitDbgValue(*PDI, VRBaseMap);
-      if (DbgMI) {
-        BB->insert(InsertPos, DbgMI);
+      auto DbgMI= Emitter.EmitDbgValue(*PDI, VRBaseMap);
+      if (std::holds_alternative<MachineInstr*>(DbgMI)) {
+        MachineInstr *MI = std::get<MachineInstr*>(DbgMI);
+        if (!MI)
+          continue;
+        BB->insert(InsertPos, MI);
         // We re-emit the dbg_value closer to its use, too, after instructions
         // are emitted to the BB.
+        (*PDI)->clearIsEmitted();
+      } else {
+        // It's a DDD record!
+        DbgMachineRecord *DMVR = std::get<DbgMachineRecord*>(DbgMI);
+        DbgMachineMarker *Marker = BB->createMarker(&*InsertPos);
+        // Insert this at the end.
+        Marker->insertDbgRecord(DMVR, false);
         (*PDI)->clearIsEmitted();
       }
     }
@@ -1002,36 +1023,68 @@ EmitSchedule(MachineBasicBlock::iterator &InsertPos) {
         if ((*DI)->isEmitted())
           continue;
 
-        MachineInstr *DbgMI = Emitter.EmitDbgValue(*DI, VRBaseMap);
-        if (DbgMI) {
+        auto DbgMI = Emitter.EmitDbgValue(*DI, VRBaseMap);
+
+        if (std::holds_alternative<MachineInstr*>(DbgMI)) {
+          MachineInstr *NewDbgMI = std::get<MachineInstr*>(DbgMI);
+          if (!MI)
+            continue;
+
           if (!LastOrder)
             // Insert to start of the BB (after PHIs).
-            BB->insert(BBBegin, DbgMI);
+            BB->insert(BBBegin, NewDbgMI);
           else {
             // Insert at the instruction, which may be in a different
             // block, if the block was split by a custom inserter.
             MachineBasicBlock::iterator Pos = MI;
-            MI->getParent()->insert(Pos, DbgMI);
+            MI->getParent()->insert(Pos, NewDbgMI);
           }
+        } else {
+          // It's a DDD record!
+          DbgMachineRecord *DMVR = std::get<DbgMachineRecord*>(DbgMI);
+          DbgMachineMarker *Marker;
+          if (!LastOrder)
+            // Insert to start of the BB (after PHIs).
+            Marker = BB->createMarker(BBBegin);
+          else {
+            // Insert at the instruction, which may be in a different
+            // block, if the block was split by a custom inserter.
+            MachineBasicBlock::iterator Pos = MI;
+            Marker = MI->getParent()->createMarker(&*Pos);
+          }
+
+          // Insert this at the end.
+          Marker->insertDbgRecord(DMVR, false);
         }
       }
       LastOrder = Order;
     }
     // Add trailing DbgValue's before the terminator. FIXME: May want to add
     // some of them before one or more conditional branches?
-    SmallVector<MachineInstr*, 8> DbgMIs;
+    SmallVector<std::variant<MachineInstr *, DbgMachineRecord *>, 8> DbgMIs;
     for (; DI != DE; ++DI) {
       if ((*DI)->isEmitted())
         continue;
       assert((*DI)->getOrder() >= LastOrder &&
              "emitting DBG_VALUE out of order");
-      if (MachineInstr *DbgMI = Emitter.EmitDbgValue(*DI, VRBaseMap))
-        DbgMIs.push_back(DbgMI);
+      auto DbgMI = Emitter.EmitDbgValue(*DI, VRBaseMap);
+      DbgMIs.push_back(DbgMI);
     }
 
     MachineBasicBlock *InsertBB = Emitter.getBlock();
     MachineBasicBlock::iterator Pos = InsertBB->getFirstTerminator();
-    InsertBB->insert(Pos, DbgMIs.begin(), DbgMIs.end());
+    for (auto &Variant : llvm::reverse(DbgMIs)) { 
+      if (std::holds_alternative<MachineInstr *>(Variant)) {
+        MachineInstr *DbgMI = std::get<MachineInstr *>(Variant);
+        if (!DbgMI)
+          continue;
+        InsertBB->insert(Pos, DbgMI);
+      } else {
+        DbgMachineMarker *DbgMarker = InsertBB->createMarker(Pos);
+        DbgMachineRecord *DbgMI = std::get<DbgMachineRecord *>(Variant);
+        DbgMarker->insertDbgRecord(DbgMI, false);
+      }
+    }
 
     SDDbgInfo::DbgLabelIterator DLI = DAG->DbgLabelBegin();
     SDDbgInfo::DbgLabelIterator DLE = DAG->DbgLabelEnd();
