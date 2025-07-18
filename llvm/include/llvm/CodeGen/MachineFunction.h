@@ -656,6 +656,7 @@ public:
   /// enough information for every DBG_INSTR_REF to point at an instruction
   /// (or DBG_PHI).
   void finalizeDebugInstrRefs();
+  std::optional<std::pair<unsigned, unsigned>> finalizeDebugInstrRefRef(Register R, DenseMap<Register, DebugInstrOperandPair> &ArgDbgPHIs);
 
   /// Determine whether, in the current machine configuration, we should use
   /// instruction referencing or not.

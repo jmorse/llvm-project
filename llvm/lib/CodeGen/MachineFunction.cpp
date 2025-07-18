@@ -1210,6 +1210,40 @@ auto MachineFunction::salvageCopySSAImpl(MachineInstr &MI)
   return ApplySubregisters({NewNum, 0u});
 }
 
+std::optional<std::pair<unsigned, unsigned>> MachineFunction::finalizeDebugInstrRefRef(Register R, DenseMap<Register, DebugInstrOperandPair> &ArgDbgPHIs) {
+  auto *TII = getSubtarget().getInstrInfo();
+  // Some vregs can be deleted as redundant in the meantime. Mark those
+  // as DBG_VALUE $noreg. Additionally, some normal instructions are
+  // quickly deleted, leaving dangling references to vregs with no def.
+  if (R == 0 || !RegInfo->hasOneDef(R)) {
+    return std::nullopt;
+  }
+
+  assert(R.isVirtual());
+  MachineInstr &DefMI = *RegInfo->def_instr_begin(R);
+
+  // If we've found a copy-like instruction, follow it back to the
+  // instruction that defines the source value, see salvageCopySSA docs
+  // for why this is important.
+  if (DefMI.isCopyLike() || TII->isCopyInstr(DefMI)) {
+    auto Result = salvageCopySSA(DefMI, ArgDbgPHIs);
+    return std::make_pair(Result.first, Result.second);
+  } else {
+    // Otherwise, identify the operand number that the VReg refers to.
+    unsigned OperandIdx = 0;
+    for (const auto &DefMO : DefMI.operands()) {
+      if (DefMO.isReg() && DefMO.isDef() && DefMO.getReg() == R)
+        break;
+      ++OperandIdx;
+    }
+    assert(OperandIdx < DefMI.getNumOperands());
+
+    // Morph this instr ref to point at the given instruction and operand.
+    unsigned ID = DefMI.getDebugInstrNum();
+    return std::make_pair(ID, OperandIdx);
+  }
+}
+
 void MachineFunction::finalizeDebugInstrRefs() {
   auto *TII = getSubtarget().getInstrInfo();
 
@@ -1219,9 +1253,33 @@ void MachineFunction::finalizeDebugInstrRefs() {
     MI.setDebugValueUndef();
   };
 
+  auto MakeUndefDbgRec = [&](DbgMachineVariableRecord *DMI) {
+    DMI->Type = DbgMachineVariableRecord::MachineLocationType::Value;
+    DMI->Reg = 0;
+  };
+
   DenseMap<Register, DebugInstrOperandPair> ArgDbgPHIs;
   for (auto &MBB : *this) {
     for (auto &MI : MBB) {
+      for (DbgMachineRecord &DbgMRec : MI.getDbgRecordRange()) {
+        DbgMachineVariableRecord *VarRec = dyn_cast<DbgMachineVariableRecord>(&DbgMRec);
+        if (!VarRec)
+          continue;
+        if (!VarRec->isRef())
+          continue;
+        for (auto &P : VarRec->Refs) {
+          if (P.second != UINT_MAX)
+            continue;
+          // It's a vreg, try to resolve.
+          auto lol = finalizeDebugInstrRefRef(P.first, ArgDbgPHIs);
+          if (!lol) {
+            MakeUndefDbgRec(VarRec);
+            break;
+          }
+          P = *lol;
+        }
+      }
+
       if (!MI.isDebugRef())
         continue;
 
@@ -1233,37 +1291,13 @@ void MachineFunction::finalizeDebugInstrRefs() {
 
         Register Reg = MO.getReg();
 
-        // Some vregs can be deleted as redundant in the meantime. Mark those
-        // as DBG_VALUE $noreg. Additionally, some normal instructions are
-        // quickly deleted, leaving dangling references to vregs with no def.
-        if (Reg == 0 || !RegInfo->hasOneDef(Reg)) {
+        auto lol = finalizeDebugInstrRefRef(Reg, ArgDbgPHIs);
+        if (!lol) {
           IsValidRef = false;
           break;
         }
 
-        assert(Reg.isVirtual());
-        MachineInstr &DefMI = *RegInfo->def_instr_begin(Reg);
-
-        // If we've found a copy-like instruction, follow it back to the
-        // instruction that defines the source value, see salvageCopySSA docs
-        // for why this is important.
-        if (DefMI.isCopyLike() || TII->isCopyInstr(DefMI)) {
-          auto Result = salvageCopySSA(DefMI, ArgDbgPHIs);
-          MO.ChangeToDbgInstrRef(Result.first, Result.second);
-        } else {
-          // Otherwise, identify the operand number that the VReg refers to.
-          unsigned OperandIdx = 0;
-          for (const auto &DefMO : DefMI.operands()) {
-            if (DefMO.isReg() && DefMO.isDef() && DefMO.getReg() == Reg)
-              break;
-            ++OperandIdx;
-          }
-          assert(OperandIdx < DefMI.getNumOperands());
-
-          // Morph this instr ref to point at the given instruction and operand.
-          unsigned ID = DefMI.getDebugInstrNum();
-          MO.ChangeToDbgInstrRef(ID, OperandIdx);
-        }
+        MO.ChangeToDbgInstrRef(lol->first, lol->second);
       }
 
       if (!IsValidRef)

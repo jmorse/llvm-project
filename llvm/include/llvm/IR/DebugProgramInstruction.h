@@ -901,6 +901,13 @@ getDbgRecordRange(DbgMarker *DebugMarker) {
   return DebugMarker->getDbgRecordRange();
 }
 
+inline iterator_range<simple_ilist<DbgMachineRecord>::iterator>
+getDbgRecordRange(DbgMachineMarker *DebugMarker) {
+  if (!DebugMarker)
+    return DbgMachineMarker::getEmptyDbgRecordRange();
+  return DebugMarker->getDbgRecordRange();
+}
+
 DEFINE_ISA_CONVERSION_FUNCTIONS(DbgRecord, LLVMDbgRecordRef)
 
 template <typename InstT, typename BlockT, typename FuncT, typename MarkerT, typename CRTP>

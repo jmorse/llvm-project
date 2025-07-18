@@ -60,6 +60,10 @@ class TargetInstrInfo;
 class TargetRegisterClass;
 class TargetRegisterInfo;
 class DbgMachineMarker;
+class DbgMachineRecord;
+
+LLVM_ABI iterator_range<simple_ilist<DbgMachineRecord>::iterator>
+getDbgRecordRange(DbgMachineMarker *);
 
 //===----------------------------------------------------------------------===//
 /// Representation of each machine instruction.
@@ -1393,6 +1397,11 @@ public:
       if (Op.isReg() && !Op.getReg().isValid())
         return true;
     return false;
+  }
+
+  /// Return a range over the DbgRecords attached to this instruction.
+  iterator_range<simple_ilist<DbgMachineRecord>::iterator> getDbgRecordRange() const {
+    return llvm::getDbgRecordRange(DebugMarker);
   }
 
   bool isJumpTableDebugInfo() const {
