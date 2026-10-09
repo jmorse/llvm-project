@@ -9,11 +9,8 @@
 #ifndef LLVM_OBJECT_SFRAME_H
 #define LLVM_OBJECT_SFRAME_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/fallible_iterator.h"
 #include "llvm/BinaryFormat/SFrame.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/Error.h"
 #include <cstdint>
 
 namespace llvm {

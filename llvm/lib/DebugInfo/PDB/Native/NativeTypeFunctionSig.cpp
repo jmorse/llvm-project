@@ -8,7 +8,6 @@
 
 #include "llvm/DebugInfo/PDB/Native/NativeTypeFunctionSig.h"
 
-#include "llvm/DebugInfo/CodeView/LazyRandomTypeCollection.h"
 #include "llvm/DebugInfo/PDB/Native/NativeEnumTypes.h"
 #include "llvm/DebugInfo/PDB/Native/NativeSession.h"
 #include "llvm/DebugInfo/PDB/Native/PDBFile.h"

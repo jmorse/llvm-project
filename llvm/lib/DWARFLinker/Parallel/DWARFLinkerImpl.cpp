@@ -10,8 +10,6 @@
 #include "DependencyTracker.h"
 #include "llvm/DWARFLinker/Utils.h"
 #include "llvm/DebugInfo/DWARF/DWARFDebugAbbrev.h"
-#include "llvm/Support/FormatVariadic.h"
-#include "llvm/Support/Parallel.h"
 #include "llvm/Support/ThreadPool.h"
 
 using namespace llvm;

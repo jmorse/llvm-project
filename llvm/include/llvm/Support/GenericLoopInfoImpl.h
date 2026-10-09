@@ -14,11 +14,8 @@
 #ifndef LLVM_SUPPORT_GENERICLOOPINFOIMPL_H
 #define LLVM_SUPPORT_GENERICLOOPINFOIMPL_H
 
-#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/MapVector.h"
-#include "llvm/ADT/PostOrderIterator.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/GenericLoopInfo.h"
 
 namespace llvm {

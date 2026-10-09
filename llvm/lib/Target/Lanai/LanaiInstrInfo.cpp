@@ -10,16 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "LanaiInstrInfo.h"
 #include "LanaiAluCode.h"
 #include "LanaiCondCode.h"
 #include "LanaiSubtarget.h"
 #include "MCTargetDesc/LanaiBaseInfo.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 

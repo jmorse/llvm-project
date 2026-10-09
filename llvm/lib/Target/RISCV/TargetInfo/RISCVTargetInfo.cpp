@@ -8,7 +8,6 @@
 
 #include "TargetInfo/RISCVTargetInfo.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Compiler.h"
 using namespace llvm;
 
 Target &llvm::getTheRISCV32Target() {

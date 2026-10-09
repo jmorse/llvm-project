@@ -13,29 +13,13 @@
 #ifndef LLVM_OBJECT_ELFOBJECTFILE_H
 #define LLVM_OBJECT_ELFOBJECTFILE_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Enum.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/iterator_range.h"
-#include "llvm/BinaryFormat/ELF.h"
 #include "llvm/MC/MCSubtargetInfo.h"
-#include "llvm/Object/Binary.h"
 #include "llvm/Object/ELF.h"
-#include "llvm/Object/ELFTypes.h"
-#include "llvm/Object/Error.h"
 #include "llvm/Object/ObjectFile.h"
-#include "llvm/Object/SymbolicFile.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/ELFAttributeParser.h"
 #include "llvm/Support/ELFAttributes.h"
-#include "llvm/Support/Error.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/LEB128.h"
-#include "llvm/Support/MemoryBufferRef.h"
-#include "llvm/TargetParser/SubtargetFeature.h"
-#include "llvm/TargetParser/Triple.h"
 #include <cassert>
 #include <cstdint>
 

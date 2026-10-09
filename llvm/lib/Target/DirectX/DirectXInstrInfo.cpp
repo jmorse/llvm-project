@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "DirectXInstrInfo.h"
 #include "DirectXSubtarget.h"
 
 #define GET_INSTRINFO_CTOR_DTOR

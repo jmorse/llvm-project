@@ -29,12 +29,10 @@
 //
 //===---------------------------------------------------------------------===//
 
-#include "RISCV.h"
 #include "RISCVSubtarget.h"
 #ifndef NDEBUG
 #include "llvm/ADT/PostOrderIterator.h"
 #endif
-#include "llvm/CodeGen/MachineFunctionPass.h"
 
 using namespace llvm;
 

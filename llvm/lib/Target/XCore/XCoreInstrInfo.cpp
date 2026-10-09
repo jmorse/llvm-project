@@ -10,16 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "XCoreInstrInfo.h"
 #include "XCoreSubtarget.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineMemOperand.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Function.h"
 #include "llvm/MC/MCContext.h"
-#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 

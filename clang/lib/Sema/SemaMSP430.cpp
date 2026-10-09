@@ -11,12 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Sema/SemaMSP430.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/Attr.h"
-#include "clang/AST/DeclBase.h"
-#include "clang/Basic/DiagnosticSema.h"
 #include "clang/Sema/Attr.h"
-#include "clang/Sema/ParsedAttr.h"
 
 namespace clang {
 

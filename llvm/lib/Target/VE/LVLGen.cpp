@@ -6,11 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "VE.h"
 #include "VESubtarget.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
 
 using namespace llvm;
 

@@ -14,8 +14,6 @@
 #ifndef LLVM_CODEGEN_COSTTABLE_H_
 #define LLVM_CODEGEN_COSTTABLE_H_
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/CodeGenTypes/MachineValueType.h"
 #include <cstdint>
 

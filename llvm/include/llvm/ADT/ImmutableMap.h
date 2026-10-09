@@ -14,9 +14,7 @@
 #ifndef LLVM_ADT_IMMUTABLEMAP_H
 #define LLVM_ADT_IMMUTABLEMAP_H
 
-#include "llvm/ADT/FoldingSet.h"
 #include "llvm/ADT/ImmutableSet.h"
-#include "llvm/Support/Allocator.h"
 #include <utility>
 
 namespace llvm {

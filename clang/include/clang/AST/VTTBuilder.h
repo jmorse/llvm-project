@@ -15,12 +15,7 @@
 #define LLVM_CLANG_AST_VTTBUILDER_H
 
 #include "clang/AST/BaseSubobject.h"
-#include "clang/AST/CharUnits.h"
-#include "clang/Basic/LLVM.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SmallVector.h"
 #include <cstdint>
 
 namespace clang {

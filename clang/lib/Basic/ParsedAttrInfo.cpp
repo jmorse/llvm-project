@@ -12,7 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Basic/ParsedAttrInfo.h"
-#include "clang/Support/Compiler.h"
 #include "llvm/Support/ManagedStatic.h"
 #include <list>
 #include <memory>

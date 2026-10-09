@@ -11,17 +11,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "AMDGPUSubtarget.h"
-#include "AMDGPUCallLowering.h"
 #include "AMDGPUInstructionSelector.h"
 #include "AMDGPULegalizerInfo.h"
-#include "AMDGPURegisterBankInfo.h"
 #include "R600Subtarget.h"
 #include "SIMachineFunctionInfo.h"
-#include "Utils/AMDGPUBaseInfo.h"
 #include "llvm/CodeGen/MachineScheduler.h"
-#include "llvm/CodeGen/TargetFrameLowering.h"
-#include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/IntrinsicsAMDGPU.h"
 #include "llvm/IR/IntrinsicsR600.h"
 #include "llvm/IR/MDBuilder.h"

@@ -10,19 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "MSP430.h"
 #include "MSP430SelectionDAGInfo.h"
 #include "MSP430TargetMachine.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/SelectionDAG.h"
-#include "llvm/CodeGen/SelectionDAGISel.h"
-#include "llvm/Config/llvm-config.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Function.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "msp430-isel"

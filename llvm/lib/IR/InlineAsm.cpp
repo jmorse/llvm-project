@@ -10,15 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/IR/InlineAsm.h"
-#include "ConstantsContext.h"
 #include "LLVMContextImpl.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Value.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/Errc.h"
 #include <algorithm>
 #include <cassert>

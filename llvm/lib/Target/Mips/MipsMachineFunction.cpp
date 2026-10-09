@@ -7,14 +7,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "MipsMachineFunction.h"
-#include "MCTargetDesc/MipsABIInfo.h"
 #include "MipsSubtarget.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/PseudoSourceValue.h"
 #include "llvm/CodeGen/PseudoSourceValueManager.h"
-#include "llvm/CodeGen/TargetRegisterInfo.h"
-#include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
 

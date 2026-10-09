@@ -7,15 +7,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/UnifiedSymbolResolution/USRGeneration.h"
-#include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/DeclTemplate.h"
 #include "clang/AST/DeclVisitor.h"
 #include "clang/AST/ODRHash.h"
 #include "clang/Lex/PreprocessingRecord.h"
 #include "llvm/Support/Path.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace clang;
 using namespace clang::index;

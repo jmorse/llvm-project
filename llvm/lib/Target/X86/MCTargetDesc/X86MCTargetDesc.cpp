@@ -10,27 +10,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "X86MCTargetDesc.h"
 #include "TargetInfo/X86TargetInfo.h"
-#include "X86ATTInstPrinter.h"
 #include "X86BaseInfo.h"
 #include "X86IntelInstPrinter.h"
 #include "X86MCAsmInfo.h"
 #include "X86MCLFIRewriter.h"
 #include "X86TargetStreamer.h"
-#include "llvm-c/Visibility.h"
-#include "llvm/ADT/APInt.h"
 #include "llvm/DebugInfo/CodeView/CodeView.h"
-#include "llvm/MC/MCDwarf.h"
 #include "llvm/MC/MCInstrAnalysis.h"
-#include "llvm/MC/MCInstrInfo.h"
-#include "llvm/MC/MCRegisterInfo.h"
-#include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/TargetParser/Host.h"
-#include "llvm/TargetParser/Triple.h"
 
 using namespace llvm;
 

@@ -17,10 +17,7 @@
 #ifndef LLVM_TRANSFORMS_UTILS_MISEXPECT_H
 #define LLVM_TRANSFORMS_UTILS_MISEXPECT_H
 
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/LLVMContext.h"
 
 namespace llvm::misexpect {
 

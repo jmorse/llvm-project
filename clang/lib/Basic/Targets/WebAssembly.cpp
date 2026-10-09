@@ -11,11 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "WebAssembly.h"
-#include "Targets.h"
-#include "clang/Basic/Builtins.h"
+#include "TargetDefines.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/TargetBuiltins.h"
-#include "llvm/ADT/StringSwitch.h"
 
 using namespace clang;
 using namespace clang::targets;

@@ -8,15 +8,8 @@
 
 #include "RISCVTargetTransformInfo.h"
 #include "MCTargetDesc/RISCVMatInt.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/CodeGen/BasicTTIImpl.h"
 #include "llvm/CodeGen/CostTable.h"
-#include "llvm/CodeGen/TargetLowering.h"
-#include "llvm/CodeGen/ValueTypes.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicsRISCV.h"
-#include "llvm/IR/PatternMatch.h"
 #include "llvm/Transforms/InstCombine/InstCombiner.h"
 #include <cmath>
 #include <limits>

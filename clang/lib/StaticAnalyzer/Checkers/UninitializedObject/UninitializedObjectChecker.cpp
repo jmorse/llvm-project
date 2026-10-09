@@ -19,13 +19,9 @@
 
 #include "UninitializedObject.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
-#include "clang/Driver/DriverDiagnostic.h"
+#include "clang/Basic/DiagnosticDriver.h"
 #include "clang/StaticAnalyzer/Checkers/BuiltinCheckerRegistration.h"
-#include "clang/StaticAnalyzer/Core/BugReporter/BugType.h"
-#include "clang/StaticAnalyzer/Core/Checker.h"
-#include "clang/StaticAnalyzer/Core/PathSensitive/CheckerContext.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/DynamicType.h"
-#include "llvm/ADT/STLExtras.h"
 
 using namespace clang;
 using namespace clang::ento;

@@ -8,7 +8,6 @@
 
 #include "llvm/BinaryFormat/XCOFF.h"
 #include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/Error.h"

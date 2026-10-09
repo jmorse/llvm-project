@@ -13,8 +13,6 @@
 #ifndef LLVM_CLANG_SEMA_SEMAX86_H
 #define LLVM_CLANG_SEMA_SEMAX86_H
 
-#include "clang/AST/ASTFwd.h"
-#include "clang/Basic/LLVM.h"
 #include "clang/Sema/SemaBase.h"
 
 namespace clang {

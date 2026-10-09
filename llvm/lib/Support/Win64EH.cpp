@@ -11,8 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/Win64EH.h"
-#include "llvm/Support/Endian.h"
-#include "llvm/Support/Error.h"
 #include "llvm/Support/MathExtras.h"
 
 using namespace llvm;

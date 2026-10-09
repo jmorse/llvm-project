@@ -11,12 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "MSP430MCTargetDesc.h"
-#include "llvm/BinaryFormat/ELF.h"
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCELFStreamer.h"
 #include "llvm/MC/MCSectionELF.h"
-#include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/Support/MSP430Attributes.h"
 

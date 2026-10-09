@@ -6,9 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/DependencyScanning/DependencyScanningFilesystem.h"
 #include "clang/DependencyScanning/DependencyScanningService.h"
-#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Threading.h"
 #include <optional>
 

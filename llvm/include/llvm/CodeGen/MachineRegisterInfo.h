@@ -13,25 +13,11 @@
 #ifndef LLVM_CODEGEN_MACHINEREGISTERINFO_H
 #define LLVM_CODEGEN_MACHINEREGISTERINFO_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/IndexedMap.h"
-#include "llvm/ADT/PointerUnion.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringSet.h"
-#include "llvm/ADT/iterator_range.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/MachineInstrBundle.h"
-#include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/CodeGen/RegisterBank.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
-#include "llvm/MC/LaneBitmask.h"
-#include "llvm/Support/Compiler.h"
 #include <cassert>
 #include <cstddef>
 #include <cstdint>

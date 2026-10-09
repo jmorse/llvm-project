@@ -11,18 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/AST/ASTDiagnostic.h"
-#include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTLambda.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/DeclObjC.h"
-#include "clang/AST/DeclTemplate.h"
 #include "clang/AST/ExprCXX.h"
-#include "clang/AST/TemplateBase.h"
-#include "clang/AST/Type.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/Support/ConvertUTF.h"
-#include "llvm/Support/Format.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace clang;
 

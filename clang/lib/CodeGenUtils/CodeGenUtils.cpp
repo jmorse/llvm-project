@@ -8,12 +8,9 @@
 
 #include "clang/CodeGenUtils/CodeGenUtils.h"
 #include "clang/AST/Attr.h"
-#include "clang/AST/Expr.h"
-#include "clang/Basic/Builtins.h"
 #include "clang/Basic/DiagnosticFrontend.h"
 #include "clang/Basic/TargetBuiltins.h"
 #include "clang/Basic/TargetInfo.h"
-#include "llvm/ADT/StringMap.h"
 
 namespace clang::CodeGenUtils {
 static bool

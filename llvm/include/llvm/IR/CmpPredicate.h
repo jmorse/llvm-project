@@ -14,7 +14,6 @@
 #define LLVM_IR_CMPPREDICATE_H
 
 #include "llvm/IR/InstrTypes.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 /// An abstraction over a floating-point predicate, and a pack of an integer

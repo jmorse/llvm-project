@@ -8,10 +8,6 @@
 
 #include "clang/ScalableStaticAnalysis/SourceTransformation/YAMLSourceEditFormat.h"
 #include "clang/Tooling/ReplacementsYaml.h"
-#include "llvm/Support/Error.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/YAMLTraits.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace clang;
 using namespace ssaf;

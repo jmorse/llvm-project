@@ -9,9 +9,7 @@
 #ifndef LLVM_CODEGEN_SELECTIONDAGADDRESSANALYSIS_H
 #define LLVM_CODEGEN_SELECTIONDAGADDRESSANALYSIS_H
 
-#include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
-#include "llvm/Support/Compiler.h"
 #include <cstdint>
 
 namespace llvm {

@@ -14,16 +14,8 @@
 #include "MCTargetDesc/PPCFixupKinds.h"
 #include "PPCMCAsmInfo.h"
 #include "PPCMCTargetDesc.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/MC/MCExpr.h"
-#include "llvm/MC/MCFixup.h"
-#include "llvm/MC/MCInstrDesc.h"
-#include "llvm/MC/MCRegisterInfo.h"
-#include "llvm/Support/Casting.h"
 #include "llvm/Support/EndianStream.h"
-#include "llvm/Support/MathExtras.h"
-#include "llvm/TargetParser/Triple.h"
 #include <cassert>
 #include <cstdint>
 

@@ -20,10 +20,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_SANDBOXVECTORIZER_INSTRINTERVAL_H
 #define LLVM_TRANSFORMS_VECTORIZE_SANDBOXVECTORIZER_INSTRINTERVAL_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/SandboxIR/Instruction.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/raw_ostream.h"
 #include <iterator>
 #include <type_traits>
 

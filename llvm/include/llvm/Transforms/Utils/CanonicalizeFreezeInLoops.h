@@ -14,7 +14,6 @@
 #define LLVM_TRANSFORMS_UTILS_CANONICALIZEFREEZEINLOOPS_H
 
 #include "llvm/Analysis/LoopAnalysisManager.h"
-#include "llvm/IR/PassManager.h"
 
 namespace llvm {
 class Loop;

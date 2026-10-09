@@ -17,11 +17,8 @@
 #ifndef LLVM_ADT_STLEXTRAS_H
 #define LLVM_ADT_STLEXTRAS_H
 
-#include "llvm/ADT/ADL.h"
-#include "llvm/ADT/STLForwardCompat.h"
 #include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/ADT/iterator.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/Config/abi-breaking.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"

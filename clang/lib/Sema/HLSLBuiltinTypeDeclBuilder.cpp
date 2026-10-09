@@ -12,22 +12,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "HLSLBuiltinTypeDeclBuilder.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/Attr.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/DeclFriend.h"
-#include "clang/AST/DeclTemplate.h"
-#include "clang/AST/Expr.h"
 #include "clang/AST/HLSLResource.h"
-#include "clang/AST/Stmt.h"
-#include "clang/AST/Type.h"
-#include "clang/Basic/SourceLocation.h"
-#include "clang/Basic/Specifiers.h"
 #include "clang/Sema/Lookup.h"
-#include "clang/Sema/Sema.h"
 #include "clang/Sema/SemaHLSL.h"
-#include "llvm/ADT/SmallVector.h"
 
 using namespace llvm::hlsl;
 

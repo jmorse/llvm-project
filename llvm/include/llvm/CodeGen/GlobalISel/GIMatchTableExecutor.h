@@ -15,17 +15,9 @@
 #ifndef LLVM_CODEGEN_GLOBALISEL_GIMATCHTABLEEXECUTOR_H
 #define LLVM_CODEGEN_GLOBALISEL_GIMATCHTABLEEXECUTOR_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Bitset.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/GlobalISel/Utils.h"
 #include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGenTypes/LowLevelType.h"
-#include "llvm/IR/Function.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Transforms/Utils/SizeOpts.h"
 #include <bitset>
 #include <cstddef>

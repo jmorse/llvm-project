@@ -11,7 +11,6 @@
 #define LLVM_OBJECT_SYMBOLSIZE_H
 
 #include "llvm/Object/ObjectFile.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 namespace object {

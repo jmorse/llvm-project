@@ -10,14 +10,9 @@
 #include "ASTUtils.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/CXXInheritance.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/DeclTemplate.h"
-#include "clang/AST/ExprCXX.h"
 #include "clang/AST/StmtVisitor.h"
 #include "clang/Analysis/Analyses/LifetimeSafety/LifetimeAnnotations.h"
 #include "clang/Analysis/DomainSpecific/CocoaConventions.h"
-#include "llvm/ADT/StringSet.h"
 #include <optional>
 
 using namespace clang;

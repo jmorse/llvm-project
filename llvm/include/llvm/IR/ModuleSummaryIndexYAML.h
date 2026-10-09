@@ -9,7 +9,6 @@
 #ifndef LLVM_IR_MODULESUMMARYINDEXYAML_H
 #define LLVM_IR_MODULESUMMARYINDEXYAML_H
 
-#include "llvm/ADT/StringRef.h"
 #include "llvm/IR/ModuleSummaryIndex.h"
 #include "llvm/Support/YAMLTraits.h"
 #include <algorithm>

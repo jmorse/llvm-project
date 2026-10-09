@@ -7,13 +7,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "SPIRVCombinerHelper.h"
-#include "SPIRVGlobalRegistry.h"
-#include "SPIRVUtils.h"
-#include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
 #include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
-#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/IntrinsicsSPIRV.h"
-#include "llvm/Target/TargetMachine.h"
 
 using namespace llvm;
 using namespace MIPatternMatch;

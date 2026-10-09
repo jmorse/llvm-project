@@ -12,18 +12,11 @@
 
 #include "MCTargetDesc/NVPTXInstPrinter.h"
 #include "MCTargetDesc/NVPTXBaseInfo.h"
-#include "NVPTX.h"
 #include "NVPTXUtilities.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/IR/NVVMIntrinsicUtils.h"
 #include "llvm/MC/MCAsmInfo.h"
-#include "llvm/MC/MCExpr.h"
-#include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
-#include "llvm/MC/MCSymbol.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/FormatVariadic.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "asm-printer"

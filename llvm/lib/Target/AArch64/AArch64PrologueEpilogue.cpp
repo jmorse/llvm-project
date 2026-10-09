@@ -7,12 +7,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "AArch64PrologueEpilogue.h"
-#include "AArch64FrameLowering.h"
 #include "AArch64MachineFunctionInfo.h"
-#include "AArch64Subtarget.h"
 #include "MCTargetDesc/AArch64AddressingModes.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/CodeGen/CFIInstBuilder.h"
 #include "llvm/MC/MCContext.h"
 

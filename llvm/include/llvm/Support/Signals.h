@@ -14,7 +14,6 @@
 #ifndef LLVM_SUPPORT_SIGNALS_H
 #define LLVM_SUPPORT_SIGNALS_H
 
-#include "llvm/Config/llvm-config.h"
 #include "llvm/Support/Compiler.h"
 #include <cstdint>
 #include <string>

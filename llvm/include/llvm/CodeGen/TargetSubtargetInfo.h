@@ -13,18 +13,11 @@
 #ifndef LLVM_CODEGEN_TARGETSUBTARGETINFO_H
 #define LLVM_CODEGEN_TARGETSUBTARGETINFO_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/StringTable.h"
 #include "llvm/CodeGen/MacroFusion.h"
 #include "llvm/CodeGen/PBQPRAConstraint.h"
 #include "llvm/CodeGen/SchedulerRegistry.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/MC/MCSubtargetInfo.h"
-#include "llvm/Support/CodeGen.h"
-#include "llvm/Support/Compiler.h"
 #include <memory>
 #include <vector>
 

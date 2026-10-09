@@ -18,7 +18,6 @@
 #define LLVM_CODEGEN_LIVEINTERVALCALC_H
 
 #include "llvm/CodeGen/LiveRangeCalc.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

@@ -11,14 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "ARMRegisterBankInfo.h"
-#include "ARMSubtarget.h"
 #include "ARMTargetMachine.h"
 #include "llvm/CodeGen/GlobalISel/GIMatchTableExecutorImpl.h"
 #include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
-#include "llvm/CodeGen/GlobalISel/InstructionSelector.h"
-#include "llvm/CodeGen/MachineConstantPool.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "arm-isel"
 

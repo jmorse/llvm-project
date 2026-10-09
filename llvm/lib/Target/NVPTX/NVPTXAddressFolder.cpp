@@ -30,9 +30,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "NVPTX.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 
 using namespace llvm;

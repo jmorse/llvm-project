@@ -7,23 +7,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/DebugInfo/PDB/Native/PDBFile.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/DebugInfo/MSF/MSFCommon.h"
-#include "llvm/DebugInfo/MSF/MappedBlockStream.h"
 #include "llvm/DebugInfo/PDB/Native/DbiStream.h"
-#include "llvm/DebugInfo/PDB/Native/GlobalsStream.h"
 #include "llvm/DebugInfo/PDB/Native/InfoStream.h"
 #include "llvm/DebugInfo/PDB/Native/InjectedSourceStream.h"
-#include "llvm/DebugInfo/PDB/Native/PDBStringTable.h"
 #include "llvm/DebugInfo/PDB/Native/PublicsStream.h"
-#include "llvm/DebugInfo/PDB/Native/RawError.h"
 #include "llvm/DebugInfo/PDB/Native/SymbolStream.h"
 #include "llvm/DebugInfo/PDB/Native/TpiStream.h"
-#include "llvm/Support/BinaryStream.h"
-#include "llvm/Support/BinaryStreamArray.h"
-#include "llvm/Support/BinaryStreamReader.h"
-#include "llvm/Support/Endian.h"
-#include "llvm/Support/Error.h"
 #include "llvm/Support/Path.h"
 #include <algorithm>
 #include <cassert>

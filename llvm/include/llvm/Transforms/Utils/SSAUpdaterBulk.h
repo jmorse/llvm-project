@@ -13,10 +13,7 @@
 #ifndef LLVM_TRANSFORMS_UTILS_SSAUPDATERBULK_H
 #define LLVM_TRANSFORMS_UTILS_SSAUPDATERBULK_H
 
-#include "llvm/ADT/StringRef.h"
-#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/PredIteratorCache.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

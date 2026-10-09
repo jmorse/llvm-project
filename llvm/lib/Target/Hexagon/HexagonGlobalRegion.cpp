@@ -15,7 +15,6 @@
 #define DEBUG_TYPE "global_sched"
 #include "HexagonGlobalRegion.h"
 #include "HexagonTargetMachine.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 

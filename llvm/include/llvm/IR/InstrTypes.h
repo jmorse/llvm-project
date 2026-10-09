@@ -15,22 +15,9 @@
 #ifndef LLVM_IR_INSTRTYPES_H
 #define LLVM_IR_INSTRTYPES_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/StringMap.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/ADT/iterator_range.h"
-#include "llvm/IR/Attributes.h"
-#include "llvm/IR/CallingConv.h"
-#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/FMF.h"
 #include "llvm/IR/Function.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/OperandTraits.h"
-#include "llvm/IR/User.h"
-#include "llvm/Support/Compiler.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>

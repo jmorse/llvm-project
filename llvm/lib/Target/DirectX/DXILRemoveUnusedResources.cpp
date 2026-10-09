@@ -8,17 +8,10 @@
 
 #include "DXILRemoveUnusedResources.h"
 #include "DirectX.h"
-#include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/VectorUtils.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/Dominators.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicsDirectX.h"
-#include "llvm/IR/LLVMContext.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 

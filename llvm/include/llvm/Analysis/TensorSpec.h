@@ -9,8 +9,6 @@
 #ifndef LLVM_ANALYSIS_TENSORSPEC_H
 #define LLVM_ANALYSIS_TENSORSPEC_H
 
-#include "llvm/Config/llvm-config.h"
-#include "llvm/Support/Compiler.h"
 
 #include "llvm/ADT/StringMap.h"
 #include "llvm/IR/LLVMContext.h"

@@ -10,7 +10,6 @@
 #define LLVM_CLANG_AST_APNUMERICSTORAGE_H
 
 #include "llvm/ADT/APFloat.h"
-#include "llvm/ADT/APInt.h"
 
 namespace clang {
 class ASTContext;

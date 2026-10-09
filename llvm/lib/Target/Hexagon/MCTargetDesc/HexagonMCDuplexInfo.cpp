@@ -13,13 +13,7 @@
 #include "HexagonMCExpr.h"
 #include "MCTargetDesc/HexagonBaseInfo.h"
 #include "MCTargetDesc/HexagonMCInstrInfo.h"
-#include "MCTargetDesc/HexagonMCTargetDesc.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/MC/MCSubtargetInfo.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/MathExtras.h"
-#include "llvm/Support/raw_ostream.h"
 #include <cassert>
 #include <cstdint>
 #include <iterator>

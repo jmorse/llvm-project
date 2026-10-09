@@ -11,31 +11,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "SparcISelLowering.h"
-#include "MCTargetDesc/SparcMCTargetDesc.h"
 #include "SparcMachineFunctionInfo.h"
-#include "SparcRegisterInfo.h"
 #include "SparcSelectionDAGInfo.h"
 #include "SparcTargetMachine.h"
 #include "SparcTargetObjectFile.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/StringSwitch.h"
 #include "llvm/BinaryFormat/ELF.h"
 #include "llvm/CodeGen/CallingConvLower.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/SelectionDAG.h"
-#include "llvm/CodeGen/SelectionDAGNodes.h"
-#include "llvm/CodeGen/TargetLowering.h"
-#include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/DiagnosticInfo.h"
-#include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/KnownBits.h"
 using namespace llvm;
 

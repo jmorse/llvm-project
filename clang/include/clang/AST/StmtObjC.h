@@ -13,7 +13,6 @@
 #define LLVM_CLANG_AST_STMTOBJC_H
 
 #include "clang/AST/Stmt.h"
-#include "llvm/Support/Compiler.h"
 
 namespace clang {
 

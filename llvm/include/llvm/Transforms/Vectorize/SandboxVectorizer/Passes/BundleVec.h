@@ -13,15 +13,8 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_SANDBOXVECTORIZER_PASSES_BUNDLEVEC_H
 #define LLVM_TRANSFORMS_VECTORIZE_SANDBOXVECTORIZER_PASSES_BUNDLEVEC_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/SandboxIR/Constant.h"
 #include "llvm/SandboxIR/Pass.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Vectorize/SandboxVectorizer/InstrMaps.h"
 #include "llvm/Transforms/Vectorize/SandboxVectorizer/Legality.h"
-#include "llvm/Transforms/Vectorize/SandboxVectorizer/Scheduler.h"
 
 namespace llvm::sandboxir {
 

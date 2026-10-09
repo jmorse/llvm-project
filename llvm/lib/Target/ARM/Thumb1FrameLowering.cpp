@@ -11,31 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "Thumb1FrameLowering.h"
-#include "ARMBaseInstrInfo.h"
-#include "ARMBaseRegisterInfo.h"
-#include "ARMMachineFunctionInfo.h"
 #include "ARMSubtarget.h"
 #include "Thumb1InstrInfo.h"
-#include "ThumbRegisterInfo.h"
-#include "Utils/ARMBaseInfo.h"
-#include "llvm/ADT/BitVector.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/CFIInstBuilder.h"
 #include "llvm/CodeGen/LivePhysRegs.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
-#include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
-#include "llvm/IR/DebugLoc.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <cassert>
 #include <iterator>
 #include <vector>

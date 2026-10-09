@@ -49,16 +49,9 @@
 // FIXME: If the known register value is zero, we should be able to rewrite uses
 //        to use WZR/XZR directly in some cases.
 //===----------------------------------------------------------------------===//
-#include "AArch64.h"
 #include "AArch64InstrInfo.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/iterator_range.h"
-#include "llvm/CodeGen/LiveRegUnits.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/RegisterClassInfo.h"
-#include "llvm/Support/Debug.h"
 
 using namespace llvm;
 

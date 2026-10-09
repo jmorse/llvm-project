@@ -7,22 +7,17 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/DependencyScanning/DependencyScanningWorker.h"
-#include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/DiagnosticFrontend.h"
 #include "clang/Basic/DiagnosticSerialization.h"
 #include "clang/DependencyScanning/DependencyActionController.h"
 #include "clang/DependencyScanning/DependencyConsumer.h"
-#include "clang/DependencyScanning/DependencyScanningFilesystem.h"
 #include "clang/Frontend/FrontendActions.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Sema/SemaOpenACC.h"
 #include "clang/Serialization/ObjectFilePCHContainerReader.h"
-#include "llvm/ADT/IntrusiveRefCntPtr.h"
-#include "llvm/ADT/ScopeExit.h"
 #include "llvm/Option/Option.h"
 #include "llvm/Support/AdvisoryLock.h"
 #include "llvm/Support/CrashRecoveryContext.h"
-#include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/TargetParser/Host.h"
 #include <mutex>
 #include <thread>

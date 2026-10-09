@@ -16,12 +16,7 @@
 
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
-#include "clang/AST/DeclBase.h"
-#include "clang/Basic/IdentifierTable.h"
 #include "clang/Basic/TargetInfo.h"
-#include "clang/Support/Compiler.h"
-#include "llvm/Frontend/HLSL/HLSLResource.h"
-#include "llvm/Support/raw_ostream.h"
 
 namespace clang {
 

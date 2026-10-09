@@ -16,9 +16,7 @@
 //===----------------------------------------------------------------------===//
 #include "GCNPreRALongBranchReg.h"
 #include "AMDGPU.h"
-#include "GCNSubtarget.h"
 #include "SIMachineFunctionInfo.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
 
 using namespace llvm;
 

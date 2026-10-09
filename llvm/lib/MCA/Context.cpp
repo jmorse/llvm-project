@@ -15,9 +15,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/MCA/Context.h"
-#include "llvm/MCA/HardwareUnits/RegisterFile.h"
-#include "llvm/MCA/HardwareUnits/RetireControlUnit.h"
-#include "llvm/MCA/HardwareUnits/Scheduler.h"
 #include "llvm/MCA/Stages/DispatchStage.h"
 #include "llvm/MCA/Stages/EntryStage.h"
 #include "llvm/MCA/Stages/ExecuteStage.h"

@@ -15,17 +15,9 @@
 
 #include "clang/APINotes/APINotesYAMLCompiler.h"
 #include "clang/APINotes/APINotesWriter.h"
-#include "clang/APINotes/Types.h"
 #include "clang/Basic/LLVM.h"
-#include "clang/Basic/Specifiers.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringSet.h"
-#include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/VersionTuple.h"
 #include "llvm/Support/YAMLTraits.h"
-#include "llvm/Support/raw_ostream.h"
 #include <optional>
 #include <string>
 #include <type_traits>

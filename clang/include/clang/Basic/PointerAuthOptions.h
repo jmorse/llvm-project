@@ -14,10 +14,7 @@
 #ifndef LLVM_CLANG_BASIC_POINTERAUTHOPTIONS_H
 #define LLVM_CLANG_BASIC_POINTERAUTHOPTIONS_H
 
-#include "clang/Basic/LLVM.h"
 #include "clang/Basic/LangOptions.h"
-#include "llvm/ADT/STLForwardCompat.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Target/TargetOptions.h"
 #include <optional>
 

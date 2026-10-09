@@ -6,22 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/DebugInfo/DWARF/DWARFFormValue.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/DebugInfo/DWARF/DWARFContext.h"
-#include "llvm/DebugInfo/DWARF/DWARFDataExtractor.h"
-#include "llvm/DebugInfo/DWARF/DWARFDebugLine.h"
-#include "llvm/DebugInfo/DWARF/DWARFObject.h"
-#include "llvm/DebugInfo/DWARF/DWARFSection.h"
-#include "llvm/DebugInfo/DWARF/DWARFUnit.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/Format.h"
 #include "llvm/Support/FormatAdapters.h"
 #include "llvm/Support/FormatVariadic.h"
-#include "llvm/Support/WithColor.h"
-#include "llvm/Support/raw_ostream.h"
 #include <cstdint>
 #include <limits>
 #include <optional>

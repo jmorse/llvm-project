@@ -8,7 +8,6 @@
 
 #include "TargetInfo/AVRTargetInfo.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Compiler.h"
 namespace llvm {
 Target &getTheAVRTarget() {
   static Target TheAVRTarget;

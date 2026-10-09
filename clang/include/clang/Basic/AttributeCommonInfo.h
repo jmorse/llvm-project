@@ -16,7 +16,6 @@
 
 #include "clang/Basic/AttributeScopeInfo.h"
 #include "clang/Basic/Diagnostic.h"
-#include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/TokenKinds.h"
 
 namespace clang {

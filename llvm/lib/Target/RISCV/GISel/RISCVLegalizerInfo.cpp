@@ -13,23 +13,9 @@
 #include "RISCVLegalizerInfo.h"
 #include "MCTargetDesc/RISCVMatInt.h"
 #include "RISCVMachineFunctionInfo.h"
-#include "RISCVSubtarget.h"
-#include "llvm/CodeGen/GlobalISel/GIMatchTableExecutor.h"
-#include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
-#include "llvm/CodeGen/GlobalISel/LegalizerHelper.h"
 #include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
-#include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
-#include "llvm/CodeGen/MachineJumpTableInfo.h"
-#include "llvm/CodeGen/MachineMemOperand.h"
-#include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/TargetOpcodes.h"
-#include "llvm/CodeGen/ValueTypes.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicsRISCV.h"
-#include "llvm/IR/Type.h"
 
 using namespace llvm;
 using namespace LegalityPredicates;

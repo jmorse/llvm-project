@@ -8,13 +8,8 @@
 //===------------------------------------------------------------------===//
 
 #include "llvm/Support/ELFAttrParserExtended.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/ELFAttributes.h"
 #include "llvm/Support/Errc.h"
-#include "llvm/Support/Error.h"
 #include "llvm/Support/ScopedPrinter.h"
-#include "llvm/Support/raw_ostream.h"
 #include <cstdint>
 
 using namespace llvm;

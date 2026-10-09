@@ -11,11 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Sema/SemaARM.h"
-#include "clang/Basic/DiagnosticSema.h"
 #include "clang/Basic/TargetBuiltins.h"
-#include "clang/Basic/TargetInfo.h"
 #include "clang/Sema/Initialization.h"
-#include "clang/Sema/ParsedAttr.h"
 #include "clang/Sema/Sema.h"
 #include "llvm/Support/AArch64MemoryHints.h"
 

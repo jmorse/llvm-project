@@ -17,13 +17,9 @@
 
 #include "llvm/ADT/FunctionExtras.h"
 #include "llvm/ADT/StringMap.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/FormatAdapters.h"
-#include "llvm/Support/JSON.h"
 #include "llvm/Support/LSP/Logging.h"
 #include "llvm/Support/LSP/Protocol.h"
-#include "llvm/Support/raw_ostream.h"
 #include <memory>
 
 namespace llvm {

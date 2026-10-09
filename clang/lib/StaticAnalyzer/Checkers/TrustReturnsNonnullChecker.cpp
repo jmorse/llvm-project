@@ -11,8 +11,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/Attr.h"
-#include "clang/AST/Decl.h"
 #include "clang/StaticAnalyzer/Checkers/BuiltinCheckerRegistration.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/CallEvent.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/CheckerContext.h"

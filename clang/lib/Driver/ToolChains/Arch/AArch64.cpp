@@ -8,9 +8,6 @@
 
 #include "AArch64.h"
 #include "clang/Driver/CommonArgs.h"
-#include "clang/Driver/Driver.h"
-#include "clang/Options/Options.h"
-#include "llvm/Option/ArgList.h"
 #include "llvm/TargetParser/AArch64TargetParser.h"
 #include "llvm/TargetParser/Host.h"
 

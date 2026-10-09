@@ -9,9 +9,7 @@
 #define LLVM_CODEGEN_REGALLOC_GREEDY_PASS_H
 
 #include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/RegAllocCommon.h"
 #include "llvm/CodeGen/RegAllocFast.h"
-#include "llvm/IR/PassManager.h"
 
 using namespace llvm;
 

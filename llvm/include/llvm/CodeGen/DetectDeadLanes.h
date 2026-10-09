@@ -30,7 +30,6 @@
 
 #include "llvm/ADT/BitVector.h"
 #include "llvm/CodeGen/MachinePassManager.h"
-#include "llvm/MC/LaneBitmask.h"
 #include <deque>
 
 namespace llvm {

@@ -13,19 +13,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "CGObjCRuntime.h"
-#include "Address.h"
 #include "CGCXXABI.h"
-#include "CGCleanup.h"
 #include "CGRecordLayout.h"
-#include "CodeGenFunction.h"
-#include "CodeGenModule.h"
-#include "clang/AST/RecordLayout.h"
 #include "clang/AST/StmtObjC.h"
-#include "clang/CodeGen/CGFunctionInfo.h"
-#include "clang/CodeGen/CodeGenABITypes.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/SaveAndRestore.h"
 
 using namespace clang;

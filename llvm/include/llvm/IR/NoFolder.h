@@ -21,14 +21,9 @@
 #ifndef LLVM_IR_NOFOLDER_H
 #define LLVM_IR_NOFOLDER_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/FMF.h"
 #include "llvm/IR/IRBuilderFolder.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

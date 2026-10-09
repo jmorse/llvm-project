@@ -14,8 +14,6 @@
 #ifndef LLVM_ADT_SMALLSET_H
 #define LLVM_ADT_SMALLSET_H
 
-#include "llvm/ADT/ADL.h"
-#include "llvm/ADT/STLForwardCompat.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/iterator.h"

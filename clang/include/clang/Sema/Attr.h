@@ -14,18 +14,10 @@
 #define LLVM_CLANG_SEMA_ATTR_H
 
 #include "clang/AST/Attr.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclBase.h"
-#include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
-#include "clang/AST/Type.h"
-#include "clang/AST/TypeLoc.h"
-#include "clang/Basic/AttributeCommonInfo.h"
 #include "clang/Basic/DiagnosticSema.h"
-#include "clang/Basic/SourceLocation.h"
 #include "clang/Sema/ParsedAttr.h"
 #include "clang/Sema/SemaBase.h"
-#include "llvm/Support/Casting.h"
 
 namespace clang {
 

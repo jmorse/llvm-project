@@ -15,16 +15,10 @@
 #include "CGDebugInfo.h"
 #include "CGObjCRuntime.h"
 #include "CGOpenCLRuntime.h"
-#include "CodeGenFunction.h"
-#include "CodeGenModule.h"
 #include "CodeGenPGO.h"
 #include "ConstantEmitter.h"
 #include "TargetInfo.h"
-#include "clang/AST/Attr.h"
-#include "clang/AST/DeclObjC.h"
 #include "clang/CodeGen/ConstantInitBuilder.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/Module.h"
 #include "llvm/Support/ScopedPrinter.h"
 #include <algorithm>
 #include <cstdio>

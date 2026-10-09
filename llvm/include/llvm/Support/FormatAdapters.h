@@ -9,11 +9,8 @@
 #ifndef LLVM_SUPPORT_FORMATADAPTERS_H
 #define LLVM_SUPPORT_FORMATADAPTERS_H
 
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/FormatCommon.h"
-#include "llvm/Support/FormatVariadicDetails.h"
-#include "llvm/Support/raw_ostream.h"
 
 namespace llvm {
 template <typename T> class FormatAdapter {

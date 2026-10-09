@@ -11,10 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Sema/SemaSystemZ.h"
-#include "clang/Basic/DiagnosticSema.h"
 #include "clang/Basic/TargetBuiltins.h"
 #include "clang/Sema/Sema.h"
-#include "llvm/ADT/APSInt.h"
 #include <optional>
 
 namespace clang {

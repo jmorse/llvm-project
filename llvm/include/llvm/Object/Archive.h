@@ -13,15 +13,9 @@
 #ifndef LLVM_OBJECT_ARCHIVE_H
 #define LLVM_OBJECT_ARCHIVE_H
 
-#include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/fallible_iterator.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/Object/Binary.h"
-#include "llvm/Support/Chrono.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/Error.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/MemoryBuffer.h"
 #include <cassert>
 #include <cstdint>
 #include <memory>

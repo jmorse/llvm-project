@@ -10,14 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "LanaiFrameLowering.h"
 
 #include "LanaiAluCode.h"
-#include "LanaiInstrInfo.h"
 #include "LanaiSubtarget.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
 
 using namespace llvm;
 

@@ -22,9 +22,7 @@
 
 #include "AMDGPUBarrierLatency.h"
 #include "GCNSubtarget.h"
-#include "SIInstrInfo.h"
 #include "llvm/CodeGen/ScheduleDAGInstrs.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/TargetParser/AtomicScope.h"
 
 using namespace llvm;

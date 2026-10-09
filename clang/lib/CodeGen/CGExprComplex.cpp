@@ -12,14 +12,8 @@
 
 #include "CGDebugInfo.h"
 #include "CGOpenMPRuntime.h"
-#include "CodeGenFunction.h"
-#include "CodeGenModule.h"
 #include "ConstantEmitter.h"
 #include "clang/AST/StmtVisitor.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/MDBuilder.h"
-#include "llvm/IR/Metadata.h"
 using namespace clang;
 using namespace CodeGen;
 

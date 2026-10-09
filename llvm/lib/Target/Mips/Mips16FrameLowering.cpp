@@ -12,20 +12,10 @@
 
 #include "Mips16FrameLowering.h"
 #include "Mips16InstrInfo.h"
-#include "MipsInstrInfo.h"
-#include "MipsRegisterInfo.h"
 #include "MipsSubtarget.h"
-#include "llvm/ADT/BitVector.h"
 #include "llvm/CodeGen/CFIInstBuilder.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
-#include "llvm/CodeGen/TargetFrameLowering.h"
-#include "llvm/IR/DebugLoc.h"
-#include "llvm/Support/MathExtras.h"
 #include <cstdint>
 #include <vector>
 

@@ -12,17 +12,9 @@
 
 #ifndef LLVM_CLANG_SEMA_SEMACONCEPT_H
 #define LLVM_CLANG_SEMA_SEMACONCEPT_H
-#include "clang/AST/ASTConcept.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/DeclTemplate.h"
-#include "clang/AST/Expr.h"
 #include "clang/AST/ExprConcepts.h"
-#include "clang/Basic/SourceLocation.h"
 #include "clang/Sema/Ownership.h"
-#include "llvm/ADT/FoldingSet.h"
-#include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/ADT/SmallBitVector.h"
-#include "llvm/ADT/SmallVector.h"
 #include <optional>
 #include <utility>
 

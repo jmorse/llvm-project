@@ -7,12 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "X86.h"
-#include "clang/Driver/Driver.h"
-#include "clang/Options/Options.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/StringMap.h"
-#include "llvm/Option/ArgList.h"
 #include "llvm/TargetParser/Host.h"
 #include "llvm/TargetParser/X86TargetParser.h"
 

@@ -14,11 +14,9 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_SANDBOXVECTORIZER_PASSES_LOADSTOREVEC_H
 #define LLVM_TRANSFORMS_VECTORIZE_SANDBOXVECTORIZER_PASSES_LOADSTOREVEC_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/SandboxIR/Pass.h"
 #include "llvm/Support/InstructionCost.h"
 #include "llvm/Transforms/Vectorize/SandboxVectorizer/Scheduler.h"
-#include "llvm/Transforms/Vectorize/SandboxVectorizer/VecUtils.h"
 
 #include <optional>
 

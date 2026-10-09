@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "BPFSubtarget.h"
-#include "BPF.h"
 #include "BPFTargetMachine.h"
 #include "GISel/BPFCallLowering.h"
 #include "GISel/BPFLegalizerInfo.h"

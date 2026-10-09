@@ -10,7 +10,6 @@
 
 #include "llvm/ADT/Twine.h"
 #include "llvm/MC/MCSymbol.h"
-#include "llvm/MC/MCSymbolTableEntry.h"
 
 namespace llvm {
 class MCSymbolMachO : public MCSymbol {

@@ -15,7 +15,6 @@
 #define LLVM_ANALYSIS_LOOPCACHEANALYSIS_H
 
 #include "llvm/Analysis/LoopAnalysisManager.h"
-#include "llvm/IR/PassManager.h"
 #include "llvm/Support/InstructionCost.h"
 #include <optional>
 

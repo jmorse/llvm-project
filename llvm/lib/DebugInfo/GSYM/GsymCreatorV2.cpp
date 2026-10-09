@@ -8,8 +8,6 @@
 #include "llvm/DebugInfo/GSYM/GsymCreatorV2.h"
 #include "llvm/DebugInfo/GSYM/FileWriter.h"
 #include "llvm/DebugInfo/GSYM/GlobalData.h"
-#include "llvm/DebugInfo/GSYM/HeaderV2.h"
-#include "llvm/Support/MathExtras.h"
 
 #include <cassert>
 

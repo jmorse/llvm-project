@@ -14,11 +14,6 @@
 #define LLVM_CLANG_SEMA_OWNERSHIP_H
 
 #include "clang/AST/DeclTemplate.h"
-#include "clang/AST/Expr.h"
-#include "clang/Basic/LLVM.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/Support/PointerLikeTypeTraits.h"
-#include "llvm/Support/type_traits.h"
 #include <cassert>
 #include <cstddef>
 #include <cstdint>

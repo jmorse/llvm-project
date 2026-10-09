@@ -15,11 +15,8 @@
 #ifndef LLVM_ANALYSIS_LOOPUNROLLANALYZER_H
 #define LLVM_ANALYSIS_LOOPUNROLLANALYZER_H
 
-#include "llvm/ADT/APInt.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/InstVisitor.h"
-#include "llvm/Support/Compiler.h"
 
 // This class is used to get an estimate of the optimization effects that we
 // could get from complete loop unrolling. It comes from the fact that some

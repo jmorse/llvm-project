@@ -23,16 +23,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "WebAssembly.h"
-#include "llvm/IR/Analysis.h"
-#include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/Operator.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "wasm-fix-function-bitcasts"

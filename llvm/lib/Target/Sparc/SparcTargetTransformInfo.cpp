@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "SparcTargetTransformInfo.h"
-#include "llvm/Support/MathExtras.h"
 
 using namespace llvm;
 

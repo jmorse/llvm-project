@@ -14,11 +14,6 @@
 
 #include "clang/Analysis/Analyses/LifetimeSafety/MovedLoans.h"
 #include "Dataflow.h"
-#include "clang/Analysis/Analyses/LifetimeSafety/Facts.h"
-#include "clang/Analysis/Analyses/LifetimeSafety/LiveOrigins.h"
-#include "clang/Analysis/Analyses/LifetimeSafety/LoanPropagation.h"
-#include "clang/Analysis/Analyses/LifetimeSafety/Loans.h"
-#include "clang/Analysis/Analyses/LifetimeSafety/Utils.h"
 
 namespace clang::lifetimes::internal {
 namespace {

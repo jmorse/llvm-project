@@ -6,16 +6,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "MCTargetDesc/AVRFixupKinds.h"
 #include "MCTargetDesc/AVRMCAsmInfo.h"
 #include "MCTargetDesc/AVRMCTargetDesc.h"
 
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCELFObjectWriter.h"
-#include "llvm/MC/MCExpr.h"
-#include "llvm/MC/MCObjectWriter.h"
 #include "llvm/MC/MCValue.h"
-#include "llvm/Support/ErrorHandling.h"
 
 namespace llvm {
 

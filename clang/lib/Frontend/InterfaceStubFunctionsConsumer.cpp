@@ -8,8 +8,6 @@
 
 #include "clang/AST/Mangle.h"
 #include "clang/AST/RecursiveASTVisitor.h"
-#include "clang/Basic/TargetInfo.h"
-#include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/FrontendActions.h"
 #include "clang/Sema/Sema.h"
 #include "llvm/BinaryFormat/ELF.h"

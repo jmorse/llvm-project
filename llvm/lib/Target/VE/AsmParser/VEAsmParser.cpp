@@ -7,26 +7,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "MCTargetDesc/VEMCAsmInfo.h"
-#include "MCTargetDesc/VEMCTargetDesc.h"
 #include "TargetInfo/VETargetInfo.h"
 #include "VE.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/MC/MCContext.h"
-#include "llvm/MC/MCExpr.h"
-#include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstrInfo.h"
-#include "llvm/MC/MCParser/AsmLexer.h"
-#include "llvm/MC/MCParser/MCAsmParser.h"
-#include "llvm/MC/MCParser/MCParsedAsmOperand.h"
 #include "llvm/MC/MCParser/MCTargetAsmParser.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/raw_ostream.h"
 #include <memory>
 
 using namespace llvm;

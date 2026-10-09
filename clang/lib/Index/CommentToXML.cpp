@@ -9,15 +9,10 @@
 #include "clang/Index/CommentToXML.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
-#include "clang/AST/Comment.h"
 #include "clang/AST/CommentVisitor.h"
-#include "clang/Basic/IdentifierTable.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Format/Format.h"
 #include "clang/UnifiedSymbolResolution/USRGeneration.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/TinyPtrVector.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace clang;
 using namespace clang::comments;

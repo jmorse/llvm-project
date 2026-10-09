@@ -9,7 +9,6 @@
 #include "llvm/DebugInfo/PDB/Native/NativeTypeArray.h"
 
 #include "llvm/DebugInfo/PDB/Native/NativeSession.h"
-#include "llvm/DebugInfo/PDB/Native/SymbolCache.h"
 #include "llvm/DebugInfo/PDB/PDBExtras.h"
 
 using namespace llvm;

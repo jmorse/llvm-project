@@ -14,10 +14,6 @@
 #define LLVM_CLANG_AST_STMTOPENACC_H
 
 #include "clang/AST/OpenACCClause.h"
-#include "clang/AST/Stmt.h"
-#include "clang/Basic/OpenACCKinds.h"
-#include "clang/Basic/SourceLocation.h"
-#include "llvm/ADT/STLExtras.h"
 #include <memory>
 
 namespace clang {

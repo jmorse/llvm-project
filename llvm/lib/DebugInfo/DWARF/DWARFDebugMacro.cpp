@@ -7,16 +7,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/DebugInfo/DWARF/DWARFDebugMacro.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/BinaryFormat/Dwarf.h"
-#include "llvm/DebugInfo/DWARF/DWARFDataExtractor.h"
-#include "llvm/DebugInfo/DWARF/DWARFDie.h"
-#include "llvm/DebugInfo/DWARF/DWARFFormValue.h"
-#include "llvm/Support/Errc.h"
 #include "llvm/Support/FormatAdapters.h"
 #include "llvm/Support/FormatVariadic.h"
-#include "llvm/Support/WithColor.h"
-#include "llvm/Support/raw_ostream.h"
 #include <cstdint>
 
 using namespace llvm;

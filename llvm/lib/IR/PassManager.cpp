@@ -6,13 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/IR/PassManager.h"
-#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/OptBisect.h"
 #include "llvm/IR/PassManagerImpl.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <optional>
 
 using namespace llvm;

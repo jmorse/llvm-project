@@ -10,7 +10,6 @@
 #include "MCTargetDesc/PPCMCAsmInfo.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/MC/MCContext.h"
-#include "llvm/MC/MCExpr.h"
 
 using namespace llvm;
 

@@ -16,18 +16,12 @@
 #include "DirectX.h"
 #include "DirectXIRPasses/DXILAttributes.h"
 #include "DirectXIRPasses/PointerTypeAnalysis.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringSet.h"
-#include "llvm/Analysis/DXILMetadataAnalysis.h"
 #include "llvm/Analysis/DXILResource.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/AttributeMask.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/Module.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/VersionTuple.h"
 
 #define DEBUG_TYPE "dxil-prepare"
 

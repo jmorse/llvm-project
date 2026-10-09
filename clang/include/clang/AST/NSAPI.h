@@ -10,7 +10,6 @@
 #define LLVM_CLANG_AST_NSAPI_H
 
 #include "clang/Basic/IdentifierTable.h"
-#include "llvm/ADT/ArrayRef.h"
 #include <optional>
 
 namespace clang {

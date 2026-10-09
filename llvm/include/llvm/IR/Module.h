@@ -14,25 +14,15 @@
 #ifndef LLVM_IR_MODULE_H
 #define LLVM_IR_MODULE_H
 
-#include "llvm-c/Types.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringMap.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/iterator_range.h"
-#include "llvm/IR/Attributes.h"
 #include "llvm/IR/Comdat.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalAlias.h"
 #include "llvm/IR/GlobalIFunc.h"
 #include "llvm/IR/GlobalVariable.h"
-#include "llvm/IR/Metadata.h"
 #include "llvm/IR/ProfileSummary.h"
-#include "llvm/IR/SymbolTableListTraits.h"
 #include "llvm/IR/ValueMap.h"
-#include "llvm/Support/CBindingWrapping.h"
-#include "llvm/Support/CodeGen.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/TargetParser/Triple.h"
 #include <cstddef>
 #include <cstdint>

@@ -14,9 +14,7 @@
 #ifndef LLVM_ANALYSIS_ASSUMEBUNDLEQUERIES_H
 #define LLVM_ANALYSIS_ASSUMEBUNDLEQUERIES_H
 
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 class AssumptionCache;

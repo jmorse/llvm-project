@@ -13,23 +13,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "WebAssemblyCallLowering.h"
-#include "MCTargetDesc/WebAssemblyMCTargetDesc.h"
 #include "Utils/WebAssemblyTypeUtilities.h"
-#include "WebAssemblyISelLowering.h"
 #include "WebAssemblyMachineFunctionInfo.h"
-#include "WebAssemblyRegisterInfo.h"
 #include "WebAssemblySubtarget.h"
-#include "WebAssemblyUtilities.h"
 #include "llvm/CodeGen/Analysis.h"
 #include "llvm/CodeGen/FunctionLoweringInfo.h"
 #include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
-#include "llvm/CodeGen/LowLevelTypeUtils.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/RegisterBankInfo.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/DebugLoc.h"
-#include "llvm/IR/Value.h"
-#include "llvm/Support/ErrorHandling.h"
 
 #define DEBUG_TYPE "wasm-call-lowering"
 

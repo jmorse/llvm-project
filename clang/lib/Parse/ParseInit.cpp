@@ -10,16 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Basic/DiagnosticParse.h"
-#include "clang/Basic/TokenKinds.h"
-#include "clang/Parse/Parser.h"
 #include "clang/Parse/RAIIObjectsForParser.h"
-#include "clang/Sema/Designator.h"
 #include "clang/Sema/EnterExpressionEvaluationContext.h"
-#include "clang/Sema/Ownership.h"
-#include "clang/Sema/Scope.h"
-#include "clang/Sema/SemaCodeCompletion.h"
-#include "clang/Sema/SemaObjC.h"
 using namespace clang;
 
 bool Parser::MayBeDesignationStart() {

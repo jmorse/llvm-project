@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "RISCVMachineScheduler.h"
-#include "llvm/CodeGen/ScheduleDAG.h"
 
 using namespace llvm;
 

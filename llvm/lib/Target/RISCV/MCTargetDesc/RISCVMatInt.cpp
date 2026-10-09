@@ -10,7 +10,6 @@
 #include "MCTargetDesc/RISCVMCTargetDesc.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/MC/MCInstBuilder.h"
-#include "llvm/Support/MathExtras.h"
 using namespace llvm;
 
 static int getInstSeqCost(RISCVMatInt::InstSeq &Res, bool HasRVC) {

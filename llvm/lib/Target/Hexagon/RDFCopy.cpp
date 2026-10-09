@@ -12,18 +12,7 @@
 
 #include "RDFCopy.h"
 #include "llvm/CodeGen/MachineDominators.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/CodeGen/RDFGraph.h"
-#include "llvm/CodeGen/RDFLiveness.h"
-#include "llvm/CodeGen/RDFRegisters.h"
-#include "llvm/CodeGen/TargetOpcodes.h"
-#include "llvm/CodeGen/TargetRegisterInfo.h"
-#include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/raw_ostream.h"
 #include <cassert>
 #include <cstdint>
 

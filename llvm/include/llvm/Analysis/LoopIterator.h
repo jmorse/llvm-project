@@ -23,7 +23,6 @@
 #ifndef LLVM_ANALYSIS_LOOPITERATOR_H
 #define LLVM_ANALYSIS_LOOPITERATOR_H
 
-#include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/Analysis/LoopInfo.h"
 
 namespace llvm {

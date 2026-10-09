@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Support/MemoryBufferRef.h"
 #include "llvm/Support/MemoryBuffer.h"
 
 using namespace llvm;

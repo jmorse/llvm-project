@@ -12,8 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "WhitespaceManager.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
 #include <algorithm>
 #include <limits>
 #include <optional>

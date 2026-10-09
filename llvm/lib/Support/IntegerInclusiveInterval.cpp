@@ -14,9 +14,7 @@
 
 #include "llvm/Support/IntegerInclusiveInterval.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/Support/Error.h"
 #include "llvm/Support/Regex.h"
-#include "llvm/Support/raw_ostream.h"
 #include <string>
 
 using namespace llvm;

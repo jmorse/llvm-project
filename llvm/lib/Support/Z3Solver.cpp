@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/ScopeExit.h"
-#include "llvm/Config/config.h"
 #include "llvm/Support/NativeFormatting.h"
 #include "llvm/Support/SMTAPI.h"
 

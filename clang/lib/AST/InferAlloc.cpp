@@ -11,13 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/AST/InferAlloc.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/Expr.h"
-#include "clang/AST/Type.h"
-#include "clang/Basic/IdentifierTable.h"
-#include "llvm/ADT/SmallPtrSet.h"
 
 using namespace clang;
 using namespace infer_alloc;

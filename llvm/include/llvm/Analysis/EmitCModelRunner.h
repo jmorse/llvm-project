@@ -15,7 +15,6 @@
 #define LLVM_ANALYSIS_EMITCMODELRUNNER_H
 
 #include "llvm/Analysis/MLModelRunner.h"
-#include "llvm/Analysis/TensorSpec.h"
 
 #include <type_traits>
 

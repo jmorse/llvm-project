@@ -11,30 +11,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "MCTargetDesc/MipsBaseInfo.h"
-#include "Mips.h"
-#include "MipsRegisterInfo.h"
 #include "MipsSubtarget.h"
-#include "llvm/ADT/PointerUnion.h"
 #include "llvm/ADT/ScopedHashTable.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineDominators.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
-#include "llvm/CodeGen/TargetOpcodes.h"
-#include "llvm/CodeGen/TargetRegisterInfo.h"
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
-#include "llvm/CodeGenTypes/MachineValueType.h"
-#include "llvm/Support/Allocator.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/RecyclingAllocator.h"
 #include <cassert>
 #include <utility>
 

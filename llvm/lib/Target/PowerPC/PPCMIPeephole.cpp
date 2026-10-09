@@ -27,24 +27,15 @@
 //       definition of that register using addDummyDef(<MBB>, <Reg>).
 //===---------------------------------------------------------------------===//
 
-#include "MCTargetDesc/PPCMCTargetDesc.h"
 #include "MCTargetDesc/PPCPredicates.h"
-#include "PPC.h"
-#include "PPCInstrInfo.h"
 #include "PPCMachineFunctionInfo.h"
 #include "PPCTargetMachine.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
-#include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachinePostDominators.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/RegisterClassInfo.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Support/DebugCounter.h"
 
 using namespace llvm;

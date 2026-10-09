@@ -43,9 +43,9 @@
 #ifndef LLVM_ADT_HASHING_H
 #define LLVM_ADT_HASHING_H
 
+#include "inttypes.h"
 #include "llvm/ADT/ADL.h"
 #include "llvm/Config/abi-breaking.h"
-#include "llvm/Support/DataTypes.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/type_traits.h"
 #include "llvm/Support/xxhash.h"

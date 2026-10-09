@@ -7,20 +7,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Frontend/SerializedDiagnosticPrinter.h"
-#include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/DiagnosticFrontend.h"
-#include "clang/Basic/DiagnosticOptions.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Frontend/DiagnosticRenderer.h"
 #include "clang/Frontend/SerializedDiagnosticReader.h"
-#include "clang/Frontend/SerializedDiagnostics.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 #include "clang/Lex/Lexer.h"
-#include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Bitstream/BitCodes.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/raw_ostream.h"
 #include <utility>
 
 using namespace clang;

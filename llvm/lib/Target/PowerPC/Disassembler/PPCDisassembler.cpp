@@ -10,12 +10,9 @@
 #include "TargetInfo/PowerPCTargetInfo.h"
 #include "llvm/MC/MCDecoder.h"
 #include "llvm/MC/MCDecoderOps.h"
-#include "llvm/MC/MCDisassembler/MCDisassembler.h"
-#include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/Endian.h"
+#include "llvm/Support/LEB128.h"
 
 using namespace llvm;
 using namespace llvm::MCD;

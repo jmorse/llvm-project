@@ -9,23 +9,14 @@
 #include "llvm/DebugInfo/PDB/Native/InputFile.h"
 
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/BinaryFormat/Magic.h"
-#include "llvm/DebugInfo/CodeView/CodeView.h"
-#include "llvm/DebugInfo/CodeView/LazyRandomTypeCollection.h"
-#include "llvm/DebugInfo/CodeView/StringsAndChecksums.h"
 #include "llvm/DebugInfo/MSF/MappedBlockStream.h"
 #include "llvm/DebugInfo/PDB/Native/DbiStream.h"
-#include "llvm/DebugInfo/PDB/Native/FormatUtil.h"
-#include "llvm/DebugInfo/PDB/Native/LinePrinter.h"
 #include "llvm/DebugInfo/PDB/Native/NativeSession.h"
 #include "llvm/DebugInfo/PDB/Native/PDBFile.h"
-#include "llvm/DebugInfo/PDB/Native/PDBStringTable.h"
-#include "llvm/DebugInfo/PDB/Native/RawError.h"
 #include "llvm/DebugInfo/PDB/Native/TpiStream.h"
 #include "llvm/DebugInfo/PDB/PDB.h"
 #include "llvm/Object/COFF.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/FormatVariadic.h"
 
 using namespace llvm;
 using namespace llvm::codeview;

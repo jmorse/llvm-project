@@ -10,7 +10,6 @@
 #include "clang/AST/ASTConsumer.h"
 #include "clang/Lex/LiteralSupport.h"
 #include "clang/Parse/Parser.h"
-#include "clang/Sema/Sema.h"
 
 using namespace llvm::hlsl::rootsig;
 

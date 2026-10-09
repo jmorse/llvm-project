@@ -12,19 +12,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Analysis/Analyses/LifetimeSafety/Checker.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/Expr.h"
-#include "clang/Analysis/Analyses/LifetimeSafety/Facts.h"
 #include "clang/Analysis/Analyses/LifetimeSafety/LifetimeAnnotations.h"
-#include "clang/Analysis/Analyses/LifetimeSafety/LiveOrigins.h"
-#include "clang/Analysis/Analyses/LifetimeSafety/LoanPropagation.h"
-#include "clang/Analysis/Analyses/LifetimeSafety/Loans.h"
 #include "clang/Analysis/Analyses/PostOrderCFGView.h"
-#include "clang/Analysis/AnalysisDeclContext.h"
-#include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/SourceManager.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/TimeProfiler.h"
 
 namespace clang::lifetimes::internal {

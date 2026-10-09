@@ -10,19 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/OpenMPClause.h"
-#include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
-#include "clang/AST/Decl.h"
 #include "clang/AST/DeclOpenMP.h"
-#include "clang/AST/Expr.h"
 #include "clang/AST/ExprOpenMP.h"
-#include "clang/Basic/LLVM.h"
-#include "clang/Basic/OpenMPKinds.h"
 #include "clang/Basic/TargetInfo.h"
-#include "llvm/ADT/Sequence.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <algorithm>
 #include <cassert>
 #include <optional>

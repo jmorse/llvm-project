@@ -7,9 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "AArch64MachineScheduler.h"
-#include "AArch64InstrInfo.h"
 #include "AArch64Subtarget.h"
-#include "MCTargetDesc/AArch64MCTargetDesc.h"
 
 using namespace llvm;
 

@@ -8,7 +8,6 @@
 
 #include "RISCVSelectionDAGInfo.h"
 #include "RISCVSubtarget.h"
-#include "llvm/CodeGen/SelectionDAG.h"
 
 #define GET_SDNODE_DESC
 #include "RISCVGenSDNodeInfo.inc"

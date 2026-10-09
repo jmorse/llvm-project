@@ -16,10 +16,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "NVPTX.h"
 #include "NVPTXUtilities.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 

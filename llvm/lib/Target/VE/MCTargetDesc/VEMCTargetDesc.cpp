@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "VEMCTargetDesc.h"
 #include "TargetInfo/VETargetInfo.h"
 #include "VEInstPrinter.h"
 #include "VEMCAsmInfo.h"
@@ -19,8 +18,6 @@
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 

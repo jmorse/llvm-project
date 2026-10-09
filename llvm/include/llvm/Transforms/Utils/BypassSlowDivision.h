@@ -18,7 +18,6 @@
 #define LLVM_TRANSFORMS_UTILS_BYPASSSLOWDIVISION_H
 
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/IR/ValueHandle.h"
 #include <cstdint>
 

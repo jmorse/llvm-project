@@ -11,9 +11,7 @@
 #define LLVM_ANALYSIS_INTERACTIVEMODELRUNNER_H
 
 #include "llvm/Analysis/MLModelRunner.h"
-#include "llvm/Analysis/TensorSpec.h"
 #include "llvm/Analysis/Utils/TrainingLogger.h"
-#include "llvm/Support/Compiler.h"
 #include <system_error>
 
 namespace llvm {

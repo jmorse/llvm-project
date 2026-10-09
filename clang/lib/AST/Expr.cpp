@@ -10,33 +10,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/Expr.h"
-#include "clang/AST/APValue.h"
-#include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTLambda.h"
 #include "clang/AST/Attr.h"
-#include "clang/AST/ComputeDependence.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/DeclObjC.h"
-#include "clang/AST/DeclTemplate.h"
-#include "clang/AST/DependenceFlags.h"
 #include "clang/AST/EvaluatedExprVisitor.h"
-#include "clang/AST/ExprCXX.h"
 #include "clang/AST/IgnoreExpr.h"
 #include "clang/AST/Mangle.h"
 #include "clang/AST/RecordLayout.h"
-#include "clang/AST/StmtVisitor.h"
-#include "clang/AST/TypeBase.h"
-#include "clang/Basic/Builtins.h"
-#include "clang/Basic/CharInfo.h"
-#include "clang/Basic/SourceManager.h"
 #include "clang/Basic/TargetInfo.h"
-#include "clang/Lex/Lexer.h"
 #include "clang/Lex/LiteralSupport.h"
 #include "clang/Lex/Preprocessor.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/Format.h"
-#include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cstring>
 #include <optional>

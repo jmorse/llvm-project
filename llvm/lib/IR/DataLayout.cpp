@@ -15,22 +15,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/IR/DataLayout.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/GlobalVariable.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/Value.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Error.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/MathExtras.h"
-#include "llvm/Support/MemAlloc.h"
-#include "llvm/Support/TypeSize.h"
 #include "llvm/TargetParser/Triple.h"
 #include <algorithm>
 #include <cassert>

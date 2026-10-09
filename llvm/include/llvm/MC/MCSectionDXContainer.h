@@ -14,7 +14,6 @@
 #define LLVM_MC_MCSECTIONDXCONTAINER_H
 
 #include "llvm/MC/MCSection.h"
-#include "llvm/MC/SectionKind.h"
 
 namespace llvm {
 

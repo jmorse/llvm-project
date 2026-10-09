@@ -13,11 +13,9 @@
 #ifndef LLVM_CODEGEN_PSEUDOSOURCEVALUEMANAGER_H
 #define LLVM_CODEGEN_PSEUDOSOURCEVALUEMANAGER_H
 
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/CodeGen/PseudoSourceValue.h"
 #include "llvm/IR/ValueMap.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

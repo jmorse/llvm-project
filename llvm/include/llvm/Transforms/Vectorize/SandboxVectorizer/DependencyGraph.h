@@ -22,12 +22,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_SANDBOXVECTORIZER_DEPENDENCYGRAPH_H
 #define LLVM_TRANSFORMS_VECTORIZE_SANDBOXVECTORIZER_DEPENDENCYGRAPH_H
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/iterator_range.h"
-#include "llvm/Analysis/AliasAnalysis.h"
-#include "llvm/SandboxIR/Instruction.h"
 #include "llvm/SandboxIR/IntrinsicInst.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Transforms/Vectorize/SandboxVectorizer/Interval.h"
 #include "llvm/Transforms/Vectorize/SandboxVectorizer/VecUtils.h"
 

@@ -13,19 +13,11 @@
 #ifndef LLVM_TRANSFORMS_UTILS_SCALAREVOLUTIONEXPANDER_H
 #define LLVM_TRANSFORMS_UTILS_SCALAREVOLUTIONEXPANDER_H
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/STLFunctionalExtras.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/InstSimplifyFolder.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/ScalarEvolutionNormalization.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/ValueHandle.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/InstructionCost.h"
 
 namespace llvm {
 LLVM_ABI extern cl::opt<unsigned> SCEVCheapExpansionBudget;

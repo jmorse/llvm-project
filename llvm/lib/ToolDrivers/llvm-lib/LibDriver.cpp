@@ -12,24 +12,15 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ToolDrivers/llvm-lib/LibDriver.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringSet.h"
-#include "llvm/BinaryFormat/COFF.h"
-#include "llvm/BinaryFormat/Magic.h"
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Object/ArchiveWriter.h"
-#include "llvm/Object/COFF.h"
 #include "llvm/Object/COFFModuleDefinition.h"
 #include "llvm/Object/WindowsMachineFlag.h"
-#include "llvm/Option/Arg.h"
 #include "llvm/Option/ArgList.h"
-#include "llvm/Option/OptTable.h"
-#include "llvm/Option/Option.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Process.h"
-#include "llvm/Support/StringSaver.h"
-#include "llvm/Support/raw_ostream.h"
 #include <optional>
 
 using namespace llvm;

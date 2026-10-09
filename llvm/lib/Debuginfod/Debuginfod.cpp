@@ -22,22 +22,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Debuginfod/Debuginfod.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/BinaryFormat/Magic.h"
 #include "llvm/DebugInfo/DWARF/DWARFContext.h"
 #include "llvm/DebugInfo/Symbolize/Symbolize.h"
-#include "llvm/HTTP/HTTPClient.h"
 #include "llvm/HTTP/StreamedHTTPResponseHandler.h"
-#include "llvm/Object/BuildID.h"
 #include "llvm/Object/ELFObjectFile.h"
 #include "llvm/Support/CachePruning.h"
-#include "llvm/Support/Caching.h"
-#include "llvm/Support/Errc.h"
-#include "llvm/Support/Error.h"
 #include "llvm/Support/FileUtilities.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/Path.h"
 #include "llvm/Support/ThreadPool.h"
 
 #include <optional>

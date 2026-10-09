@@ -21,8 +21,6 @@
 #ifndef LLVM_ANALYSIS_DOMINANCEFRONTIER_H
 #define LLVM_ANALYSIS_DOMINANCEFRONTIER_H
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"

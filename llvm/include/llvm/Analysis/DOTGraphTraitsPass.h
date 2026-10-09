@@ -15,7 +15,6 @@
 
 #include "llvm/ADT/StringSet.h"
 #include "llvm/Analysis/CFGPrinter.h"
-#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/GraphWriter.h"
 
 static llvm::StringSet<> nameObj;

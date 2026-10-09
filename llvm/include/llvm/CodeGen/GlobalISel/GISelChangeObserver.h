@@ -14,9 +14,7 @@
 #ifndef LLVM_CODEGEN_GLOBALISEL_GISELCHANGEOBSERVER_H
 #define LLVM_CODEGEN_GLOBALISEL_GISELCHANGEOBSERVER_H
 
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 class MachineInstr;

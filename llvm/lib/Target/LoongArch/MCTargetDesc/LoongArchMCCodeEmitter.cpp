@@ -20,7 +20,6 @@
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
-#include "llvm/Support/Casting.h"
 #include "llvm/Support/EndianStream.h"
 
 using namespace llvm;

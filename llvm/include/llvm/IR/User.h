@@ -18,13 +18,7 @@
 #ifndef LLVM_IR_USER_H
 #define LLVM_IR_USER_H
 
-#include "llvm/ADT/iterator.h"
-#include "llvm/ADT/iterator_range.h"
-#include "llvm/IR/Use.h"
 #include "llvm/IR/Value.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <cassert>
 #include <cstddef>
 #include <cstdint>

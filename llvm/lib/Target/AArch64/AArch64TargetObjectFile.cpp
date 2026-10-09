@@ -8,16 +8,11 @@
 
 #include "AArch64TargetObjectFile.h"
 #include "AArch64TargetMachine.h"
-#include "MCTargetDesc/AArch64MCAsmInfo.h"
 #include "MCTargetDesc/AArch64TargetStreamer.h"
-#include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/CodeGen/MachineModuleInfoImpls.h"
 #include "llvm/IR/Mangler.h"
 #include "llvm/IR/Module.h"
-#include "llvm/MC/MCContext.h"
-#include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCSectionELF.h"
-#include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCValue.h"
 using namespace llvm;
 using namespace dwarf;

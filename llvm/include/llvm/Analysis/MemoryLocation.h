@@ -15,10 +15,7 @@
 #ifndef LLVM_ANALYSIS_MEMORYLOCATION_H
 #define LLVM_ANALYSIS_MEMORYLOCATION_H
 
-#include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/IR/Metadata.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/TypeSize.h"
 
 #include <optional>
 

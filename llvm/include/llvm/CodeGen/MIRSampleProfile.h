@@ -14,8 +14,6 @@
 #ifndef LLVM_CODEGEN_MIRSAMPLEPROFILE_H
 #define LLVM_CODEGEN_MIRSAMPLEPROFILE_H
 
-#include "llvm/ADT/IntrusiveRefCntPtr.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/Support/Discriminator.h"
 #include "llvm/Support/VirtualFileSystemFwd.h"

@@ -13,7 +13,6 @@
 #define LLVM_ADT_PAGEDVECTOR_H
 
 #include "llvm/ADT/PointerIntPair.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Support/Allocator.h"
 #include <cassert>

@@ -52,18 +52,8 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "MCTargetDesc/WebAssemblyMCTargetDesc.h"
 #include "WebAssembly.h"
-#include "WebAssemblySubtarget.h"
 #include "llvm/ADT/SCCIterator.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionAnalysisManager.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachinePassManager.h"
-#include "llvm/IR/Analysis.h"
-#include "llvm/Support/Debug.h"
 #include <limits>
 using namespace llvm;
 

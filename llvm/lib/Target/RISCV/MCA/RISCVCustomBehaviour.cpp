@@ -12,12 +12,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "RISCVCustomBehaviour.h"
-#include "MCTargetDesc/RISCVMCTargetDesc.h"
 #include "RISCV.h"
 #include "TargetInfo/RISCVTargetInfo.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Support/DebugLog.h"
 
 #define DEBUG_TYPE "llvm-mca-riscv-custombehaviour"

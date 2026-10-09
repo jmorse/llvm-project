@@ -13,22 +13,8 @@
 
 #include "AArch64LegalizerInfo.h"
 #include "AArch64Subtarget.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
-#include "llvm/CodeGen/GlobalISel/LegalizerHelper.h"
-#include "llvm/CodeGen/GlobalISel/LegalizerInfo.h"
 #include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
-#include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
-#include "llvm/CodeGen/GlobalISel/Utils.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/TargetOpcodes.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicsAArch64.h"
-#include "llvm/IR/Type.h"
-#include "llvm/Support/MathExtras.h"
 #include <initializer_list>
 
 #define DEBUG_TYPE "aarch64-legalinfo"

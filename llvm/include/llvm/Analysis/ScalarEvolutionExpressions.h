@@ -13,15 +13,8 @@
 #ifndef LLVM_ANALYSIS_SCALAREVOLUTIONEXPRESSIONS_H
 #define LLVM_ANALYSIS_SCALAREVOLUTIONEXPRESSIONS_H
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/ValueHandle.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <cassert>
 #include <cstddef>
 

@@ -15,10 +15,8 @@
 #define LLVM_CLANG_AST_ASTUNRESOLVEDSET_H
 
 #include "clang/AST/ASTVector.h"
-#include "clang/AST/DeclAccessPair.h"
 #include "clang/AST/DeclID.h"
 #include "clang/AST/UnresolvedSet.h"
-#include "clang/Basic/Specifiers.h"
 #include <cassert>
 #include <cstdint>
 

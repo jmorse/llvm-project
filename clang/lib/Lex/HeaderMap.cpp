@@ -12,12 +12,6 @@
 
 #include "clang/Lex/HeaderMap.h"
 #include "clang/Basic/CharInfo.h"
-#include "clang/Basic/FileManager.h"
-#include "clang/Lex/HeaderMapTypes.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/MathExtras.h"
-#include "llvm/Support/MemoryBuffer.h"
 #include <cstring>
 #include <memory>
 #include <optional>

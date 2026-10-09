@@ -10,15 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Sema/DeclSpec.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/Expr.h"
 #include "clang/AST/LocInfoType.h"
-#include "clang/AST/TypeLoc.h"
-#include "clang/Basic/LangOptions.h"
 #include "clang/Basic/SourceManager.h"
-#include "clang/Basic/Specifiers.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Sema/ParsedTemplate.h"
 #include "clang/Sema/Sema.h"

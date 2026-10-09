@@ -12,8 +12,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/GCStrategy.h"
-#include "llvm/ADT/Twine.h"
 #include "llvm/IR/BuiltinGCs.h"
+#include "llvm/ADT/Twine.h"
 
 using namespace llvm;
 

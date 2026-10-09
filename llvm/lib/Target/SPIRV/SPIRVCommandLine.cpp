@@ -12,8 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "SPIRVCommandLine.h"
-#include "MCTargetDesc/SPIRVBaseInfo.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/TargetParser/Triple.h"
 

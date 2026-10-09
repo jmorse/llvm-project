@@ -14,23 +14,12 @@
 #ifndef LLVM_CLANG_SEMA_SEMAOPENMP_H
 #define LLVM_CLANG_SEMA_SEMAOPENMP_H
 
-#include "clang/AST/ASTFwd.h"
 #include "clang/AST/Attr.h"
-#include "clang/AST/DeclarationName.h"
 #include "clang/AST/ExprOpenMP.h"
-#include "clang/AST/OpenMPClause.h"
 #include "clang/AST/StmtOpenMP.h"
-#include "clang/Basic/IdentifierTable.h"
-#include "clang/Basic/LLVM.h"
-#include "clang/Basic/OpenMPKinds.h"
-#include "clang/Basic/SourceLocation.h"
-#include "clang/Basic/Specifiers.h"
 #include "clang/Sema/DeclSpec.h"
-#include "clang/Sema/Ownership.h"
 #include "clang/Sema/SemaBase.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/Frontend/OpenMP/OMP.h.inc"
-#include "llvm/Frontend/OpenMP/OMPConstants.h"
 #include <array>
 #include <optional>
 #include <string>

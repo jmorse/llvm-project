@@ -11,21 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "HexagonSubtarget.h"
-#include "HexagonInstrInfo.h"
-#include "HexagonRegisterInfo.h"
-#include "MCTargetDesc/HexagonMCTargetDesc.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/CodeGen/LibcallLoweringInfo.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/MachineScheduler.h"
-#include "llvm/CodeGen/ScheduleDAG.h"
-#include "llvm/CodeGen/ScheduleDAGInstrs.h"
 #include "llvm/IR/IntrinsicsHexagon.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Target/TargetMachine.h"
 #include <algorithm>
 #include <cassert>

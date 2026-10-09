@@ -21,9 +21,6 @@
 #define LLVM_CODEGEN_LIVEDEBUGVARIABLES_H
 
 #include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/raw_ostream.h"
 #include <memory>
 
 namespace llvm {

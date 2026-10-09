@@ -14,8 +14,6 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_SANDBOXVECTORIZER_PASSES_REGIONSFROMBBS_H
 #define LLVM_TRANSFORMS_VECTORIZE_SANDBOXVECTORIZER_PASSES_REGIONSFROMBBS_H
 
-#include "llvm/ADT/StringRef.h"
-#include "llvm/SandboxIR/Pass.h"
 #include "llvm/SandboxIR/PassManager.h"
 
 namespace llvm::sandboxir {

@@ -20,22 +20,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/IR/ConstantRange.h"
-#include "llvm/ADT/APInt.h"
-#include "llvm/Config/llvm-config.h"
-#include "llvm/IR/CmpPredicate.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/Metadata.h"
 #include "llvm/IR/Operator.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/KnownBits.h"
-#include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdint>

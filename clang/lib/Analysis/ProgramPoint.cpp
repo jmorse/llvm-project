@@ -12,8 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Analysis/ProgramPoint.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/Analysis/AnalysisDeclContext.h"
 #include "clang/Basic/JsonSupport.h"
 
 using namespace clang;

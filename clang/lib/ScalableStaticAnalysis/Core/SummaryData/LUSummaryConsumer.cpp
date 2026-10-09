@@ -8,7 +8,6 @@
 
 #include "clang/ScalableStaticAnalysis/Core/SummaryData/LUSummaryConsumer.h"
 #include "clang/ScalableStaticAnalysis/Core/SummaryData/SummaryDataBuilderRegistry.h"
-#include "clang/ScalableStaticAnalysis/Core/Support/ErrorBuilder.h"
 
 using namespace clang;
 using namespace ssaf;

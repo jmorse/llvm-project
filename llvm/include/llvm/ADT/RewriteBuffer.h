@@ -11,8 +11,6 @@
 
 #include "llvm/ADT/DeltaTree.h"
 #include "llvm/ADT/RewriteRope.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Compiler.h"
 
 namespace clang {
 class Rewriter;

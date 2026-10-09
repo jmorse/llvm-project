@@ -13,8 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/TextEncoding.h"
-#include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Config/config.h"
 #include "llvm/Support/ConvertEBCDIC.h"

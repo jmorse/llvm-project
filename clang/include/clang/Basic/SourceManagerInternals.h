@@ -14,11 +14,7 @@
 #ifndef LLVM_CLANG_BASIC_SOURCEMANAGERINTERNALS_H
 #define LLVM_CLANG_BASIC_SOURCEMANAGERINTERNALS_H
 
-#include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/SourceManager.h"
-#include "llvm/ADT/StringMap.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Allocator.h"
 #include <cassert>
 #include <map>
 #include <vector>

@@ -10,7 +10,6 @@
 #define LLVM_TRANSFORMS_SCALAR_IVUSERSPRINTER_H
 
 #include "llvm/Analysis/LoopAnalysisManager.h"
-#include "llvm/IR/PassManager.h"
 
 namespace llvm {
 class LPMUpdater;

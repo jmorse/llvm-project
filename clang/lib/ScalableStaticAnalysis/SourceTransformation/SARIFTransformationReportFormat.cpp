@@ -7,14 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/ScalableStaticAnalysis/SourceTransformation/SARIFTransformationReportFormat.h"
-#include "clang/Basic/Sarif.h"
-#include "clang/Basic/Version.h"
-#include "llvm/ADT/StringMap.h"
-#include "llvm/Support/Error.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/FormatVariadic.h"
-#include "llvm/Support/JSON.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace clang;
 using namespace ssaf;

@@ -15,7 +15,6 @@
 
 #include "clang/Basic/SourceLocation.h"
 #include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/VersionTuple.h"
 
 namespace clang {

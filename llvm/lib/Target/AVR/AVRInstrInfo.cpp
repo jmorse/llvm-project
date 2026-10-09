@@ -10,19 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "AVRInstrInfo.h"
 
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineMemOperand.h"
 #include "llvm/MC/MCContext.h"
-#include "llvm/Support/ErrorHandling.h"
 
 #include "AVR.h"
 #include "AVRMachineFunctionInfo.h"
-#include "AVRRegisterInfo.h"
 #include "AVRTargetMachine.h"
-#include "MCTargetDesc/AVRMCTargetDesc.h"
 
 #define GET_INSTRINFO_CTOR_DTOR
 #include "AVRGenInstrInfo.inc"

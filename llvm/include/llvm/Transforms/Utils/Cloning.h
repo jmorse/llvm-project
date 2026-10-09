@@ -17,16 +17,10 @@
 #ifndef LLVM_TRANSFORMS_UTILS_CLONING_H
 #define LLVM_TRANSFORMS_UTILS_CLONING_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SetVector.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/Twine.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/DebugLoc.h"
-#include "llvm/IR/ValueHandle.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <functional>
 #include <memory>

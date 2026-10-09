@@ -15,14 +15,10 @@
 #define LLVM_CODEGEN_GLOBALISEL_LEGALIZERINFO_H
 
 #include "llvm/ADT/SmallBitVector.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/MachineMemOperand.h"
 #include "llvm/CodeGen/TargetOpcodes.h"
-#include "llvm/CodeGenTypes/LowLevelType.h"
 #include "llvm/MC/MCInstrDesc.h"
-#include "llvm/Support/AtomicOrdering.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Compiler.h"
 #include <cassert>
 #include <cstdint>
 #include <tuple>

@@ -12,10 +12,7 @@
 
 #include "CGBuiltin.h"
 #include "clang/Basic/TargetBuiltins.h"
-#include "llvm/ADT/APInt.h"
-#include "llvm/IR/Constants.h"
 #include "llvm/IR/IntrinsicsWebAssembly.h"
-#include "llvm/Support/ErrorHandling.h"
 
 using namespace clang;
 using namespace CodeGen;

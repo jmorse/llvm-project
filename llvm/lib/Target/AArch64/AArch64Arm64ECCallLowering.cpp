@@ -17,20 +17,12 @@
 
 #include "AArch64.h"
 #include "llvm/ADT/SetVector.h"
-#include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/IR/CallingConv.h"
 #include "llvm/IR/DiagnosticInfo.h"
-#include "llvm/IR/GlobalAlias.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Instruction.h"
 #include "llvm/IR/Mangler.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Object/COFF.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/TargetParser/Triple.h"
 
 using namespace llvm;
 using namespace llvm::COFF;

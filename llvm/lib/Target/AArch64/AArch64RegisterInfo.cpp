@@ -11,26 +11,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "AArch64RegisterInfo.h"
-#include "AArch64FrameLowering.h"
-#include "AArch64InstrInfo.h"
 #include "AArch64MachineFunctionInfo.h"
-#include "AArch64SMEAttributes.h"
-#include "AArch64Subtarget.h"
 #include "MCTargetDesc/AArch64AddressingModes.h"
 #include "MCTargetDesc/AArch64InstPrinter.h"
-#include "llvm/ADT/BitVector.h"
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/CodeGen/LiveRegMatrix.h"
-#include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/RegisterScavenging.h"
-#include "llvm/CodeGen/TargetFrameLowering.h"
-#include "llvm/IR/DebugInfoMetadata.h"
-#include "llvm/IR/DiagnosticInfo.h"
-#include "llvm/IR/Function.h"
-#include "llvm/TargetParser/Triple.h"
 
 using namespace llvm;
 

@@ -10,22 +10,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "MCTargetDesc/HexagonMCInstrInfo.h"
 #include "MCTargetDesc/HexagonBaseInfo.h"
 #include "MCTargetDesc/HexagonMCChecker.h"
 #include "MCTargetDesc/HexagonMCExpr.h"
 #include "MCTargetDesc/HexagonMCShuffler.h"
-#include "MCTargetDesc/HexagonMCTargetDesc.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/MC/MCContext.h"
-#include "llvm/MC/MCExpr.h"
-#include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstrInfo.h"
-#include "llvm/MC/MCInstrItineraries.h"
 #include "llvm/MC/MCSubtargetInfo.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <cassert>
 #include <cstdint>
 #include <limits>

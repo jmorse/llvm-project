@@ -9,18 +9,9 @@
 #include "MCTargetDesc/X86FixupKinds.h"
 #include "MCTargetDesc/X86MCAsmInfo.h"
 #include "MCTargetDesc/X86MCTargetDesc.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/BinaryFormat/MachO.h"
-#include "llvm/MC/MCAsmInfo.h"
-#include "llvm/MC/MCAsmInfoDarwin.h"
 #include "llvm/MC/MCAssembler.h"
-#include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCMachObjectWriter.h"
-#include "llvm/MC/MCSectionMachO.h"
-#include "llvm/MC/MCSymbolMachO.h"
 #include "llvm/MC/MCValue.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/Format.h"
 
 using namespace llvm;
 

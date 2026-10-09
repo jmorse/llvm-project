@@ -15,9 +15,7 @@
 #define LLVM_CLANG_AST_OPENACCCLAUSE_H
 
 #include "clang/AST/ASTContext.h"
-#include "clang/AST/StmtIterator.h"
 #include "clang/Basic/OpenACCKinds.h"
-#include "llvm/ADT/STLExtras.h"
 
 #include <utility>
 #include <variant>

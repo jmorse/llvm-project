@@ -15,7 +15,6 @@
 #define LLVM_CLANG_SEMA_DESIGNATOR_H
 
 #include "clang/Basic/SourceLocation.h"
-#include "llvm/ADT/SmallVector.h"
 
 namespace clang {
 

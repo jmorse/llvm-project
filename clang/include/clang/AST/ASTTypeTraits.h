@@ -16,14 +16,7 @@
 #define LLVM_CLANG_AST_ASTTYPETRAITS_H
 
 #include "clang/AST/ASTFwd.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/LambdaCapture.h"
 #include "clang/AST/NestedNameSpecifier.h"
-#include "clang/AST/TemplateBase.h"
-#include "clang/AST/TypeLoc.h"
-#include "clang/Basic/LLVM.h"
-#include "llvm/ADT/DenseMapInfo.h"
-#include "llvm/Support/AlignOf.h"
 
 namespace llvm {
 class raw_ostream;

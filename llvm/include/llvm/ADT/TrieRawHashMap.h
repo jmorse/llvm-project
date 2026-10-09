@@ -10,7 +10,6 @@
 #define LLVM_ADT_TRIERAWHASHMAP_H
 
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/Support/Compiler.h"
 #include <atomic>
 #include <optional>
 

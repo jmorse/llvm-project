@@ -9,15 +9,8 @@
 #include "MCTargetDesc/X86FixupKinds.h"
 #include "MCTargetDesc/X86MCAsmInfo.h"
 #include "MCTargetDesc/X86MCTargetDesc.h"
-#include "llvm/BinaryFormat/ELF.h"
-#include "llvm/MC/MCAsmInfo.h"
-#include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCELFObjectWriter.h"
-#include "llvm/MC/MCExpr.h"
-#include "llvm/MC/MCFixup.h"
-#include "llvm/MC/MCObjectWriter.h"
 #include "llvm/MC/MCValue.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <cassert>
 #include <cstdint>
 

@@ -8,12 +8,6 @@
 
 #include "ARMBasicBlockInfo.h"
 #include "ARM.h"
-#include "ARMBaseInstrInfo.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
-#include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "arm-bb-utils"
 

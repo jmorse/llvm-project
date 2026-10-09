@@ -14,13 +14,9 @@
 #ifndef LLVM_CODEGEN_GLOBALISEL_GENERICMACHINEINSTRS_H
 #define LLVM_CODEGEN_GLOBALISEL_GENERICMACHINEINSTRS_H
 
-#include "llvm/ADT/APInt.h"
 #include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineMemOperand.h"
-#include "llvm/CodeGen/TargetOpcodes.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/Support/Casting.h"
 
 namespace llvm {
 

@@ -23,7 +23,6 @@
 #define LLVM_CODEGEN_UNREACHABLEBLOCKELIM_H
 
 #include "llvm/CodeGen/MachinePassManager.h"
-#include "llvm/IR/PassManager.h"
 
 namespace llvm {
 

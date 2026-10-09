@@ -15,10 +15,9 @@
 #ifndef LLVM_SUPPORT_PATH_H
 #define LLVM_SUPPORT_PATH_H
 
+#include "inttypes.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/ADT/iterator.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/DataTypes.h"
 #include <iterator>
 
 namespace llvm {

@@ -7,8 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/DebugInfo/CodeView/DebugSymbolRVASubsection.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/DebugInfo/CodeView/CodeView.h"
 #include "llvm/Support/BinaryStreamReader.h"
 #include "llvm/Support/BinaryStreamWriter.h"
 #include <cstdint>

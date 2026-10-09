@@ -11,11 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/TableGen/TableGenBackend.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Path.h"
-#include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>

@@ -15,8 +15,6 @@
 #define LLVM_CLANG_BASIC_OPENMPKINDS_H
 
 #include "clang/Basic/LangOptions.h"
-#include "llvm/ADT/Sequence.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Frontend/OpenMP/OMPConstants.h"
 
 namespace clang {

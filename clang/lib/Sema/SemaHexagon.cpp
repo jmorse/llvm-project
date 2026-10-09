@@ -13,7 +13,6 @@
 #include "clang/Sema/SemaHexagon.h"
 #include "clang/Basic/TargetBuiltins.h"
 #include "clang/Sema/Sema.h"
-#include "llvm/ADT/STLExtras.h"
 #include <cstdint>
 #include <iterator>
 

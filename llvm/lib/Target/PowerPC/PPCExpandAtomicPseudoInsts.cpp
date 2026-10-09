@@ -13,12 +13,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "MCTargetDesc/PPCPredicates.h"
-#include "PPC.h"
 #include "PPCInstrInfo.h"
 
 #include "llvm/CodeGen/LivePhysRegs.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
 
 using namespace llvm;
 

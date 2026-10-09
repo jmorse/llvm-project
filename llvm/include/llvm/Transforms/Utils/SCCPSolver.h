@@ -14,11 +14,8 @@
 #ifndef LLVM_TRANSFORMS_UTILS_SCCPSOLVER_H
 #define LLVM_TRANSFORMS_UTILS_SCCPSOLVER_H
 
-#include "llvm/ADT/MapVector.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/DomTreeUpdater.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Transforms/Utils/PredicateInfo.h"
 #include <vector>
 

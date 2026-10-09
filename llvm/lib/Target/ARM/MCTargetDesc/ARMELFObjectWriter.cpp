@@ -9,16 +9,11 @@
 #include "MCTargetDesc/ARMFixupKinds.h"
 #include "MCTargetDesc/ARMMCAsmInfo.h"
 #include "MCTargetDesc/ARMMCTargetDesc.h"
-#include "llvm/BinaryFormat/ELF.h"
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCELFObjectWriter.h"
-#include "llvm/MC/MCExpr.h"
-#include "llvm/MC/MCFixup.h"
-#include "llvm/MC/MCObjectWriter.h"
 #include "llvm/MC/MCValue.h"
 #include "llvm/Object/ELF.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <cstdint>
 
 using namespace llvm;

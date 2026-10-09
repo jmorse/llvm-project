@@ -19,20 +19,9 @@
 #ifndef LLVM_CODEGEN_LIVEINTERVALS_H
 #define LLVM_CODEGEN_LIVEINTERVALS_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/IndexedMap.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/CodeGen/LiveInterval.h"
 #include "llvm/CodeGen/LiveIntervalCalc.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachinePassManager.h"
-#include "llvm/CodeGen/SlotIndexes.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
-#include "llvm/MC/LaneBitmask.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <cassert>
 #include <cstdint>
 #include <utility>

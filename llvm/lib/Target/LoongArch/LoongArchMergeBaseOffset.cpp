@@ -11,13 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "LoongArch.h"
 #include "LoongArchTargetMachine.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/Passes.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Target/TargetOptions.h"
 #include <optional>
 
 using namespace llvm;

@@ -8,7 +8,6 @@
 
 #include "clang/Serialization/InMemoryModuleCache.h"
 #include "clang/Basic/AtomicLineLogger.h"
-#include "llvm/Support/MemoryBuffer.h"
 
 using namespace clang;
 

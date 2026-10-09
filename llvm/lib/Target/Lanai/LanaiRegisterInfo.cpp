@@ -10,19 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "LanaiRegisterInfo.h"
 #include "LanaiAluCode.h"
 #include "LanaiCondCode.h"
 #include "LanaiFrameLowering.h"
 #include "LanaiInstrInfo.h"
-#include "llvm/ADT/BitVector.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/RegisterScavenging.h"
-#include "llvm/CodeGen/TargetFrameLowering.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
-#include "llvm/Support/ErrorHandling.h"
 
 #define GET_REGINFO_TARGET_DESC
 #include "LanaiGenRegisterInfo.inc"

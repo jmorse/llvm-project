@@ -11,12 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Sema/SemaOpenCL.h"
-#include "clang/AST/Attr.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclBase.h"
-#include "clang/AST/Expr.h"
-#include "clang/Basic/DiagnosticSema.h"
-#include "clang/Sema/ParsedAttr.h"
 #include "clang/Sema/Sema.h"
 
 namespace clang {

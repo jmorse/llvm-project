@@ -12,11 +12,8 @@
 
 #include "AMDGPU.h"
 #include "AMDGPUTargetMachine.h"
-#include "GCNSubtarget.h"
-#include "Utils/AMDGPUBaseInfo.h"
 #include "llvm/IR/IntrinsicsAMDGPU.h"
 #include "llvm/IR/IntrinsicsR600.h"
-#include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/IPO/Attributor.h"
 #include <cstdint>
 

@@ -9,11 +9,8 @@
 #ifndef LLVM_CODEGEN_MACHINEMODULESLOTTRACKER_H
 #define LLVM_CODEGEN_MACHINEMODULESLOTTRACKER_H
 
-#include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/ModuleSlotTracker.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

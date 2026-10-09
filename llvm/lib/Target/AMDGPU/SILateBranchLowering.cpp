@@ -13,11 +13,9 @@
 
 #include "AMDGPU.h"
 #include "AMDGPULaneMaskUtils.h"
-#include "GCNSubtarget.h"
 #include "SIMachineFunctionInfo.h"
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
-#include "llvm/CodeGen/MachinePassManager.h"
 #include "llvm/InitializePasses.h"
 
 using namespace llvm;

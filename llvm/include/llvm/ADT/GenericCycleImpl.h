@@ -23,12 +23,9 @@
 #ifndef LLVM_ADT_GENERICCYCLEIMPL_H
 #define LLVM_ADT_GENERICCYCLEIMPL_H
 
-#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/GenericCycleInfo.h"
 #include "llvm/ADT/PointerIntPair.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringExtras.h"
 #include <iterator>
 
 #define DEBUG_TYPE "generic-cycle-impl"

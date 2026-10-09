@@ -18,11 +18,8 @@
 #define LLVM_IR_GLOBALIFUNC_H
 
 #include "llvm/ADT/ilist_node.h"
-#include "llvm/IR/Constant.h"
 #include "llvm/IR/GlobalObject.h"
 #include "llvm/IR/OperandTraits.h"
-#include "llvm/IR/Value.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

@@ -13,9 +13,6 @@
 
 #include "SPIRVMCInstLower.h"
 #include "SPIRVModuleAnalysis.h"
-#include "SPIRVUtils.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/IR/Constants.h"
 
 using namespace llvm;
 

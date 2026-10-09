@@ -9,14 +9,9 @@
 #include "EvaluationResult.h"
 #include "../ExprConstShared.h"
 #include "InterpState.h"
-#include "Pointer.h"
 #include "Record.h"
-#include "clang/AST/DeclTemplate.h"
-#include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/ExprObjC.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include <iterator>
 
 namespace clang {

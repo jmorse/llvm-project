@@ -14,8 +14,6 @@
 #ifndef LLVM_CODEGEN_MACHINEMODULEINFOIMPLS_H
 #define LLVM_CODEGEN_MACHINEMODULEINFOIMPLS_H
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SetVector.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include <cassert>
 

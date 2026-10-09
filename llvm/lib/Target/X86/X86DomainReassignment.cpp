@@ -13,19 +13,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "X86.h"
-#include "X86InstrInfo.h"
 #include "X86Subtarget.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/TargetRegisterInfo.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/Printable.h"
 #include <bitset>
 
 using namespace llvm;

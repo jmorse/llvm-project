@@ -15,7 +15,6 @@
 
 #include "llvm/ADT/STLForwardCompat.h"
 #include "llvm/ADT/bit.h"
-#include "llvm/Support/Compiler.h"
 #include <cassert>
 #include <climits>
 #include <cstdint>

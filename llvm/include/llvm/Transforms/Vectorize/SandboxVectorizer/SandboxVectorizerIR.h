@@ -12,10 +12,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_SANDBOXVEC_SANDBOXVECTORIZERIR_H
 #define LLVM_TRANSFORMS_VECTORIZE_SANDBOXVEC_SANDBOXVECTORIZERIR_H
 
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/SandboxIR/Context.h"
 #include "llvm/SandboxIR/Instruction.h"
-#include "llvm/Support/ErrorHandling.h"
 
 namespace llvm::sandboxir {
 

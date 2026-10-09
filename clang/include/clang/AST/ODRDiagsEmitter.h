@@ -10,10 +10,7 @@
 #define LLVM_CLANG_AST_ODRDIAGSEMITTER_H
 
 #include "clang/AST/ASTContext.h"
-#include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
-#include "clang/Basic/Diagnostic.h"
-#include "clang/Basic/LangOptions.h"
 
 namespace clang {
 

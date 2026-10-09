@@ -30,13 +30,7 @@
 #include "X86InstrBuilder.h"
 #include "X86Subtarget.h"
 #include "llvm/CodeGen/IndirectThunks.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineModuleInfo.h"
-#include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/Target/TargetMachine.h"
 
 using namespace llvm;
 

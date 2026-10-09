@@ -14,7 +14,6 @@
 #ifndef LLVM_SUPPORT_UNIQUEBBID_H
 #define LLVM_SUPPORT_UNIQUEBBID_H
 
-#include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/ADT/StringRef.h"
 
 namespace llvm {

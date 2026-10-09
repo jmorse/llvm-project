@@ -53,15 +53,8 @@
 // The code below is intended to be fully target-independent.
 
 #include "BitTracker.h"
-#include "llvm/ADT/APInt.h"
-#include "llvm/ADT/BitVector.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/Support/Debug.h"
 
 using namespace llvm;
 

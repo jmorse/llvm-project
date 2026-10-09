@@ -14,21 +14,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "SPIRVGlobalRegistry.h"
 #include "SPIRV.h"
 #include "SPIRVBuiltins.h"
 #include "SPIRVSubtarget.h"
-#include "SPIRVUtils.h"
-#include "llvm/ADT/APInt.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DiagnosticInfo.h"
-#include "llvm/IR/Function.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicsSPIRV.h"
-#include "llvm/IR/Type.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/MathExtras.h"
 #include <cassert>
 #include <functional>
 

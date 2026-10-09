@@ -10,7 +10,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "DirectXTargetTransformInfo.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicsDirectX.h"
 
 using namespace llvm;

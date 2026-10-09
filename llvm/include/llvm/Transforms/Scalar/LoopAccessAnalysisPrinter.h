@@ -9,7 +9,6 @@
 #ifndef LLVM_TRANSFORMS_SCALAR_LOOPACCESSANALYSISPRINTER_H
 #define LLVM_TRANSFORMS_SCALAR_LOOPACCESSANALYSISPRINTER_H
 #include "llvm/Analysis/LoopAnalysisManager.h"
-#include "llvm/IR/PassManager.h"
 
 namespace llvm {
 

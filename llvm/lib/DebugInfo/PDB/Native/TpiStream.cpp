@@ -8,21 +8,14 @@
 
 #include "llvm/DebugInfo/PDB/Native/TpiStream.h"
 
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/DebugInfo/CodeView/LazyRandomTypeCollection.h"
 #include "llvm/DebugInfo/CodeView/RecordName.h"
-#include "llvm/DebugInfo/CodeView/TypeRecord.h"
 #include "llvm/DebugInfo/CodeView/TypeRecordHelpers.h"
 #include "llvm/DebugInfo/MSF/MappedBlockStream.h"
 #include "llvm/DebugInfo/PDB/Native/Hash.h"
 #include "llvm/DebugInfo/PDB/Native/PDBFile.h"
-#include "llvm/DebugInfo/PDB/Native/RawConstants.h"
-#include "llvm/DebugInfo/PDB/Native/RawError.h"
 #include "llvm/DebugInfo/PDB/Native/RawTypes.h"
 #include "llvm/DebugInfo/PDB/Native/TpiHashing.h"
-#include "llvm/Support/BinaryStreamReader.h"
-#include "llvm/Support/Endian.h"
-#include "llvm/Support/Error.h"
 #include <cstdint>
 #include <vector>
 

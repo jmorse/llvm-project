@@ -14,13 +14,8 @@
 #ifndef LLVM_TRANSFORMS_UTILS_CODEEXTRACTOR_H
 #define LLVM_TRANSFORMS_UTILS_CODEEXTRACTOR_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SetVector.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/Support/Compiler.h"
 #include <limits>
 
 namespace llvm {

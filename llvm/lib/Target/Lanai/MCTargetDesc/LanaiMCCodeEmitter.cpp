@@ -14,15 +14,11 @@
 #include "MCTargetDesc/LanaiBaseInfo.h"
 #include "MCTargetDesc/LanaiFixupKinds.h"
 #include "MCTargetDesc/LanaiMCAsmInfo.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/MC/MCCodeEmitter.h"
-#include "llvm/MC/MCExpr.h"
-#include "llvm/MC/MCFixup.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
-#include "llvm/Support/Casting.h"
 #include "llvm/Support/EndianStream.h"
 #include <cassert>
 #include <cstdint>

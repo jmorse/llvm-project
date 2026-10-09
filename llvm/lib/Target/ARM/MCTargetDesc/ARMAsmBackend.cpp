@@ -6,33 +6,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "MCTargetDesc/ARMAsmBackend.h"
 #include "MCTargetDesc/ARMAddressingModes.h"
 #include "MCTargetDesc/ARMAsmBackendDarwin.h"
 #include "MCTargetDesc/ARMAsmBackendELF.h"
 #include "MCTargetDesc/ARMAsmBackendWinCOFF.h"
-#include "MCTargetDesc/ARMFixupKinds.h"
 #include "MCTargetDesc/ARMMCAsmInfo.h"
-#include "MCTargetDesc/ARMMCTargetDesc.h"
-#include "llvm/ADT/StringSwitch.h"
-#include "llvm/BinaryFormat/ELF.h"
-#include "llvm/BinaryFormat/MachO.h"
-#include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCAssembler.h"
-#include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCELFObjectWriter.h"
-#include "llvm/MC/MCExpr.h"
-#include "llvm/MC/MCObjectWriter.h"
 #include "llvm/MC/MCRegisterInfo.h"
-#include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/MCSymbolMachO.h"
-#include "llvm/MC/MCTargetOptions.h"
 #include "llvm/MC/MCValue.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Support/EndianStream.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/MathExtras.h"
-#include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 
 namespace {

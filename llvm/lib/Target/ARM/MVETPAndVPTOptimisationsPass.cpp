@@ -19,16 +19,9 @@
 #include "ARMSubtarget.h"
 #include "MVETailPredUtils.h"
 #include "Thumb2InstrInfo.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineDominators.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
-#include "llvm/CodeGen/RegisterClassInfo.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Support/Debug.h"
 #include <cassert>
 
 using namespace llvm;

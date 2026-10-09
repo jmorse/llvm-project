@@ -9,19 +9,8 @@
 // vector register with a combination of a vector store and scalar loads.
 //===----------------------------------------------------------------------===//
 
-#include "Hexagon.h"
-#include "HexagonInstrInfo.h"
 #include "HexagonMachineFunctionInfo.h"
-#include "HexagonRegisterInfo.h"
 #include "HexagonSubtarget.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Pass.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/Support/CommandLine.h"
 
 #include <map>
 

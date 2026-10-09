@@ -13,7 +13,6 @@
 
 #include "AMDGPUMacroFusion.h"
 #include "SIInstrInfo.h"
-#include "llvm/CodeGen/MacroFusion.h"
 
 using namespace llvm;
 

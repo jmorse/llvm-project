@@ -11,30 +11,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "LoongArchISelLowering.h"
-#include "LoongArch.h"
 #include "LoongArchMachineFunctionInfo.h"
-#include "LoongArchRegisterInfo.h"
 #include "LoongArchSelectionDAGInfo.h"
-#include "LoongArchSubtarget.h"
-#include "MCTargetDesc/LoongArchBaseInfo.h"
-#include "MCTargetDesc/LoongArchMCTargetDesc.h"
 #include "MCTargetDesc/LoongArchMatInt.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/CodeGen/ISDOpcodes.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/RuntimeLibcallUtil.h"
-#include "llvm/CodeGen/SelectionDAGNodes.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/IntrinsicsLoongArch.h"
-#include "llvm/Support/CodeGen.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/KnownBits.h"
-#include "llvm/Support/MathExtras.h"
 #include <llvm/Analysis/VectorUtils.h>
 
 using namespace llvm;

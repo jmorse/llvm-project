@@ -8,13 +8,8 @@
 
 #include "llvm/DebugInfo/PDB/Native/NativeEnumTypes.h"
 
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/DebugInfo/CodeView/CVRecord.h"
-#include "llvm/DebugInfo/CodeView/LazyRandomTypeCollection.h"
 #include "llvm/DebugInfo/CodeView/TypeRecordHelpers.h"
 #include "llvm/DebugInfo/PDB/Native/NativeSession.h"
-#include "llvm/DebugInfo/PDB/Native/SymbolCache.h"
-#include "llvm/DebugInfo/PDB/PDBSymbol.h"
 #include "llvm/DebugInfo/PDB/PDBTypes.h"
 
 using namespace llvm;

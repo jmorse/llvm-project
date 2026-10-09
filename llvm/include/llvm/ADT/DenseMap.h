@@ -21,16 +21,11 @@
 #ifndef LLVM_ADT_DENSEMAP_H
 #define LLVM_ADT_DENSEMAP_H
 
-#include "llvm/ADT/ADL.h"
 #include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/ADT/EpochTracker.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/STLForwardCompat.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/MathExtras.h"
 #include "llvm/Support/MemAlloc.h"
 #include "llvm/Support/ReverseIteration.h"
-#include "llvm/Support/type_traits.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>

@@ -51,14 +51,10 @@
 #include "SILowerControlFlow.h"
 #include "AMDGPU.h"
 #include "AMDGPULaneMaskUtils.h"
-#include "GCNSubtarget.h"
 #include "llvm/CodeGen/LiveIntervals.h"
 #include "llvm/CodeGen/LiveVariables.h"
 #include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
-#include "llvm/CodeGen/MachineDominators.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachinePostDominators.h"
-#include "llvm/CodeGen/RegisterClassInfo.h"
 #include "llvm/Target/TargetMachine.h"
 
 using namespace llvm;

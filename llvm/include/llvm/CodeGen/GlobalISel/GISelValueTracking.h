@@ -14,15 +14,10 @@
 #ifndef LLVM_CODEGEN_GLOBALISEL_GISELVALUETRACKING_H
 #define LLVM_CODEGEN_GLOBALISEL_GISELVALUETRACKING_H
 
-#include "llvm/ADT/APFloat.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/CodeGen/GlobalISel/GISelChangeObserver.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/Register.h"
 #include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/PassManager.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/KnownBits.h"
 #include "llvm/Support/KnownFPClass.h"
 

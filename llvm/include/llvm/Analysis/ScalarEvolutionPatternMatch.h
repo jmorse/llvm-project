@@ -13,7 +13,6 @@
 #ifndef LLVM_ANALYSIS_SCALAREVOLUTIONPATTERNMATCH_H
 #define LLVM_ANALYSIS_SCALAREVOLUTIONPATTERNMATCH_H
 
-#include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Support/PatternMatchHelpers.h"
 

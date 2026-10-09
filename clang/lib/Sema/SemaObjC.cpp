@@ -13,16 +13,9 @@
 #include "clang/Sema/SemaObjC.h"
 #include "clang/AST/ASTMutationListener.h"
 #include "clang/AST/EvaluatedExprVisitor.h"
-#include "clang/AST/StmtObjC.h"
-#include "clang/Basic/DiagnosticSema.h"
 #include "clang/Lex/Preprocessor.h"
-#include "clang/Sema/Attr.h"
 #include "clang/Sema/Lookup.h"
-#include "clang/Sema/ParsedAttr.h"
-#include "clang/Sema/ScopeInfo.h"
-#include "clang/Sema/Sema.h"
 #include "clang/Sema/TemplateDeduction.h"
-#include "llvm/Support/ConvertUTF.h"
 
 namespace clang {
 

@@ -11,10 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Frontend/HLSL/SemanticSignaturePacking.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Sequence.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/bit.h"
 #include <algorithm>
 #include <array>
 #include <cassert>

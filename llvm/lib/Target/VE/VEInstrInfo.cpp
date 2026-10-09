@@ -10,19 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "VEInstrInfo.h"
-#include "VE.h"
 #include "VEMachineFunctionInfo.h"
 #include "VESubtarget.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineMemOperand.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/ErrorHandling.h"
 
 #define DEBUG_TYPE "ve-instr-info"
 

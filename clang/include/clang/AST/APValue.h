@@ -17,12 +17,9 @@
 #include "clang/Basic/LLVM.h"
 #include "llvm/ADT/APFixedPoint.h"
 #include "llvm/ADT/APFloat.h"
-#include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/FoldingSet.h"
-#include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/PointerUnion.h"
 #include "llvm/Support/AlignOf.h"
-#include "llvm/Support/Compiler.h"
 
 namespace clang {
 namespace serialization {

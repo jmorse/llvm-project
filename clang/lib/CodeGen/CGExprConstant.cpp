@@ -11,28 +11,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "ABIInfoImpl.h"
-#include "CGCXXABI.h"
 #include "CGObjCRuntime.h"
 #include "CGRecordLayout.h"
-#include "CodeGenFunction.h"
-#include "CodeGenModule.h"
 #include "ConstantEmitter.h"
 #include "TargetInfo.h"
-#include "clang/AST/APValue.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/Attr.h"
 #include "clang/AST/MatrixUtils.h"
 #include "clang/AST/NSAPI.h"
-#include "clang/AST/RecordLayout.h"
 #include "clang/AST/StmtVisitor.h"
-#include "clang/Basic/Builtins.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/Sequence.h"
-#include "llvm/Analysis/ConstantFolding.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/GlobalVariable.h"
 #include "llvm/Support/SipHash.h"
 #include <optional>
 using namespace clang;

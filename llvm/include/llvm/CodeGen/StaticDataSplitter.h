@@ -10,9 +10,6 @@
 #define LLVM_CODEGEN_STATICDATASPLITTER_H
 
 #include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionAnalysisManager.h"
-#include "llvm/IR/Analysis.h"
-#include "llvm/IR/PassManager.h"
 
 namespace llvm {
 

@@ -8,15 +8,10 @@
 
 #include "clang/DependencyScanning/InProcessModuleCache.h"
 
-#include "clang/Basic/AtomicLineLogger.h"
 #include "clang/Serialization/InMemoryModuleCache.h"
-#include "clang/Serialization/ModuleCache.h"
 #include "llvm/Support/AdvisoryLock.h"
-#include "llvm/Support/Chrono.h"
-#include "llvm/Support/Error.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/IOSandbox.h"
-#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 
 using namespace clang;

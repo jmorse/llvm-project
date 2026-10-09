@@ -9,12 +9,9 @@
 #include "AMDGPUGlobalISelUtils.h"
 #include "AMDGPURegisterBankInfo.h"
 #include "MCTargetDesc/AMDGPUMCTargetDesc.h"
-#include "llvm/ADT/DenseSet.h"
 #include "llvm/CodeGen/GlobalISel/GISelValueTracking.h"
 #include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
 #include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
-#include "llvm/CodeGenTypes/LowLevelType.h"
-#include "llvm/IR/Constants.h"
 #include "llvm/IR/IntrinsicsAMDGPU.h"
 
 using namespace llvm;

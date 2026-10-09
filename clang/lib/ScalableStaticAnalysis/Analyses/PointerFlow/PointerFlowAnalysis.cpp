@@ -8,17 +8,8 @@
 
 #include "clang/ScalableStaticAnalysis/Analyses/PointerFlow/PointerFlowAnalysis.h"
 #include "SSAFAnalysesCommon.h"
-#include "clang/ScalableStaticAnalysis/Analyses/PointerFlow/PointerFlow.h"
 #include "clang/ScalableStaticAnalysis/Analyses/PointerFlow/PointerFlowFormat.h"
-#include "clang/ScalableStaticAnalysis/Core/Model/EntityId.h"
-#include "clang/ScalableStaticAnalysis/Core/Serialization/JSONFormat.h"
 #include "clang/ScalableStaticAnalysis/Core/WholeProgramAnalysis/AnalysisRegistry.h"
-#include "clang/ScalableStaticAnalysis/Core/WholeProgramAnalysis/DerivedAnalysis.h"
-#include "clang/ScalableStaticAnalysis/Core/WholeProgramAnalysis/SummaryAnalysis.h"
-#include "llvm/ADT/STLFunctionalExtras.h"
-#include "llvm/ADT/iterator_range.h"
-#include "llvm/Support/Error.h"
-#include "llvm/Support/JSON.h"
 #include <memory>
 
 using namespace clang::ssaf;

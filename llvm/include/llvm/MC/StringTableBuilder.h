@@ -11,9 +11,7 @@
 
 #include "llvm/ADT/CachedHashString.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Alignment.h"
-#include "llvm/Support/Compiler.h"
 #include <cstddef>
 #include <cstdint>
 

@@ -16,7 +16,6 @@
 #define LLVM_CODEGEN_MACHINEOUTLINER_H
 
 #include "llvm/CodeGen/LiveRegUnits.h"
-#include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/MachineStableHash.h"
 #include <initializer_list>

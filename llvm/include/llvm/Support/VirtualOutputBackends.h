@@ -22,9 +22,7 @@
 #ifndef LLVM_SUPPORT_VIRTUALOUTPUTBACKENDS_H
 #define LLVM_SUPPORT_VIRTUALOUTPUTBACKENDS_H
 
-#include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/Support/VirtualOutputBackend.h"
-#include "llvm/Support/VirtualOutputConfig.h"
 
 namespace llvm::vfs {
 

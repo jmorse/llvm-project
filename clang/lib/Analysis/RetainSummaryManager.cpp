@@ -13,9 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Analysis/RetainSummaryManager.h"
-#include "clang/AST/Attr.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/DeclObjC.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Analysis/DomainSpecific/CocoaConventions.h"
 #include <optional>

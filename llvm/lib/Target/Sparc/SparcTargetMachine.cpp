@@ -9,17 +9,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "SparcTargetMachine.h"
 #include "LeonPasses.h"
-#include "Sparc.h"
 #include "SparcMachineFunctionInfo.h"
 #include "SparcTargetObjectFile.h"
 #include "SparcTargetTransformInfo.h"
 #include "TargetInfo/SparcTargetInfo.h"
-#include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Compiler.h"
 #include <optional>
 using namespace llvm;
 

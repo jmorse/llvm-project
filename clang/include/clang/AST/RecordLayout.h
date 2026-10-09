@@ -13,13 +13,7 @@
 #ifndef LLVM_CLANG_AST_RECORDLAYOUT_H
 #define LLVM_CLANG_AST_RECORDLAYOUT_H
 
-#include "clang/AST/ASTVector.h"
-#include "clang/AST/CharUnits.h"
 #include "clang/AST/DeclCXX.h"
-#include "clang/Basic/LLVM.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/PointerIntPair.h"
 #include <cassert>
 #include <cstdint>
 

@@ -31,22 +31,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/SafepointIRVerifier.h"
-#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SetOperations.h"
 #include "llvm/ADT/SetVector.h"
-#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Dominators.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Statepoint.h"
-#include "llvm/IR/Value.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Support/Allocator.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 
 #define DEBUG_TYPE "safepoint-ir-verifier"
 

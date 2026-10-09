@@ -10,14 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 #include "Mips16ISelLowering.h"
-#include "MCTargetDesc/MipsBaseInfo.h"
-#include "Mips16HardFloatInfo.h"
 #include "MipsMachineFunction.h"
-#include "MipsRegisterInfo.h"
 #include "MipsTargetMachine.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
-#include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
 

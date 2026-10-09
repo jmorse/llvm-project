@@ -18,10 +18,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "LoongArch.h"
-#include "LoongArchInstrInfo.h"
 #include "LoongArchSubtarget.h"
-#include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachinePostDominators.h"
 #include "llvm/InitializePasses.h"
 

@@ -14,16 +14,10 @@
 #ifndef LLVM_IR_INSTRUCTION_H
 #define LLVM_IR_INSTRUCTION_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Bitfields.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/ilist_node.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/SymbolTableListTraits.h"
-#include "llvm/IR/User.h"
-#include "llvm/IR/Value.h"
 #include "llvm/Support/AtomicOrdering.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/ModRef.h"
 #include <cstdint>
 #include <utility>

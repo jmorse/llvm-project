@@ -27,21 +27,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "PPC.h"
-#include "PPCInstrInfo.h"
 #include "PPCSubtarget.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
-#include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/Register.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <cassert>
 
 using namespace llvm;

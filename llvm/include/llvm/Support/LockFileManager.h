@@ -9,9 +9,7 @@
 #define LLVM_SUPPORT_LOCKFILEMANAGER_H
 
 #include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/AdvisoryLock.h"
-#include "llvm/Support/Compiler.h"
 #include <optional>
 #include <string>
 #include <variant>

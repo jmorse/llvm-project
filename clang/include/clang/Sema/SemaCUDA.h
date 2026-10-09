@@ -13,20 +13,7 @@
 #ifndef LLVM_CLANG_SEMA_SEMACUDA_H
 #define LLVM_CLANG_SEMA_SEMACUDA_H
 
-#include "clang/AST/ASTFwd.h"
-#include "clang/AST/DeclAccessPair.h"
-#include "clang/AST/Redeclarable.h"
-#include "clang/Basic/Cuda.h"
-#include "clang/Basic/LLVM.h"
-#include "clang/Basic/SourceLocation.h"
 #include "clang/Sema/Lookup.h"
-#include "clang/Sema/Ownership.h"
-#include "clang/Sema/SemaBase.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/DenseMapInfo.h"
-#include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/Hashing.h"
-#include "llvm/ADT/SmallVector.h"
 #include <string>
 #include <utility>
 

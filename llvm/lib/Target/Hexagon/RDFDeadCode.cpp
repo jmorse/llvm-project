@@ -10,13 +10,7 @@
 
 #include "RDFDeadCode.h"
 
-#include "llvm/ADT/SetVector.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/RDFGraph.h"
-#include "llvm/CodeGen/RDFLiveness.h"
-#include "llvm/Support/Debug.h"
 
 #include <queue>
 

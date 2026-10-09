@@ -10,22 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "RISCVInstrInfo.h"
-#include "MCTargetDesc/RISCVBaseInfo.h"
 #include "MCTargetDesc/RISCVMatInt.h"
-#include "RISCV.h"
 #include "RISCVMachineFunctionInfo.h"
-#include "RISCVSubtarget.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/CodeGen/LiveIntervals.h"
 #include "llvm/CodeGen/LiveVariables.h"
-#include "llvm/CodeGen/MachineCombinerPattern.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/MachineTraceMetrics.h"
 #include "llvm/CodeGen/RegisterScavenging.h"
 #include "llvm/CodeGen/StackMaps.h"
@@ -34,7 +24,6 @@
 #include "llvm/MC/MCDwarf.h"
 #include "llvm/MC/MCInstBuilder.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 

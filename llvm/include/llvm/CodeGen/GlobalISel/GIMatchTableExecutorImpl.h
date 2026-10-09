@@ -15,23 +15,11 @@
 #ifndef LLVM_CODEGEN_GLOBALISEL_GIMATCHTABLEEXECUTORIMPL_H
 #define LLVM_CODEGEN_GLOBALISEL_GIMATCHTABLEEXECUTORIMPL_H
 
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/GlobalISel/GIMatchTableExecutor.h"
-#include "llvm/CodeGen/GlobalISel/GISelChangeObserver.h"
 #include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
-#include "llvm/CodeGen/GlobalISel/Utils.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/RegisterBankInfo.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
-#include "llvm/CodeGen/TargetRegisterInfo.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/Type.h"
 #include "llvm/Support/CodeGenCoverage.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <cassert>
 #include <cstddef>
 #include <cstdint>

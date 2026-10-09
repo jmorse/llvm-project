@@ -6,15 +6,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Frontend/OpenMP/OMP.h"
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallSet.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Demangle/Demangle.h"
 #include "llvm/Frontend/OpenMP/OMPIRBuilder.h"
-#include "llvm/Support/ErrorHandling.h"
 
 #include <algorithm>
 #include <cstdio>

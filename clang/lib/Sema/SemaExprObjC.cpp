@@ -10,24 +10,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/ASTContext.h"
 #include "clang/AST/Availability.h"
-#include "clang/AST/DeclObjC.h"
-#include "clang/AST/ExprObjC.h"
 #include "clang/AST/StmtVisitor.h"
-#include "clang/AST/TypeLoc.h"
 #include "clang/Analysis/DomainSpecific/CocoaConventions.h"
-#include "clang/Basic/Builtins.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Edit/Commit.h"
 #include "clang/Edit/Rewriters.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Sema/Initialization.h"
 #include "clang/Sema/Lookup.h"
-#include "clang/Sema/Scope.h"
-#include "clang/Sema/ScopeInfo.h"
 #include "clang/Sema/SemaObjC.h"
-#include "llvm/Support/ConvertUTF.h"
 #include <optional>
 
 using namespace clang;

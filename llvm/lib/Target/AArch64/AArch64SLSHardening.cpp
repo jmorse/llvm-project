@@ -11,22 +11,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "AArch64InstrInfo.h"
 #include "AArch64Subtarget.h"
-#include "llvm/ADT/StringSwitch.h"
 #include "llvm/CodeGen/IndirectThunks.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionAnalysisManager.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/RegisterScavenging.h"
-#include "llvm/IR/DebugLoc.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormatVariadic.h"
-#include "llvm/Target/TargetMachine.h"
 #include <cassert>
 #include <climits>
 #include <tuple>

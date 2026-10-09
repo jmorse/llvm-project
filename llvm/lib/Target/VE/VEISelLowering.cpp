@@ -11,29 +11,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "VEISelLowering.h"
 #include "MCTargetDesc/VEMCAsmInfo.h"
 #include "VECustomDAG.h"
 #include "VEInstrBuilder.h"
 #include "VEMachineFunctionInfo.h"
-#include "VERegisterInfo.h"
 #include "VESelectionDAGInfo.h"
 #include "VETargetMachine.h"
-#include "llvm/ADT/StringSwitch.h"
 #include "llvm/CodeGen/CallingConvLower.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineJumpTableInfo.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/SelectionDAG.h"
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Support/ErrorHandling.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "ve-lower"

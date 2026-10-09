@@ -7,23 +7,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "SPIRVAuxDataHandler.h"
-#include "MCTargetDesc/SPIRVMCTargetDesc.h"
 #include "SPIRVSubtarget.h"
-#include "SPIRVUtils.h"
 #include "llvm/CodeGen/AsmPrinter.h"
-#include "llvm/IR/Attributes.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/GlobalObject.h"
-#include "llvm/IR/GlobalVariable.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Metadata.h"
-#include "llvm/IR/Module.h"
-#include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCStreamer.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/MathExtras.h"
 
 using namespace llvm;
 

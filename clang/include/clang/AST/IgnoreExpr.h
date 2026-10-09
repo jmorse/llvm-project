@@ -13,7 +13,6 @@
 #ifndef LLVM_CLANG_AST_IGNOREEXPR_H
 #define LLVM_CLANG_AST_IGNOREEXPR_H
 
-#include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
 
 namespace clang {

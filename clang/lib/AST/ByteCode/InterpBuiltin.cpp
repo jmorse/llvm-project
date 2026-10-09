@@ -11,17 +11,12 @@
 #include "EvalEmitter.h"
 #include "InterpBuiltinBitCast.h"
 #include "InterpHelpers.h"
-#include "PrimType.h"
 #include "Program.h"
 #include "clang/AST/InferAlloc.h"
 #include "clang/AST/OSLog.h"
 #include "clang/AST/RecordLayout.h"
-#include "clang/Basic/Builtins.h"
 #include "clang/Basic/TargetBuiltins.h"
 #include "clang/Basic/TargetInfo.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/Support/AllocToken.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/SipHash.h"
 
 namespace clang {

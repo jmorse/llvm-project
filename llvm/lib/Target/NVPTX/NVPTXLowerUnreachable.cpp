@@ -70,11 +70,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "NVPTX.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/InlineAsm.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Type.h"
-#include "llvm/Pass.h"
 
 using namespace llvm;
 

@@ -14,18 +14,10 @@
 #include "llvm/DebugInfo/LogicalView/Readers/LVIRReader.h"
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/CodeGen/DebugHandlerBase.h"
-#include "llvm/DebugInfo/LogicalView/Core/LVLine.h"
-#include "llvm/DebugInfo/LogicalView/Core/LVScope.h"
-#include "llvm/DebugInfo/LogicalView/Core/LVSymbol.h"
-#include "llvm/DebugInfo/LogicalView/Core/LVType.h"
-#include "llvm/IR/DebugInfoMetadata.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IRReader/IRReader.h"
-#include "llvm/Object/IRObjectFile.h"
 #include "llvm/Support/FormatAdapters.h"
-#include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/SourceMgr.h"
 
 using namespace llvm;

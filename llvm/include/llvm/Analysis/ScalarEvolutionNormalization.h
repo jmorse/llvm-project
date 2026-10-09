@@ -37,7 +37,6 @@
 
 #include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

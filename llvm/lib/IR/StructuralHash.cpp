@@ -7,10 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/StructuralHash.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/GlobalVariable.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 

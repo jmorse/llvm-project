@@ -23,7 +23,6 @@
 #ifndef LLVM_TRANSFORMS_SCALAR_MERGEDLOADSTOREMOTION_H
 #define LLVM_TRANSFORMS_SCALAR_MERGEDLOADSTOREMOTION_H
 
-#include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {

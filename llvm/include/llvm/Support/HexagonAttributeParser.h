@@ -9,7 +9,6 @@
 #ifndef LLVM_SUPPORT_HEXAGONATTRIBUTEPARSER_H
 #define LLVM_SUPPORT_HEXAGONATTRIBUTEPARSER_H
 
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/ELFAttrParserCompact.h"
 #include "llvm/Support/HexagonAttributes.h"
 

@@ -14,7 +14,6 @@
 #define LLVM_MC_MCVALUE_H
 
 #include "llvm/MC/MCExpr.h"
-#include "llvm/Support/DataTypes.h"
 
 namespace llvm {
 class raw_ostream;

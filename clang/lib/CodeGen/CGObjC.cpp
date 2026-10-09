@@ -12,23 +12,14 @@
 
 #include "CGDebugInfo.h"
 #include "CGObjCRuntime.h"
-#include "CodeGenFunction.h"
-#include "CodeGenModule.h"
 #include "CodeGenPGO.h"
 #include "ConstantEmitter.h"
 #include "TargetInfo.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/Attr.h"
-#include "clang/AST/DeclObjC.h"
 #include "clang/AST/NSAPI.h"
 #include "clang/AST/StmtObjC.h"
-#include "clang/Basic/Diagnostic.h"
-#include "clang/CodeGen/CGFunctionInfo.h"
 #include "clang/CodeGen/CodeGenABITypes.h"
 #include "llvm/Analysis/ObjCARCUtil.h"
 #include "llvm/BinaryFormat/MachO.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/InlineAsm.h"
 #include <optional>
 using namespace clang;

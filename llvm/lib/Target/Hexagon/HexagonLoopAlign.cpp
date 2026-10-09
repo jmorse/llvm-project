@@ -9,11 +9,9 @@
 // number of instructions, set the prefLoopAlignment to 32 bytes (5).
 //===----------------------------------------------------------------------===//
 
-#include "Hexagon.h"
 #include "HexagonTargetMachine.h"
 #include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
 #include "llvm/CodeGen/MachineBranchProbabilityInfo.h"
-#include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "hexagon-loop-align"
 

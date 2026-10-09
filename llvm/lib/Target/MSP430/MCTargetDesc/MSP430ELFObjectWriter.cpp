@@ -10,10 +10,7 @@
 #include "MCTargetDesc/MSP430MCTargetDesc.h"
 
 #include "llvm/MC/MCELFObjectWriter.h"
-#include "llvm/MC/MCFixup.h"
-#include "llvm/MC/MCObjectWriter.h"
 #include "llvm/MC/MCValue.h"
-#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 

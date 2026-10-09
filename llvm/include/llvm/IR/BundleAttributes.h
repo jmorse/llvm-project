@@ -9,7 +9,6 @@
 #ifndef LLVM_IR_BUNDLE_ATTRIBUTES_H
 #define LLVM_IR_BUNDLE_ATTRIBUTES_H
 
-#include "llvm/ADT/StringRef.h"
 #include "llvm/IR/InstrTypes.h"
 
 enum class BundleAttr {

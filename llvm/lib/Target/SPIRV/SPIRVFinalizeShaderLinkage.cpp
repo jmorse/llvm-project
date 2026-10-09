@@ -12,14 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "SPIRV.h"
-#include "SPIRVSubtarget.h"
 #include "SPIRVTargetMachine.h"
-#include "SPIRVUtils.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/GlobalValue.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
 
 #define DEBUG_TYPE "spirv-finalize-shader-linkage"
 

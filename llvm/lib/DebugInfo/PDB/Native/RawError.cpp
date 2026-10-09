@@ -1,5 +1,4 @@
 #include "llvm/DebugInfo/PDB/Native/RawError.h"
-#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 using namespace llvm::pdb;

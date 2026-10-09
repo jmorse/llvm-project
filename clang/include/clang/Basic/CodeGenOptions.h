@@ -13,18 +13,11 @@
 #ifndef LLVM_CLANG_BASIC_CODEGENOPTIONS_H
 #define LLVM_CLANG_BASIC_CODEGENOPTIONS_H
 
-#include "clang/Basic/CFProtectionOptions.h"
 #include "clang/Basic/PointerAuthOptions.h"
-#include "clang/Basic/Sanitizers.h"
 #include "clang/Basic/XRayInstr.h"
-#include "llvm/ADT/FloatingPointMode.h"
 #include "llvm/Frontend/Debug/Options.h"
 #include "llvm/Frontend/Driver/CodeGenOptions.h"
-#include "llvm/MC/MCTargetOptions.h"
-#include "llvm/Support/CodeGen.h"
 #include "llvm/Support/Regex.h"
-#include "llvm/Target/TargetOptions.h"
-#include "llvm/Transforms/Instrumentation/AddressSanitizerOptions.h"
 #include "llvm/Transforms/Utils/KCFIHash.h"
 #include <map>
 #include <memory>

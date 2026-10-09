@@ -12,15 +12,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/IRPrintingPasses.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PrintPasses.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 

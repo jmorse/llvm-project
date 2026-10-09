@@ -14,8 +14,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/MCA/Stages/RetireStage.h"
-#include "llvm/MCA/HWEventListener.h"
-#include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "llvm-mca"
 

@@ -12,10 +12,7 @@
 #ifndef LLVM_ADT_RADIXTREE_H
 #define LLVM_ADT_RADIXTREE_H
 
-#include "llvm/ADT/ADL.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/iterator.h"
-#include "llvm/ADT/iterator_range.h"
 #include <cassert>
 #include <cstddef>
 #include <iterator>

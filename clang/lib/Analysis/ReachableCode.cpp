@@ -12,19 +12,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Analysis/Analyses/ReachableCode.h"
-#include "clang/AST/Attr.h"
 #include "clang/AST/DynamicRecursiveASTVisitor.h"
-#include "clang/AST/Expr.h"
-#include "clang/AST/ExprCXX.h"
-#include "clang/AST/ExprObjC.h"
 #include "clang/AST/ParentMap.h"
-#include "clang/AST/StmtCXX.h"
 #include "clang/Analysis/AnalysisDeclContext.h"
-#include "clang/Analysis/CFG.h"
-#include "clang/Basic/Builtins.h"
-#include "clang/Basic/SourceManager.h"
 #include "clang/Lex/Preprocessor.h"
-#include "llvm/ADT/BitVector.h"
 #include <optional>
 
 using namespace clang;

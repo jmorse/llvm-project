@@ -10,11 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringTable.h"
-#include "llvm/IR/ConstantRange.h"
-#include "llvm/IR/Function.h"
 #include "llvm/IR/IntrinsicsAArch64.h"
 #include "llvm/IR/IntrinsicsAMDGPU.h"
 #include "llvm/IR/IntrinsicsARM.h"
@@ -32,9 +29,7 @@
 #include "llvm/IR/IntrinsicsXCore.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/NVVMIntrinsicUtils.h"
-#include "llvm/IR/Type.h"
 #include "llvm/Support/FormatVariadic.h"
-#include "llvm/Support/MathExtras.h"
 
 using namespace llvm;
 

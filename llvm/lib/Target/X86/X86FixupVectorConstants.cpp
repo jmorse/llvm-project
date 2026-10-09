@@ -17,7 +17,6 @@
 
 #include "X86.h"
 #include "X86InstrFoldTables.h"
-#include "X86InstrInfo.h"
 #include "X86Subtarget.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/MachineConstantPool.h"

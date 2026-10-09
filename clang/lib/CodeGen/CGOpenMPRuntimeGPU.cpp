@@ -13,18 +13,9 @@
 
 #include "CGOpenMPRuntimeGPU.h"
 #include "CGDebugInfo.h"
-#include "CodeGenFunction.h"
 #include "TargetInfo.h"
-#include "clang/AST/Attr.h"
-#include "clang/AST/DeclOpenMP.h"
-#include "clang/AST/OpenMPClause.h"
-#include "clang/AST/StmtOpenMP.h"
 #include "clang/AST/StmtVisitor.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Frontend/OpenMP/OMPDeviceConstants.h"
-#include "llvm/Frontend/OpenMP/OMPGridValues.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/TargetParser/NVPTXTargetParser.h"
 
 using namespace clang;

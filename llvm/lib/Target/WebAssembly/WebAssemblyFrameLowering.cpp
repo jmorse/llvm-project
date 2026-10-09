@@ -17,20 +17,12 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "WebAssemblyFrameLowering.h"
-#include "MCTargetDesc/WebAssemblyMCTargetDesc.h"
 #include "Utils/WebAssemblyTypeUtilities.h"
 #include "WebAssembly.h"
-#include "WebAssemblyInstrInfo.h"
 #include "WebAssemblyMachineFunctionInfo.h"
-#include "WebAssemblySubtarget.h"
 #include "WebAssemblyTargetMachine.h"
 #include "llvm/CodeGen/Analysis.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/MC/MCAsmInfo.h"
 using namespace llvm;
 

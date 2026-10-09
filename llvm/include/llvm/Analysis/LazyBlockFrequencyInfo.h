@@ -18,7 +18,6 @@
 
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/LazyBranchProbabilityInfo.h"
-#include "llvm/Pass.h"
 
 namespace llvm {
 class Function;

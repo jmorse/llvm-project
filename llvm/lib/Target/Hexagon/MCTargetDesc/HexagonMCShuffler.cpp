@@ -12,14 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "MCTargetDesc/HexagonMCShuffler.h"
-#include "MCTargetDesc/HexagonMCInstrInfo.h"
-#include "MCTargetDesc/HexagonShuffler.h"
-#include "llvm/MC/MCInst.h"
-#include "llvm/MC/MCInstrDesc.h"
 #include "llvm/MC/MCInstrInfo.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 #include <cassert>
 
 #define DEBUG_TYPE "hexagon-shuffle"

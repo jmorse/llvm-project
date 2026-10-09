@@ -11,9 +11,7 @@
 #define LLVM_ANALYSIS_MODELUNDERTRAININGRUNNER_H
 
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/TensorSpec.h"
-#include "llvm/Config/llvm-config.h"
 
 #ifdef LLVM_HAVE_TFLITE
 #include "llvm/Analysis/MLModelRunner.h"

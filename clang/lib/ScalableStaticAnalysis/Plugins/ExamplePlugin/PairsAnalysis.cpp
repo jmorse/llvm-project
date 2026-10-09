@@ -7,14 +7,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "AnalysisResults.h"
-#include "clang/ScalableStaticAnalysis/Core/Model/SummaryName.h"
 #include "clang/ScalableStaticAnalysis/Core/Serialization/JSONFormat.h"
-#include "clang/ScalableStaticAnalysis/Core/TUSummary/EntitySummary.h"
 #include "clang/ScalableStaticAnalysis/Core/WholeProgramAnalysis/AnalysisRegistry.h"
-#include "clang/ScalableStaticAnalysis/Core/WholeProgramAnalysis/SummaryAnalysis.h"
-#include "llvm/Support/Error.h"
-#include "llvm/Support/JSON.h"
-#include "llvm/Support/Registry.h"
 #include <memory>
 #include <utility>
 #include <vector>

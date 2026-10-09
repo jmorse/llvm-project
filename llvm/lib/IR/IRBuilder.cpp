@@ -12,25 +12,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVectorExtras.h"
-#include "llvm/IR/Constant.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/GlobalValue.h"
-#include "llvm/IR/GlobalVariable.h"
-#include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/NoFolder.h"
-#include "llvm/IR/Operator.h"
-#include "llvm/IR/ProfDataUtils.h"
 #include "llvm/IR/Statepoint.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/Value.h"
-#include "llvm/Support/Casting.h"
 #include <cassert>
 #include <cstdint>
 #include <optional>

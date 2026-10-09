@@ -43,12 +43,6 @@
 #include "AMDGPULowerVGPREncoding.h"
 #include "AMDGPU.h"
 #include "GCNSubtarget.h"
-#include "SIDefines.h"
-#include "SIInstrInfo.h"
-#include "llvm/ADT/bit.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/MathExtras.h"
 
 using namespace llvm;
 

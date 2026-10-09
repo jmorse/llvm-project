@@ -7,12 +7,9 @@
 
 #include "LanaiTargetObjectFile.h"
 
-#include "llvm/BinaryFormat/ELF.h"
-#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCSectionELF.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Target/TargetMachine.h"
 
 using namespace llvm;

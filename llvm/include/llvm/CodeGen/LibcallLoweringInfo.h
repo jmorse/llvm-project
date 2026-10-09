@@ -15,7 +15,6 @@
 #define LLVM_CODEGEN_LIBCALLLOWERINGINFO_H
 
 #include "llvm/Analysis/LibcallLoweringInfo.h"
-#include "llvm/Pass.h"
 
 namespace llvm {
 class RuntimeLibraryInfoWrapper;

@@ -9,7 +9,6 @@
 #ifndef LLVM_ANALYSIS_ITERATEDDOMINANCEFRONTIER_H
 #define LLVM_ANALYSIS_ITERATEDDOMINANCEFRONTIER_H
 
-#include "llvm/Support/CFGDiff.h"
 #include "llvm/Support/GenericIteratedDominanceFrontier.h"
 
 namespace llvm {

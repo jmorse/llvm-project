@@ -22,6 +22,7 @@
 #ifndef LLVM_SUPPORT_AMDHSAKERNELDESCRIPTOR_H
 #define LLVM_SUPPORT_AMDHSAKERNELDESCRIPTOR_H
 
+#include "stddef.h"
 #include <cstddef>
 #include <cstdint>
 

@@ -11,11 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "LoongArchMCAsmInfo.h"
-#include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/BinaryFormat/ELF.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCStreamer.h"
-#include "llvm/TargetParser/Triple.h"
 
 using namespace llvm;
 

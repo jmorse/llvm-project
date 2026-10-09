@@ -7,12 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "RawPtrRefSafetyModel.h"
-#include "ASTUtils.h"
-#include "DiagOutputUtils.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/Expr.h"
 #include "clang/AST/ExprObjC.h"
-#include "clang/AST/Type.h"
 #include "clang/Analysis/DomainSpecific/CocoaConventions.h"
 #include "clang/Basic/SourceManager.h"
 

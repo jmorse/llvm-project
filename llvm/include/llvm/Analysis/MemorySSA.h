@@ -85,20 +85,10 @@
 #ifndef LLVM_ANALYSIS_MEMORYSSA_H
 #define LLVM_ANALYSIS_MEMORYSSA_H
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/ilist_node.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/AliasAnalysis.h"
-#include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/Analysis/PHITransAddr.h"
 #include "llvm/IR/DerivedUser.h"
 #include "llvm/IR/Dominators.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/User.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/Compiler.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>

@@ -11,14 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Parse/ParseAST.h"
-#include "clang/AST/ASTConsumer.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/ExternalASTSource.h"
-#include "clang/AST/Stmt.h"
 #include "clang/Parse/Parser.h"
-#include "clang/Sema/CodeCompleteConsumer.h"
 #include "clang/Sema/EnterExpressionEvaluationContext.h"
-#include "clang/Sema/Sema.h"
 #include "clang/Sema/SemaConsumer.h"
 #include "llvm/Support/CrashRecoveryContext.h"
 #include "llvm/Support/TimeProfiler.h"

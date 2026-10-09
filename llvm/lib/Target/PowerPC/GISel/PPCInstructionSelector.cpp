@@ -10,20 +10,14 @@
 /// PowerPC.
 //===----------------------------------------------------------------------===//
 
-#include "PPC.h"
-#include "PPCInstrInfo.h"
 #include "PPCMachineFunctionInfo.h"
 #include "PPCRegisterBankInfo.h"
-#include "PPCSubtarget.h"
 #include "PPCTargetMachine.h"
 #include "llvm/CodeGen/GlobalISel/GIMatchTableExecutorImpl.h"
 #include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
 #include "llvm/CodeGen/GlobalISel/InstructionSelector.h"
-#include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
-#include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/IR/IntrinsicsPowerPC.h"
-#include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "ppc-gisel"
 

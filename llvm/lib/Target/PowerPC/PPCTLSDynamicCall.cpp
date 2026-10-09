@@ -20,17 +20,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "PPC.h"
-#include "PPCInstrInfo.h"
 #include "PPCTargetMachine.h"
 #include "llvm/CodeGen/LiveIntervals.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/RegisterClassInfo.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 

@@ -9,10 +9,8 @@
 #ifndef LLVM_CODEGEN_SDNODEINFO_H
 #define LLVM_CODEGEN_SDNODEINFO_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringTable.h"
 #include "llvm/CodeGen/ISDOpcodes.h"
-#include "llvm/CodeGenTypes/MachineValueType.h"
 
 namespace llvm {
 

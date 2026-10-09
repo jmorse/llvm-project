@@ -19,7 +19,6 @@
 #define LLVM_CLANG_AST_FORMATSTRING_H
 
 #include "clang/AST/CanonicalType.h"
-#include "llvm/ADT/StringRef.h"
 #include <optional>
 
 namespace clang {

@@ -78,11 +78,7 @@
 #ifndef LLVM_TRANSFORMS_SCALAR_NARYREASSOCIATE_H
 #define LLVM_TRANSFORMS_SCALAR_NARYREASSOCIATE_H
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/IR/ValueHandle.h"
 
 namespace llvm {
 

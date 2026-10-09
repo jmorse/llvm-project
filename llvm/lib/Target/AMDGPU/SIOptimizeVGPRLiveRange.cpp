@@ -73,13 +73,11 @@
 
 #include "SIOptimizeVGPRLiveRange.h"
 #include "AMDGPU.h"
-#include "GCNSubtarget.h"
 #include "SIMachineFunctionInfo.h"
 #include "llvm/CodeGen/LiveIntervals.h"
 #include "llvm/CodeGen/LiveVariables.h"
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
-#include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/InitializePasses.h"
 

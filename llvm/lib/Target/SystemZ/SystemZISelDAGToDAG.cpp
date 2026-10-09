@@ -10,14 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "SystemZISelLowering.h"
 #include "SystemZTargetMachine.h"
-#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/CodeGen/SelectionDAGISel.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Support/KnownBits.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 

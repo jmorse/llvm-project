@@ -12,9 +12,6 @@
 
 #include "clang/Basic/OpenMPKinds.h"
 #include "clang/Basic/IdentifierTable.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/StringSwitch.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <cassert>
 
 using namespace clang;

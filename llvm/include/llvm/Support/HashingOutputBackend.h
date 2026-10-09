@@ -21,8 +21,6 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Support/HashBuilder.h"
 #include "llvm/Support/VirtualOutputBackend.h"
-#include "llvm/Support/VirtualOutputConfig.h"
-#include "llvm/Support/raw_ostream.h"
 #include <mutex>
 
 namespace llvm::vfs {

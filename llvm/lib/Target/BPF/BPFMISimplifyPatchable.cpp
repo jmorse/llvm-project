@@ -27,18 +27,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "BPF.h"
 #include "BPFCORE.h"
-#include "BPFInstrInfo.h"
 #include "BPFTargetMachine.h"
-#include "llvm/CodeGen/MachineFunctionAnalysisManager.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachinePassManager.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/IR/Analysis.h"
 #include "llvm/IR/GlobalVariable.h"
-#include "llvm/Support/Debug.h"
 #include <set>
 
 using namespace llvm;

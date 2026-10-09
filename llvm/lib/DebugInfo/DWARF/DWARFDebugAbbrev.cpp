@@ -8,7 +8,6 @@
 
 #include "llvm/DebugInfo/DWARF/DWARFDebugAbbrev.h"
 #include "llvm/Support/FormatVariadic.h"
-#include "llvm/Support/raw_ostream.h"
 #include <cstdint>
 
 using namespace llvm;

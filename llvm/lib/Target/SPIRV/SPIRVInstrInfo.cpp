@@ -10,13 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "SPIRVInstrInfo.h"
 #include "SPIRV.h"
 #include "SPIRVSubtarget.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/IR/DebugLoc.h"
 
 #define GET_INSTRINFO_CTOR_DTOR
 #include "SPIRVGenInstrInfo.inc"

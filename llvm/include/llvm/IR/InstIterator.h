@@ -18,10 +18,7 @@
 #ifndef LLVM_IR_INSTITERATOR_H
 #define LLVM_IR_INSTITERATOR_H
 
-#include "llvm/ADT/iterator_range.h"
-#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Function.h"
-#include "llvm/IR/SymbolTableListTraits.h"
 #include <iterator>
 
 namespace llvm {

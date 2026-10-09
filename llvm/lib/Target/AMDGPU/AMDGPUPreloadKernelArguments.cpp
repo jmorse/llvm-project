@@ -21,13 +21,8 @@
 #include "AMDGPU.h"
 #include "AMDGPUTargetMachine.h"
 #include "llvm/Analysis/ValueTracking.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicsAMDGPU.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/PassManager.h"
 #include "llvm/IR/Verifier.h"
-#include "llvm/Pass.h"
 
 #define DEBUG_TYPE "amdgpu-preload-kernel-arguments"
 

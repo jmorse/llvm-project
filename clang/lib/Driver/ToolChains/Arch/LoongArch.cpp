@@ -8,10 +8,7 @@
 
 #include "LoongArch.h"
 #include "../Clang.h"
-#include "clang/Basic/DiagnosticDriver.h"
 #include "clang/Driver/CommonArgs.h"
-#include "clang/Driver/Driver.h"
-#include "clang/Options/Options.h"
 #include "llvm/TargetParser/Host.h"
 #include "llvm/TargetParser/LoongArchTargetParser.h"
 

@@ -17,15 +17,8 @@
 #include "AMDGPUInstrInfo.h"
 #include "AMDGPUTargetTransformInfo.h"
 #include "GCNSubtarget.h"
-#include "SIDefines.h"
-#include "llvm/ADT/FloatingPointMode.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/Analysis/ConstantFolding.h"
-#include "llvm/Analysis/ValueTracking.h"
-#include "llvm/IR/Constants.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IntrinsicsAMDGPU.h"
-#include "llvm/Support/MathExtras.h"
 #include "llvm/Transforms/InstCombine/InstCombiner.h"
 #include <optional>
 

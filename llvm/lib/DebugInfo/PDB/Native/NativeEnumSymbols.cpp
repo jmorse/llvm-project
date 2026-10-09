@@ -9,8 +9,6 @@
 #include "llvm/DebugInfo/PDB/Native/NativeEnumSymbols.h"
 
 #include "llvm/DebugInfo/PDB/Native/NativeSession.h"
-#include "llvm/DebugInfo/PDB/Native/SymbolCache.h"
-#include "llvm/DebugInfo/PDB/PDBSymbol.h"
 
 using namespace llvm;
 using namespace llvm::codeview;

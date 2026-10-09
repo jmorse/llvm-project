@@ -14,14 +14,9 @@
 #ifndef LLVM_ANALYSIS_MEMORYBUILTINS_H
 #define LLVM_ANALYSIS_MEMORYBUILTINS_H
 
-#include "llvm/ADT/APInt.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/TargetFolder.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstVisitor.h"
-#include "llvm/IR/ValueHandle.h"
-#include "llvm/Support/Compiler.h"
 #include <cstdint>
 #include <optional>
 #include <utility>

@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/DebugInfo/DWARF/DWARFLocationExpression.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/Support/FormatVariadic.h"
 
 using namespace llvm;

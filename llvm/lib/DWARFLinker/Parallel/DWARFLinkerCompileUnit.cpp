@@ -6,18 +6,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "DWARFLinkerCompileUnit.h"
 #include "AcceleratorRecordsSaver.h"
-#include "DIEAttributeCloner.h"
-#include "DIEGenerator.h"
 #include "DependencyTracker.h"
 #include "SyntheticTypeNameBuilder.h"
 #include "llvm/DWARFLinker/Utils.h"
 #include "llvm/DebugInfo/DWARF/DWARFDebugAbbrev.h"
 #include "llvm/DebugInfo/DWARF/DWARFDebugMacro.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/FormatVariadic.h"
-#include "llvm/Support/Path.h"
 #include <utility>
 
 using namespace llvm;

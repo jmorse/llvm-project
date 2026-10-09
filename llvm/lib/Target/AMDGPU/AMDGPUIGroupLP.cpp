@@ -16,10 +16,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "AMDGPUIGroupLP.h"
-#include "SIInstrInfo.h"
 #include "SIMachineFunctionInfo.h"
 #include "llvm/CodeGen/MachineScheduler.h"
-#include "llvm/CodeGen/TargetOpcodes.h"
 
 using namespace llvm;
 using namespace llvm::AMDGPU;

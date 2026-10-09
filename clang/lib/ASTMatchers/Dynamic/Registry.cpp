@@ -13,14 +13,6 @@
 
 #include "clang/ASTMatchers/Dynamic/Registry.h"
 #include "Marshallers.h"
-#include "clang/AST/ASTTypeTraits.h"
-#include "clang/ASTMatchers/ASTMatchers.h"
-#include "clang/ASTMatchers/Dynamic/Diagnostics.h"
-#include "clang/ASTMatchers/Dynamic/VariantValue.h"
-#include "llvm/ADT/StringMap.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/ManagedStatic.h"
-#include "llvm/Support/raw_ostream.h"
 #include <cassert>
 #include <memory>
 #include <optional>

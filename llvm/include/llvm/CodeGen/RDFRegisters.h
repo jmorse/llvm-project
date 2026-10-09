@@ -9,13 +9,8 @@
 #ifndef LLVM_CODEGEN_RDFREGISTERS_H
 #define LLVM_CODEGEN_RDFREGISTERS_H
 
-#include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/IndexedMap.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
-#include "llvm/MC/LaneBitmask.h"
-#include "llvm/MC/MCRegister.h"
 #include <cassert>
 #include <cstdint>
 #include <map>

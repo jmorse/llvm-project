@@ -6,10 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/IR/User.h"
-#include "llvm/IR/Constant.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/IntrinsicInst.h"
 
 using namespace llvm;

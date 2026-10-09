@@ -13,7 +13,6 @@
 #ifndef LLVM_CODEGEN_SCHEDULEDFS_H
 #define LLVM_CODEGEN_SCHEDULEDFS_H
 
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/ScheduleDAG.h"
 #include <cassert>
 #include <cstdint>

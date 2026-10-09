@@ -10,10 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "SPIRVTargetMachine.h"
 #include "Analysis/SPIRVConvergenceRegionAnalysis.h"
-#include "SPIRV.h"
-#include "SPIRVGlobalRegistry.h"
 #include "SPIRVLegalizerInfo.h"
 #include "SPIRVTargetObjectFile.h"
 #include "SPIRVTargetTransformInfo.h"
@@ -22,15 +19,9 @@
 #include "llvm/CodeGen/GlobalISel/InstructionSelect.h"
 #include "llvm/CodeGen/GlobalISel/Legalizer.h"
 #include "llvm/CodeGen/GlobalISel/RegBankSelect.h"
-#include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Pass.h"
 #include "llvm/Passes/PassBuilder.h"
-#include "llvm/Support/CodeGen.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Target/TargetOptions.h"
 #include "llvm/Transforms/IPO/ExpandVariadics.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils.h"

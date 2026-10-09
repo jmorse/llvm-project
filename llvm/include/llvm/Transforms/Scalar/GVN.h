@@ -15,17 +15,12 @@
 #ifndef LLVM_TRANSFORMS_SCALAR_GVN_H
 #define LLVM_TRANSFORMS_SCALAR_GVN_H
 
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SetVector.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/PHITransAddr.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/PassManager.h"
 #include "llvm/IR/ValueHandle.h"
-#include "llvm/Support/Allocator.h"
-#include "llvm/Support/Compiler.h"
 #include <cstdint>
 #include <optional>
 #include <utility>

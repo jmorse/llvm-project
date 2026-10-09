@@ -6,26 +6,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "MCTargetDesc/MSP430MCTargetDesc.h"
 #include "MSP430.h"
 #include "TargetInfo/MSP430TargetInfo.h"
 
-#include "llvm/ADT/APInt.h"
-#include "llvm/MC/MCContext.h"
-#include "llvm/MC/MCExpr.h"
-#include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstrInfo.h"
-#include "llvm/MC/MCParser/AsmLexer.h"
-#include "llvm/MC/MCParser/MCParsedAsmOperand.h"
 #include "llvm/MC/MCParser/MCTargetAsmParser.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSubtargetInfo.h"
-#include "llvm/MC/MCSymbol.h"
 #include "llvm/MC/MCValue.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "msp430-asm-parser"
 

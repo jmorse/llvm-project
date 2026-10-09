@@ -38,15 +38,10 @@
 #define LLVM_IR_PASSMANAGER_H
 
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/TinyPtrVector.h"
-#include "llvm/IR/Analysis.h"
 #include "llvm/IR/IRUnitRef.h"
 #include "llvm/IR/PassManagerInternal.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/TypeName.h"
 #include <cassert>
 #include <cstring>

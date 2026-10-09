@@ -17,7 +17,6 @@
 
 #include "SILowerSGPRSpills.h"
 #include "AMDGPU.h"
-#include "GCNSubtarget.h"
 #include "SIMachineFunctionInfo.h"
 #include "SIPreAllocateWWMRegs.h"
 #include "SISpillUtils.h"

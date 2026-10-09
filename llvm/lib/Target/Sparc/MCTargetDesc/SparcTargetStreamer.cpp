@@ -12,10 +12,7 @@
 
 #include "SparcTargetStreamer.h"
 #include "SparcInstPrinter.h"
-#include "SparcMCTargetDesc.h"
-#include "llvm/BinaryFormat/ELF.h"
 #include "llvm/MC/MCELFObjectWriter.h"
-#include "llvm/MC/MCRegister.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/Support/FormattedStream.h"
 

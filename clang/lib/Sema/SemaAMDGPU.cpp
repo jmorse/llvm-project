@@ -11,23 +11,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Sema/SemaAMDGPU.h"
-#include "clang/AST/Decl.h"
 #include "clang/AST/DynamicRecursiveASTVisitor.h"
-#include "clang/AST/Expr.h"
 #include "clang/Basic/DiagnosticFrontend.h"
-#include "clang/Basic/DiagnosticSema.h"
 #include "clang/Basic/TargetBuiltins.h"
 #include "clang/Basic/TargetInfo.h"
-#include "clang/Sema/Ownership.h"
-#include "clang/Sema/Scope.h"
 #include "clang/Sema/Sema.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/StringMap.h"
 #include "llvm/Support/AMDGPUAddrSpace.h"
-#include "llvm/Support/AtomicOrdering.h"
 #include "llvm/TargetParser/AMDGPUTargetParser.h"
-#include "llvm/TargetParser/AtomicScope.h"
 #include <cstdint>
 #include <utility>
 

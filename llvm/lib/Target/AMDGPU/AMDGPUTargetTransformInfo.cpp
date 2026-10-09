@@ -15,20 +15,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "AMDGPUTargetTransformInfo.h"
-#include "AMDGPUSubtarget.h"
 #include "AMDGPUTargetMachine.h"
-#include "MCTargetDesc/AMDGPUMCTargetDesc.h"
 #include "SIModeRegisterDefaults.h"
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/Analysis/InlineCost.h"
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/CodeGen/Analysis.h"
-#include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/IntrinsicsAMDGPU.h"
-#include "llvm/IR/PatternMatch.h"
-#include "llvm/Support/KnownBits.h"
 #include <optional>
 
 using namespace llvm;

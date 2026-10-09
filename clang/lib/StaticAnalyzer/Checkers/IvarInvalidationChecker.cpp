@@ -27,16 +27,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/Attr.h"
-#include "clang/AST/DeclObjC.h"
 #include "clang/AST/StmtVisitor.h"
 #include "clang/StaticAnalyzer/Checkers/BuiltinCheckerRegistration.h"
-#include "clang/StaticAnalyzer/Core/BugReporter/BugReporter.h"
-#include "clang/StaticAnalyzer/Core/Checker.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/AnalysisManager.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SetVector.h"
 
 using namespace clang;
 using namespace ento;

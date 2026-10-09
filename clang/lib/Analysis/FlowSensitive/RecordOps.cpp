@@ -11,12 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Analysis/FlowSensitive/RecordOps.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/Type.h"
-#include "clang/Analysis/FlowSensitive/ASTOps.h"
-#include "clang/Basic/LLVM.h"
-#include "llvm/ADT/StringMap.h"
 
 #define DEBUG_TYPE "dataflow"
 

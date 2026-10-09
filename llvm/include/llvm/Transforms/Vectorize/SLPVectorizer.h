@@ -18,10 +18,8 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_SLPVECTORIZER_H
 #define LLVM_TRANSFORMS_VECTORIZE_SLPVECTORIZER_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SetVector.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {

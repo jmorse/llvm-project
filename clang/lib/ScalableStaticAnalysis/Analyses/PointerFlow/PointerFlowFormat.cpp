@@ -9,11 +9,6 @@
 #include "clang/ScalableStaticAnalysis/Analyses/PointerFlow/PointerFlowFormat.h"
 #include "SSAFAnalysesCommon.h"
 #include "clang/ScalableStaticAnalysis/Analyses/EntityPointerLevel/EntityPointerLevelFormat.h"
-#include "clang/ScalableStaticAnalysis/Analyses/PointerFlow/PointerFlow.h"
-#include "clang/ScalableStaticAnalysis/Core/Serialization/JSONFormat.h"
-#include "llvm/ADT/iterator_range.h"
-#include "llvm/Support/Error.h"
-#include "llvm/Support/JSON.h"
 
 using namespace clang;
 using namespace ssaf;

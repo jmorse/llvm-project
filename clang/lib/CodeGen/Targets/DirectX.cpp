@@ -7,13 +7,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "ABIInfoImpl.h"
-#include "CodeGenModule.h"
 #include "HLSLBufferLayoutBuilder.h"
 #include "TargetInfo.h"
-#include "clang/AST/Type.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Type.h"
 
 using namespace clang;
 using namespace clang::CodeGen;

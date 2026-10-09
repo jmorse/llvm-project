@@ -20,17 +20,8 @@
 #ifndef LLVM_CODEGEN_LIVEINTERVAL_H
 #define LLVM_CODEGEN_LIVEINTERVAL_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/IntEqClasses.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/iterator_range.h"
-#include "llvm/CodeGen/Register.h"
 #include "llvm/CodeGen/SlotIndexes.h"
-#include "llvm/MC/LaneBitmask.h"
-#include "llvm/Support/Allocator.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/MathExtras.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>

@@ -82,18 +82,8 @@
 // [1] https://github.com/llvm/llvm-project/pull/168353
 //===----------------------------------------------------------------------===//
 
-#include "AArch64.h"
-#include "AArch64InstrInfo.h"
 #include "AArch64MachineFunctionInfo.h"
-#include "AArch64Subtarget.h"
-#include "llvm/ADT/BitVector.h"
-#include "llvm/ADT/SmallSet.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineDominators.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/TargetRegisterInfo.h"
-#include "llvm/Support/Debug.h"
 
 using namespace llvm;
 

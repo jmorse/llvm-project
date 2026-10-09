@@ -17,9 +17,7 @@
 #ifndef LLVM_CLANG_AST_TYPE_H
 #define LLVM_CLANG_AST_TYPE_H
 
-#include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
-#include "clang/AST/TypeBase.h" // IWYU pragma: export
 
 namespace clang {
 

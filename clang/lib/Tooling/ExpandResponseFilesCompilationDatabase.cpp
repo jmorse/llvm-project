@@ -8,11 +8,7 @@
 
 #include "clang/Tooling/CompilationDatabase.h"
 #include "clang/Tooling/Tooling.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/ConvertUTF.h"
 #include "llvm/TargetParser/Host.h"
-#include "llvm/TargetParser/Triple.h"
 
 namespace clang {
 namespace tooling {

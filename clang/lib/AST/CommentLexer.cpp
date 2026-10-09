@@ -8,13 +8,7 @@
 
 #include "clang/AST/CommentLexer.h"
 #include "clang/AST/Comment.h"
-#include "clang/AST/CommentCommandTraits.h"
-#include "clang/Basic/CharInfo.h"
 #include "clang/Basic/DiagnosticComment.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/StringSwitch.h"
-#include "llvm/Support/ConvertUTF.h"
-#include "llvm/Support/ErrorHandling.h"
 
 namespace clang {
 namespace comments {

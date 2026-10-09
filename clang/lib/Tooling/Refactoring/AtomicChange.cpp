@@ -8,7 +8,6 @@
 
 #include "clang/Tooling/Refactoring/AtomicChange.h"
 #include "clang/Tooling/ReplacementsYaml.h"
-#include "llvm/Support/YAMLTraits.h"
 #include <string>
 
 LLVM_YAML_IS_SEQUENCE_VECTOR(clang::tooling::AtomicChange)

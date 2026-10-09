@@ -10,17 +10,9 @@
 #define LLVM_CODEGEN_REGALLOCEVICTIONADVISOR_H
 
 #include "llvm/ADT/Any.h"
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallSet.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
-#include "llvm/CodeGen/Register.h"
-#include "llvm/Config/llvm-config.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/MC/MCRegister.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 class AllocationOrder;

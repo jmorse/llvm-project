@@ -19,7 +19,6 @@
 #include "llvm/CodeGen/MachinePassManager.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/Function.h"
-#include "llvm/Support/Compiler.h"
 #include <optional>
 
 namespace llvm {

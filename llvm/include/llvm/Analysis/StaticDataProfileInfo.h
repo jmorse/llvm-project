@@ -1,14 +1,7 @@
 #ifndef LLVM_ANALYSIS_STATICDATAPROFILEINFO_H
 #define LLVM_ANALYSIS_STATICDATAPROFILEINFO_H
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/DenseSet.h"
 #include "llvm/Analysis/ProfileSummaryInfo.h"
-#include "llvm/IR/Analysis.h"
-#include "llvm/IR/Constant.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/Compiler.h"
 #include <memory>
 
 namespace llvm {

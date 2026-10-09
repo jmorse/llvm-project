@@ -15,13 +15,8 @@
 #define LLVM_CLANG_AST_STMTOPENMP_H
 
 #include "clang/AST/ASTContext.h"
-#include "clang/AST/Expr.h"
 #include "clang/AST/OpenMPClause.h"
-#include "clang/AST/Stmt.h"
 #include "clang/AST/StmtCXX.h"
-#include "clang/Basic/OpenMPKinds.h"
-#include "clang/Basic/SourceLocation.h"
-#include "llvm/Support/Casting.h"
 
 namespace clang {
 

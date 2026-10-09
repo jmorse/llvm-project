@@ -8,8 +8,6 @@
 
 #include "AMDGPUTargetObjectFile.h"
 #include "Utils/AMDGPUBaseInfo.h"
-#include "llvm/IR/GlobalObject.h"
-#include "llvm/MC/SectionKind.h"
 #include "llvm/Target/TargetMachine.h"
 using namespace llvm;
 

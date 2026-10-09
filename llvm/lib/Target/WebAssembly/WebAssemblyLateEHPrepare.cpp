@@ -12,19 +12,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "WebAssembly.h"
-#include "WebAssemblySubtarget.h"
 #include "WebAssemblyTargetMachine.h"
-#include "WebAssemblyUtilities.h"
-#include "llvm/ADT/MapVector.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/CodeGen/MachineFunctionAnalysisManager.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachinePassManager.h"
-#include "llvm/IR/Analysis.h"
 #include "llvm/MC/MCAsmInfo.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Target/TargetMachine.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "wasm-late-eh-prepare"

@@ -11,27 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Frontend/PrecompiledPreamble.h"
-#include "clang/Basic/FileManager.h"
-#include "clang/Basic/LangStandard.h"
-#include "clang/Frontend/CompilerInstance.h"
-#include "clang/Frontend/CompilerInvocation.h"
 #include "clang/Frontend/FrontendActions.h"
-#include "clang/Frontend/FrontendOptions.h"
-#include "clang/Lex/HeaderSearch.h"
-#include "clang/Lex/Lexer.h"
-#include "clang/Lex/Preprocessor.h"
 #include "clang/Lex/PreprocessorOptions.h"
 #include "clang/Serialization/ASTWriter.h"
-#include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/StringSet.h"
-#include "llvm/ADT/iterator_range.h"
-#include "llvm/Config/llvm-config.h"
 #include "llvm/Support/CrashRecoveryContext.h"
-#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/ManagedStatic.h"
-#include "llvm/Support/Path.h"
 #include "llvm/Support/Process.h"
-#include "llvm/Support/VirtualFileSystem.h"
 #include <limits>
 #include <mutex>
 #include <utility>

@@ -7,13 +7,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/InstallAPI/Visitor.h"
-#include "clang/AST/Availability.h"
 #include "clang/AST/ParentMapContext.h"
 #include "clang/AST/VTableBuilder.h"
-#include "clang/Basic/Linkage.h"
-#include "clang/InstallAPI/DylibVerifier.h"
 #include "clang/InstallAPI/FrontendRecords.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Mangler.h"
 

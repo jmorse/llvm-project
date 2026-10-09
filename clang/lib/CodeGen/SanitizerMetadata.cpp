@@ -9,10 +9,8 @@
 // Class which emits metadata consumed by sanitizer instrumentation passes.
 //
 //===----------------------------------------------------------------------===//
-#include "SanitizerMetadata.h"
 #include "CodeGenModule.h"
 #include "clang/AST/Attr.h"
-#include "clang/AST/Type.h"
 
 using namespace clang;
 using namespace CodeGen;

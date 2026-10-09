@@ -7,22 +7,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/DebugInfo/PDB/UDTLayout.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/BitVector.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/DebugInfo/PDB/IPDBEnumChildren.h"
 #include "llvm/DebugInfo/PDB/IPDBRawSymbol.h"
 #include "llvm/DebugInfo/PDB/IPDBSession.h"
-#include "llvm/DebugInfo/PDB/PDBSymbol.h"
-#include "llvm/DebugInfo/PDB/PDBSymbolData.h"
-#include "llvm/DebugInfo/PDB/PDBSymbolFunc.h"
-#include "llvm/DebugInfo/PDB/PDBSymbolTypeBaseClass.h"
-#include "llvm/DebugInfo/PDB/PDBSymbolTypeBuiltin.h"
 #include "llvm/DebugInfo/PDB/PDBSymbolTypePointer.h"
-#include "llvm/DebugInfo/PDB/PDBSymbolTypeUDT.h"
-#include "llvm/DebugInfo/PDB/PDBSymbolTypeVTable.h"
 #include "llvm/DebugInfo/PDB/PDBTypes.h"
-#include "llvm/Support/Casting.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdint>

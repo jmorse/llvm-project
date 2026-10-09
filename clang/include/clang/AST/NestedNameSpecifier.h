@@ -13,11 +13,7 @@
 #ifndef LLVM_CLANG_AST_NESTEDNAMESPECIFIER_H
 #define LLVM_CLANG_AST_NESTEDNAMESPECIFIER_H
 
-#include "clang/AST/Decl.h"
-#include "clang/AST/NestedNameSpecifierBase.h"
 #include "clang/AST/Type.h"
-#include "clang/AST/TypeLoc.h"
-#include "llvm/ADT/DenseMapInfo.h"
 
 namespace clang {
 

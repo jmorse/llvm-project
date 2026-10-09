@@ -14,7 +14,6 @@
 #ifndef LLVM_CLANG_BASIC_HEADERINCLUDEFORMATKIND_H
 #define LLVM_CLANG_BASIC_HEADERINCLUDEFORMATKIND_H
 #include "llvm/ADT/StringSwitch.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <utility>
 
 namespace clang {

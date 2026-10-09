@@ -10,16 +10,10 @@
 #define LLVM_ANALYSIS_DXILRESOURCE_H
 
 #include "llvm/ADT/MapVector.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Frontend/HLSL/HLSLBinding.h"
-#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
-#include "llvm/Support/Alignment.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/DXILABI.h"
 #include <cstdint>
 #include <variant>
 

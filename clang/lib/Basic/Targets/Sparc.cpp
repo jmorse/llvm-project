@@ -11,9 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Sparc.h"
-#include "Targets.h"
-#include "clang/Basic/MacroBuilder.h"
-#include "llvm/ADT/StringSwitch.h"
+#include "TargetDefines.h"
 
 using namespace clang;
 using namespace clang::targets;

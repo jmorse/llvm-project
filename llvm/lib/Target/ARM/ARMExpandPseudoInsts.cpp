@@ -14,19 +14,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "ARM.h"
-#include "ARMBaseInstrInfo.h"
-#include "ARMBaseRegisterInfo.h"
-#include "ARMConstantPoolValue.h"
-#include "ARMMachineFunctionInfo.h"
 #include "ARMSubtarget.h"
-#include "MCTargetDesc/ARMAddressingModes.h"
 #include "llvm/CodeGen/LivePhysRegs.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineJumpTableInfo.h"
-#include "llvm/CodeGen/RegisterClassInfo.h"
 #include "llvm/MC/MCAsmInfo.h"
-#include "llvm/Support/Debug.h"
 
 #include <atomic>
 

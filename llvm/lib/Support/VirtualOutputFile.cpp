@@ -13,7 +13,6 @@
 
 #include "llvm/Support/VirtualOutputFile.h"
 #include "llvm/Support/VirtualOutputError.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/raw_ostream_proxy.h"
 
 using namespace llvm;

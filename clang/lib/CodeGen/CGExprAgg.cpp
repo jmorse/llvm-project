@@ -15,23 +15,10 @@
 #include "CGHLSLRuntime.h"
 #include "CGObjCRuntime.h"
 #include "CGRecordLayout.h"
-#include "CodeGenFunction.h"
-#include "CodeGenModule.h"
 #include "ConstantEmitter.h"
-#include "EHScopeStack.h"
 #include "TargetInfo.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/Attr.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/DeclTemplate.h"
 #include "clang/AST/StmtVisitor.h"
 #include "clang/CodeGenUtils/ExprUtils.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/GlobalVariable.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
 using namespace clang;
 using namespace CodeGen;
 

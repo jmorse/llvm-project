@@ -10,7 +10,6 @@
 
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/BinaryStreamReader.h"
-#include "llvm/Support/BinaryStreamRef.h"
 #include "llvm/Support/LEB128.h"
 
 using namespace llvm;

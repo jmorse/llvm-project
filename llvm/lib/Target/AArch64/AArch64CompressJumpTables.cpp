@@ -11,15 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "AArch64.h"
 #include "AArch64MachineFunctionInfo.h"
-#include "AArch64Subtarget.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineJumpTableInfo.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
-#include "llvm/Support/Alignment.h"
 
 using namespace llvm;
 

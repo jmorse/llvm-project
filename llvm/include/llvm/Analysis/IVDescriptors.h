@@ -13,11 +13,8 @@
 #ifndef LLVM_ANALYSIS_IVDESCRIPTORS_H
 #define LLVM_ANALYSIS_IVDESCRIPTORS_H
 
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/ValueHandle.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

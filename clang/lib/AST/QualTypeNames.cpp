@@ -8,10 +8,8 @@
 
 #include "clang/AST/QualTypeNames.h"
 #include "clang/AST/DeclTemplate.h"
-#include "clang/AST/DeclarationName.h"
 #include "clang/AST/Mangle.h"
 #include "clang/AST/NestedNameSpecifier.h"
-#include "clang/AST/Type.h"
 
 namespace clang {
 

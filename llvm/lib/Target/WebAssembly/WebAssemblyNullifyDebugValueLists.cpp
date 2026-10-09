@@ -15,10 +15,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "WebAssembly.h"
-#include "llvm/CodeGen/MachineFunctionAnalysisManager.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachinePassManager.h"
-#include "llvm/IR/Analysis.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "wasm-nullify-dbg-value-lists"

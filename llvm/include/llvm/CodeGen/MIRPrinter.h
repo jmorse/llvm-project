@@ -15,8 +15,6 @@
 #define LLVM_CODEGEN_MIRPRINTER_H
 
 #include "llvm/CodeGen/MachinePassManager.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/raw_ostream.h"
 
 namespace llvm {
 

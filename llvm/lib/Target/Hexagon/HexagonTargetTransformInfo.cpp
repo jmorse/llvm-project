@@ -13,14 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "HexagonTargetTransformInfo.h"
-#include "HexagonSubtarget.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/CodeGen/ValueTypes.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/User.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Utils/LoopPeel.h"
 #include "llvm/Transforms/Utils/UnrollLoop.h"
 

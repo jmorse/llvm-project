@@ -10,10 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/StmtCXX.h"
 #include "clang/AST/ExprCXX.h"
 
-#include "clang/AST/ASTContext.h"
 
 using namespace clang;
 

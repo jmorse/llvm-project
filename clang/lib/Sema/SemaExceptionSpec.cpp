@@ -12,16 +12,10 @@
 
 #include "clang/AST/ASTMutationListener.h"
 #include "clang/AST/CXXInheritance.h"
-#include "clang/AST/Expr.h"
-#include "clang/AST/ExprCXX.h"
 #include "clang/AST/StmtObjC.h"
 #include "clang/AST/StmtSYCL.h"
-#include "clang/AST/TypeLoc.h"
-#include "clang/Basic/Diagnostic.h"
-#include "clang/Basic/SourceManager.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Sema/SemaInternal.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include <optional>
 
 namespace clang {

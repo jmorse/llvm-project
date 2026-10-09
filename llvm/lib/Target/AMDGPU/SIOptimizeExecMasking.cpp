@@ -9,13 +9,6 @@
 #include "SIOptimizeExecMasking.h"
 #include "AMDGPU.h"
 #include "AMDGPULaneMaskUtils.h"
-#include "GCNSubtarget.h"
-#include "SIRegisterInfo.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/CodeGen/LiveRegUnits.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/InitializePasses.h"
 
 using namespace llvm;

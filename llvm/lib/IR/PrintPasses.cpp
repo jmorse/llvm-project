@@ -7,25 +7,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/PrintPasses.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSet.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/DebugInfoMetadata.h"
-#include "llvm/IR/DebugLoc.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Errc.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/IOSandbox.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
-#include "llvm/Support/raw_ostream.h"
 #include <vector>
 
 using namespace llvm;

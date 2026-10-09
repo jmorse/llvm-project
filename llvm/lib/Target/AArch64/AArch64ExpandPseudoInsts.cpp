@@ -14,26 +14,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "AArch64ExpandImm.h"
-#include "AArch64InstrInfo.h"
 #include "AArch64MachineFunctionInfo.h"
-#include "AArch64Subtarget.h"
 #include "MCTargetDesc/AArch64AddressingModes.h"
-#include "Utils/AArch64BaseInfo.h"
 #include "llvm/CodeGen/LivePhysRegs.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
-#include "llvm/IR/DebugLoc.h"
-#include "llvm/MC/MCInstrDesc.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/CodeGen.h"
-#include "llvm/Target/TargetMachine.h"
-#include "llvm/TargetParser/Triple.h"
 #include <cassert>
 #include <cstdint>
 #include <iterator>

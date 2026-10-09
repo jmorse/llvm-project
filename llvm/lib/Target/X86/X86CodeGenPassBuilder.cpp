@@ -30,9 +30,7 @@
 #include "llvm/CodeGen/MachineCombiner.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCStreamer.h"
-#include "llvm/Passes/CodeGenPassBuilder.h"
 #include "llvm/Passes/PassBuilder.h"
-#include "llvm/Support/CodeGen.h"
 #include "llvm/Transforms/CFGuard.h"
 
 using namespace llvm;

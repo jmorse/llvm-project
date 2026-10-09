@@ -28,10 +28,7 @@
 
 #include "AMDGPUPreloadKernArgProlog.h"
 #include "AMDGPU.h"
-#include "GCNSubtarget.h"
 #include "SIMachineFunctionInfo.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/TargetParser/AMDGPUTargetParser.h"
 
 using namespace llvm;
 

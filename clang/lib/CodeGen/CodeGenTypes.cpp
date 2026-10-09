@@ -10,24 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "CodeGenTypes.h"
 #include "CGCXXABI.h"
-#include "CGCall.h"
 #include "CGDebugInfo.h"
 #include "CGHLSLRuntime.h"
 #include "CGOpenCLRuntime.h"
 #include "CGRecordLayout.h"
 #include "TargetInfo.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/DeclObjC.h"
-#include "clang/AST/Expr.h"
 #include "clang/AST/MatrixUtils.h"
-#include "clang/AST/RecordLayout.h"
-#include "clang/CodeGen/CGFunctionInfo.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Module.h"
 
 using namespace clang;
 using namespace CodeGen;

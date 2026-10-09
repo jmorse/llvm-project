@@ -15,13 +15,6 @@
 #include "ARMInstrInfo.h"
 #include "ARMSubtarget.h"
 #include "llvm/CodeGen/IndirectThunks.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/IR/DebugLoc.h"
 #include <cassert>
 
 using namespace llvm;

@@ -9,13 +9,8 @@
 #ifndef LLVM_CODEGEN_MACHINEDOMINANCEFRONTIER_H
 #define LLVM_CODEGEN_MACHINEDOMINANCEFRONTIER_H
 
-#include "llvm/Analysis/DominanceFrontier.h"
 #include "llvm/Analysis/DominanceFrontierImpl.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineDominators.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachinePassManager.h"
-#include "llvm/Support/GenericDomTree.h"
 
 namespace llvm {
 

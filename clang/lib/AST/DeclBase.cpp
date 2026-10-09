@@ -10,37 +10,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/DeclBase.h"
-#include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTLambda.h"
 #include "clang/AST/ASTMutationListener.h"
 #include "clang/AST/Attr.h"
-#include "clang/AST/AttrIterator.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/DeclContextInternals.h"
-#include "clang/AST/DeclFriend.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/DeclOpenACC.h"
 #include "clang/AST/DeclOpenMP.h"
-#include "clang/AST/DeclTemplate.h"
 #include "clang/AST/DependentDiagnostic.h"
-#include "clang/AST/ExternalASTSource.h"
-#include "clang/AST/Stmt.h"
-#include "clang/AST/Type.h"
-#include "clang/Basic/IdentifierTable.h"
-#include "clang/Basic/LLVM.h"
 #include "clang/Basic/Module.h"
-#include "clang/Basic/ObjCRuntime.h"
-#include "clang/Basic/PartialDiagnostic.h"
-#include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/TargetInfo.h"
-#include "llvm/ADT/PointerIntPair.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/MathExtras.h"
-#include "llvm/Support/VersionTuple.h"
-#include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>

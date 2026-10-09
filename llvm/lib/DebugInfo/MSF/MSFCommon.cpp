@@ -8,8 +8,6 @@
 
 #include "llvm/DebugInfo/MSF/MSFCommon.h"
 #include "llvm/DebugInfo/MSF/MSFError.h"
-#include "llvm/Support/Endian.h"
-#include "llvm/Support/Error.h"
 #include <cstdint>
 #include <cstring>
 

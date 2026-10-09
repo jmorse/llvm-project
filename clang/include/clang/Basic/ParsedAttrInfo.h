@@ -18,7 +18,6 @@
 #include "clang/Basic/AttrSubjectMatchRules.h"
 #include "clang/Basic/AttributeCommonInfo.h"
 #include "clang/Support/Compiler.h"
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/Support/Registry.h"
 #include <climits>
 #include <list>

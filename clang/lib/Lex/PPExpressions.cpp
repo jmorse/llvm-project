@@ -15,24 +15,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Basic/IdentifierTable.h"
-#include "clang/Basic/SourceLocation.h"
-#include "clang/Basic/SourceManager.h"
+#include "clang/Basic/DiagnosticLex.h"
 #include "clang/Basic/TargetInfo.h"
-#include "clang/Basic/TokenKinds.h"
 #include "clang/Lex/CodeCompletionHandler.h"
-#include "clang/Lex/LexDiagnostic.h"
 #include "clang/Lex/LiteralSupport.h"
-#include "clang/Lex/MacroInfo.h"
-#include "clang/Lex/PPCallbacks.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Lex/PreprocessorOptions.h"
-#include "clang/Lex/Token.h"
-#include "llvm/ADT/APSInt.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/SaveAndRestore.h"
 #include <cassert>
 

@@ -19,10 +19,7 @@
 #ifndef LLVM_CODEGEN_TILESHAPEINFO_H
 #define LLVM_CODEGEN_TILESHAPEINFO_H
 
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/Register.h"
 
 namespace llvm {
 

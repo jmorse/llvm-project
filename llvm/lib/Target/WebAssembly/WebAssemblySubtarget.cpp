@@ -12,13 +12,9 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "WebAssemblySubtarget.h"
 #include "GISel/WebAssemblyCallLowering.h"
 #include "GISel/WebAssemblyLegalizerInfo.h"
-#include "GISel/WebAssemblyRegisterBankInfo.h"
-#include "MCTargetDesc/WebAssemblyMCTargetDesc.h"
 #include "WebAssembly.h"
-#include "WebAssemblyInstrInfo.h"
 #include "WebAssemblyTargetMachine.h"
 #include "llvm/MC/TargetRegistry.h"
 using namespace llvm;

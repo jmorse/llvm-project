@@ -12,27 +12,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Analysis/FlowSensitive/Transfer.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclBase.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/Expr.h"
-#include "clang/AST/ExprCXX.h"
-#include "clang/AST/OperationKinds.h"
-#include "clang/AST/Stmt.h"
 #include "clang/AST/StmtVisitor.h"
-#include "clang/AST/Type.h"
-#include "clang/Analysis/FlowSensitive/ASTOps.h"
-#include "clang/Analysis/FlowSensitive/AdornedCFG.h"
-#include "clang/Analysis/FlowSensitive/DataflowAnalysisContext.h"
-#include "clang/Analysis/FlowSensitive/DataflowEnvironment.h"
 #include "clang/Analysis/FlowSensitive/NoopAnalysis.h"
 #include "clang/Analysis/FlowSensitive/RecordOps.h"
-#include "clang/Analysis/FlowSensitive/StorageLocation.h"
-#include "clang/Analysis/FlowSensitive/Value.h"
-#include "clang/Basic/Builtins.h"
-#include "clang/Basic/LLVM.h"
-#include "clang/Basic/OperatorKinds.h"
-#include "llvm/Support/Casting.h"
 #include <assert.h>
 #include <cassert>
 

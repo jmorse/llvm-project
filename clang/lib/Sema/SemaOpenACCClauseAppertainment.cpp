@@ -14,8 +14,6 @@
 #include "clang/Basic/DiagnosticSema.h"
 #include "clang/Sema/SemaOpenACC.h"
 
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/bit.h"
 
 using namespace clang;
 

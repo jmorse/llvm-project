@@ -12,13 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "BPF.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/Value.h"
-#include "llvm/Pass.h"
 
 #define DEBUG_TYPE "bpf-ir-peephole"
 

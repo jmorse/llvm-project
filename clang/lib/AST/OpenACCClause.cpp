@@ -12,8 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/AST/OpenACCClause.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/Expr.h"
 
 using namespace clang;
 

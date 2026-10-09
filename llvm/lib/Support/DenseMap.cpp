@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/Support/MemAlloc.h"
 #include <cstring>
 
 using namespace llvm;

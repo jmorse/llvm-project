@@ -11,7 +11,6 @@
 #include "MCTargetDesc/HexagonMCTargetDesc.h"
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCELFObjectWriter.h"
-#include "llvm/MC/MCObjectWriter.h"
 #include "llvm/MC/MCValue.h"
 
 #define DEBUG_TYPE "hexagon-elf-writer"

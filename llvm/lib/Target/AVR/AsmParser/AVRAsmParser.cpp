@@ -7,27 +7,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "AVRRegisterInfo.h"
-#include "MCTargetDesc/AVRMCAsmInfo.h"
 #include "MCTargetDesc/AVRMCELFStreamer.h"
-#include "MCTargetDesc/AVRMCTargetDesc.h"
 #include "TargetInfo/AVRTargetInfo.h"
 
-#include "llvm/ADT/APInt.h"
-#include "llvm/MC/MCContext.h"
-#include "llvm/MC/MCExpr.h"
-#include "llvm/MC/MCInst.h"
-#include "llvm/MC/MCParser/AsmLexer.h"
-#include "llvm/MC/MCParser/MCParsedAsmOperand.h"
 #include "llvm/MC/MCParser/MCTargetAsmParser.h"
-#include "llvm/MC/MCRegisterInfo.h"
-#include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSubtargetInfo.h"
-#include "llvm/MC/MCSymbol.h"
 #include "llvm/MC/MCValue.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/MathExtras.h"
 
 #include <array>
 #include <sstream>

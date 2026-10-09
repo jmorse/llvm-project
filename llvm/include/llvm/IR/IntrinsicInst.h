@@ -23,18 +23,10 @@
 #ifndef LLVM_IR_INTRINSICINST_H
 #define LLVM_IR_INTRINSICINST_H
 
-#include "llvm/IR/Constants.h"
 #include "llvm/IR/DebugInfoMetadata.h"
-#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/FPEnv.h"
-#include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/Value.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/MathExtras.h"
 #include <cassert>
 #include <cstdint>
 #include <optional>

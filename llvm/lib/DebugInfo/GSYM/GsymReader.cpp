@@ -6,7 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/DebugInfo/GSYM/GsymReader.h"
 
 #include <assert.h>
 #include <inttypes.h>
@@ -16,12 +15,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/DebugInfo/GSYM/GsymReaderV1.h"
 #include "llvm/DebugInfo/GSYM/GsymReaderV2.h"
-#include "llvm/DebugInfo/GSYM/Header.h"
-#include "llvm/DebugInfo/GSYM/HeaderV2.h"
-#include "llvm/DebugInfo/GSYM/InlineInfo.h"
-#include "llvm/DebugInfo/GSYM/LineTable.h"
 #include "llvm/Support/JSON.h"
-#include "llvm/Support/MemoryBuffer.h"
 
 using namespace llvm;
 using namespace gsym;

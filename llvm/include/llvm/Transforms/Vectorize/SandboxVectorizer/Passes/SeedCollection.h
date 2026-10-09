@@ -12,7 +12,6 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_SANDBOXVECTORIZER_PASSES_SEEDCOLLECTION_H
 #define LLVM_TRANSFORMS_VECTORIZE_SANDBOXVECTORIZER_PASSES_SEEDCOLLECTION_H
 
-#include "llvm/SandboxIR/Pass.h"
 #include "llvm/SandboxIR/PassManager.h"
 
 namespace llvm::sandboxir {

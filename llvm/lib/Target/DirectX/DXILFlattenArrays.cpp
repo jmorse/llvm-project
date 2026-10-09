@@ -13,14 +13,9 @@
 #include "DXILFlattenArrays.h"
 #include "DirectX.h"
 #include "llvm/ADT/PostOrderIterator.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/ReplaceConstant.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/MathExtras.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include <cassert>
 #include <cstddef>

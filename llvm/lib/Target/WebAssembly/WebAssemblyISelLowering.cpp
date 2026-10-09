@@ -11,31 +11,14 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "WebAssemblyISelLowering.h"
-#include "MCTargetDesc/WebAssemblyMCTargetDesc.h"
 #include "Utils/WebAssemblyTypeUtilities.h"
 #include "WebAssemblyMachineFunctionInfo.h"
-#include "WebAssemblySubtarget.h"
 #include "WebAssemblyTargetMachine.h"
-#include "WebAssemblyUtilities.h"
-#include "llvm/CodeGen/CallingConvLower.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineJumpTableInfo.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/SDPatternMatch.h"
-#include "llvm/CodeGen/SelectionDAG.h"
-#include "llvm/CodeGen/SelectionDAGNodes.h"
-#include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicsWebAssembly.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/KnownBits.h"
-#include "llvm/Support/MathExtras.h"
-#include "llvm/Target/TargetOptions.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "wasm-lower"

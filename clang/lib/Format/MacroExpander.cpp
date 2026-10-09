@@ -14,16 +14,9 @@
 
 #include "Macros.h"
 
-#include "Encoding.h"
-#include "FormatToken.h"
 #include "FormatTokenLexer.h"
-#include "clang/Basic/TokenKinds.h"
-#include "clang/Format/Format.h"
 #include "clang/Lex/HeaderSearch.h"
-#include "clang/Lex/Lexer.h"
 #include "clang/Lex/PreprocessorOptions.h"
-#include "llvm/ADT/StringSet.h"
-#include "llvm/Support/ErrorHandling.h"
 
 namespace clang {
 namespace format {

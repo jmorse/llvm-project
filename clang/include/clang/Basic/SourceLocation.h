@@ -15,8 +15,6 @@
 #define LLVM_CLANG_BASIC_SOURCELOCATION_H
 
 #include "clang/Basic/FileEntry.h"
-#include "clang/Basic/LLVM.h"
-#include "llvm/ADT/StringRef.h"
 #include <cassert>
 #include <cstdint>
 #include <string>

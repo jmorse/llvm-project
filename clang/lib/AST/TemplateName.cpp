@@ -10,21 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/TemplateName.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclBase.h"
-#include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclTemplate.h"
-#include "clang/AST/DependenceFlags.h"
-#include "clang/AST/PrettyPrinter.h"
-#include "clang/AST/TemplateBase.h"
-#include "clang/Basic/Diagnostic.h"
-#include "clang/Basic/LLVM.h"
-#include "clang/Basic/LangOptions.h"
-#include "clang/Basic/OperatorKinds.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/FoldingSet.h"
-#include "llvm/Support/raw_ostream.h"
 #include <cassert>
 #include <optional>
 #include <string>

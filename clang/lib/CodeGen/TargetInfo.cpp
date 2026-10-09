@@ -12,16 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "TargetInfo.h"
-#include "ABIInfo.h"
 #include "ABIInfoImpl.h"
-#include "CodeGenFunction.h"
-#include "clang/Basic/CodeGenOptions.h"
-#include "clang/CodeGen/CGFunctionInfo.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Type.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace clang;
 using namespace CodeGen;

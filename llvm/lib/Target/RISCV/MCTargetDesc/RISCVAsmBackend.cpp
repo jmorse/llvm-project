@@ -8,21 +8,14 @@
 
 #include "RISCVAsmBackend.h"
 #include "RISCVFixupKinds.h"
-#include "llvm/ADT/APInt.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCELFObjectWriter.h"
-#include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCMachObjectWriter.h"
-#include "llvm/MC/MCObjectWriter.h"
-#include "llvm/MC/MCSymbol.h"
 #include "llvm/MC/MCValue.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/EndianStream.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/LEB128.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 

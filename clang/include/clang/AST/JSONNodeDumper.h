@@ -14,17 +14,8 @@
 #ifndef LLVM_CLANG_AST_JSONNODEDUMPER_H
 #define LLVM_CLANG_AST_JSONNODEDUMPER_H
 
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/ASTDumperUtils.h"
 #include "clang/AST/ASTNodeTraverser.h"
-#include "clang/AST/AttrVisitor.h"
-#include "clang/AST/CommentCommandTraits.h"
-#include "clang/AST/CommentVisitor.h"
-#include "clang/AST/ExprCXX.h"
-#include "clang/AST/ExprConcepts.h"
 #include "clang/AST/Mangle.h"
-#include "clang/AST/StmtVisitor.h"
-#include "clang/AST/Type.h"
 #include "llvm/Support/JSON.h"
 
 namespace clang {

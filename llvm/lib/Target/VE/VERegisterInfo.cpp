@@ -10,16 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "VERegisterInfo.h"
-#include "VE.h"
 #include "VESubtarget.h"
-#include "llvm/ADT/BitVector.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
-#include "llvm/IR/Type.h"
-#include "llvm/Support/Debug.h"
 
 using namespace llvm;
 

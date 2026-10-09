@@ -9,18 +9,11 @@
 #include "MCTargetDesc/ARMFixupKinds.h"
 #include "MCTargetDesc/ARMMCTargetDesc.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/BinaryFormat/MachO.h"
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCContext.h"
-#include "llvm/MC/MCExpr.h"
-#include "llvm/MC/MCFixup.h"
 #include "llvm/MC/MCMachObjectWriter.h"
 #include "llvm/MC/MCObjectStreamer.h"
-#include "llvm/MC/MCSection.h"
-#include "llvm/MC/MCSymbolMachO.h"
 #include "llvm/MC/MCValue.h"
-#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 

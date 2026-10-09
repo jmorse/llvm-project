@@ -17,14 +17,9 @@
 #ifndef LLVM_IR_GLOBALVALUE_H
 #define LLVM_IR_GLOBALVALUE_H
 
-#include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Value.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <cassert>
 #include <cstdint>
 #include <string>

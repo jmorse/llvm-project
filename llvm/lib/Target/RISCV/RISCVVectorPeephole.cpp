@@ -27,13 +27,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "RISCV.h"
 #include "RISCVSubtarget.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/RegisterClassInfo.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
-#include "llvm/CodeGen/TargetRegisterInfo.h"
 
 using namespace llvm;
 

@@ -8,18 +8,8 @@
 
 #include "llvm/DebugInfo/CodeView/TypeRecordMapping.h"
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/DebugInfo/CodeView/CVTypeVisitor.h"
-#include "llvm/DebugInfo/CodeView/CodeViewRecordIO.h"
 #include "llvm/DebugInfo/CodeView/EnumTables.h"
-#include "llvm/DebugInfo/CodeView/RecordSerialization.h"
-#include "llvm/DebugInfo/CodeView/TypeIndex.h"
-#include "llvm/DebugInfo/CodeView/TypeRecord.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MD5.h"
 #include "llvm/Support/ScopedPrinter.h"
 

@@ -15,8 +15,6 @@
 #define LLVM_CLANG_SEMA_DYNAMICALLOCATIONARGUMENTSCXX_H
 
 #include "clang/AST/ExprCXX.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/SmallVector.h"
 
 namespace clang {
 

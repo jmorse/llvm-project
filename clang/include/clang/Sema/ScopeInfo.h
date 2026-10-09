@@ -14,27 +14,10 @@
 #ifndef LLVM_CLANG_SEMA_SCOPEINFO_H
 #define LLVM_CLANG_SEMA_SCOPEINFO_H
 
-#include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
-#include "clang/AST/Type.h"
-#include "clang/Basic/CapturedStmt.h"
-#include "clang/Basic/LLVM.h"
-#include "clang/Basic/PartialDiagnostic.h"
-#include "clang/Basic/SourceLocation.h"
 #include "clang/Sema/CleanupInfo.h"
 #include "clang/Sema/DeclSpec.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/DenseMapInfo.h"
-#include "llvm/ADT/MapVector.h"
-#include "llvm/ADT/PointerIntPair.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallSet.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/StringSwitch.h"
-#include "llvm/ADT/TinyPtrVector.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <algorithm>
 #include <cassert>
 #include <utility>

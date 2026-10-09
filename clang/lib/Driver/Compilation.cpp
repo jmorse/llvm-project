@@ -7,23 +7,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Driver/Compilation.h"
-#include "clang/Basic/LLVM.h"
-#include "clang/Driver/Action.h"
 #include "clang/Driver/CommonArgs.h"
-#include "clang/Driver/Driver.h"
-#include "clang/Driver/Job.h"
-#include "clang/Driver/ToolChain.h"
-#include "clang/Driver/Util.h"
-#include "clang/Options/Options.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/Option/ArgList.h"
-#include "llvm/Option/OptSpecifier.h"
-#include "llvm/Option/Option.h"
-#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/ThreadPool.h"
-#include "llvm/Support/Threading.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/TargetParser/Triple.h"
 #include <algorithm>
 #include <cassert>
 #include <optional>

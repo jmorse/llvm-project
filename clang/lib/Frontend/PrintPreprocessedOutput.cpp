@@ -12,19 +12,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Basic/CharInfo.h"
-#include "clang/Basic/Diagnostic.h"
-#include "clang/Basic/SourceManager.h"
 #include "clang/Frontend/PreprocessorOutputOptions.h"
 #include "clang/Frontend/Utils.h"
-#include "clang/Lex/MacroInfo.h"
-#include "clang/Lex/PPCallbacks.h"
-#include "clang/Lex/Pragma.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Lex/TokenConcatenation.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/raw_ostream.h"
 #include <cstdio>
 using namespace clang;
 

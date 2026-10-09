@@ -11,9 +11,6 @@
 
 #include "llvm/ADT/ilist_base.h"
 #include "llvm/ADT/ilist_iterator.h"
-#include "llvm/ADT/ilist_node.h"
-#include "llvm/ADT/ilist_node_options.h"
-#include "llvm/Support/Compiler.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>

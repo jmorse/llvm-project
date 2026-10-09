@@ -16,10 +16,7 @@
 #ifndef LLVM_CODEGEN_LIVEINTERVALUNION_H
 #define LLVM_CODEGEN_LIVEINTERVALUNION_H
 
-#include "llvm/ADT/IntervalMap.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/LiveInterval.h"
-#include "llvm/CodeGen/SlotIndexes.h"
 #include <cassert>
 #include <limits>
 

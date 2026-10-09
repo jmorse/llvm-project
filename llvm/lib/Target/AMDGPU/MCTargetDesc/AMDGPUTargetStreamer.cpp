@@ -15,23 +15,17 @@
 #include "AMDGPUMCKernelDescriptor.h"
 #include "AMDGPUMCTargetDesc.h"
 #include "AMDGPUPTNote.h"
-#include "Utils/AMDGPUBaseInfo.h"
 #include "Utils/AMDKernelCodeTUtils.h"
 #include "llvm/BinaryFormat/AMDGPUMetadataVerifier.h"
-#include "llvm/BinaryFormat/ELF.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCAssembler.h"
-#include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCELFObjectWriter.h"
 #include "llvm/MC/MCELFStreamer.h"
 #include "llvm/MC/MCSubtargetInfo.h"
-#include "llvm/MC/StringTableBuilder.h"
 #include "llvm/Support/AMDGPUMetadata.h"
 #include "llvm/Support/AMDGPUObjLinkingInfo.h"
-#include "llvm/Support/AMDHSAKernelDescriptor.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FormattedStream.h"
-#include "llvm/TargetParser/AMDGPUTargetParser.h"
 
 using namespace llvm;
 using namespace llvm::AMDGPU;

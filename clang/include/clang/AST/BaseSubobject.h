@@ -13,10 +13,7 @@
 #ifndef LLVM_CLANG_AST_BASESUBOBJECT_H
 #define LLVM_CLANG_AST_BASESUBOBJECT_H
 
-#include "clang/AST/CharUnits.h"
 #include "clang/AST/DeclCXX.h"
-#include "llvm/ADT/DenseMapInfo.h"
-#include "llvm/Support/type_traits.h"
 #include <cstdint>
 #include <utility>
 

@@ -6,15 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "SystemZRegisterInfo.h"
-#include "SystemZInstrInfo.h"
 #include "SystemZSubtarget.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/CodeGen/LiveIntervals.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/TargetFrameLowering.h"
-#include "llvm/CodeGen/VirtRegMap.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 
 using namespace llvm;

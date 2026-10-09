@@ -11,10 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "PPC.h"
 #include "PPCSubtarget.h"
-#include "llvm/ADT/DenseSet.h"
-#include "llvm/CodeGen/MacroFusion.h"
 #include "llvm/CodeGen/ScheduleDAGMutation.h"
 #include <optional>
 

@@ -20,7 +20,6 @@
 #ifndef LLVM_ADT_CACHEDHASHSTRING_H
 #define LLVM_ADT_CACHEDHASHSTRING_H
 
-#include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/ADT/StringRef.h"
 
 namespace llvm {

@@ -14,9 +14,6 @@
 #define LLVM_IR_CONSTANT_H
 
 #include "llvm/IR/User.h"
-#include "llvm/IR/Value.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

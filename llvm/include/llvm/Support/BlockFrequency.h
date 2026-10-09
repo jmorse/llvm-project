@@ -13,6 +13,7 @@
 #ifndef LLVM_SUPPORT_BLOCKFREQUENCY_H
 #define LLVM_SUPPORT_BLOCKFREQUENCY_H
 
+#include "stdint.h"
 #include "llvm/Support/Compiler.h"
 #include <cassert>
 #include <cstdint>

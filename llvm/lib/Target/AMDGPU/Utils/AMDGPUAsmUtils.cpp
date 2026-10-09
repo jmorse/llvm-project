@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 #include "AMDGPUAsmUtils.h"
 #include "AMDGPUBaseInfo.h"
-#include "SIDefines.h"
 
 namespace llvm::AMDGPU {
 

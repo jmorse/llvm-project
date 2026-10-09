@@ -55,14 +55,10 @@
 #define LLVM_MC_MCPSEUDOPROBE_H
 
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/iterator.h"
 #include "llvm/IR/PseudoProbe.h"
 #include "llvm/Support/Allocator.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/ErrorOr.h"
 #include <functional>
 #include <memory>

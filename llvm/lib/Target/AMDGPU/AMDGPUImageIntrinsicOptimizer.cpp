@@ -64,12 +64,9 @@
 #include "AMDGPU.h"
 #include "AMDGPUInstrInfo.h"
 #include "AMDGPUTargetMachine.h"
-#include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/IntrinsicsAMDGPU.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 

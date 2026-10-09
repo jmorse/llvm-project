@@ -8,10 +8,6 @@
 
 #include "VarBypassDetector.h"
 
-#include "CodeGenModule.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/Expr.h"
-#include "clang/AST/Stmt.h"
 
 using namespace clang;
 using namespace CodeGen;

@@ -15,11 +15,9 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/CXXInheritance.h"
-#include "clang/AST/DeclCXX.h"
 #include "clang/AST/Mangle.h"
 #include "clang/AST/MangleNumberingContext.h"
 #include "clang/AST/RecordLayout.h"
-#include "clang/AST/Type.h"
 #include "clang/Basic/DiagnosticAST.h"
 #include "clang/Basic/TargetInfo.h"
 

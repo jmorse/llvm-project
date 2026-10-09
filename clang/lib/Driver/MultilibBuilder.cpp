@@ -8,10 +8,7 @@
 
 #include "clang/Driver/MultilibBuilder.h"
 #include "clang/Driver/CommonArgs.h"
-#include "llvm/ADT/StringMap.h"
 #include "llvm/Support/Path.h"
-#include "llvm/Support/Regex.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace clang;
 using namespace driver;

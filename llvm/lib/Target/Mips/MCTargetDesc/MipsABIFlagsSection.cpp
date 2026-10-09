@@ -7,10 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "MCTargetDesc/MipsABIFlagsSection.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/MC/MCStreamer.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/MipsABIFlags.h"
 
 using namespace llvm;
 

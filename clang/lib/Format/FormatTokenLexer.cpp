@@ -13,12 +13,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "FormatTokenLexer.h"
-#include "FormatToken.h"
 #include "clang/Basic/CharInfo.h"
-#include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/SourceManager.h"
-#include "clang/Format/Format.h"
-#include "llvm/Support/Regex.h"
 
 namespace clang {
 namespace format {

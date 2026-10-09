@@ -10,13 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclCXX.h"
 #include "clang/AST/DynamicRecursiveASTVisitor.h"
 #include "clang/AST/ExprObjC.h"
-#include "clang/AST/Stmt.h"
 #include "clang/AST/StmtObjC.h"
-#include "clang/AST/Type.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Sema/SemaInternal.h"
 

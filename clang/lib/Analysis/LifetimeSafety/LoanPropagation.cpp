@@ -10,20 +10,9 @@
 #include <memory>
 
 #include "Dataflow.h"
-#include "clang/AST/Expr.h"
-#include "clang/Analysis/Analyses/LifetimeSafety/Facts.h"
 #include "clang/Analysis/Analyses/LifetimeSafety/LoanPropagation.h"
-#include "clang/Analysis/Analyses/LifetimeSafety/Loans.h"
-#include "clang/Analysis/Analyses/LifetimeSafety/Origins.h"
-#include "clang/Analysis/Analyses/LifetimeSafety/Utils.h"
-#include "clang/Analysis/AnalysisDeclContext.h"
-#include "clang/Analysis/CFG.h"
-#include "clang/Basic/LLVM.h"
-#include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/ImmutableList.h"
 #include "llvm/ADT/SmallSet.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Support/raw_ostream.h"
 
 namespace clang::lifetimes::internal {
 

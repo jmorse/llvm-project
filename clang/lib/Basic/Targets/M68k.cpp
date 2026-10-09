@@ -11,10 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "M68k.h"
-#include "clang/Basic/Builtins.h"
 #include "clang/Basic/Diagnostic.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/StringSwitch.h"
 #include "llvm/TargetParser/TargetParser.h"
 #include <cstdint>
 #include <cstring>

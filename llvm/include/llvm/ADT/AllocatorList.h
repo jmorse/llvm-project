@@ -9,7 +9,6 @@
 #ifndef LLVM_ADT_ALLOCATORLIST_H
 #define LLVM_ADT_ALLOCATORLIST_H
 
-#include "llvm/ADT/ilist_node.h"
 #include "llvm/ADT/iterator.h"
 #include "llvm/ADT/simple_ilist.h"
 #include "llvm/Support/Allocator.h"

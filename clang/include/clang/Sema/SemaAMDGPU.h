@@ -13,9 +13,7 @@
 #ifndef LLVM_CLANG_SEMA_SEMAAMDGPU_H
 #define LLVM_CLANG_SEMA_SEMAAMDGPU_H
 
-#include "clang/AST/ASTFwd.h"
 #include "clang/Sema/SemaBase.h"
-#include "llvm/ADT/SmallPtrSet.h"
 
 namespace clang {
 class AttributeCommonInfo;

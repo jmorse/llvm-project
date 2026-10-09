@@ -9,7 +9,6 @@
 #ifndef LLVM_ANALYSIS_UTILS_TFUTILS_H
 #define LLVM_ANALYSIS_UTILS_TFUTILS_H
 
-#include "llvm/Config/llvm-config.h"
 
 #ifdef LLVM_HAVE_TFLITE
 #include "llvm/ADT/StringMap.h"

@@ -6,11 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/DebugInfo/GSYM/InlineInfo.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/DebugInfo/GSYM/FileEntry.h"
 #include "llvm/DebugInfo/GSYM/FileWriter.h"
-#include "llvm/DebugInfo/GSYM/GsymDataExtractor.h"
 #include "llvm/DebugInfo/GSYM/GsymReader.h"
 #include "llvm/Support/InterleavedRange.h"
 #include <inttypes.h>

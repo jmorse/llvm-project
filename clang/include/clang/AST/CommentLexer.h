@@ -13,12 +13,7 @@
 #ifndef LLVM_CLANG_AST_COMMENTLEXER_H
 #define LLVM_CLANG_AST_COMMENTLEXER_H
 
-#include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/SourceManager.h"
-#include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Allocator.h"
-#include "llvm/Support/raw_ostream.h"
 
 namespace clang {
 namespace comments {

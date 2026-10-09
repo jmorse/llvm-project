@@ -13,12 +13,7 @@
 #ifndef LLVM_CODEGEN_TARGETFRAMELOWERING_H
 #define LLVM_CODEGEN_TARGETFRAMELOWERING_H
 
-#include "llvm/ADT/BitVector.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineOptimizationRemarkEmitter.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/TypeSize.h"
 #include <vector>
 
 namespace llvm {

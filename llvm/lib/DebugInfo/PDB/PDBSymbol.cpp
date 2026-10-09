@@ -6,8 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/DebugInfo/PDB/PDBSymbol.h"
-#include "llvm/DebugInfo/PDB/IPDBEnumChildren.h"
 #include "llvm/DebugInfo/PDB/IPDBRawSymbol.h"
 #include "llvm/DebugInfo/PDB/IPDBSession.h"
 #include "llvm/DebugInfo/PDB/PDBExtras.h"
@@ -27,13 +25,11 @@
 #include "llvm/DebugInfo/PDB/PDBSymbolThunk.h"
 #include "llvm/DebugInfo/PDB/PDBSymbolTypeArray.h"
 #include "llvm/DebugInfo/PDB/PDBSymbolTypeBaseClass.h"
-#include "llvm/DebugInfo/PDB/PDBSymbolTypeBuiltin.h"
 #include "llvm/DebugInfo/PDB/PDBSymbolTypeCustom.h"
 #include "llvm/DebugInfo/PDB/PDBSymbolTypeDimension.h"
 #include "llvm/DebugInfo/PDB/PDBSymbolTypeEnum.h"
 #include "llvm/DebugInfo/PDB/PDBSymbolTypeFriend.h"
 #include "llvm/DebugInfo/PDB/PDBSymbolTypeFunctionArg.h"
-#include "llvm/DebugInfo/PDB/PDBSymbolTypeFunctionSig.h"
 #include "llvm/DebugInfo/PDB/PDBSymbolTypeManaged.h"
 #include "llvm/DebugInfo/PDB/PDBSymbolTypePointer.h"
 #include "llvm/DebugInfo/PDB/PDBSymbolTypeTypedef.h"

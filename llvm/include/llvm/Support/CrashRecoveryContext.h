@@ -10,7 +10,6 @@
 #define LLVM_SUPPORT_CRASHRECOVERYCONTEXT_H
 
 #include "llvm/ADT/STLFunctionalExtras.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 class CrashRecoveryContextCleanup;

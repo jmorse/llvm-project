@@ -12,26 +12,13 @@
 
 #include "ABIInfoImpl.h"
 #include "CGBlocks.h"
-#include "CGCXXABI.h"
 #include "CGDebugInfo.h"
 #include "CGRecordLayout.h"
-#include "CodeGenFunction.h"
 #include "TargetInfo.h"
-#include "clang/AST/Attr.h"
-#include "clang/AST/CXXInheritance.h"
-#include "clang/AST/CharUnits.h"
-#include "clang/AST/DeclTemplate.h"
-#include "clang/AST/RecordLayout.h"
-#include "clang/AST/StmtCXX.h"
-#include "clang/Basic/CodeGenOptions.h"
-#include "clang/CodeGen/CGFunctionInfo.h"
 #include "clang/CodeGenUtils/ClassUtils.h"
 #include "clang/CodeGenUtils/CodeGenUtils.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/Metadata.h"
 #include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
-#include "llvm/Transforms/Utils/SanitizerStats.h"
 #include <optional>
 
 using namespace clang;

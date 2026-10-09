@@ -9,7 +9,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "RISCVExpandPseudoBase.h"
-#include "RISCVInstrInfo.h"
 #include "RISCVSubtarget.h"
 
 using namespace llvm;

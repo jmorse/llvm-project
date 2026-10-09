@@ -16,7 +16,6 @@
 
 #include "llvm/Analysis/GenericDomTreeUpdater.h"
 #include "llvm/CodeGen/MachineDominators.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

@@ -11,15 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/TextAPI/DylibReader.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/DebugInfo/DWARF/DWARFCompileUnit.h"
 #include "llvm/DebugInfo/DWARF/DWARFContext.h"
-#include "llvm/Object/Binary.h"
 #include "llvm/Object/MachOUniversal.h"
-#include "llvm/Support/Endian.h"
-#include "llvm/TargetParser/Triple.h"
 #include "llvm/TextAPI/InterfaceFile.h"
-#include "llvm/TextAPI/RecordsSlice.h"
 #include "llvm/TextAPI/TextAPIError.h"
 #include <iomanip>
 #include <sstream>

@@ -13,13 +13,10 @@
 
 #include "llvm/Support/ThreadPool.h"
 
-#include "llvm/Config/llvm-config.h"
 
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/Support/ExponentialBackoff.h"
 #include "llvm/Support/FormatVariadic.h"
-#include "llvm/Support/Threading.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 

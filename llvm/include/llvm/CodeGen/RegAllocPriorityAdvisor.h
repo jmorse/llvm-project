@@ -9,11 +9,8 @@
 #ifndef LLVM_CODEGEN_REGALLOCPRIORITYADVISOR_H
 #define LLVM_CODEGEN_REGALLOCPRIORITYADVISOR_H
 
-#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/RegAllocEvictionAdvisor.h"
 #include "llvm/CodeGen/SlotIndexes.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/Pass.h"
 
 namespace llvm {
 

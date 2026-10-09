@@ -10,25 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/DeclTemplate.h"
 #include "clang/AST/PrettyDeclStackTrace.h"
-#include "clang/Basic/AttributeCommonInfo.h"
 #include "clang/Basic/Attributes.h"
-#include "clang/Basic/CharInfo.h"
-#include "clang/Basic/DiagnosticParse.h"
 #include "clang/Basic/TargetInfo.h"
-#include "clang/Basic/TokenKinds.h"
 #include "clang/Lex/LiteralSupport.h"
 #include "clang/Parse/ParseHLSLRootSignature.h"
-#include "clang/Parse/Parser.h"
 #include "clang/Parse/RAIIObjectsForParser.h"
-#include "clang/Sema/DeclSpec.h"
 #include "clang/Sema/EnterExpressionEvaluationContext.h"
-#include "clang/Sema/ParsedTemplate.h"
-#include "clang/Sema/Scope.h"
-#include "clang/Sema/SemaCodeCompletion.h"
-#include "clang/Sema/SemaHLSL.h"
 #include "llvm/Support/TimeProfiler.h"
 #include <optional>
 

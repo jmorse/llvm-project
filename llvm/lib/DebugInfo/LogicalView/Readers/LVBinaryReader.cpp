@@ -11,9 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/DebugInfo/LogicalView/Readers/LVBinaryReader.h"
-#include "llvm/Support/Errc.h"
 #include "llvm/Support/FormatAdapters.h"
-#include "llvm/Support/FormatVariadic.h"
 
 using namespace llvm;
 using namespace llvm::logicalview;

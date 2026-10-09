@@ -10,10 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "DXILOpBuilder.h"
-#include "DXILConstants.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Support/DXILABI.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <optional>
 
 using namespace llvm;

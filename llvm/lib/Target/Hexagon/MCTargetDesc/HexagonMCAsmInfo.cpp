@@ -13,7 +13,6 @@
 #include "HexagonMCAsmInfo.h"
 #include "MCTargetDesc/HexagonMCExpr.h"
 #include "llvm/ADT/Enum.h"
-#include "llvm/MC/MCExpr.h"
 
 using namespace llvm;
 

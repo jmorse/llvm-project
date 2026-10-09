@@ -12,7 +12,6 @@
 //===----------------------------------------------------------------------===//
 #ifndef LLVM_CODEGEN_CODEGENTARGETMACHINEIMPL_H
 #define LLVM_CODEGEN_CODEGENTARGETMACHINEIMPL_H
-#include "llvm/Support/Compiler.h"
 #include "llvm/Target/TargetMachine.h"
 
 namespace llvm {

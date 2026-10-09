@@ -27,18 +27,8 @@
 #include "AMDGPU.h"
 #include "GCNSubtarget.h"
 #include "GCNVOPDUtils.h"
-#include "SIInstrInfo.h"
-#include "Utils/AMDGPUBaseInfo.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/CodeGen/LiveRegUnits.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/CodeGen/MachinePassManager.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "gcn-create-vopd"
 STATISTIC(NumVOPDCreated, "Number of VOPD Insts Created.");

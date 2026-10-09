@@ -21,11 +21,7 @@
 #ifndef LLVM_ANALYSIS_DEMANDEDBITS_H
 #define LLVM_ANALYSIS_DEMANDEDBITS_H
 
-#include "llvm/ADT/APInt.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

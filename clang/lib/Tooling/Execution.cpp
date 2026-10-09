@@ -6,10 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Tooling/Execution.h"
-#include "clang/Support/Compiler.h"
 #include "clang/Tooling/ToolExecutorPluginRegistry.h"
-#include "clang/Tooling/Tooling.h"
 
 LLVM_INSTANTIATE_REGISTRY_EX(CLANG_ABI_EXPORT,
                              clang::tooling::ToolExecutorPluginRegistry)

@@ -12,8 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "RISCVVSETVLIInfoAnalysis.h"
-#include "RISCVSubtarget.h"
-#include "llvm/CodeGen/LiveIntervals.h"
 
 namespace llvm {
 namespace RISCV {

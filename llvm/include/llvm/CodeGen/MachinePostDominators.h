@@ -15,7 +15,6 @@
 #define LLVM_CODEGEN_MACHINEPOSTDOMINATORS_H
 
 #include "llvm/CodeGen/MachineDominators.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

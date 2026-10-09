@@ -22,13 +22,7 @@
 #ifndef LLVM_ANALYSIS_PTRUSEVISITOR_H
 #define LLVM_ANALYSIS_PTRUSEVISITOR_H
 
-#include "llvm/ADT/APInt.h"
-#include "llvm/ADT/PointerIntPair.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/InstVisitor.h"
-#include "llvm/IR/IntrinsicInst.h"
 #include <cassert>
 #include <type_traits>
 

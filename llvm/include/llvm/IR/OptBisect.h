@@ -14,9 +14,7 @@
 #ifndef LLVM_IR_OPTBISECT_H
 #define LLVM_IR_OPTBISECT_H
 
-#include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSet.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/IntegerInclusiveInterval.h"
 
 namespace llvm {

@@ -14,22 +14,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "CodeGenTBAA.h"
 #include "ABIInfoImpl.h"
-#include "CGCXXABI.h"
 #include "CGRecordLayout.h"
-#include "CodeGenTypes.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/Attr.h"
-#include "clang/AST/Mangle.h"
-#include "clang/AST/RecordLayout.h"
-#include "clang/Basic/CodeGenOptions.h"
-#include "clang/Basic/TargetInfo.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Metadata.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/Type.h"
-#include "llvm/Support/Debug.h"
 using namespace clang;
 using namespace CodeGen;
 

@@ -9,8 +9,6 @@
 #ifndef LLVM_CODEGEN_ASSIGNMENTTRACKINGANALYSIS_H
 #define LLVM_CODEGEN_ASSIGNMENTTRACKINGANALYSIS_H
 
-#include "llvm/IR/DebugInfoMetadata.h"
-#include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"

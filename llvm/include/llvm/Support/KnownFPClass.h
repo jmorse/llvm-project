@@ -15,7 +15,6 @@
 #define LLVM_SUPPORT_KNOWNFPCLASS_H
 
 #include "llvm/ADT/FloatingPointMode.h"
-#include "llvm/Support/Compiler.h"
 #include <optional>
 
 namespace llvm {

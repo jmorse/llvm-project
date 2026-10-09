@@ -14,14 +14,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "BPF.h"
-#include "BPFRegisterInfo.h"
 #include "BPFTargetMachine.h"
-#include "llvm/CodeGen/MachineFunctionAnalysisManager.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/IR/Analysis.h"
-#include "llvm/IR/DiagnosticInfo.h"
-#include "llvm/Support/Debug.h"
 
 using namespace llvm;
 

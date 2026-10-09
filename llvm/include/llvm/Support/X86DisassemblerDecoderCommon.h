@@ -16,7 +16,8 @@
 #ifndef LLVM_SUPPORT_X86DISASSEMBLERDECODERCOMMON_H
 #define LLVM_SUPPORT_X86DISASSEMBLERDECODERCOMMON_H
 
-#include "llvm/Support/DataTypes.h"
+#include "inttypes.h"
+#include "sys/types.h"
 
 namespace llvm::X86Disassembler {
 

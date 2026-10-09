@@ -8,10 +8,8 @@
 #ifndef LLVM_MC_MCSYMBOLXCOFF_H
 #define LLVM_MC_MCSYMBOLXCOFF_H
 
-#include "llvm/ADT/StringRef.h"
 #include "llvm/BinaryFormat/XCOFF.h"
 #include "llvm/MC/MCSymbol.h"
-#include "llvm/MC/MCSymbolTableEntry.h"
 
 namespace llvm {
 

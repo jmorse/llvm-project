@@ -12,16 +12,10 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "Utils/WasmAddressSpaces.h"
 #include "Utils/WebAssemblyTypeUtilities.h"
 #include "WebAssembly.h"
-#include "llvm/IR/Analysis.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstVisitor.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/IR/ValueHandle.h"
-#include "llvm/Pass.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "wasm-ref-type-mem2local"

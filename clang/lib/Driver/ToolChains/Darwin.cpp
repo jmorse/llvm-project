@@ -9,22 +9,14 @@
 #include "Darwin.h"
 #include "Arch/ARM.h"
 #include "clang/Basic/AlignedAllocation.h"
-#include "clang/Basic/ObjCRuntime.h"
 #include "clang/Config/config.h"
 #include "clang/Driver/CommonArgs.h"
 #include "clang/Driver/Compilation.h"
-#include "clang/Driver/Driver.h"
 #include "clang/Driver/SanitizerArgs.h"
-#include "clang/Options/Options.h"
-#include "llvm/ADT/StringSwitch.h"
-#include "llvm/Option/ArgList.h"
 #include "llvm/ProfileData/InstrProf.h"
 #include "llvm/ProfileData/MemProf.h"
-#include "llvm/Support/Path.h"
 #include "llvm/Support/Threading.h"
-#include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/TargetParser/TargetParser.h"
-#include "llvm/TargetParser/Triple.h"
 #include <cstdlib> // ::getenv
 
 #ifdef CLANG_USE_XCSELECT

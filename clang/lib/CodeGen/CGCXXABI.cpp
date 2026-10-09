@@ -13,7 +13,6 @@
 
 #include "CGCXXABI.h"
 #include "CGCleanup.h"
-#include "clang/AST/Attr.h"
 #include "clang/Basic/DiagnosticFrontend.h"
 
 using namespace clang;

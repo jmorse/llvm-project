@@ -13,17 +13,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "XCore.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicsXCore.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/ValueHandle.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 #define DEBUG_TYPE "xcore-lower-thread-local"

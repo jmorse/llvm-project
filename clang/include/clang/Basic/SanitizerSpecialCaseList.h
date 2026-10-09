@@ -14,11 +14,8 @@
 #ifndef LLVM_CLANG_BASIC_SANITIZERSPECIALCASELIST_H
 #define LLVM_CLANG_BASIC_SANITIZERSPECIALCASELIST_H
 
-#include "clang/Basic/LLVM.h"
 #include "clang/Basic/Sanitizers.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/SpecialCaseList.h"
-#include "llvm/Support/VirtualFileSystemFwd.h"
 #include <memory>
 #include <utility>
 #include <vector>

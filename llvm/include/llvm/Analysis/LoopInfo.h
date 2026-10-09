@@ -13,11 +13,9 @@
 #ifndef LLVM_ANALYSIS_LOOPINFO_H
 #define LLVM_ANALYSIS_LOOPINFO_H
 
-#include "llvm/ADT/GraphTraits.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/GenericLoopInfo.h"
 #include <optional>
 #include <utility>

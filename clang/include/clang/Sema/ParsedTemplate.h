@@ -14,13 +14,7 @@
 #ifndef LLVM_CLANG_SEMA_PARSEDTEMPLATE_H
 #define LLVM_CLANG_SEMA_PARSEDTEMPLATE_H
 
-#include "clang/Basic/OperatorKinds.h"
-#include "clang/Basic/SourceLocation.h"
-#include "clang/Basic/TemplateKinds.h"
 #include "clang/Sema/DeclSpec.h"
-#include "clang/Sema/Ownership.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
 #include <cassert>
 #include <cstdlib>
 #include <new>

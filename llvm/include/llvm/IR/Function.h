@@ -18,21 +18,11 @@
 #define LLVM_IR_FUNCTION_H
 
 #include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/ADT/ilist_node.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/IR/Argument.h"
-#include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CallingConv.h"
-#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/GlobalObject.h"
-#include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/OperandTraits.h"
-#include "llvm/IR/SymbolTableListTraits.h"
-#include "llvm/IR/Value.h"
-#include "llvm/Support/Compiler.h"
 #include <cassert>
 #include <cstddef>
 #include <cstdint>

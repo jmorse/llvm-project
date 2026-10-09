@@ -10,19 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "LanaiTargetMachine.h"
 
-#include "Lanai.h"
 #include "LanaiMachineFunctionInfo.h"
 #include "LanaiTargetObjectFile.h"
 #include "LanaiTargetTransformInfo.h"
 #include "TargetInfo/LanaiTargetInfo.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Target/TargetOptions.h"
 #include <optional>
 
 using namespace llvm;

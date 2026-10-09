@@ -12,18 +12,6 @@
 
 #include "clang/Analysis/FlowSensitive/ASTOps.h"
 #include "clang/AST/ASTLambda.h"
-#include "clang/AST/ComputeDependence.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclBase.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/Expr.h"
-#include "clang/AST/ExprCXX.h"
-#include "clang/AST/Stmt.h"
-#include "clang/AST/Type.h"
-#include "clang/Analysis/FlowSensitive/StorageLocation.h"
-#include "clang/Basic/LLVM.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SetVector.h"
 #include <cassert>
 #include <iterator>
 #include <vector>

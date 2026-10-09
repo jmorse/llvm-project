@@ -13,10 +13,6 @@
 #include "X86EncodingOptimization.h"
 #include "MCTargetDesc/X86MCAsmInfo.h"
 #include "X86BaseInfo.h"
-#include "llvm/MC/MCExpr.h"
-#include "llvm/MC/MCInst.h"
-#include "llvm/MC/MCInstrDesc.h"
-#include "llvm/Support/Casting.h"
 
 using namespace llvm;
 

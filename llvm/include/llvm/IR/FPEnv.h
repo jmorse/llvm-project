@@ -17,7 +17,6 @@
 
 #include "llvm/ADT/FloatingPointMode.h"
 #include "llvm/IR/FMF.h"
-#include "llvm/Support/Compiler.h"
 #include <optional>
 
 namespace llvm {

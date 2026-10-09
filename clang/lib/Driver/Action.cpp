@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Driver/Action.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <cassert>
 #include <string>
 

@@ -24,20 +24,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "ARM.h"
-#include "ARMBaseInstrInfo.h"
-#include "ARMBaseRegisterInfo.h"
 #include "ARMSubtarget.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/RegisterClassInfo.h"
-#include "llvm/CodeGen/TargetRegisterInfo.h"
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 #include <map>
 #include <set>
 

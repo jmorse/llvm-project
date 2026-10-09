@@ -22,8 +22,6 @@
 #define LLVM_TRANSFORMS_VECTORIZE_SANDBOXVECTORIZER_SCHEDULER_H
 
 #include "llvm/ADT/PriorityQueue.h"
-#include "llvm/SandboxIR/Instruction.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Transforms/Vectorize/SandboxVectorizer/DependencyGraph.h"
 #include <variant>
 

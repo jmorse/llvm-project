@@ -9,13 +9,8 @@
 #ifndef LLVM_ANALYSIS_STACKLIFETIME_H
 #define LLVM_ANALYSIS_STACKLIFETIME_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/BitVector.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/Support/raw_ostream.h"
 #include <utility>
 
 namespace llvm {

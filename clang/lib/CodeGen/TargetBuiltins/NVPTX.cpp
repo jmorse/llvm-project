@@ -13,7 +13,6 @@
 #include "CGBuiltin.h"
 #include "clang/Basic/TargetBuiltins.h"
 #include "llvm/IR/IntrinsicsNVPTX.h"
-#include "llvm/TargetParser/AtomicScope.h"
 
 using namespace clang;
 using namespace CodeGen;

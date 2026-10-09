@@ -8,13 +8,8 @@
 
 #include "AMDGPUMachineFunctionInfo.h"
 #include "AMDGPUMemoryUtils.h"
-#include "AMDGPUSubtarget.h"
-#include "Utils/AMDGPUBaseInfo.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
-#include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/Metadata.h"
-#include "llvm/Support/AMDGPUAddrSpace.h"
 #include "llvm/Target/TargetMachine.h"
 
 using namespace llvm;

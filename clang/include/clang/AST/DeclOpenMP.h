@@ -15,13 +15,7 @@
 #define LLVM_CLANG_AST_DECLOPENMP_H
 
 #include "clang/AST/ASTContext.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/Expr.h"
-#include "clang/AST/ExternalASTSource.h"
 #include "clang/AST/OpenMPClause.h"
-#include "clang/AST/Type.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/Support/TrailingObjects.h"
 
 namespace clang {
 

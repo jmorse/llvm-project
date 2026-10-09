@@ -6,19 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Driver/Multilib.h"
-#include "clang/Basic/LLVM.h"
 #include "clang/Driver/Driver.h"
-#include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/SmallSet.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Regex.h"
-#include "llvm/Support/VersionTuple.h"
-#include "llvm/Support/YAMLParser.h"
 #include "llvm/Support/YAMLTraits.h"
-#include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cassert>
 #include <string>

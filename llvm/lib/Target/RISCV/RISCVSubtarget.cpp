@@ -10,21 +10,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "RISCVSubtarget.h"
 #include "GISel/RISCVCallLowering.h"
 #include "GISel/RISCVInlineAsmLowering.h"
 #include "GISel/RISCVLegalizerInfo.h"
-#include "RISCV.h"
-#include "RISCVFrameLowering.h"
 #include "RISCVSelectionDAGInfo.h"
 #include "RISCVTargetMachine.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/MC/MCSchedule.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 

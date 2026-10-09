@@ -11,9 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Analysis/Analyses/IntervalPartition.h"
-#include "clang/Analysis/CFG.h"
 #include "llvm/ADT/BitVector.h"
-#include "llvm/ADT/STLExtras.h"
 #include <optional>
 #include <queue>
 #include <vector>

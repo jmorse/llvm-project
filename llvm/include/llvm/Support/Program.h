@@ -13,11 +13,6 @@
 #ifndef LLVM_SUPPORT_PROGRAM_H
 #define LLVM_SUPPORT_PROGRAM_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Config/llvm-config.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorOr.h"
 #include "llvm/Support/FileSystem.h"
 #include <chrono>
 #include <optional>

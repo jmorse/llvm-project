@@ -45,21 +45,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "X86.h"
-#include "X86InstrInfo.h"
 #include "X86Subtarget.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/CodeGen/LazyMachineBlockFrequencyInfo.h"
-#include "llvm/CodeGen/LiveRegUnits.h"
-#include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/MachineSizeOpts.h"
-#include "llvm/CodeGen/Passes.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 
 #define FIXUPBW_DESC "X86 Byte/Word Instruction Fixup"

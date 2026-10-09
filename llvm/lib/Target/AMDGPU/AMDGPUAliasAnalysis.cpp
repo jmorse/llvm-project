@@ -12,7 +12,6 @@
 #include "AMDGPUAliasAnalysis.h"
 #include "AMDGPU.h"
 #include "llvm/Analysis/ValueTracking.h"
-#include "llvm/IR/Instructions.h"
 
 using namespace llvm;
 

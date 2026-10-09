@@ -11,16 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "Mips16ISelDAGToDAG.h"
-#include "MCTargetDesc/MipsBaseInfo.h"
-#include "Mips.h"
 #include "MipsMachineFunction.h"
-#include "MipsRegisterInfo.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/SelectionDAGNodes.h"
-#include "llvm/Target/TargetMachine.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "mips-isel"

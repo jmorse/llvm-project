@@ -7,13 +7,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/DebugInfo/CodeView/DebugCrossImpSubsection.h"
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/DebugInfo/CodeView/CodeViewError.h"
 #include "llvm/DebugInfo/CodeView/DebugStringTableSubsection.h"
 #include "llvm/Support/BinaryStreamReader.h"
 #include "llvm/Support/BinaryStreamWriter.h"
-#include "llvm/Support/Endian.h"
-#include "llvm/Support/Error.h"
 #include <cstdint>
 #include <vector>
 

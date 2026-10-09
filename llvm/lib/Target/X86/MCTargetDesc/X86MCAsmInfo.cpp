@@ -12,10 +12,8 @@
 
 #include "X86MCAsmInfo.h"
 #include "llvm/ADT/Enum.h"
-#include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/TargetParser/Triple.h"
 using namespace llvm;
 
 enum AsmWriterFlavorTy {

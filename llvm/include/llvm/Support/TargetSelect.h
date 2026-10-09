@@ -15,8 +15,8 @@
 #ifndef LLVM_SUPPORT_TARGETSELECT_H
 #define LLVM_SUPPORT_TARGETSELECT_H
 
+#include "stddef.h"
 #include "llvm/Config/llvm-config.h"
-#include "llvm/Support/Compiler.h"
 
 extern "C" {
   // Declare all of the target-initialization functions that are available.

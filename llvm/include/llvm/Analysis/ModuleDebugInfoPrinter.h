@@ -10,7 +10,6 @@
 #define LLVM_ANALYSIS_MODULEDEBUGINFOPRINTER_H
 
 #include "llvm/IR/DebugInfo.h"
-#include "llvm/IR/PassManager.h"
 
 namespace llvm {
 class raw_ostream;

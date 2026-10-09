@@ -6,17 +6,10 @@
 //
 //===----------------------------------------------------------------------===//
 #include "InterpBuiltinBitCast.h"
-#include "BitcastBuffer.h"
 #include "Boolean.h"
 #include "Char.h"
-#include "Context.h"
-#include "Floating.h"
-#include "Integral.h"
 #include "InterpState.h"
-#include "MemberPointer.h"
-#include "Pointer.h"
 #include "Record.h"
-#include "clang/AST/ASTContext.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/Basic/TargetInfo.h"
 

@@ -14,11 +14,7 @@
 #ifndef LLVM_CLANG_AST_DECLOPENACC_H
 #define LLVM_CLANG_AST_DECLOPENACC_H
 
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/Decl.h"
 #include "clang/AST/OpenACCClause.h"
-#include "clang/Basic/OpenACCKinds.h"
-#include "llvm/ADT/STLExtras.h"
 
 namespace clang {
 

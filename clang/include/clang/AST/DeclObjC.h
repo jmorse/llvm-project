@@ -13,26 +13,10 @@
 #ifndef LLVM_CLANG_AST_DECLOBJC_H
 #define LLVM_CLANG_AST_DECLOBJC_H
 
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclBase.h"
 #include "clang/AST/DeclObjCCommon.h"
-#include "clang/AST/ExternalASTSource.h"
-#include "clang/AST/Redeclarable.h"
-#include "clang/AST/SelectorLocationsKind.h"
 #include "clang/AST/Type.h"
-#include "clang/Basic/IdentifierTable.h"
-#include "clang/Basic/LLVM.h"
-#include "clang/Basic/SourceLocation.h"
-#include "clang/Basic/Specifiers.h"
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/MapVector.h"
-#include "llvm/ADT/PointerIntPair.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/iterator_range.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/TrailingObjects.h"
 #include <cassert>
 #include <cstddef>
 #include <cstdint>

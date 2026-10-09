@@ -11,28 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "ARM.h"
-#include "ARMBaseInstrInfo.h"
 #include "ARMTargetMachine.h"
-#include "MCTargetDesc/ARMAddressingModes.h"
-#include "Utils/ARMBaseInfo.h"
-#include "llvm/ADT/APSInt.h"
-#include "llvm/ADT/StringSwitch.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/SelectionDAG.h"
 #include "llvm/CodeGen/SelectionDAGISel.h"
-#include "llvm/CodeGen/TargetLowering.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/IntrinsicsARM.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Target/TargetOptions.h"
 #include <optional>
 
 using namespace llvm;

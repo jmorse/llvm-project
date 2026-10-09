@@ -27,14 +27,8 @@
 #define LLVM_SUPPORT_FILESYSTEM_H
 
 #include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/Config/llvm-config.h"
 #include "llvm/Support/Chrono.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/Error.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/ErrorOr.h"
 #include "llvm/Support/File.h"
 #include "llvm/Support/FileSystem/UniqueID.h"
 #include "llvm/Support/MD5.h"

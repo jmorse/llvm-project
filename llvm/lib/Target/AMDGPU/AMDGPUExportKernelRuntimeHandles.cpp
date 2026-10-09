@@ -23,8 +23,6 @@
 
 #include "AMDGPUExportKernelRuntimeHandles.h"
 #include "AMDGPU.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
 
 #define DEBUG_TYPE "amdgpu-export-kernel-runtime-handles"
 

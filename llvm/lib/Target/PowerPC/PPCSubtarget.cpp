@@ -10,24 +10,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "PPCSubtarget.h"
 #include "GISel/PPCCallLowering.h"
 #include "GISel/PPCLegalizerInfo.h"
 #include "GISel/PPCRegisterBankInfo.h"
-#include "PPC.h"
-#include "PPCRegisterInfo.h"
 #include "PPCSelectionDAGInfo.h"
 #include "PPCTargetMachine.h"
 #include "llvm/CodeGen/GlobalISel/InstructionSelect.h"
 #include "llvm/CodeGen/GlobalISel/InstructionSelector.h"
-#include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineScheduler.h"
 #include "llvm/IR/GlobalAlias.h"
-#include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Target/TargetMachine.h"
 #include "llvm/TargetParser/PPCTargetParser.h"
 
 using namespace llvm;

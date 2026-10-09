@@ -49,12 +49,8 @@
 #ifndef LLVM_IR_PASSINSTRUMENTATION_H
 #define LLVM_IR_PASSINSTRUMENTATION_H
 
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/FunctionExtras.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/IR/IRUnitRef.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/Support/Compiler.h"
 #include <vector>
 
 namespace llvm {

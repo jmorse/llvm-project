@@ -12,9 +12,7 @@
 
 #include "clang/CodeGen/SwiftCallingConv.h"
 #include "ABIInfo.h"
-#include "CodeGenModule.h"
 #include "TargetInfo.h"
-#include "clang/Basic/TargetInfo.h"
 
 using namespace clang;
 using namespace CodeGen;

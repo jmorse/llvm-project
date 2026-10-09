@@ -12,7 +12,6 @@
 
 #include "llvm/Support/BlockFrequency.h"
 #include "llvm/Support/BranchProbability.h"
-#include "llvm/Support/MathExtras.h"
 #include "llvm/Support/ScaledNumber.h"
 #include "llvm/Support/raw_ostream.h"
 

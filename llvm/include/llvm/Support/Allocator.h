@@ -21,8 +21,6 @@
 #include "llvm/Config/abi-breaking.h"
 #include "llvm/Support/Alignment.h"
 #include "llvm/Support/AllocatorBase.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/MathExtras.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>

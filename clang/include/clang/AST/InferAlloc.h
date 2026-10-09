@@ -14,8 +14,6 @@
 #define LLVM_CLANG_AST_INFERALLOC_H
 
 #include "clang/AST/ASTContext.h"
-#include "clang/AST/Expr.h"
-#include "llvm/Support/AllocToken.h"
 #include <optional>
 
 namespace clang {

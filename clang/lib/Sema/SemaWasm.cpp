@@ -11,14 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Sema/SemaWasm.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/Type.h"
-#include "clang/Basic/AddressSpaces.h"
-#include "clang/Basic/DiagnosticSema.h"
 #include "clang/Basic/TargetBuiltins.h"
 #include "clang/Basic/TargetInfo.h"
-#include "clang/Sema/Attr.h"
 #include "clang/Sema/Sema.h"
 
 namespace clang {

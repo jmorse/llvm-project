@@ -19,11 +19,6 @@
 
 #include "VerifierInternal.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/IR/CallingConv.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/IntrinsicsAMDGPU.h"
 #include "llvm/Support/AMDGPUAddrSpace.h"

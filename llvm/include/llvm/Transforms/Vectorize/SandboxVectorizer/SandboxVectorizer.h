@@ -8,12 +8,10 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_SANDBOXVECTORIZER_SANDBOXVECTORIZER_H
 #define LLVM_TRANSFORMS_VECTORIZE_SANDBOXVECTORIZER_SANDBOXVECTORIZER_H
 
-#include "llvm/Support/Compiler.h"
 #include <memory>
 
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/IR/PassManager.h"
 #include "llvm/SandboxIR/Context.h"
 #include "llvm/SandboxIR/PassManager.h"
 

@@ -13,30 +13,14 @@
 #ifndef LLVM_CLANG_AST_EXPR_H
 #define LLVM_CLANG_AST_EXPR_H
 
-#include "clang/AST/APNumericStorage.h"
-#include "clang/AST/APValue.h"
 #include "clang/AST/ASTVector.h"
 #include "clang/AST/ComputeDependence.h"
 #include "clang/AST/Decl.h"
-#include "clang/AST/DeclAccessPair.h"
-#include "clang/AST/DependenceFlags.h"
-#include "clang/AST/OperationKinds.h"
 #include "clang/AST/Stmt.h"
 #include "clang/AST/TemplateBase.h"
-#include "clang/AST/TypeBase.h"
-#include "clang/Basic/BuiltinTraits.h"
 #include "clang/Basic/CharInfo.h"
-#include "clang/Basic/LangOptions.h"
 #include "clang/Basic/SyncScope.h"
-#include "llvm/ADT/APFloat.h"
-#include "llvm/ADT/APSInt.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/iterator.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/Support/AtomicOrdering.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/TrailingObjects.h"
 #include <optional>
 
 namespace clang {

@@ -9,9 +9,6 @@
 #include "HLSL.h"
 #include "clang/Driver/CommonArgs.h"
 #include "clang/Driver/Compilation.h"
-#include "clang/Driver/Job.h"
-#include "llvm/ADT/StringSwitch.h"
-#include "llvm/TargetParser/Triple.h"
 #include <regex>
 
 using namespace clang::driver;

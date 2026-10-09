@@ -6,10 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/IR/ConvergenceVerifier.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/GenericConvergenceVerifierImpl.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/SSAContext.h"
 
 using namespace llvm;

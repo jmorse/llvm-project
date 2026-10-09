@@ -12,19 +12,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/APInt.h"
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/FoldingSet.h"
-#include "llvm/ADT/Hashing.h"
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/bit.h"
-#include "llvm/Support/Alignment.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/MathExtras.h"
 #include "llvm/Support/SwapByteOrder.h"
-#include "llvm/Support/raw_ostream.h"
 #include <cmath>
 #include <optional>
 

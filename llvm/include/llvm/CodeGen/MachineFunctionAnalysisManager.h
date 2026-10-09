@@ -14,7 +14,6 @@
 #define LLVM_CODEGEN_MACHINEFUNCTIONANALYSISMANAGER
 
 #include "llvm/IR/PassManager.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

@@ -10,21 +10,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "AVRMCTargetDesc.h"
 #include "AVRELFStreamer.h"
 #include "AVRInstPrinter.h"
 #include "AVRMCAsmInfo.h"
-#include "AVRTargetStreamer.h"
 #include "TargetInfo/AVRTargetInfo.h"
 
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCCodeEmitter.h"
-#include "llvm/MC/MCELFStreamer.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Compiler.h"
 
 #define GET_INSTRINFO_MC_DESC
 #define ENABLE_INSTR_PREDICATE_VERIFIER

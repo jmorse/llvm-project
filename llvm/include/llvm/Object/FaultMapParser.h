@@ -9,7 +9,6 @@
 #ifndef LLVM_OBJECT_FAULTMAPPARSER_H
 #define LLVM_OBJECT_FAULTMAPPARSER_H
 
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/Endian.h"
 #include <cassert>
 #include <cstdint>

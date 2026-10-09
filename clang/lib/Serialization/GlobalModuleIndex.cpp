@@ -12,25 +12,16 @@
 
 #include "clang/Serialization/GlobalModuleIndex.h"
 #include "ASTReaderInternals.h"
-#include "clang/Basic/FileManager.h"
-#include "clang/Serialization/ASTBitCodes.h"
 #include "clang/Serialization/ModuleFile.h"
 #include "clang/Serialization/PCHContainerOperations.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
-#include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Bitstream/BitstreamReader.h"
 #include "llvm/Bitstream/BitstreamWriter.h"
 #include "llvm/Support/DJB.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/IOSandbox.h"
 #include "llvm/Support/LockFileManager.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/OnDiskHashTable.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/TimeProfiler.h"
-#include "llvm/Support/raw_ostream.h"
 #include <cstdio>
 using namespace clang;
 using namespace serialization;

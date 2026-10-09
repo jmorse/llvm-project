@@ -10,32 +10,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "X86FrameLowering.h"
-#include "MCTargetDesc/X86MCTargetDesc.h"
 #include "X86.h"
 #include "X86InstrBuilder.h"
-#include "X86InstrInfo.h"
 #include "X86MachineFunctionInfo.h"
-#include "X86Subtarget.h"
 #include "X86TargetMachine.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/LivePhysRegs.h"
-#include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/RegisterScavenging.h"
 #include "llvm/CodeGen/WinEHFuncInfo.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/EHPersonalities.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Module.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCObjectFileInfo.h"
-#include "llvm/MC/MCSymbol.h"
 #include "llvm/Support/LEB128.h"
-#include "llvm/Target/TargetOptions.h"
 #include <cstdlib>
 
 #define DEBUG_TYPE "x86-fl"

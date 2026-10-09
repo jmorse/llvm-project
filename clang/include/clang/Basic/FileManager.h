@@ -14,20 +14,11 @@
 #ifndef LLVM_CLANG_BASIC_FILEMANAGER_H
 #define LLVM_CLANG_BASIC_FILEMANAGER_H
 
-#include "clang/Basic/DirectoryEntry.h"
 #include "clang/Basic/FileEntry.h"
 #include "clang/Basic/FileSystemOptions.h"
-#include "clang/Basic/LLVM.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/IntrusiveRefCntPtr.h"
-#include "llvm/ADT/PointerUnion.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringMap.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/Error.h"
-#include "llvm/Support/ErrorOr.h"
-#include "llvm/Support/FileSystem/UniqueID.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/VirtualFileSystemFwd.h"
 #include <ctime>

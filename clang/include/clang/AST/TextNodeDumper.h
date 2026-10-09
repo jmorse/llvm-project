@@ -13,17 +13,11 @@
 #ifndef LLVM_CLANG_AST_TEXTNODEDUMPER_H
 #define LLVM_CLANG_AST_TEXTNODEDUMPER_H
 
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/ASTDumperUtils.h"
 #include "clang/AST/AttrVisitor.h"
-#include "clang/AST/CommentCommandTraits.h"
 #include "clang/AST/CommentVisitor.h"
 #include "clang/AST/DeclVisitor.h"
-#include "clang/AST/ExprConcepts.h"
-#include "clang/AST/ExprCXX.h"
 #include "clang/AST/StmtVisitor.h"
 #include "clang/AST/TemplateArgumentVisitor.h"
-#include "clang/AST/Type.h"
 #include "clang/AST/TypeLocVisitor.h"
 #include "clang/AST/TypeVisitor.h"
 

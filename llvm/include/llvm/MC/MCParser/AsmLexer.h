@@ -13,12 +13,8 @@
 #ifndef LLVM_MC_MCPARSER_ASMLEXER_H
 #define LLVM_MC_MCPARSER_ASMLEXER_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/MC/MCAsmMacro.h"
-#include "llvm/Support/Compiler.h"
 #include <cassert>
 #include <cstddef>
 #include <string>

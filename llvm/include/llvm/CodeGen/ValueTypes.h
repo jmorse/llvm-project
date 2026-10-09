@@ -16,9 +16,6 @@
 #define LLVM_CODEGEN_VALUETYPES_H
 
 #include "llvm/CodeGenTypes/MachineValueType.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/MathExtras.h"
-#include "llvm/Support/TypeSize.h"
 #include <cassert>
 #include <cstdint>
 #include <string>

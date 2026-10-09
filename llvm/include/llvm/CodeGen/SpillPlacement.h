@@ -26,8 +26,6 @@
 #ifndef LLVM_LIB_CODEGEN_SPILLPLACEMENT_H
 #define LLVM_LIB_CODEGEN_SPILLPLACEMENT_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/SparseSet.h"
 #include "llvm/CodeGen/MachineFunctionAnalysis.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"

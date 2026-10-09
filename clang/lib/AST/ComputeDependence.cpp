@@ -6,18 +6,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/ComputeDependence.h"
 #include "clang/AST/Attr.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/DeclarationName.h"
-#include "clang/AST/DependenceFlags.h"
-#include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/ExprConcepts.h"
 #include "clang/AST/ExprObjC.h"
 #include "clang/AST/ExprOpenMP.h"
-#include "clang/Basic/ExceptionSpecificationType.h"
-#include "llvm/ADT/ArrayRef.h"
 
 using namespace clang;
 

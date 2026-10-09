@@ -14,15 +14,9 @@
 #ifndef LLVM_CLANG_AST_GLOBALDECL_H
 #define LLVM_CLANG_AST_GLOBALDECL_H
 
-#include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/Basic/ABI.h"
-#include "clang/Basic/LLVM.h"
 #include "clang/Support/Compiler.h"
-#include "llvm/ADT/DenseMapInfo.h"
-#include "llvm/ADT/PointerIntPair.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/type_traits.h"
 #include <cassert>
 
 namespace clang {

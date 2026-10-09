@@ -14,20 +14,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "CoroutineStmtBuilder.h"
-#include "clang/AST/ASTLambda.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/Expr.h"
-#include "clang/AST/ExprCXX.h"
 #include "clang/AST/IgnoreExpr.h"
-#include "clang/AST/StmtCXX.h"
-#include "clang/Basic/Builtins.h"
 #include "clang/Basic/TargetInfo.h"
-#include "clang/Lex/Preprocessor.h"
 #include "clang/Sema/DynamicAllocationArgumentsCXX.h"
 #include "clang/Sema/EnterExpressionEvaluationContext.h"
 #include "clang/Sema/Initialization.h"
-#include "clang/Sema/Overload.h"
-#include "clang/Sema/ScopeInfo.h"
 
 using namespace clang;
 using namespace sema;

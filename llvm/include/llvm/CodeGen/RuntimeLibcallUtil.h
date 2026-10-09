@@ -14,10 +14,7 @@
 #define LLVM_CODEGEN_RUNTIMELIBCALLS_H
 
 #include "llvm/CodeGen/ISDOpcodes.h"
-#include "llvm/CodeGen/ValueTypes.h"
 #include "llvm/IR/RuntimeLibcalls.h"
-#include "llvm/Support/AtomicOrdering.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 namespace RTLIB {

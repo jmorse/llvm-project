@@ -11,16 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "TypeLocBuilder.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/DeclTemplate.h"
-#include "clang/AST/ExprCXX.h"
-#include "clang/AST/NestedNameSpecifier.h"
-#include "clang/Basic/PartialDiagnostic.h"
-#include "clang/Sema/DeclSpec.h"
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/Template.h"
-#include "clang/Sema/TypoCorrection.h"
-#include "llvm/ADT/STLExtras.h"
 using namespace clang;
 
 /// Find the current instantiation that associated with the given type.

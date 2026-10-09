@@ -17,7 +17,6 @@
 #include <cstddef>
 
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/Support/Compiler.h"
 
 namespace clang {
   /// The amount of stack space that Clang would like to be provided with.

@@ -13,23 +13,11 @@
 
 #include "ARM.h"
 #include "ARMAsmPrinter.h"
-#include "ARMBaseInstrInfo.h"
-#include "ARMMachineFunctionInfo.h"
 #include "ARMSubtarget.h"
-#include "MCTargetDesc/ARMAddressingModes.h"
-#include "MCTargetDesc/ARMBaseInfo.h"
 #include "MCTargetDesc/ARMMCAsmInfo.h"
-#include "llvm/ADT/APFloat.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/IR/Constants.h"
 #include "llvm/MC/MCContext.h"
-#include "llvm/MC/MCExpr.h"
-#include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstBuilder.h"
 #include "llvm/MC/MCStreamer.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <cassert>
 #include <cstdint>
 

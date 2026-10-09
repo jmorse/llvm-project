@@ -15,16 +15,10 @@
 #ifndef LLVM_CODEGEN_REGALLOCPBQP_H
 #define LLVM_CODEGEN_REGALLOCPBQP_H
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/Hashing.h"
 #include "llvm/CodeGen/PBQP/CostAllocator.h"
-#include "llvm/CodeGen/PBQP/Graph.h"
-#include "llvm/CodeGen/PBQP/Math.h"
 #include "llvm/CodeGen/PBQP/ReductionRules.h"
 #include "llvm/CodeGen/PBQP/Solution.h"
 #include "llvm/CodeGen/Register.h"
-#include "llvm/MC/MCRegister.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>

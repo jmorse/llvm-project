@@ -9,7 +9,6 @@
 #define LLVM_MC_MCSYMBOLELF_H
 
 #include "llvm/MC/MCSymbol.h"
-#include "llvm/MC/MCSymbolTableEntry.h"
 
 namespace llvm {
 class MCSymbolELF : public MCSymbol {

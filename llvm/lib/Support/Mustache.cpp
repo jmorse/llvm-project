@@ -6,9 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 #include "llvm/Support/Mustache.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 #include <sstream>
 
 #define DEBUG_TYPE "mustache"

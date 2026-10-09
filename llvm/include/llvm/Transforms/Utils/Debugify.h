@@ -15,16 +15,12 @@
 #define LLVM_TRANSFORMS_UTILS_DEBUGIFY_H
 
 #include "llvm/ADT/MapVector.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Bitcode/BitcodeWriterPass.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassInstrumentation.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/IR/ValueHandle.h"
 #include "llvm/Pass.h"
-#include "llvm/Support/Compiler.h"
 
 using DebugFnMap =
     llvm::MapVector<const llvm::Function *, const llvm::DISubprogram *>;

@@ -8,20 +8,6 @@
 
 #include "NVPTXTargetTransformInfo.h"
 #include "NVVMProperties.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/Analysis/ValueTracking.h"
-#include "llvm/CodeGen/BasicTTIImpl.h"
-#include "llvm/CodeGen/TargetLowering.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/IntrinsicsNVPTX.h"
-#include "llvm/IR/Value.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/NVPTXAddrSpace.h"
 #include "llvm/Transforms/InstCombine/InstCombiner.h"
 #include <optional>
 using namespace llvm;

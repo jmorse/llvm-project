@@ -10,27 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/ASTMatchers/ASTMatchersInternal.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/ASTTypeTraits.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclTemplate.h"
-#include "clang/AST/ExprConcepts.h"
-#include "clang/AST/ParentMapContext.h"
-#include "clang/AST/PrettyPrinter.h"
 #include "clang/ASTMatchers/ASTMatchers.h"
-#include "clang/Basic/LLVM.h"
 #include "clang/Lex/Lexer.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/IntrusiveRefCntPtr.h"
-#include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/Regex.h"
 #include "llvm/Support/WithColor.h"
-#include "llvm/Support/raw_ostream.h"
 #include <cassert>
 #include <cstddef>
 #include <optional>

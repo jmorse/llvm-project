@@ -8,14 +8,7 @@
 
 #include "clang/Frontend/TextDiagnostic.h"
 #include "clang/Basic/CharInfo.h"
-#include "clang/Basic/DiagnosticOptions.h"
-#include "clang/Basic/FileManager.h"
-#include "clang/Basic/SourceManager.h"
-#include "clang/Lex/Lexer.h"
 #include "clang/Lex/Preprocessor.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/Support/ConvertUTF.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Locale.h"
 #include "llvm/Support/Path.h"
 #include <algorithm>

@@ -13,12 +13,8 @@
 #ifndef LLVM_ANALYSIS_LOADS_H
 #define LLVM_ANALYSIS_LOADS_H
 
-#include "llvm/ADT/APInt.h"
 #include "llvm/Analysis/SimplifyQuery.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/GEPNoWrapFlags.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

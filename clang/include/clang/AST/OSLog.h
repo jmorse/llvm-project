@@ -15,7 +15,6 @@
 #define LLVM_CLANG_AST_OSLOG_H
 
 #include "clang/AST/ASTContext.h"
-#include "clang/AST/Expr.h"
 
 namespace clang {
 namespace analyze_os_log {

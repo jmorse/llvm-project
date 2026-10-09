@@ -26,17 +26,13 @@
 #include "AMDGPU.h"
 #include "AMDGPUHWEvents.h"
 #include "AMDGPUWaitcntUtils.h"
-#include "GCNSubtarget.h"
 #include "SIMachineFunctionInfo.h"
-#include "Utils/AMDGPUBaseInfo.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
-#include "llvm/CodeGen/MachinePassManager.h"
 #include "llvm/CodeGen/MachinePostDominators.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/TargetParser/AMDGPUTargetParser.h"
 
 using namespace llvm;
 

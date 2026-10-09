@@ -14,10 +14,7 @@
 
 #include "AMDGPUInstrInfo.h"
 #include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineMemOperand.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/Value.h"
 
 using namespace llvm;
 

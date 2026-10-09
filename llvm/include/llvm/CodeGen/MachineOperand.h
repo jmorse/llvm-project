@@ -13,11 +13,9 @@
 #ifndef LLVM_CODEGEN_MACHINEOPERAND_H
 #define LLVM_CODEGEN_MACHINEOPERAND_H
 
-#include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/CodeGen/Register.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/MC/LaneBitmask.h"
-#include "llvm/Support/Compiler.h"
 #include <cassert>
 
 namespace llvm {

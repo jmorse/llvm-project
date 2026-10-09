@@ -19,19 +19,10 @@
 #ifndef LLVM_CODEGEN_MACHINEINSTRBUILDER_H
 #define LLVM_CODEGEN_MACHINEINSTRBUILDER_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/BitmaskEnum.h"
 #include "llvm/CodeGen/GlobalISel/Utils.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/MachineInstrBundle.h"
-#include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <cassert>
 #include <cstdint>
 

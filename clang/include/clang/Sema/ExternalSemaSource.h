@@ -12,11 +12,8 @@
 #ifndef LLVM_CLANG_SEMA_EXTERNALSEMASOURCE_H
 #define LLVM_CLANG_SEMA_EXTERNALSEMASOURCE_H
 
-#include "clang/AST/ExternalASTSource.h"
-#include "clang/AST/Type.h"
 #include "clang/Sema/TypoCorrection.h"
 #include "clang/Sema/Weak.h"
-#include "llvm/ADT/MapVector.h"
 #include <utility>
 
 namespace llvm {

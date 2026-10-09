@@ -6,13 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/DebugInfo/GSYM/FunctionInfo.h"
 #include "llvm/DebugInfo/GSYM/FileWriter.h"
 #include "llvm/DebugInfo/GSYM/GsymCreator.h"
-#include "llvm/DebugInfo/GSYM/GsymDataExtractor.h"
 #include "llvm/DebugInfo/GSYM/GsymReader.h"
-#include "llvm/DebugInfo/GSYM/InlineInfo.h"
-#include "llvm/DebugInfo/GSYM/LineTable.h"
 #include <optional>
 
 using namespace llvm;

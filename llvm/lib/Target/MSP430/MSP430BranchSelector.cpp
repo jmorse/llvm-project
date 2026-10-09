@@ -14,18 +14,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "MSP430.h"
-#include "MSP430InstrInfo.h"
 #include "MSP430Subtarget.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/CodeGen/MachineFunctionAnalysisManager.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachinePassManager.h"
-#include "llvm/IR/Analysis.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/MathExtras.h"
-#include "llvm/Target/TargetMachine.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "msp430-branch-select"

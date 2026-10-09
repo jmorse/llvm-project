@@ -10,7 +10,6 @@
 #define LLVM_SUPPORT_PROGRAMSTACK_H
 
 #include "llvm/ADT/STLFunctionalExtras.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

@@ -24,15 +24,9 @@
 #ifndef LLVM_SUPPORT_GENERICDOMTREE_H
 #define LLVM_SUPPORT_GENERICDOMTREE_H
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/GraphTraits.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/CFGDiff.h"
-#include "llvm/Support/CFGUpdate.h"
-#include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>

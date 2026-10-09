@@ -12,11 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/IR/FPEnv.h"
-#include "llvm/ADT/StringSwitch.h"
-#include "llvm/IR/Instruction.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
 #include <optional>
 
 using namespace llvm;

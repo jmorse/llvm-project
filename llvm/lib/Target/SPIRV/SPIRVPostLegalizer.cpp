@@ -15,15 +15,9 @@
 
 #include "SPIRV.h"
 #include "SPIRVSubtarget.h"
-#include "SPIRVUtils.h"
 #include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionAnalysisManager.h"
-#include "llvm/CodeGen/MachinePassManager.h"
-#include "llvm/IR/Analysis.h"
 #include "llvm/IR/IntrinsicsSPIRV.h"
-#include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "spirv-postlegalizer"
 

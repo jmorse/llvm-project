@@ -13,8 +13,6 @@
 #ifndef LLVM_CODEGEN_ANALYSIS_H
 #define LLVM_CODEGEN_ANALYSIS_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/CodeGen/ISDOpcodes.h"
 #include "llvm/IR/Instructions.h"
 

@@ -22,15 +22,6 @@
 #include "X86MachineFunctionInfo.h"
 #include "X86Subtarget.h"
 #include "llvm/CodeGen/LiveIntervals.h"
-#include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/Passes.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
-#include "llvm/CodeGen/TargetRegisterInfo.h"
-#include "llvm/CodeGen/TileShapeInfo.h"
-#include "llvm/CodeGen/VirtRegMap.h"
 #include "llvm/InitializePasses.h"
 
 using namespace llvm;

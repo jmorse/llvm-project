@@ -12,20 +12,13 @@
 
 #include "MCTargetDesc/MipsMCTargetDesc.h"
 #include "TargetInfo/MipsTargetInfo.h"
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCDecoder.h"
 #include "llvm/MC/MCDecoderOps.h"
-#include "llvm/MC/MCDisassembler/MCDisassembler.h"
-#include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/MathExtras.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/LEB128.h"
 #include <cassert>
 #include <cstdint>
 

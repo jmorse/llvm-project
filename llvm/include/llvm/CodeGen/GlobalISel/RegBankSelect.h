@@ -64,12 +64,7 @@
 #ifndef LLVM_CODEGEN_GLOBALISEL_REGBANKSELECT_H
 #define LLVM_CODEGEN_GLOBALISEL_REGBANKSELECT_H
 
-#include "llvm/ADT/StringRef.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionAnalysisManager.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/IR/Analysis.h"
-#include "llvm/IR/PassManager.h"
 
 namespace llvm {
 

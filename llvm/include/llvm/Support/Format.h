@@ -23,10 +23,6 @@
 #define LLVM_SUPPORT_FORMAT_H
 
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/DataTypes.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cassert>
 #include <cstdio>

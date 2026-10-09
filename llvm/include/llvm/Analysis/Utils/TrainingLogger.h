@@ -53,12 +53,8 @@
 #ifndef LLVM_ANALYSIS_UTILS_TRAININGLOGGER_H
 #define LLVM_ANALYSIS_UTILS_TRAININGLOGGER_H
 
-#include "llvm/Config/llvm-config.h"
-#include "llvm/Support/Compiler.h"
 
-#include "llvm/ADT/StringMap.h"
 #include "llvm/Analysis/TensorSpec.h"
-#include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/JSON.h"
 
 #include <memory>

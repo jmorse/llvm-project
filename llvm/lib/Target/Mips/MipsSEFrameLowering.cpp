@@ -11,32 +11,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "MipsSEFrameLowering.h"
-#include "MCTargetDesc/MipsABIInfo.h"
 #include "MipsMachineFunction.h"
-#include "MipsRegisterInfo.h"
 #include "MipsSEInstrInfo.h"
 #include "MipsSubtarget.h"
-#include "llvm/ADT/BitVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/StringSwitch.h"
 #include "llvm/CodeGen/CFIInstBuilder.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
-#include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/RegisterScavenging.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
-#include "llvm/CodeGen/TargetRegisterInfo.h"
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
-#include "llvm/IR/DebugLoc.h"
-#include "llvm/IR/Function.h"
-#include "llvm/Support/CodeGen.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/MathExtras.h"
 #include <cassert>
 #include <cstdint>
 #include <utility>

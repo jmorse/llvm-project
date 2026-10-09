@@ -8,7 +8,6 @@
 
 #include "JSONFormatImpl.h"
 
-#include "clang/ScalableStaticAnalysis/Core/WholeProgramAnalysis/WPASuite.h"
 
 namespace clang::ssaf {
 

@@ -10,10 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "AArch64Subtarget.h"
 
-#include "AArch64.h"
-#include "AArch64InstrInfo.h"
 #include "AArch64PBQPRegAlloc.h"
 #include "AArch64TargetMachine.h"
 #include "GISel/AArch64CallLowering.h"
@@ -23,7 +20,6 @@
 #include "llvm/CodeGen/GlobalISel/InstructionSelect.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineScheduler.h"
-#include "llvm/IR/GlobalValue.h"
 #include "llvm/Support/SipHash.h"
 #include "llvm/TargetParser/AArch64TargetParser.h"
 

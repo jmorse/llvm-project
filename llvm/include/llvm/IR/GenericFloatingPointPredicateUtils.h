@@ -16,9 +16,7 @@
 #define LLVM_ADT_GENERICFLOATINGPOINTPREDICATEUTILS_H
 
 #include "llvm/ADT/APFloat.h"
-#include "llvm/ADT/FloatingPointMode.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/Support/Compiler.h"
 #include <optional>
 
 namespace llvm {

@@ -16,7 +16,6 @@
 #define LLVM_CLANG_BASIC_ASTSOURCEDESCRIPTOR_H
 
 #include "clang/Basic/Module.h"
-#include "llvm/ADT/StringRef.h"
 #include <string>
 #include <utility>
 

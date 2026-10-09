@@ -9,16 +9,12 @@
 #ifndef LLVM_ANALYSIS_TARGETLIBRARYINFO_H
 #define LLVM_ANALYSIS_TARGETLIBRARYINFO_H
 
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringTable.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/SystemLibraries.h"
 #include "llvm/Pass.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/TargetParser/Triple.h"
 #include <bitset>
 #include <optional>
 

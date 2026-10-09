@@ -10,23 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "SPIRVUtils.h"
-#include "MCTargetDesc/SPIRVBaseInfo.h"
 #include "SPIRV.h"
 #include "SPIRVBuiltins.h"
-#include "SPIRVGlobalRegistry.h"
-#include "SPIRVInstrInfo.h"
 #include "SPIRVSubtarget.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
-#include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/Demangle/Demangle.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/IntrinsicsSPIRV.h"
-#include "llvm/Support/MathExtras.h"
 #include "llvm/TargetParser/AtomicScope.h"
 #include <queue>
 #include <vector>

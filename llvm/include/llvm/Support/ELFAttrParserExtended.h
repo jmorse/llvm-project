@@ -9,12 +9,9 @@
 #ifndef LLVM_SUPPORT_ELFEXTENDEDATTRPARSER_H
 #define LLVM_SUPPORT_ELFEXTENDEDATTRPARSER_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/DataExtractor.h"
 #include "llvm/Support/ELFAttributeParser.h"
 #include "llvm/Support/ELFAttributes.h"
-#include "llvm/Support/Error.h"
 #include <optional>
 #include <vector>
 

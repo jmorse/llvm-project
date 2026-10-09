@@ -6,18 +6,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Descriptor.h"
 #include "Boolean.h"
 #include "Char.h"
 #include "FixedPoint.h"
 #include "Floating.h"
-#include "Integral.h"
 #include "IntegralAP.h"
 #include "MemberPointer.h"
-#include "Pointer.h"
-#include "PrimType.h"
 #include "Record.h"
-#include "Source.h"
 #include "clang/AST/ExprCXX.h"
 
 using namespace clang;

@@ -12,32 +12,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "AArch64RegisterBankInfo.h"
-#include "AArch64RegisterInfo.h"
 #include "AArch64Subtarget.h"
 #include "MCTargetDesc/AArch64AddressingModes.h"
-#include "MCTargetDesc/AArch64MCTargetDesc.h"
-#include "llvm/ADT/APInt.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
 #include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
 #include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
-#include "llvm/CodeGen/GlobalISel/Utils.h"
-#include "llvm/CodeGen/LowLevelTypeUtils.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/MachineSizeOpts.h"
-#include "llvm/CodeGen/RegisterBank.h"
-#include "llvm/CodeGen/RegisterBankInfo.h"
-#include "llvm/CodeGen/TargetOpcodes.h"
-#include "llvm/CodeGen/TargetRegisterInfo.h"
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
-#include "llvm/IR/Constants.h"
 #include "llvm/IR/IntrinsicsAArch64.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/Threading.h"
 #include <cassert>
 
 #define GET_TARGET_REGBANK_IMPL

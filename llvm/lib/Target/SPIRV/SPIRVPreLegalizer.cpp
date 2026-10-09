@@ -14,19 +14,10 @@
 
 #include "SPIRV.h"
 #include "SPIRVSubtarget.h"
-#include "SPIRVUtils.h"
-#include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/CodeGen/GlobalISel/CSEInfo.h"
 #include "llvm/CodeGen/GlobalISel/GISelValueTracking.h"
 #include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
-#include "llvm/CodeGen/MachineFunctionAnalysisManager.h"
-#include "llvm/CodeGen/MachinePassManager.h"
-#include "llvm/IR/Analysis.h"
-#include "llvm/IR/Attributes.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/IntrinsicsSPIRV.h"
-#include "llvm/Support/MathExtras.h"
 
 #define DEBUG_TYPE "spirv-prelegalizer"
 

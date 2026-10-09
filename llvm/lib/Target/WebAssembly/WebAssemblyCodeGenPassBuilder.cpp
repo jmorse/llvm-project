@@ -6,7 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "WebAssembly.h"
 #include "WebAssemblyAsmPrinter.h"
 #include "WebAssemblyExceptionInfo.h"
 #include "WebAssemblyTargetMachine.h"
@@ -28,13 +27,8 @@
 #include "llvm/CodeGen/ShrinkWrap.h"
 #include "llvm/CodeGen/UnreachableBlockElim.h"
 #include "llvm/CodeGen/WasmEHPrepare.h"
-#include "llvm/IR/PassInstrumentation.h"
-#include "llvm/MC/MCStreamer.h"
 #include "llvm/Passes/CodeGenPassBuilder.h"
 #include "llvm/Passes/PassBuilder.h"
-#include "llvm/Support/CodeGen.h"
-#include "llvm/Support/Error.h"
-#include "llvm/Target/CGPassBuilderOption.h"
 #include "llvm/Transforms/Utils/LowerGlobalDtors.h"
 #include "llvm/Transforms/Utils/LowerInvoke.h"
 

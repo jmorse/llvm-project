@@ -13,10 +13,7 @@
 #ifndef LLVM_CODEGEN_MACHINEIDFSSAUPDATER_H
 #define LLVM_CODEGEN_MACHINEIDFSSAUPDATER_H
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/Register.h"
 
 namespace llvm {
 

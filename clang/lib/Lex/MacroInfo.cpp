@@ -10,16 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Lex/MacroInfo.h"
-#include "clang/Basic/IdentifierTable.h"
-#include "clang/Basic/LLVM.h"
-#include "clang/Basic/SourceLocation.h"
-#include "clang/Basic/SourceManager.h"
-#include "clang/Basic/TokenKinds.h"
 #include "clang/Lex/Preprocessor.h"
-#include "clang/Lex/Token.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/raw_ostream.h"
 #include <cassert>
 #include <optional>
 

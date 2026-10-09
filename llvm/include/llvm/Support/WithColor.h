@@ -9,7 +9,6 @@
 #ifndef LLVM_SUPPORT_WITHCOLOR_H
 #define LLVM_SUPPORT_WITHCOLOR_H
 
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/raw_ostream.h"
 
 namespace llvm {

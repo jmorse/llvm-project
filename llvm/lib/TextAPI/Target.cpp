@@ -8,8 +8,6 @@
 
 #include "llvm/TextAPI/Target.h"
 #include "llvm/ADT/StringSwitch.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/Support/raw_ostream.h"
 
 namespace llvm {
 namespace MachO {

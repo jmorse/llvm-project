@@ -16,13 +16,7 @@
 #ifndef LLVM_CODEGEN_VIRTREGMAP_H
 #define LLVM_CODEGEN_VIRTREGMAP_H
 
-#include "llvm/ADT/IndexedMap.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/CodeGen/TileShapeInfo.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/Compiler.h"
 #include <cassert>
 
 namespace llvm {

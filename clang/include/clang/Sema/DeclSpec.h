@@ -22,20 +22,10 @@
 #ifndef LLVM_CLANG_SEMA_DECLSPEC_H
 #define LLVM_CLANG_SEMA_DECLSPEC_H
 
-#include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjCCommon.h"
 #include "clang/AST/NestedNameSpecifier.h"
-#include "clang/Basic/ExceptionSpecificationType.h"
-#include "clang/Basic/Lambda.h"
-#include "clang/Basic/OperatorKinds.h"
-#include "clang/Basic/Specifiers.h"
 #include "clang/Lex/Token.h"
-#include "clang/Sema/Ownership.h"
 #include "clang/Sema/ParsedAttr.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <optional>
 
 namespace clang {

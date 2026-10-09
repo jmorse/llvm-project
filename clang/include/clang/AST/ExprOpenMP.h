@@ -13,7 +13,6 @@
 #ifndef LLVM_CLANG_AST_EXPROPENMP_H
 #define LLVM_CLANG_AST_EXPROPENMP_H
 
-#include "clang/AST/ComputeDependence.h"
 #include "clang/AST/Expr.h"
 
 namespace clang {

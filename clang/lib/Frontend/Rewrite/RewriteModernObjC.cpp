@@ -10,25 +10,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/AST.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/ParentMap.h"
-#include "clang/Basic/CharInfo.h"
-#include "clang/Basic/Diagnostic.h"
-#include "clang/Basic/IdentifierTable.h"
+#include "clang/AST/StmtVisitor.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Config/config.h"
 #include "clang/Lex/Lexer.h"
 #include "clang/Rewrite/Core/Rewriter.h"
 #include "clang/Rewrite/Frontend/ASTConsumers.h"
-#include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/SetVector.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/raw_ostream.h"
 #include <memory>
 
 #if CLANG_ENABLE_OBJC_REWRITER

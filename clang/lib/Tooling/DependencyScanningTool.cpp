@@ -7,18 +7,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Tooling/DependencyScanningTool.h"
-#include "clang/Basic/AtomicLineLogger.h"
-#include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/DiagnosticFrontend.h"
-#include "clang/DependencyScanning/DependencyScanningWorker.h"
 #include "clang/Driver/Compilation.h"
 #include "clang/Driver/Driver.h"
 #include "clang/Driver/Tool.h"
 #include "clang/Frontend/CompilerInstance.h"
-#include "clang/Frontend/Utils.h"
-#include "clang/Options/Options.h"
 #include "llvm/ADT/SmallVectorExtras.h"
-#include "llvm/ADT/iterator.h"
 #include "llvm/TargetParser/Host.h"
 #include <optional>
 

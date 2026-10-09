@@ -15,21 +15,11 @@
 #ifndef LLVM_IR_METADATA_H
 #define LLVM_IR_METADATA_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/ADT/PointerUnion.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/ilist_node.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Value.h"
-#include "llvm/Support/CBindingWrapping.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <cassert>
 #include <cstddef>
 #include <cstdint>

@@ -83,25 +83,12 @@
 //    value is obtained.
 //===----------------------------------------------------------------------===//
 
-#include "AMDGPU.h"
 #include "AMDGPUAsanInstrumentation.h"
-#include "AMDGPUMemoryUtils.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/DomTreeUpdater.h"
-#include "llvm/IR/Constants.h"
 #include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/DebugInfo.h"
-#include "llvm/IR/DebugInfoMetadata.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/MDBuilder.h"
 #include "llvm/IR/ReplaceConstant.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Instrumentation/AddressSanitizerCommon.h"
-#include "llvm/Transforms/Utils/ModuleUtils.h"
 
 #include <algorithm>
 

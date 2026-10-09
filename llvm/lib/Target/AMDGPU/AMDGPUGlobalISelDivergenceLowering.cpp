@@ -19,9 +19,6 @@
 #include "AMDGPUGlobalISelUtils.h"
 #include "SILowerI1Copies.h"
 #include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
-#include "llvm/CodeGen/MachineFunctionAnalysisManager.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachinePassManager.h"
 #include "llvm/CodeGen/MachineUniformityAnalysis.h"
 #include "llvm/InitializePasses.h"
 

@@ -17,16 +17,9 @@
 #ifndef LLVM_CODEGEN_LIVERANGEEDIT_H
 #define LLVM_CODEGEN_LIVERANGEEDIT_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SetVector.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/LiveInterval.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/SlotIndexes.h"
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include <cassert>
 
 namespace llvm {

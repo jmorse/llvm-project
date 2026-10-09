@@ -15,7 +15,6 @@
 #include "llvm/BinaryFormat/ELF.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCStreamer.h"
-#include "llvm/TargetParser/Triple.h"
 using namespace llvm;
 
 void RISCVMCAsmInfo::anchor() {}

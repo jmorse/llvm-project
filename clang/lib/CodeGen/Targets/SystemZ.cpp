@@ -8,7 +8,6 @@
 
 #include "ABIInfoImpl.h"
 #include "TargetInfo.h"
-#include "clang/Basic/Builtins.h"
 #include "llvm/IR/IntrinsicsS390.h"
 
 using namespace clang;

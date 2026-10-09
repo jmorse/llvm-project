@@ -14,16 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "WebAssembly.h"
-#include "WebAssemblyUtilities.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/MachineBlockFrequencyInfo.h"
-#include "llvm/CodeGen/MachineFunctionAnalysisManager.h"
-#include "llvm/CodeGen/MachinePassManager.h"
-#include "llvm/CodeGen/Passes.h"
-#include "llvm/IR/Analysis.h"
-#include "llvm/MC/MCInstrDesc.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "wasm-clean-code-after-trap"

@@ -60,10 +60,8 @@
 #ifndef LLVM_CODEGEN_MODULOSCHEDULE_H
 #define LLVM_CODEGEN_MODULOSCHEDULE_H
 
-#include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineLoopUtils.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include <deque>
 #include <map>
 #include <vector>

@@ -14,10 +14,6 @@
 #include <utility>
 
 #include "clang/Analysis/FlowSensitive/DebugSupport.h"
-#include "clang/Analysis/FlowSensitive/Solver.h"
-#include "clang/Analysis/FlowSensitive/Value.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/ErrorHandling.h"
 
 namespace clang {
 namespace dataflow {

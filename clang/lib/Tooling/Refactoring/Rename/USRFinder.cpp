@@ -12,10 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Tooling/Refactoring/Rename/USRFinder.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Basic/SourceManager.h"
-#include "clang/Lex/Lexer.h"
 #include "clang/Tooling/Refactoring/RecursiveSymbolVisitor.h"
 #include "clang/UnifiedSymbolResolution/USRGeneration.h"
 

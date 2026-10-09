@@ -7,17 +7,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "HIPAMD.h"
-#include "AMDGPU.h"
 #include "HIPUtility.h"
 #include "SPIRV.h"
-#include "clang/Basic/Cuda.h"
 #include "clang/Driver/CommonArgs.h"
 #include "clang/Driver/Compilation.h"
-#include "clang/Driver/Driver.h"
-#include "clang/Driver/InputInfo.h"
 #include "clang/Driver/SanitizerArgs.h"
-#include "clang/Options/Options.h"
-#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/TargetParser/TargetParser.h"
 

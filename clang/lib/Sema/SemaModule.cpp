@@ -14,12 +14,9 @@
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTMutationListener.h"
 #include "clang/AST/DynamicRecursiveASTVisitor.h"
-#include "clang/Lex/HeaderSearch.h"
 #include "clang/Lex/Preprocessor.h"
-#include "clang/Sema/ParsedAttr.h"
 #include "clang/Sema/SemaInternal.h"
 #include "llvm/ADT/ScopeExit.h"
-#include "llvm/ADT/StringExtras.h"
 
 using namespace clang;
 using namespace sema;

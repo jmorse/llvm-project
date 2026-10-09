@@ -23,11 +23,9 @@
 #ifndef LLVM_SUPPORT_LSP_PROTOCOL_H
 #define LLVM_SUPPORT_LSP_PROTOCOL_H
 
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/JSON.h"
 #include "llvm/Support/LogicalResult.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/raw_ostream.h"
 #include <bitset>
 #include <optional>
 #include <string>

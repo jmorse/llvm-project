@@ -11,10 +11,7 @@
 #ifndef LLVM_CODEGEN_VLIWMACHINESCHEDULER_H
 #define LLVM_CODEGEN_VLIWMACHINESCHEDULER_H
 
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/Twine.h"
 #include "llvm/CodeGen/MachineScheduler.h"
-#include "llvm/CodeGen/TargetSchedule.h"
 #include <limits>
 #include <memory>
 #include <utility>

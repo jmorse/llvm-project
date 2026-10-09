@@ -13,13 +13,8 @@
 
 #include "SPIRV.h"
 #include "SPIRVTargetMachine.h"
-#include "SPIRVUtils.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/InstVisitor.h"
-#include "llvm/Pass.h"
 
 #define DEBUG_TYPE "spirv-legalize-zero-size-arrays"
 

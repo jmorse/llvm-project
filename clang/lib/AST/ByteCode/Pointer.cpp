@@ -6,19 +6,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Pointer.h"
 #include "Boolean.h"
 #include "Char.h"
 #include "Context.h"
 #include "Floating.h"
-#include "Function.h"
-#include "InitMap.h"
-#include "Integral.h"
-#include "InterpBlock.h"
-#include "MemberPointer.h"
-#include "PrimType.h"
 #include "Record.h"
-#include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/RecordLayout.h"
 

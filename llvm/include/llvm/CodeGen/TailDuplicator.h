@@ -14,9 +14,6 @@
 #ifndef LLVM_CODEGEN_TAILDUPLICATOR_H
 #define LLVM_CODEGEN_TAILDUPLICATOR_H
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
 #include <utility>
 #include <vector>

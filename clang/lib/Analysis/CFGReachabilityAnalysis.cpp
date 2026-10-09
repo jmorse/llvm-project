@@ -14,7 +14,6 @@
 
 #include "clang/Analysis/Analyses/CFGReachabilityAnalysis.h"
 #include "clang/Analysis/CFG.h"
-#include "llvm/ADT/BitVector.h"
 
 using namespace clang;
 

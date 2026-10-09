@@ -16,7 +16,6 @@
 #ifndef LLVM_SUPPORT_MEMALLOC_H
 #define LLVM_SUPPORT_MEMALLOC_H
 
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/ErrorHandling.h"
 #include <cstdlib>
 

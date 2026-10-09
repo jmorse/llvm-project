@@ -14,18 +14,9 @@
 #include "HTMLDiagnostics.h"
 #include "clang/Analysis/IssueHash.h"
 #include "clang/Analysis/MacroExpansionContext.h"
-#include "clang/Analysis/PathDiagnostic.h"
 #include "clang/Basic/Sarif.h"
-#include "clang/Basic/SourceManager.h"
-#include "clang/Basic/Version.h"
 #include "clang/Frontend/DiagnosticRenderer.h"
-#include "clang/Lex/Lexer.h"
-#include "clang/Lex/Preprocessor.h"
-#include "clang/StaticAnalyzer/Core/PathDiagnosticConsumers.h"
-#include "llvm/ADT/StringMap.h"
-#include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/JSON.h"
 #include "llvm/Support/Path.h"
 #include <memory>
 

@@ -9,7 +9,6 @@
 #include "llvm/DebugInfo/PDB/Native/NativeTypePointer.h"
 #include "llvm/DebugInfo/PDB/Native/NativeSession.h"
 
-#include "llvm/DebugInfo/CodeView/CodeView.h"
 
 #include <cassert>
 

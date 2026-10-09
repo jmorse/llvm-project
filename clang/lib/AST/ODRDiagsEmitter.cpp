@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/AST/ODRDiagsEmitter.h"
-#include "clang/AST/DeclFriend.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/ODRHash.h"
 #include "clang/Basic/DiagnosticAST.h"

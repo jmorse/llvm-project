@@ -24,7 +24,6 @@
 #include "llvm/MC/MCExpr.h"
 #include "llvm/Support/AMDGPUMetadata.h"
 #include "llvm/Support/EndianStream.h"
-#include "llvm/Support/VersionTuple.h"
 
 using namespace llvm;
 using namespace llvm::AMDGPU;

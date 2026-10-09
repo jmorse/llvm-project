@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "AVRSubtarget.h"
 
 #include "llvm/BinaryFormat/ELF.h"
 #include "llvm/MC/TargetRegistry.h"

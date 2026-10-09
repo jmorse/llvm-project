@@ -11,17 +11,9 @@
 #ifndef LLVM_ANALYSIS_REGIONINFOIMPL_H
 #define LLVM_ANALYSIS_REGIONINFOIMPL_H
 
-#include "llvm/ADT/GraphTraits.h"
-#include "llvm/ADT/PostOrderIterator.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/PostDominators.h"
-#include "llvm/Analysis/RegionInfo.h"
 #include "llvm/Analysis/RegionIterator.h"
-#include "llvm/Config/llvm-config.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <algorithm>
 #include <cassert>
 #include <iterator>

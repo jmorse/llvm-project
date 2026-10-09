@@ -13,7 +13,6 @@
 
 #include "CGDebugInfo.h"
 #include "CodeGenFunction.h"
-#include "CodeGenModule.h"
 #include "clang/AST/NonTrivialTypeVisitor.h"
 #include "clang/CodeGen/CodeGenABITypes.h"
 #include "llvm/Support/ScopedPrinter.h"

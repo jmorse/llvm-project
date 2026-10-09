@@ -7,9 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/ScalableStaticAnalysis/Core/TUSummary/TUSummaryBuilder.h"
-#include "clang/ScalableStaticAnalysis/Core/Model/EntityId.h"
-#include "clang/ScalableStaticAnalysis/Core/Model/EntityLinkage.h"
-#include "clang/ScalableStaticAnalysis/Core/TUSummary/EntitySummary.h"
 #include "clang/ScalableStaticAnalysis/Core/TUSummary/TUSummary.h"
 #include <memory>
 #include <utility>

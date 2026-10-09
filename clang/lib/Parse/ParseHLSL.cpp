@@ -10,10 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/Attr.h"
-#include "clang/Basic/AttributeCommonInfo.h"
-#include "clang/Basic/DiagnosticParse.h"
-#include "clang/Parse/Parser.h"
 #include "clang/Parse/RAIIObjectsForParser.h"
 #include "clang/Sema/SemaHLSL.h"
 

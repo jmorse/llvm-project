@@ -11,20 +11,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Basic/Builtins.h"
-#include "clang/Basic/TargetInfo.h"
 #include "clang/Frontend/ASTUnit.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
-#include "clang/Lex/Preprocessor.h"
-#include "clang/Lex/PreprocessorOptions.h"
 #include "clang/Parse/ParseAST.h"
 #include "clang/Sema/MultiplexExternalSemaSource.h"
 #include "clang/Serialization/ASTReader.h"
-#include "clang/Serialization/ASTWriter.h"
 #include "clang/Serialization/InMemoryModuleCache.h"
 #include "clang/Serialization/ModuleCache.h"
-#include "llvm/Support/MemoryBuffer.h"
 
 using namespace clang;
 

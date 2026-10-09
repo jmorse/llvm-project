@@ -11,11 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "LoongArchISelDAGToDAG.h"
-#include "LoongArchISelLowering.h"
-#include "MCTargetDesc/LoongArchMCTargetDesc.h"
 #include "MCTargetDesc/LoongArchMatInt.h"
 #include "llvm/Support/KnownBits.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 

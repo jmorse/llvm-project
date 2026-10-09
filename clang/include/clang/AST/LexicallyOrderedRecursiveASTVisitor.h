@@ -15,7 +15,6 @@
 #define LLVM_CLANG_AST_LEXICALLYORDEREDRECURSIVEASTVISITOR_H
 
 #include "clang/AST/RecursiveASTVisitor.h"
-#include "clang/Basic/LLVM.h"
 #include "clang/Basic/SourceManager.h"
 #include "llvm/Support/SaveAndRestore.h"
 

@@ -12,15 +12,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/AST/ASTMutationListener.h"
-#include "clang/AST/DeclObjC.h"
-#include "clang/AST/ExprCXX.h"
 #include "clang/AST/ExprObjC.h"
-#include "clang/Basic/SourceManager.h"
-#include "clang/Lex/Lexer.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Sema/Initialization.h"
 #include "clang/Sema/SemaObjC.h"
-#include "llvm/ADT/DenseSet.h"
 
 using namespace clang;
 

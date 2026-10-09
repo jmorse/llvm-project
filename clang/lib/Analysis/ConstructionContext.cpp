@@ -14,7 +14,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Analysis/ConstructionContext.h"
-#include "clang/AST/ExprObjC.h"
 
 using namespace clang;
 

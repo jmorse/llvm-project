@@ -17,14 +17,9 @@
 
 #include "AMDGPUResourceUsageAnalysis.h"
 #include "AMDGPU.h"
-#include "AMDGPUTargetMachine.h"
-#include "GCNSubtarget.h"
 #include "SIMachineFunctionInfo.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
-#include "llvm/CodeGen/TargetPassConfig.h"
-#include "llvm/IR/GlobalValue.h"
-#include "llvm/Target/TargetMachine.h"
 
 using namespace llvm;
 using namespace llvm::AMDGPU;

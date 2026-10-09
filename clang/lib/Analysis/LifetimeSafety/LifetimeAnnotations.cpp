@@ -6,18 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 #include "clang/Analysis/Analyses/LifetimeSafety/LifetimeAnnotations.h"
-#include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/DeclTemplate.h"
-#include "clang/AST/Expr.h"
-#include "clang/AST/ExprCXX.h"
-#include "clang/AST/Type.h"
-#include "clang/AST/TypeLoc.h"
 #include "clang/Analysis/AnyCall.h"
-#include "clang/Basic/OperatorKinds.h"
-#include "llvm/ADT/StringSet.h"
 
 namespace clang::lifetimes {
 

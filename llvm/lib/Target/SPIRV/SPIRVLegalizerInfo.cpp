@@ -12,18 +12,10 @@
 
 #include "SPIRVLegalizerInfo.h"
 #include "SPIRV.h"
-#include "SPIRVGlobalRegistry.h"
 #include "SPIRVSubtarget.h"
-#include "SPIRVUtils.h"
 #include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
 #include "llvm/CodeGen/GlobalISel/LegalizerHelper.h"
-#include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/TargetOpcodes.h"
 #include "llvm/IR/IntrinsicsSPIRV.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/MathExtras.h"
 
 using namespace llvm;
 using namespace llvm::LegalizeActions;

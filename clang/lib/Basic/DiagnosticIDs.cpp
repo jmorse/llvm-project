@@ -10,16 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Basic/DiagnosticIDs.h"
 #include "clang/Basic/AllDiagnostics.h"
-#include "clang/Basic/DiagnosticCategories.h"
 #include "clang/Basic/LangOptions.h"
 #include "clang/Basic/SourceManager.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringTable.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <map>
 #include <optional>
 using namespace clang;

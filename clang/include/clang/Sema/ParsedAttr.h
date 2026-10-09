@@ -14,16 +14,8 @@
 #ifndef LLVM_CLANG_SEMA_PARSEDATTR_H
 #define LLVM_CLANG_SEMA_PARSEDATTR_H
 
-#include "clang/Basic/AttrSubjectMatchRules.h"
-#include "clang/Basic/AttributeCommonInfo.h"
-#include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/ParsedAttrInfo.h"
-#include "clang/Basic/SourceLocation.h"
 #include "clang/Sema/Ownership.h"
-#include "llvm/ADT/PointerUnion.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Support/Allocator.h"
-#include "llvm/Support/VersionTuple.h"
 #include <bitset>
 #include <cassert>
 #include <cstddef>

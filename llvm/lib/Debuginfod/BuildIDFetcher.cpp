@@ -15,7 +15,6 @@
 #include "llvm/Debuginfod/BuildIDFetcher.h"
 
 #include "llvm/Debuginfod/Debuginfod.h"
-#include "llvm/Support/Error.h"
 
 using namespace llvm;
 

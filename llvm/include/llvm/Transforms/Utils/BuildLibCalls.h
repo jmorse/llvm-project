@@ -15,7 +15,6 @@
 #define LLVM_TRANSFORMS_UTILS_BUILDLIBCALLS_H
 
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
   class Value;

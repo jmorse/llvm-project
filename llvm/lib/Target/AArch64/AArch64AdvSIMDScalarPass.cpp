@@ -32,18 +32,8 @@
 // solution.
 //===----------------------------------------------------------------------===//
 
-#include "AArch64.h"
 #include "AArch64InstrInfo.h"
-#include "AArch64RegisterInfo.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "aarch64-simd-scalar"

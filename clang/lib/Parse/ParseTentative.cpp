@@ -11,9 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Parse/Parser.h"
 #include "clang/Parse/RAIIObjectsForParser.h"
-#include "clang/Sema/ParsedTemplate.h"
 using namespace clang;
 
 bool Parser::isCXXDeclarationStatement(

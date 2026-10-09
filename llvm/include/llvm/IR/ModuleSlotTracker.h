@@ -10,8 +10,6 @@
 #define LLVM_IR_MODULESLOTTRACKER_H
 
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Support/Compiler.h"
 #include <functional>
 #include <memory>
 #include <utility>

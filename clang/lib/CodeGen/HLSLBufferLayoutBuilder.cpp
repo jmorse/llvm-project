@@ -8,9 +8,7 @@
 
 #include "HLSLBufferLayoutBuilder.h"
 #include "CGHLSLRuntime.h"
-#include "CodeGenModule.h"
 #include "TargetInfo.h"
-#include "clang/AST/Type.h"
 #include <climits>
 
 //===----------------------------------------------------------------------===//

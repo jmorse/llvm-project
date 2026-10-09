@@ -13,9 +13,6 @@
 #define LLVM_CLANG_SEMA_MULTIPLEXEXTERNALSEMASOURCE_H
 
 #include "clang/Sema/ExternalSemaSource.h"
-#include "clang/Sema/Weak.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
 #include <utility>
 
 namespace clang {

@@ -9,8 +9,6 @@
 #include "AVRTargetObjectFile.h"
 #include "AVRTargetMachine.h"
 
-#include "llvm/BinaryFormat/ELF.h"
-#include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/Mangler.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCSectionELF.h"

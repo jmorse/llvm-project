@@ -11,9 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/TimeProfiler.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/STLFunctionalExtras.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Support/JSON.h"
 #include "llvm/Support/Path.h"

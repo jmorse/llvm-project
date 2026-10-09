@@ -8,9 +8,7 @@
 
 #include "llvm/TableGen/Parser.h"
 #include "TGParser.h"
-#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/VirtualFileSystem.h"
-#include "llvm/TableGen/Record.h"
 
 using namespace llvm;
 

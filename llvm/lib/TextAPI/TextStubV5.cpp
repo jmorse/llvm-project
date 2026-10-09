@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 #include "TextStubCommon.h"
-#include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/JSON.h"
 #include <optional>
 #include <utility>

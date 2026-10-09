@@ -9,7 +9,6 @@
 #include "MCTargetDesc/SPIRVMCTargetDesc.h"
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCAssembler.h"
-#include "llvm/MC/MCObjectWriter.h"
 #include "llvm/MC/MCSPIRVObjectWriter.h"
 
 using namespace llvm;

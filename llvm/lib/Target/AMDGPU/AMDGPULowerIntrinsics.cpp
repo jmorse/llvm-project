@@ -13,8 +13,6 @@
 
 #include "AMDGPU.h"
 #include "AMDGPUTargetMachine.h"
-#include "GCNSubtarget.h"
-#include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/IntrinsicsAMDGPU.h"

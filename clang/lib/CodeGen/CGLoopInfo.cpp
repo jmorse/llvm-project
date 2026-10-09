@@ -9,14 +9,9 @@
 #include "CGLoopInfo.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
-#include "clang/AST/Expr.h"
 #include "clang/Basic/CodeGenOptions.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Metadata.h"
 #include <optional>
 using namespace clang::CodeGen;
 using namespace llvm;

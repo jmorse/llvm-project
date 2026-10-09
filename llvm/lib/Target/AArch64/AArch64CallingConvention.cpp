@@ -12,11 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "AArch64CallingConvention.h"
-#include "AArch64.h"
-#include "AArch64InstrInfo.h"
 #include "AArch64Subtarget.h"
-#include "llvm/CodeGen/CallingConvLower.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
 using namespace llvm;
 
 static const MCPhysReg XRegList[] = {AArch64::X0, AArch64::X1, AArch64::X2,

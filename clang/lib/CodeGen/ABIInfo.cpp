@@ -6,7 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "ABIInfo.h"
 #include "ABIInfoImpl.h"
 
 using namespace clang;

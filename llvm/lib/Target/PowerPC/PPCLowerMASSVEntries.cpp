@@ -13,13 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "PPC.h"
-#include "PPCSubtarget.h"
 #include "PPCTargetMachine.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 
 #define DEBUG_TYPE "ppc-lower-massv-entries"

@@ -11,7 +11,6 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "WebAssemblySelectionDAGInfo.h"
 #include "WebAssemblyTargetMachine.h"
 
 #define GET_SDNODE_DESC

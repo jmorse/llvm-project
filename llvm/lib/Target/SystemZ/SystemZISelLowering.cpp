@@ -10,23 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "SystemZISelLowering.h"
 #include "SystemZCallingConv.h"
 #include "SystemZConstantPoolValue.h"
-#include "SystemZMachineFunctionInfo.h"
 #include "llvm/ADT/SmallSet.h"
-#include "llvm/CodeGen/CallingConvLower.h"
-#include "llvm/CodeGen/ISDOpcodes.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
-#include "llvm/IR/GlobalAlias.h"
-#include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicsS390.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PatternMatch.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/KnownBits.h"
 #include "llvm/Target/TargetMachine.h"
 #include <cctype>

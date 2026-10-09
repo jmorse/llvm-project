@@ -11,19 +11,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "LoongArch.h"
-#include "LoongArchInstrInfo.h"
 #include "LoongArchMachineFunctionInfo.h"
-#include "MCTargetDesc/LoongArchBaseInfo.h"
-#include "MCTargetDesc/LoongArchMCTargetDesc.h"
 #include "llvm/CodeGen/LivePhysRegs.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/CodeGen/Register.h"
 #include "llvm/MC/MCContext.h"
-#include "llvm/Support/CodeGen.h"
-#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 

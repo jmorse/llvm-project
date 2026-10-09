@@ -12,9 +12,6 @@
 
 #include "NVPTX.h"
 #include "llvm/CodeGen/StackProtector.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Instructions.h"
 using namespace llvm;
 
 static bool hoistAllocas(Function &function) {

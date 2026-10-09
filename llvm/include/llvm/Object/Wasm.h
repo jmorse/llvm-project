@@ -16,16 +16,8 @@
 #ifndef LLVM_OBJECT_WASM_H
 #define LLVM_OBJECT_WASM_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/BinaryFormat/Wasm.h"
-#include "llvm/Config/llvm-config.h"
 #include "llvm/MC/MCSymbolWasm.h"
-#include "llvm/Object/Binary.h"
 #include "llvm/Object/ObjectFile.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/Error.h"
-#include "llvm/Support/MemoryBuffer.h"
 #include <cstddef>
 #include <cstdint>
 #include <vector>

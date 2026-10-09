@@ -13,18 +13,12 @@
 
 #include "AMDGPU.h"
 #include "AMDGPUTargetMachine.h"
-#include "GCNSubtarget.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/UniformityAnalysis.h"
 #include "llvm/CodeGen/MachineDominators.h"
-#include "llvm/CodeGen/TargetPassConfig.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/IntrinsicsAMDGPU.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
 

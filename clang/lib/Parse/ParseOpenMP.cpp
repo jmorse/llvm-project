@@ -10,24 +10,11 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/OpenMPClause.h"
-#include "clang/Basic/DiagnosticParse.h"
-#include "clang/Basic/OpenMPKinds.h"
 #include "clang/Basic/TargetInfo.h"
-#include "clang/Basic/TokenKinds.h"
-#include "clang/Parse/Parser.h"
 #include "clang/Parse/RAIIObjectsForParser.h"
 #include "clang/Sema/EnterExpressionEvaluationContext.h"
-#include "clang/Sema/Scope.h"
 #include "clang/Sema/SemaAMDGPU.h"
-#include "clang/Sema/SemaCodeCompletion.h"
-#include "clang/Sema/SemaOpenMP.h"
-#include "llvm/ADT/SmallBitVector.h"
-#include "llvm/ADT/StringSwitch.h"
 #include "llvm/Frontend/OpenMP/DirectiveNameParser.h"
-#include "llvm/Frontend/OpenMP/OMPAssume.h"
-#include "llvm/Frontend/OpenMP/OMPContext.h"
 #include <climits>
 #include <optional>
 

@@ -14,11 +14,9 @@
 #ifndef LLVM_OBJECT_BBADDRMAP_H
 #define LLVM_OBJECT_BBADDRMAP_H
 
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/BlockFrequency.h"
 #include "llvm/Support/BranchProbability.h"
 #include "llvm/Support/DataExtractor.h"
-#include "llvm/Support/Error.h"
 #include "llvm/Support/UniqueBBID.h"
 
 namespace llvm {

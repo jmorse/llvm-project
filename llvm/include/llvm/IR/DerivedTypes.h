@@ -17,13 +17,7 @@
 #ifndef LLVM_IR_DERIVEDTYPES_H
 #define LLVM_IR_DERIVEDTYPES_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Type.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/TypeSize.h"
 #include <cassert>
 #include <cstdint>
 

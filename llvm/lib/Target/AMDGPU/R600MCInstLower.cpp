@@ -16,9 +16,7 @@
 #include "MCTargetDesc/R600MCTargetDesc.h"
 #include "R600AsmPrinter.h"
 #include "R600Subtarget.h"
-#include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/MC/MCContext.h"
-#include "llvm/MC/MCExpr.h"
 
 using namespace llvm;
 

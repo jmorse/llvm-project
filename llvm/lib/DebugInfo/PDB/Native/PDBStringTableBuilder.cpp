@@ -8,11 +8,9 @@
 
 #include "llvm/DebugInfo/PDB/Native/PDBStringTableBuilder.h"
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/DebugInfo/PDB/Native/Hash.h"
 #include "llvm/DebugInfo/PDB/Native/RawTypes.h"
 #include "llvm/Support/BinaryStreamWriter.h"
-#include "llvm/Support/Endian.h"
 #include "llvm/Support/TimeProfiler.h"
 
 using namespace llvm;

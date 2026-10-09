@@ -12,14 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 #include "MCTargetDesc/NVPTXBaseInfo.h"
-#include "NVPTX.h"
 #include "NVPTXMachineFunctionInfo.h"
-#include "NVPTXSubtarget.h"
 #include "NVPTXTargetMachine.h"
-#include "llvm/ADT/DenseSet.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 
 using namespace llvm;
 

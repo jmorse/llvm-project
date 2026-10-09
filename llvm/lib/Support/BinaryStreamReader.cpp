@@ -8,8 +8,6 @@
 
 #include "llvm/Support/BinaryStreamReader.h"
 
-#include "llvm/Support/BinaryStreamError.h"
-#include "llvm/Support/BinaryStreamRef.h"
 #include "llvm/Support/LEB128.h"
 
 using namespace llvm;

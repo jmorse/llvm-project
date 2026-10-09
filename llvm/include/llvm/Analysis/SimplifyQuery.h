@@ -11,7 +11,6 @@
 
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/Operator.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

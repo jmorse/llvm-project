@@ -31,14 +31,9 @@
 #ifndef LLVM_ANALYSIS_MEMORYSSAUPDATER_H
 #define LLVM_ANALYSIS_MEMORYSSAUPDATER_H
 
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallSet.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/MemorySSA.h"
-#include "llvm/IR/ValueHandle.h"
 #include "llvm/IR/ValueMap.h"
-#include "llvm/Support/CFGDiff.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

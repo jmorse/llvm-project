@@ -16,8 +16,6 @@
 
 #include "llvm/ADT/ilist.h"
 #include "llvm/Support/Allocator.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <cassert>
 #include <type_traits>
 

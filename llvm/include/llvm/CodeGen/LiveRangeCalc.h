@@ -23,15 +23,8 @@
 #ifndef LLVM_CODEGEN_LIVERANGECALC_H
 #define LLVM_CODEGEN_LIVERANGECALC_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/BitVector.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/IndexedMap.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/LiveInterval.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/SlotIndexes.h"
-#include "llvm/Support/Compiler.h"
 #include <utility>
 
 namespace llvm {

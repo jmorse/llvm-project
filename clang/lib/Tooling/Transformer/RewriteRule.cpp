@@ -7,14 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Tooling/Transformer/RewriteRule.h"
-#include "clang/AST/ASTTypeTraits.h"
-#include "clang/AST/Stmt.h"
-#include "clang/ASTMatchers/ASTMatchFinder.h"
-#include "clang/ASTMatchers/ASTMatchers.h"
-#include "clang/Basic/SourceLocation.h"
 #include "clang/Tooling/Transformer/SourceCode.h"
-#include "llvm/Support/Errc.h"
-#include "llvm/Support/Error.h"
 #include <map>
 #include <string>
 #include <utility>

@@ -8,7 +8,6 @@
 
 #include "MipsAnalyzeImmediate.h"
 #include "Mips.h"
-#include "llvm/Support/MathExtras.h"
 #include <cassert>
 #include <cstdint>
 #include <iterator>

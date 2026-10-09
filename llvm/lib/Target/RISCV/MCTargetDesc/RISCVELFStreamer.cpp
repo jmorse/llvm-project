@@ -13,13 +13,11 @@
 #include "RISCVELFStreamer.h"
 #include "RISCVBaseInfo.h"
 #include "RISCVMCTargetDesc.h"
-#include "llvm/BinaryFormat/ELF.h"
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCCodeEmitter.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCELFObjectWriter.h"
-#include "llvm/MC/MCSubtargetInfo.h"
 
 using namespace llvm;
 

@@ -7,17 +7,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/DebugInfo/CodeView/SymbolDumper.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/DebugInfo/CodeView/CVSymbolVisitor.h"
 #include "llvm/DebugInfo/CodeView/DebugStringTableSubsection.h"
 #include "llvm/DebugInfo/CodeView/EnumTables.h"
 #include "llvm/DebugInfo/CodeView/SymbolDeserializer.h"
-#include "llvm/DebugInfo/CodeView/SymbolDumpDelegate.h"
-#include "llvm/DebugInfo/CodeView/SymbolRecord.h"
 #include "llvm/DebugInfo/CodeView/SymbolVisitorCallbackPipeline.h"
-#include "llvm/DebugInfo/CodeView/SymbolVisitorCallbacks.h"
-#include "llvm/DebugInfo/CodeView/TypeIndex.h"
-#include "llvm/Support/Error.h"
 #include "llvm/Support/ScopedPrinter.h"
 
 using namespace llvm;

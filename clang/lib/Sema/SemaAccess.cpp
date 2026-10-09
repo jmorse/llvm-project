@@ -10,19 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/ASTContext.h"
 #include "clang/AST/CXXInheritance.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/DeclFriend.h"
-#include "clang/AST/DeclObjC.h"
 #include "clang/AST/DependentDiagnostic.h"
-#include "clang/AST/ExprCXX.h"
-#include "clang/Basic/Specifiers.h"
 #include "clang/Sema/DelayedDiagnostic.h"
 #include "clang/Sema/Initialization.h"
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/Template.h"
-#include "clang/Sema/TemplateDeduction.h"
 #include "llvm/ADT/ScopeExit.h"
 
 using namespace clang;

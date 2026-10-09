@@ -25,13 +25,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "RISCV.h"
 #include "RISCVInstrInfo.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/RegisterClassInfo.h"
-#include "llvm/Support/Debug.h"
 
 using namespace llvm;
 

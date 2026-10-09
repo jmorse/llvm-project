@@ -11,14 +11,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/ASTContext.h"
 #include "clang/Basic/DiagnosticFrontend.h"
-#include "clang/Lex/HeaderSearch.h"
 #include "clang/Lex/HeaderSearchOptions.h"
 #include "clang/Lex/Preprocessor.h"
-#include "clang/Sema/SemaConsumer.h"
 #include "clang/Serialization/ASTWriter.h"
-#include "llvm/Bitstream/BitstreamWriter.h"
 
 using namespace clang;
 

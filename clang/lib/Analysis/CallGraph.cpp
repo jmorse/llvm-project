@@ -11,22 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Analysis/CallGraph.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclBase.h"
-#include "clang/AST/DeclObjC.h"
-#include "clang/AST/Expr.h"
-#include "clang/AST/ExprObjC.h"
-#include "clang/AST/Stmt.h"
 #include "clang/AST/StmtVisitor.h"
-#include "clang/Basic/IdentifierTable.h"
-#include "clang/Basic/LLVM.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/DOTGraphTraits.h"
 #include "llvm/Support/GraphWriter.h"
-#include "llvm/Support/raw_ostream.h"
 #include <cassert>
 #include <memory>
 #include <string>

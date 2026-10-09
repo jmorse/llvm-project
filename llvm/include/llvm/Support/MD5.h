@@ -29,7 +29,6 @@
 #define LLVM_SUPPORT_MD5_H
 
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/Endian.h"
 #include <array>
 #include <cstdint>

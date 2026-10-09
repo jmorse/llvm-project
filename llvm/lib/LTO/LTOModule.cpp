@@ -12,28 +12,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/LTO/legacy/LTOModule.h"
-#include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Mangler.h"
-#include "llvm/IR/Metadata.h"
-#include "llvm/IR/Module.h"
-#include "llvm/MC/MCExpr.h"
-#include "llvm/MC/MCInst.h"
-#include "llvm/MC/MCSection.h"
-#include "llvm/MC/MCSymbol.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Object/IRObjectFile.h"
 #include "llvm/Object/MachO.h"
-#include "llvm/Object/ObjectFile.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/SourceMgr.h"
 #include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/TargetParser/Host.h"
-#include "llvm/TargetParser/SubtargetFeature.h"
-#include "llvm/TargetParser/Triple.h"
 #include "llvm/Transforms/Utils/GlobalStatus.h"
 #include <system_error>
 using namespace llvm;

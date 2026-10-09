@@ -16,10 +16,6 @@
 #include "AMDGPU.h"
 #include "GCNSubtarget.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
-#include "llvm/Target/TargetMachine.h"
 
 #define DEBUG_TYPE "amdgpu-remove-incompatible-functions"
 

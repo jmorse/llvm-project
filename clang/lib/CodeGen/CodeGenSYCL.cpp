@@ -12,10 +12,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "CodeGenFunction.h"
-#include "CodeGenModule.h"
 #include "clang/Basic/DiagnosticFrontend.h"
 #include "llvm/Frontend/Offloading/OffloadWrapper.h"
-#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/VirtualFileSystem.h"
 #include <cassert>
 

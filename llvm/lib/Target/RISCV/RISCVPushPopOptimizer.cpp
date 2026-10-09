@@ -11,9 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "RISCVInstrInfo.h"
 #include "RISCVMachineFunctionInfo.h"
-#include "llvm/CodeGen/MachineInstr.h"
 
 using namespace llvm;
 

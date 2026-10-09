@@ -15,7 +15,6 @@
 #define LLVM_OBJECT_GOFF_H
 
 #include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/BinaryFormat/GOFF.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Endian.h"

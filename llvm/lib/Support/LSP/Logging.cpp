@@ -8,7 +8,6 @@
 
 #include "llvm/Support/LSP/Logging.h"
 #include "llvm/Support/Chrono.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 using namespace llvm::lsp;

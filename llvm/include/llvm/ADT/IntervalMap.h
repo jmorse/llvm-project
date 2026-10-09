@@ -104,10 +104,6 @@
 #ifndef LLVM_ADT_INTERVALMAP_H
 #define LLVM_ADT_INTERVALMAP_H
 
-#include "llvm/ADT/PointerIntPair.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Support/Allocator.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/RecyclingAllocator.h"
 #include <algorithm>
 #include <cassert>

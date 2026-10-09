@@ -14,10 +14,6 @@
 #include "ARMLatencyMutations.h"
 #include "ARMSubtarget.h"
 #include "Thumb2InstrInfo.h"
-#include "llvm/Analysis/AliasAnalysis.h"
-#include "llvm/CodeGen/ScheduleDAG.h"
-#include "llvm/CodeGen/ScheduleDAGMutation.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
 #include <algorithm>
 #include <array>
 #include <initializer_list>

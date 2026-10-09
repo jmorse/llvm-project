@@ -16,15 +16,6 @@
 
 #include "clang/AST/CharUnits.h"
 #include "clang/AST/DeclBase.h"
-#include "clang/Basic/LLVM.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/IntrusiveRefCntPtr.h"
-#include "llvm/ADT/PointerUnion.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/iterator.h"
-#include "llvm/Support/PointerLikeTypeTraits.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>

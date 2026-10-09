@@ -12,18 +12,11 @@
 
 #include "PlistDiagnostics.h"
 #include "clang/Analysis/IssueHash.h"
-#include "clang/Analysis/MacroExpansionContext.h"
-#include "clang/Analysis/PathDiagnostic.h"
 #include "clang/Basic/PlistSupport.h"
-#include "clang/Basic/SourceManager.h"
 #include "clang/Basic/Version.h"
-#include "clang/CrossTU/CrossTranslationUnit.h"
 #include "clang/Frontend/ASTUnit.h"
-#include "clang/Lex/Preprocessor.h"
 #include "clang/Lex/TokenConcatenation.h"
 #include "clang/Rewrite/Core/HTMLRewrite.h"
-#include "clang/StaticAnalyzer/Core/PathDiagnosticConsumers.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/FileSystem.h"
 #include <memory>

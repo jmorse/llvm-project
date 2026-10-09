@@ -7,28 +7,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/ScalableStaticAnalysis/SourceTransformation/Transformations/CppBoundedBuffers.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclBase.h"
-#include "clang/AST/DeclCXX.h"
 #include "clang/AST/DynamicRecursiveASTVisitor.h"
-#include "clang/AST/Type.h"
-#include "clang/AST/TypeLoc.h"
-#include "clang/Basic/LangOptions.h"
-#include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Frontend/SSAFOptions.h"
 #include "clang/Lex/Lexer.h"
-#include "clang/ScalableStaticAnalysis/Analyses/EntityPointerLevel/EntityPointerLevel.h"
 #include "clang/ScalableStaticAnalysis/Analyses/UnsafeBufferUsage/UnsafeBufferUsageAnalysis.h"
 #include "clang/ScalableStaticAnalysis/Core/ASTEntityMapping.h"
-#include "clang/ScalableStaticAnalysis/Core/Model/EntityId.h"
-#include "clang/ScalableStaticAnalysis/Core/Model/EntityIdTable.h"
-#include "clang/ScalableStaticAnalysis/Core/Model/EntityName.h"
 #include "clang/ScalableStaticAnalysis/SourceTransformation/TransformationRegistry.h"
-#include "clang/Tooling/Core/Replacement.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
 #include <cassert>
 #include <map>
 #include <optional>

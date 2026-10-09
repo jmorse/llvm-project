@@ -6,16 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/RawCommentList.h"
 #include "clang/AST/ASTContext.h"
-#include "clang/AST/Comment.h"
 #include "clang/AST/CommentBriefParser.h"
-#include "clang/AST/CommentCommandTraits.h"
-#include "clang/AST/CommentLexer.h"
 #include "clang/AST/CommentParser.h"
-#include "clang/AST/CommentSema.h"
-#include "clang/Basic/CharInfo.h"
-#include "llvm/Support/Allocator.h"
 
 using namespace clang;
 

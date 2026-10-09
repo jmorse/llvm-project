@@ -16,18 +16,15 @@
 
 #include "clang/Basic/CFProtectionOptions.h"
 #include "clang/Basic/CommentOptions.h"
-#include "clang/Basic/LLVM.h"
 #include "clang/Basic/LangStandard.h"
 #include "clang/Basic/ObjCRuntime.h"
 #include "clang/Basic/Sanitizers.h"
 #include "clang/Basic/TargetCXXABI.h"
 #include "clang/Basic/Visibility.h"
 #include "llvm/ADT/FloatingPointMode.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/BinaryFormat/DXContainer.h"
 #include "llvm/Frontend/OpenMP/OMPVersion.h"
 #include "llvm/Support/AllocToken.h"
-#include "llvm/TargetParser/Triple.h"
 #include <optional>
 #include <string>
 #include <vector>

@@ -20,20 +20,9 @@
 #define LLVM_IR_DATALAYOUT_H
 
 #include "llvm/ADT/APInt.h"
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Type.h"
-#include "llvm/Support/Alignment.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/MathExtras.h"
 #include "llvm/Support/TrailingObjects.h"
-#include "llvm/Support/TypeSize.h"
 #include <cassert>
 #include <cstdint>
 #include <string>

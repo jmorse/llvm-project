@@ -13,8 +13,6 @@
 #include "MipsMCAsmInfo.h"
 #include "MipsABIInfo.h"
 #include "llvm/MC/MCValue.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/TargetParser/Triple.h"
 
 using namespace llvm;
 

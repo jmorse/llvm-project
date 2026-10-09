@@ -12,12 +12,6 @@
 
 #include "NVPTXUtilities.h"
 #include "NVVMProperties.h"
-#include "llvm/CodeGen/SelectionDAGNodes.h"
-#include "llvm/IR/Attributes.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/Function.h"
-#include "llvm/Support/Alignment.h"
-#include "llvm/Support/CommandLine.h"
 #include <algorithm>
 
 using namespace llvm;

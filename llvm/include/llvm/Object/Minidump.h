@@ -12,11 +12,8 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/fallible_iterator.h"
-#include "llvm/ADT/iterator.h"
 #include "llvm/BinaryFormat/Minidump.h"
 #include "llvm/Object/Binary.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/Error.h"
 
 namespace llvm {
 namespace object {

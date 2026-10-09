@@ -7,33 +7,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Analysis/Analyses/CalledOnceCheck.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/Attr.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclBase.h"
 #include "clang/AST/DynamicRecursiveASTVisitor.h"
-#include "clang/AST/Expr.h"
-#include "clang/AST/ExprObjC.h"
-#include "clang/AST/OperationKinds.h"
 #include "clang/AST/ParentMap.h"
-#include "clang/AST/Stmt.h"
-#include "clang/AST/StmtObjC.h"
 #include "clang/AST/StmtVisitor.h"
-#include "clang/AST/Type.h"
-#include "clang/Analysis/AnalysisDeclContext.h"
-#include "clang/Analysis/CFG.h"
 #include "clang/Analysis/FlowSensitive/DataflowWorklist.h"
-#include "clang/Basic/Builtins.h"
-#include "clang/Basic/IdentifierTable.h"
-#include "clang/Basic/LLVM.h"
-#include "llvm/ADT/BitVector.h"
-#include "llvm/ADT/BitmaskEnum.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/Sequence.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <memory>
 #include <optional>
 

@@ -6,7 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "ARMMachineFunctionInfo.h"
 #include "ARMSubtarget.h"
 
 using namespace llvm;

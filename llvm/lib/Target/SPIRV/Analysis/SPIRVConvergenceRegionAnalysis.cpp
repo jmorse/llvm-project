@@ -14,9 +14,6 @@
 
 #include "SPIRVConvergenceRegionAnalysis.h"
 #include "SPIRV.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/IR/Dominators.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Transforms/Utils/LoopSimplify.h"

@@ -10,7 +10,6 @@
 #define LLVM_MC_MCPARSER_MCPARSEDASMOPERAND_H
 
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/SMLoc.h"
 #include <string>
 

@@ -12,7 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/ASTMatchers/Dynamic/VariantValue.h"
-#include "clang/Basic/LLVM.h"
 #include <optional>
 
 namespace clang {

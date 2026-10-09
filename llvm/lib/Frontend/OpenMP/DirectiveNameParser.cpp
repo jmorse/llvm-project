@@ -8,8 +8,6 @@
 
 #include "llvm/Frontend/OpenMP/DirectiveNameParser.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Frontend/OpenMP/OMP.h"
 
 #include <cassert>
 #include <memory>

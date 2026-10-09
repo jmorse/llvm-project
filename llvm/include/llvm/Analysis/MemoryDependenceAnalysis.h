@@ -13,18 +13,12 @@
 #ifndef LLVM_ANALYSIS_MEMORYDEPENDENCEANALYSIS_H
 #define LLVM_ANALYSIS_MEMORYDEPENDENCEANALYSIS_H
 
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/PointerEmbeddedInt.h"
-#include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/PointerSumType.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/AliasAnalysis.h"
-#include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/Analysis/PHITransAddr.h"
-#include "llvm/IR/PassManager.h"
 #include "llvm/IR/PredIteratorCache.h"
 #include "llvm/IR/ValueHandle.h"
-#include "llvm/Pass.h"
 #include <optional>
 
 namespace llvm {

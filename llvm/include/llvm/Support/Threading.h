@@ -16,8 +16,6 @@
 
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Config/llvm-config.h" // for LLVM_ON_UNIX
-#include "llvm/Support/Compiler.h"
 #include <optional>
 
 #if defined(_MSC_VER)

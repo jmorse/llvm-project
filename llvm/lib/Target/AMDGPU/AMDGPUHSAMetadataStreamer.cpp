@@ -14,13 +14,9 @@
 
 #include "AMDGPUHSAMetadataStreamer.h"
 #include "AMDGPU.h"
-#include "GCNSubtarget.h"
 #include "MCTargetDesc/AMDGPUTargetStreamer.h"
 #include "SIMachineFunctionInfo.h"
 #include "SIProgramInfo.h"
-#include "llvm/IR/Module.h"
-#include "llvm/MC/MCContext.h"
-#include "llvm/MC/MCExpr.h"
 #include "llvm/Target/TargetLoweringObjectFile.h"
 
 using namespace llvm;

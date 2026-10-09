@@ -14,7 +14,6 @@
 #define LLVM_OBJECT_ARCHIVEWRITER_H
 
 #include "llvm/Object/Archive.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

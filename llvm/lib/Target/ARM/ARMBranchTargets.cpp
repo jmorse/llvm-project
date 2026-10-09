@@ -17,11 +17,7 @@
 #include "ARM.h"
 #include "ARMInstrInfo.h"
 #include "ARMMachineFunctionInfo.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineJumpTableInfo.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
-#include "llvm/Support/Debug.h"
 
 using namespace llvm;
 

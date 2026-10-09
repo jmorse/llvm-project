@@ -13,11 +13,9 @@
 #include "LoongArchELFStreamer.h"
 #include "LoongArchAsmBackend.h"
 #include "LoongArchBaseInfo.h"
-#include "llvm/BinaryFormat/ELF.h"
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCCodeEmitter.h"
 #include "llvm/MC/MCELFObjectWriter.h"
-#include "llvm/MC/MCSection.h"
 
 using namespace llvm;
 

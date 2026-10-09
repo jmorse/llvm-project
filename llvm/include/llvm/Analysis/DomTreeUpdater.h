@@ -17,7 +17,6 @@
 #include "llvm/Analysis/GenericDomTreeUpdater.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/ValueHandle.h"
-#include "llvm/Support/Compiler.h"
 #include <functional>
 #include <vector>
 

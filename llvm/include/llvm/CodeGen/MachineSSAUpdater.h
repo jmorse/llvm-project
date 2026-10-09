@@ -14,7 +14,6 @@
 #define LLVM_CODEGEN_MACHINESSAUPDATER_H
 
 #include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/Register.h"
 
 namespace llvm {
 

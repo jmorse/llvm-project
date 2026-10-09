@@ -16,10 +16,7 @@
 #define LLVM_CODEGEN_LIVESTACKS_H
 
 #include "llvm/CodeGen/LiveInterval.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/IR/PassManager.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/PassRegistry.h"
 #include <cassert>
 #include <map>
 #include <unordered_map>

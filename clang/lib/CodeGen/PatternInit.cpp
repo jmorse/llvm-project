@@ -8,9 +8,6 @@
 
 #include "PatternInit.h"
 #include "CodeGenModule.h"
-#include "clang/Basic/TargetInfo.h"
-#include "llvm/IR/Constant.h"
-#include "llvm/IR/Type.h"
 
 llvm::Constant *clang::CodeGen::initializationPatternFor(CodeGenModule &CGM,
                                                          llvm::Type *Ty) {

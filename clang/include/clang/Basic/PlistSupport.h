@@ -9,13 +9,7 @@
 #ifndef LLVM_CLANG_BASIC_PLISTSUPPORT_H
 #define LLVM_CLANG_BASIC_PLISTSUPPORT_H
 
-#include "clang/Basic/LLVM.h"
-#include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/SourceManager.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/raw_ostream.h"
 #include <cassert>
 #include <cstdint>
 

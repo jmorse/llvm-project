@@ -6,18 +6,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/DebugInfo/DIContext.h"
 #include "llvm/DebugInfo/DWARF/DWARFCompileUnit.h"
-#include "llvm/DebugInfo/DWARF/DWARFContext.h"
-#include "llvm/Support/Error.h"
 #include "llvm/Support/ThreadPool.h"
-#include "llvm/Support/raw_ostream.h"
 
 #include "llvm/DebugInfo/GSYM/DwarfTransformer.h"
-#include "llvm/DebugInfo/GSYM/FunctionInfo.h"
 #include "llvm/DebugInfo/GSYM/GsymCreator.h"
 #include "llvm/DebugInfo/GSYM/GsymReader.h"
-#include "llvm/DebugInfo/GSYM/InlineInfo.h"
 #include "llvm/DebugInfo/GSYM/OutputAggregator.h"
 
 #include <optional>

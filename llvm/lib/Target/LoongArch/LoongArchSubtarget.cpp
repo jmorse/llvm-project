@@ -11,9 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "LoongArchSubtarget.h"
-#include "LoongArchFrameLowering.h"
 #include "LoongArchSelectionDAGInfo.h"
-#include "MCTargetDesc/LoongArchBaseInfo.h"
 
 using namespace llvm;
 

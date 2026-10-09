@@ -16,7 +16,6 @@
 
 #include "clang/AST/Decl.h"
 #include "clang/Basic/Lambda.h"
-#include "llvm/ADT/PointerIntPair.h"
 
 namespace clang {
 

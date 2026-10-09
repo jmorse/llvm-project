@@ -10,27 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "MSP430ISelLowering.h"
-#include "MSP430.h"
 #include "MSP430MachineFunctionInfo.h"
 #include "MSP430SelectionDAGInfo.h"
-#include "MSP430Subtarget.h"
 #include "MSP430TargetMachine.h"
 #include "llvm/CodeGen/CallingConvLower.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
-#include "llvm/CodeGen/ValueTypes.h"
-#include "llvm/IR/CallingConv.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "msp430-lower"

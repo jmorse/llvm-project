@@ -14,8 +14,6 @@
 #include "AArch64MacroFusion.h"
 #include "AArch64Subtarget.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/CodeGen/MacroFusion.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
 
 #define DEBUG_TYPE "aarch64-macro-fusion"
 

@@ -12,7 +12,6 @@
 
 #include "clang/AST/StmtObjC.h"
 
-#include "clang/AST/Expr.h"
 #include "clang/AST/ASTContext.h"
 
 using namespace clang;

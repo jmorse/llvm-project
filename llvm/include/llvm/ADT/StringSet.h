@@ -14,8 +14,6 @@
 #ifndef LLVM_ADT_STRINGSET_H
 #define LLVM_ADT_STRINGSET_H
 
-#include "llvm/ADT/ADL.h"
-#include "llvm/ADT/STLForwardCompat.h"
 #include "llvm/ADT/StringMap.h"
 
 namespace llvm {

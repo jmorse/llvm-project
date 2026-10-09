@@ -12,13 +12,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Rewrite/Core/HTMLRewrite.h"
-#include "clang/Basic/SourceManager.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Lex/TokenConcatenation.h"
 #include "clang/Rewrite/Core/Rewriter.h"
-#include "llvm/ADT/RewriteBuffer.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/raw_ostream.h"
 #include <memory>
 
 using namespace clang;

@@ -6,7 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "OutputSections.h"
 #include "DWARFLinkerCompileUnit.h"
 #include "DWARFLinkerTypeUnit.h"
 

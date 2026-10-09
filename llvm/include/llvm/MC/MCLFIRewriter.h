@@ -17,7 +17,6 @@
 
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 class MCContext;

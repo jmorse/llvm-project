@@ -15,7 +15,6 @@
 #define LLVM_CLANG_SEMA_CXXFIELDCOLLECTOR_H
 
 #include "clang/Basic/LLVM.h"
-#include "llvm/ADT/SmallVector.h"
 
 namespace clang {
   class FieldDecl;

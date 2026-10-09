@@ -14,28 +14,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Tooling/CompilationDatabase.h"
-#include "clang/Basic/Diagnostic.h"
-#include "clang/Basic/DiagnosticIDs.h"
-#include "clang/Basic/DiagnosticOptions.h"
-#include "clang/Basic/LLVM.h"
-#include "clang/Driver/Action.h"
 #include "clang/Driver/Compilation.h"
 #include "clang/Driver/Driver.h"
-#include "clang/Driver/Job.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
-#include "clang/Support/Compiler.h"
 #include "clang/Tooling/CompilationDatabasePluginRegistry.h"
 #include "clang/Tooling/Tooling.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Option/Arg.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorOr.h"
 #include "llvm/Support/LineIterator.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/Path.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/TargetParser/Host.h"
 #include <algorithm>
 #include <cassert>

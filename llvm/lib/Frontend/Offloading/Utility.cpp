@@ -8,16 +8,10 @@
 
 #include "llvm/Frontend/Offloading/Utility.h"
 #include "llvm/BinaryFormat/AMDGPUMetadataVerifier.h"
-#include "llvm/BinaryFormat/ELF.h"
 #include "llvm/BinaryFormat/MsgPackDocument.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/GlobalValue.h"
-#include "llvm/IR/GlobalVariable.h"
-#include "llvm/IR/Value.h"
 #include "llvm/Object/ELFObjectFile.h"
-#include "llvm/Object/OffloadBinary.h"
 #include "llvm/ObjectYAML/yaml2obj.h"
-#include "llvm/Support/MemoryBufferRef.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 
 using namespace llvm;

@@ -8,7 +8,6 @@
 
 #include "clang/CodeGen/ModuleLinker.h"
 
-#include "clang/Basic/CodeGenOptions.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/IR/Module.h"

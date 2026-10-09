@@ -10,12 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "MSP430InstrInfo.h"
-#include "MSP430.h"
 #include "MSP430Subtarget.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 

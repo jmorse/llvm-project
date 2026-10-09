@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Options/Options.h"
-#include "llvm/Option/OptTable.h"
 #include <cassert>
 
 using namespace clang::options;

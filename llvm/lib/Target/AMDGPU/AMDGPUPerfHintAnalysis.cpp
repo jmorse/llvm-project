@@ -15,19 +15,11 @@
 #include "AMDGPUPerfHintAnalysis.h"
 #include "AMDGPU.h"
 #include "AMDGPUTargetMachine.h"
-#include "Utils/AMDGPUBaseInfo.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
-#include "llvm/Analysis/LazyCallGraph.h"
 #include "llvm/Analysis/ValueTracking.h"
-#include "llvm/CodeGen/TargetLowering.h"
-#include "llvm/CodeGen/TargetPassConfig.h"
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Target/TargetMachine.h"
 
 using namespace llvm;
 

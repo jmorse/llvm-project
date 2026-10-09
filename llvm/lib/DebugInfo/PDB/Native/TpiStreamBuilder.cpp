@@ -7,18 +7,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/DebugInfo/PDB/Native/TpiStreamBuilder.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/DebugInfo/CodeView/RecordSerialization.h"
-#include "llvm/DebugInfo/CodeView/TypeIndex.h"
 #include "llvm/DebugInfo/MSF/MSFBuilder.h"
 #include "llvm/DebugInfo/MSF/MappedBlockStream.h"
 #include "llvm/DebugInfo/PDB/Native/RawTypes.h"
-#include "llvm/Support/Allocator.h"
 #include "llvm/Support/BinaryByteStream.h"
 #include "llvm/Support/BinaryStreamWriter.h"
-#include "llvm/Support/Endian.h"
-#include "llvm/Support/Error.h"
 #include "llvm/Support/TimeProfiler.h"
 #include <cstdint>
 #include <numeric>

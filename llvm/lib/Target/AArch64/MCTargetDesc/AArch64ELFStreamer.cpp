@@ -13,30 +13,16 @@
 //===----------------------------------------------------------------------===//
 
 #include "AArch64ELFStreamer.h"
-#include "AArch64MCTargetDesc.h"
 #include "AArch64TargetStreamer.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/BinaryFormat/ELF.h"
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCCodeEmitter.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCELFObjectWriter.h"
-#include "llvm/MC/MCELFStreamer.h"
-#include "llvm/MC/MCExpr.h"
-#include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCObjectFileInfo.h"
-#include "llvm/MC/MCSectionELF.h"
-#include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSubtargetInfo.h"
-#include "llvm/MC/MCSymbolELF.h"
-#include "llvm/MC/MCTargetOptions.h"
 #include "llvm/MC/MCWinCOFFStreamer.h"
-#include "llvm/Support/AArch64BuildAttributes.h"
 #include "llvm/Support/FormattedStream.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 

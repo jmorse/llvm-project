@@ -17,7 +17,6 @@
 #define LLVM_ADT_ANY_H
 
 #include "llvm/ADT/STLForwardCompat.h"
-#include "llvm/Support/Compiler.h"
 
 #include <cassert>
 #include <memory>

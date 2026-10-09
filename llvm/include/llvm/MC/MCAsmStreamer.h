@@ -18,7 +18,6 @@
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCCodeEmitter.h"
 #include "llvm/MC/MCStreamer.h"
-#include "llvm/Support/raw_ostream.h"
 #include <memory>
 
 namespace llvm {

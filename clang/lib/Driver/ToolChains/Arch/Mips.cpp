@@ -8,10 +8,6 @@
 
 #include "Mips.h"
 #include "clang/Driver/CommonArgs.h"
-#include "clang/Driver/Driver.h"
-#include "clang/Options/Options.h"
-#include "llvm/ADT/StringSwitch.h"
-#include "llvm/Option/ArgList.h"
 
 using namespace clang::driver;
 using namespace clang::driver::tools;

@@ -76,8 +76,6 @@
 #ifndef LLVM_SUPPORT_TIMEPROFILER_H
 #define LLVM_SUPPORT_TIMEPROFILER_H
 
-#include "llvm/ADT/STLFunctionalExtras.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/Error.h"
 
 namespace llvm {

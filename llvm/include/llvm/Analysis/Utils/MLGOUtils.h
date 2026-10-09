@@ -15,12 +15,8 @@
 #ifndef LLVM_ANALYSIS_UTILS_MLGOUTILS_H
 #define LLVM_ANALYSIS_UTILS_MLGOUTILS_H
 
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/InteractiveModelRunner.h"
-#include "llvm/Analysis/MLModelRunner.h"
 #include "llvm/Analysis/ReleaseModeModelRunner.h"
-#include "llvm/Analysis/TensorSpec.h"
-#include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/CommandLine.h"
 #include <memory>
 #include <string>

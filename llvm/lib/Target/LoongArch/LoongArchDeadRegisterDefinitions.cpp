@@ -10,13 +10,11 @@
 //
 //===---------------------------------------------------------------------===//
 
-#include "LoongArch.h"
 #include "LoongArchSubtarget.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/LiveDebugVariables.h"
 #include "llvm/CodeGen/LiveIntervals.h"
 #include "llvm/CodeGen/LiveStacks.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
 
 using namespace llvm;
 #define DEBUG_TYPE "loongarch-dead-defs"

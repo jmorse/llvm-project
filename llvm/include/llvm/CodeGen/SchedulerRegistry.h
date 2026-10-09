@@ -15,8 +15,6 @@
 #define LLVM_CODEGEN_SCHEDULERREGISTRY_H
 
 #include "llvm/CodeGen/MachinePassRegistry.h"
-#include "llvm/Support/CodeGen.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

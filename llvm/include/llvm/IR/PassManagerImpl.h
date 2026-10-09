@@ -17,9 +17,7 @@
 
 #include "llvm/IR/Function.h"
 #include "llvm/IR/PassInstrumentation.h"
-#include "llvm/IR/PassManager.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/PrettyStackTrace.h"
 
 namespace llvm {

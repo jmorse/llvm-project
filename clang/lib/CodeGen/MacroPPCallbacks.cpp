@@ -13,7 +13,6 @@
 #include "MacroPPCallbacks.h"
 #include "CGDebugInfo.h"
 #include "clang/CodeGen/ModuleBuilder.h"
-#include "clang/Lex/MacroInfo.h"
 #include "clang/Lex/Preprocessor.h"
 
 using namespace clang;

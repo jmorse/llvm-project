@@ -13,13 +13,7 @@
 #ifndef LLVM_CODEGEN_SDPATTERNMATCH_H
 #define LLVM_CODEGEN_SDPATTERNMATCH_H
 
-#include "llvm/ADT/APInt.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallBitVector.h"
-#include "llvm/ADT/bit.h"
-#include "llvm/CodeGen/SelectionDAG.h"
-#include "llvm/CodeGen/SelectionDAGNodes.h"
 #include "llvm/CodeGen/TargetLowering.h"
 #include "llvm/Support/KnownBits.h"
 

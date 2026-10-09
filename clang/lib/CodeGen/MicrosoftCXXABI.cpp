@@ -17,21 +17,9 @@
 #include "CGCXXABI.h"
 #include "CGCleanup.h"
 #include "CGDebugInfo.h"
-#include "CGVTables.h"
-#include "CodeGenModule.h"
-#include "CodeGenTypes.h"
 #include "TargetInfo.h"
-#include "clang/AST/Attr.h"
-#include "clang/AST/CXXInheritance.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/StmtCXX.h"
-#include "clang/AST/VTableBuilder.h"
 #include "clang/Basic/DiagnosticFrontend.h"
 #include "clang/CodeGen/ConstantInitBuilder.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/StringSet.h"
-#include "llvm/IR/Intrinsics.h"
 
 using namespace clang;
 using namespace CodeGen;

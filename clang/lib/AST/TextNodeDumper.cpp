@@ -11,20 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/AST/TextNodeDumper.h"
-#include "clang/AST/APValue.h"
-#include "clang/AST/DeclFriend.h"
-#include "clang/AST/DeclOpenMP.h"
-#include "clang/AST/DeclTemplate.h"
 #include "clang/AST/LocInfoType.h"
-#include "clang/AST/NestedNameSpecifier.h"
-#include "clang/AST/Type.h"
-#include "clang/AST/TypeLocVisitor.h"
-#include "clang/Basic/BuiltinTraits.h"
 #include "clang/Basic/Module.h"
 #include "clang/Basic/SourceManager.h"
-#include "clang/Basic/Specifiers.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/Frontend/HLSL/HLSLRootSignature.h"
 
 #include <algorithm>
 #include <utility>

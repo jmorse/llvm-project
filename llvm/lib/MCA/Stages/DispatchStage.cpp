@@ -16,8 +16,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/MCA/Stages/DispatchStage.h"
-#include "llvm/MCA/HWEventListener.h"
-#include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "llvm-mca"
 

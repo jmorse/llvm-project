@@ -10,10 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/StmtIterator.h"
-#include "clang/AST/Decl.h"
 #include "clang/AST/Type.h"
-#include "clang/Basic/LLVM.h"
 #include <cassert>
 #include <cstdint>
 

@@ -40,15 +40,9 @@
 #ifndef LLVM_CODEGEN_MACHINEPIPELINER_H
 #define LLVM_CODEGEN_MACHINEPIPELINER_H
 
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/CodeGen/DFAPacketizer.h"
 #include "llvm/CodeGen/MachineDominators.h"
-#include "llvm/CodeGen/MachineOptimizationRemarkEmitter.h"
-#include "llvm/CodeGen/MachineScheduler.h"
-#include "llvm/CodeGen/RegisterClassInfo.h"
-#include "llvm/CodeGen/ScheduleDAGInstrs.h"
-#include "llvm/CodeGen/ScheduleDAGMutation.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
 #include "llvm/CodeGen/WindowScheduler.h"
 

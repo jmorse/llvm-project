@@ -7,10 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/ASTMatchers/LowLevelHelpers.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/Expr.h"
-#include "clang/AST/ExprCXX.h"
 #include <type_traits>
 
 namespace clang {

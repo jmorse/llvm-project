@@ -7,14 +7,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "TemplateArgumentHasher.h"
-#include "clang/AST/APValue.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclTemplate.h"
-#include "clang/AST/DeclarationName.h"
 #include "clang/AST/TypeVisitor.h"
-#include "clang/Basic/IdentifierTable.h"
-#include "llvm/ADT/FoldingSet.h"
 #include "llvm/Support/TimeProfiler.h"
 
 using namespace clang;

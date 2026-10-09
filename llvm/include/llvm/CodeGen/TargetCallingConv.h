@@ -15,9 +15,7 @@
 
 #include "llvm/ADT/BitmaskEnum.h"
 #include "llvm/CodeGen/ValueTypes.h"
-#include "llvm/CodeGenTypes/MachineValueType.h"
 #include "llvm/Support/Alignment.h"
-#include "llvm/Support/MathExtras.h"
 #include <cassert>
 #include <climits>
 #include <cstdint>

@@ -16,11 +16,7 @@
 #define LLVM_IR_INLINEASM_H
 
 #include "llvm/ADT/Bitfields.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Value.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <cassert>
 #include <string>
 #include <vector>

@@ -7,8 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/InstallAPI/FileList.h"
-#include "llvm/ADT/StringSwitch.h"
-#include "llvm/Support/Error.h"
 #include "llvm/Support/JSON.h"
 #include "llvm/TextAPI/TextAPIError.h"
 #include <optional>

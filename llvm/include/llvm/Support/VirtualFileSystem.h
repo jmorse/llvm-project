@@ -14,20 +14,11 @@
 #ifndef LLVM_SUPPORT_VIRTUALFILESYSTEM_H
 #define LLVM_SUPPORT_VIRTUALFILESYSTEM_H
 
-#include "llvm/ADT/IntrusiveRefCntPtr.h"
-#include "llvm/ADT/STLFunctionalExtras.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Chrono.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/Errc.h"
-#include "llvm/Support/Error.h"
-#include "llvm/Support/ErrorOr.h"
 #include "llvm/Support/ExtensibleRTTI.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/VirtualFileSystemFwd.h"
 #include <atomic>
 #include <cassert>
 #include <cstdint>

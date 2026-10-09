@@ -36,14 +36,7 @@
 #ifndef LLVM_ANALYSIS_REGIONINFO_H
 #define LLVM_ANALYSIS_REGIONINFO_H
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/DepthFirstIterator.h"
-#include "llvm/ADT/GraphTraits.h"
-#include "llvm/ADT/PointerIntPair.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/IR/Dominators.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/Pass.h"
 #include <algorithm>
 #include <cassert>
 #include <map>

@@ -7,14 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "CheckExprLifetime.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/Expr.h"
-#include "clang/AST/Type.h"
-#include "clang/Analysis/Analyses/LifetimeSafety/LifetimeAnnotations.h"
-#include "clang/Basic/DiagnosticSema.h"
-#include "clang/Sema/Initialization.h"
-#include "clang/Sema/Sema.h"
-#include "llvm/ADT/PointerIntPair.h"
 
 namespace clang::sema {
 using lifetimes::isGslOwnerType;

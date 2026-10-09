@@ -18,10 +18,7 @@
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Analysis/VectorUtils.h"
-#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
-#include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Operator.h"
 #include "llvm/IR/PatternMatch.h"
 #include <optional>
 #include <utility>

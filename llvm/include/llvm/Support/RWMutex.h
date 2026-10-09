@@ -13,7 +13,6 @@
 #ifndef LLVM_SUPPORT_RWMUTEX_H
 #define LLVM_SUPPORT_RWMUTEX_H
 
-#include "llvm/Config/llvm-config.h"
 #include "llvm/Support/Threading.h"
 #include <cassert>
 #include <mutex>

@@ -9,12 +9,8 @@
 #ifndef LLVM_MC_DXCONTAINERPSVINFO_H
 #define LLVM_MC_DXCONTAINERPSVINFO_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/BinaryFormat/DXContainer.h"
 #include "llvm/MC/StringTableBuilder.h"
-#include "llvm/TargetParser/Triple.h"
 
 #include <array>
 #include <stdint.h>

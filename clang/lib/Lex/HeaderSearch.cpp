@@ -10,33 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Lex/HeaderSearch.h"
-#include "clang/Basic/Diagnostic.h"
-#include "clang/Basic/FileManager.h"
-#include "clang/Basic/IdentifierTable.h"
-#include "clang/Basic/Module.h"
-#include "clang/Basic/SourceManager.h"
-#include "clang/Lex/DirectoryLookup.h"
-#include "clang/Lex/ExternalPreprocessorSource.h"
-#include "clang/Lex/HeaderMap.h"
+#include "clang/Basic/DiagnosticLex.h"
 #include "clang/Lex/HeaderSearchOptions.h"
-#include "clang/Lex/LexDiagnostic.h"
-#include "clang/Lex/ModuleMap.h"
 #include "clang/Lex/Preprocessor.h"
-#include "llvm/ADT/APInt.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Allocator.h"
 #include "llvm/Support/Capacity.h"
-#include "llvm/Support/Errc.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Path.h"
 #include "llvm/Support/VirtualFileSystem.h"
-#include "llvm/Support/xxhash.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>

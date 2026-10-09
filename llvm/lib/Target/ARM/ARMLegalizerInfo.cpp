@@ -14,13 +14,6 @@
 #include "ARMCallLowering.h"
 #include "ARMSubtarget.h"
 #include "llvm/CodeGen/GlobalISel/LegalizerHelper.h"
-#include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
-#include "llvm/CodeGen/LowLevelTypeUtils.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/TargetOpcodes.h"
-#include "llvm/CodeGen/ValueTypes.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Type.h"
 
 using namespace llvm;
 using namespace LegalizeActions;

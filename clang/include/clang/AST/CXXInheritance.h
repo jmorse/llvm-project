@@ -13,17 +13,9 @@
 #ifndef LLVM_CLANG_AST_CXXINHERITANCE_H
 #define LLVM_CLANG_AST_CXXINHERITANCE_H
 
-#include "clang/AST/DeclBase.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/DeclarationName.h"
-#include "clang/AST/Type.h"
 #include "clang/AST/TypeOrdering.h"
-#include "clang/Basic/Specifiers.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallSet.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/iterator_range.h"
 #include <list>
 #include <memory>
 #include <utility>

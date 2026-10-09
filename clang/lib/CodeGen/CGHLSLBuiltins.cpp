@@ -12,7 +12,6 @@
 
 #include "CGBuiltin.h"
 #include "CGHLSLRuntime.h"
-#include "CodeGenFunction.h"
 #include "clang/AST/HLSLResource.h"
 #include "clang/AST/MatrixUtils.h"
 #include "llvm/IR/MatrixBuilder.h"

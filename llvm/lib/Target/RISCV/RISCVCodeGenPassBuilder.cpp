@@ -9,7 +9,6 @@
 /// This file contains the RISC-V CodeGen pipeline builder.
 //===----------------------------------------------------------------------===//
 
-#include "RISCV.h"
 #include "RISCVAsmPrinter.h"
 #include "RISCVTargetMachine.h"
 #include "llvm/CodeGen/AtomicExpand.h"
@@ -18,15 +17,11 @@
 #include "llvm/CodeGen/InterleavedAccess.h"
 #include "llvm/CodeGen/KCFI.h"
 #include "llvm/CodeGen/MachineCopyPropagation.h"
-#include "llvm/CodeGen/MachineInstrBundle.h"
 #include "llvm/CodeGen/MachineLICM.h"
 #include "llvm/CodeGen/TypePromotion.h"
-#include "llvm/IR/PassInstrumentation.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/Passes/CodeGenPassBuilder.h"
 #include "llvm/Passes/PassBuilder.h"
-#include "llvm/Support/CodeGen.h"
-#include "llvm/Target/CGPassBuilderOption.h"
 #include "llvm/Transforms/Scalar/LoopDataPrefetch.h"
 #include "llvm/Transforms/Vectorize/LoopIdiomVectorize.h"
 

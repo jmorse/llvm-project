@@ -21,21 +21,9 @@
 #define LLVM_IR_CONSTANTS_H
 
 #include "llvm/ADT/APFloat.h"
-#include "llvm/ADT/APInt.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/IR/Constant.h"
 #include "llvm/IR/ConstantRange.h"
-#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/GEPNoWrapFlags.h"
 #include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/OperandTraits.h"
-#include "llvm/IR/User.h"
-#include "llvm/IR/Value.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <cassert>
 #include <cstddef>
 #include <cstdint>

@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/MSP430AttributeParser.h"
-#include "llvm/ADT/ArrayRef.h"
 
 using namespace llvm;
 using namespace llvm::MSP430Attrs;

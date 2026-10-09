@@ -7,16 +7,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/StaticAnalyzer/Core/PathSensitive/EntryPointStats.h"
-#include "clang/AST/DeclBase.h"
 #include "clang/Analysis/AnalysisDeclContext.h"
 #include "clang/UnifiedSymbolResolution/USRGeneration.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/ManagedStatic.h"
-#include "llvm/Support/raw_ostream.h"
 #include <iterator>
 
 using namespace clang;

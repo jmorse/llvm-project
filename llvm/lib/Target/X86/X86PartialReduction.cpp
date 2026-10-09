@@ -16,16 +16,9 @@
 #include "X86TargetMachine.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
-#include "llvm/IR/Analysis.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicsX86.h"
-#include "llvm/IR/PassManager.h"
 #include "llvm/IR/PatternMatch.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/KnownBits.h"
 
 using namespace llvm;
 

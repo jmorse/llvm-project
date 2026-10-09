@@ -16,7 +16,6 @@
 
 #include "llvm/IR/Function.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Transforms/Utils/SimplifyCFGOptions.h"
 
 namespace llvm {

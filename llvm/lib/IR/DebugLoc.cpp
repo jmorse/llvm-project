@@ -6,8 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/IR/DebugLoc.h"
-#include "llvm/Config/llvm-config.h"
 #include "llvm/IR/DebugInfo.h"
 
 using namespace llvm;

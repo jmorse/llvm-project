@@ -7,14 +7,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "HexagonISelDAGToDAG.h"
-#include "HexagonISelLowering.h"
-#include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/SetVector.h"
-#include "llvm/CodeGen/SelectionDAGISel.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicsHexagon.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/MathExtras.h"
 
 #include <algorithm>
 #include <deque>

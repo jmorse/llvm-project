@@ -6,25 +6,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "AMDGPU.h"
 #include "HIPAMD.h"
-#include "clang/Basic/TargetID.h"
 #include "clang/Config/config.h"
 #include "clang/Driver/CommonArgs.h"
 #include "clang/Driver/Compilation.h"
-#include "clang/Driver/Driver.h"
-#include "clang/Driver/InputInfo.h"
 #include "clang/Driver/SanitizerArgs.h"
-#include "clang/Options/Options.h"
-#include "llvm/ADT/SmallSet.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/Option/ArgList.h"
-#include "llvm/Support/Error.h"
 #include "llvm/Support/LineIterator.h"
-#include "llvm/Support/Path.h"
 #include "llvm/Support/Process.h"
 #include "llvm/Support/VirtualFileSystem.h"
-#include "llvm/TargetParser/AMDGPUTargetParser.h"
 #include "llvm/TargetParser/Host.h"
 #include <optional>
 #include <system_error>

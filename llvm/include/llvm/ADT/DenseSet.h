@@ -14,12 +14,7 @@
 #ifndef LLVM_ADT_DENSESET_H
 #define LLVM_ADT_DENSESET_H
 
-#include "llvm/ADT/ADL.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/DenseMapInfo.h"
-#include "llvm/ADT/STLForwardCompat.h"
-#include "llvm/Support/MathExtras.h"
-#include "llvm/Support/type_traits.h"
 #include <initializer_list>
 #include <iterator>
 #include <utility>

@@ -8,7 +8,6 @@
 #ifndef LLVM_ANALYSIS_EHUTILS_H
 #define LLVM_ANALYSIS_EHUTILS_H
 
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 
 namespace llvm {

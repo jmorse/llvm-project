@@ -15,10 +15,8 @@
 #ifndef LLVM_MC_MCSECTIONGOFF_H
 #define LLVM_MC_MCSECTIONGOFF_H
 
-#include "llvm/BinaryFormat/GOFF.h"
 #include "llvm/MC/MCGOFFAttributes.h"
 #include "llvm/MC/MCSection.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

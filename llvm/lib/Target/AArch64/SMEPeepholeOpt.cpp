@@ -10,13 +10,7 @@
 // determine that it is safe to remove these sequences.
 //===----------------------------------------------------------------------===//
 
-#include "AArch64InstrInfo.h"
 #include "AArch64MachineFunctionInfo.h"
-#include "AArch64Subtarget.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/TargetRegisterInfo.h"
 
 using namespace llvm;
 

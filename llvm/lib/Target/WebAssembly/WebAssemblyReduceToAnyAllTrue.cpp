@@ -1,13 +1,9 @@
 #include "WebAssembly.h"
-#include "WebAssemblySubtarget.h"
 #include "WebAssemblyTargetMachine.h"
-#include "llvm/IR/Analysis.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/IntrinsicsWebAssembly.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/PassManager.h"
 #include "llvm/IR/PatternMatch.h"
-#include "llvm/Pass.h"
 
 using namespace llvm;
 using namespace llvm::PatternMatch;

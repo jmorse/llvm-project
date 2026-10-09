@@ -20,7 +20,6 @@
 
 #include "WebAssemblyRuntimeLibcallSignatures.h"
 #include "WebAssemblySubtarget.h"
-#include "WebAssemblyUtilities.h"
 
 using namespace llvm;
 

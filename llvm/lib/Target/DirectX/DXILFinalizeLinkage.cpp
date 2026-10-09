@@ -8,9 +8,6 @@
 
 #include "DXILFinalizeLinkage.h"
 #include "DirectX.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/GlobalValue.h"
-#include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 
 #define DEBUG_TYPE "dxil-finalize-linkage"

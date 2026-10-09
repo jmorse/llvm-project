@@ -10,9 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/DebugInfo/LogicalView/Core/LVOptions.h"
 #include "llvm/DebugInfo/LogicalView/Core/LVReader.h"
-#include "llvm/Support/Errc.h"
 
 using namespace llvm;
 using namespace llvm::logicalview;

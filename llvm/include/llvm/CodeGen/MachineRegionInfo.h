@@ -9,16 +9,9 @@
 #ifndef LLVM_CODEGEN_MACHINEREGIONINFO_H
 #define LLVM_CODEGEN_MACHINEREGIONINFO_H
 
-#include "llvm/ADT/DepthFirstIterator.h"
-#include "llvm/Analysis/RegionInfo.h"
 #include "llvm/Analysis/RegionIterator.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineDominanceFrontier.h"
-#include "llvm/CodeGen/MachineDominators.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
-#include "llvm/CodeGen/MachinePassManager.h"
 #include <cassert>
 
 namespace llvm {

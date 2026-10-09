@@ -53,19 +53,10 @@
 // On the left are the initial per-block bundles, and on the right are the
 // joined bundles (which are the result of the EdgeBundles analysis).
 
-#include "AArch64InstrInfo.h"
 #include "AArch64MachineFunctionInfo.h"
-#include "AArch64Subtarget.h"
 #include "MCTargetDesc/AArch64AddressingModes.h"
-#include "llvm/ADT/BitmaskEnum.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/EdgeBundles.h"
 #include "llvm/CodeGen/LivePhysRegs.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineOptimizationRemarkEmitter.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/TargetRegisterInfo.h"
 
 using namespace llvm;
 

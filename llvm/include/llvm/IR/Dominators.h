@@ -14,23 +14,10 @@
 #ifndef LLVM_IR_DOMINATORS_H
 #define LLVM_IR_DOMINATORS_H
 
-#include "llvm/ADT/APInt.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/ADT/DepthFirstIterator.h"
-#include "llvm/ADT/Hashing.h"
-#include "llvm/ADT/PointerIntPair.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/ADT/ilist_iterator.h"
-#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/IR/Use.h"
 #include "llvm/Pass.h"
-#include "llvm/Support/CFGDiff.h"
-#include "llvm/Support/CFGUpdate.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/GenericDomTree.h"
 #include <utility>
 

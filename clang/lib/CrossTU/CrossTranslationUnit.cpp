@@ -11,26 +11,19 @@
 //===----------------------------------------------------------------------===//
 #include "clang/CrossTU/CrossTranslationUnit.h"
 #include "clang/AST/ASTImporter.h"
-#include "clang/AST/Decl.h"
 #include "clang/AST/ParentMapContext.h"
+#include "clang/Basic/DiagnosticCrossTU.h"
 #include "clang/Basic/DiagnosticDriver.h"
-#include "clang/Basic/TargetInfo.h"
-#include "clang/CrossTU/CrossTUDiagnostic.h"
 #include "clang/Driver/CreateASTUnitFromArgs.h"
-#include "clang/Frontend/ASTUnit.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 #include "clang/StaticAnalyzer/Core/AnalyzerOptions.h"
 #include "clang/UnifiedSymbolResolution/USRGeneration.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Option/ArgList.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/IOSandbox.h"
 #include "llvm/Support/ManagedStatic.h"
-#include "llvm/Support/Path.h"
 #include "llvm/Support/YAMLParser.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/TargetParser/Triple.h"
 #include <algorithm>
 #include <fstream>
 #include <optional>

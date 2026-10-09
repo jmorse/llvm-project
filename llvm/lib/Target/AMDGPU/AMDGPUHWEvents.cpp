@@ -8,10 +8,6 @@
 
 #include "AMDGPUHWEvents.h"
 #include "GCNSubtarget.h"
-#include "SIInstrInfo.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 
 namespace llvm {
 namespace AMDGPU {

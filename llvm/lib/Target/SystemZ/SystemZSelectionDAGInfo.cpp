@@ -10,9 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "SystemZSelectionDAGInfo.h"
 #include "SystemZTargetMachine.h"
-#include "llvm/CodeGen/SelectionDAG.h"
 
 #define GET_SDNODE_DESC
 #include "SystemZGenSDNodeInfo.inc"

@@ -33,9 +33,6 @@
 
 #include "AMDGPU.h"
 #include "GCNSubtarget.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachinePassManager.h"
 
 using namespace llvm;
 

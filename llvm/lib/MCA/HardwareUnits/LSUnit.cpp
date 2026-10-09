@@ -12,9 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/MCA/HardwareUnits/LSUnit.h"
-#include "llvm/MCA/Instruction.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 
 #define DEBUG_TYPE "llvm-mca"
 

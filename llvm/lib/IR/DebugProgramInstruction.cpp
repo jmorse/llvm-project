@@ -6,11 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/IR/DebugProgramInstruction.h"
 #include "llvm/IR/DIBuilder.h"
-#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/Support/Compiler.h"
 
 using namespace llvm;
 

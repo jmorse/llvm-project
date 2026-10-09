@@ -42,9 +42,7 @@
 
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/PostOrderIterator.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SetOperations.h"
-#include "llvm/Support/Allocator.h"
 #include "llvm/Support/GenericDomTree.h"
 
 namespace llvm {

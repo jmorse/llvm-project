@@ -13,17 +13,10 @@
 
 #include "MCTargetDesc/HexagonMCChecker.h"
 #include "MCTargetDesc/HexagonBaseInfo.h"
-#include "MCTargetDesc/HexagonMCInstrInfo.h"
 #include "MCTargetDesc/HexagonMCShuffler.h"
-#include "MCTargetDesc/HexagonMCTargetDesc.h"
 
-#include "llvm/ADT/Twine.h"
 #include "llvm/MC/MCContext.h"
-#include "llvm/MC/MCInst.h"
-#include "llvm/MC/MCInstrDesc.h"
-#include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/SourceMgr.h"
 #include <cassert>
 

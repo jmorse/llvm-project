@@ -12,20 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Pass.h"
-#include "llvm/Config/llvm-config.h"
-#include "llvm/IR/Function.h"
 #include "llvm/IR/IRPrintingPasses.h"
-#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LegacyPassNameParser.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/OptBisect.h"
 #include "llvm/IR/PrintPasses.h"
-#include "llvm/PassInfo.h"
-#include "llvm/PassRegistry.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 #include <cassert>
 
 #ifdef EXPENSIVE_CHECKS

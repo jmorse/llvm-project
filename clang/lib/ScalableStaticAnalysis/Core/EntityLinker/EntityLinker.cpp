@@ -7,15 +7,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/ScalableStaticAnalysis/Core/EntityLinker/EntityLinker.h"
-#include "clang/ScalableStaticAnalysis/Core/EntityLinker/EntitySummaryEncoding.h"
 #include "clang/ScalableStaticAnalysis/Core/EntityLinker/MultiArchStaticLibrary.h"
-#include "clang/ScalableStaticAnalysis/Core/EntityLinker/StaticLibrary.h"
-#include "clang/ScalableStaticAnalysis/Core/EntityLinker/TUSummaryEncoding.h"
-#include "clang/ScalableStaticAnalysis/Core/Model/EntityLinkage.h"
-#include "clang/ScalableStaticAnalysis/Core/Model/EntityName.h"
 #include "clang/ScalableStaticAnalysis/Core/Support/ErrorBuilder.h"
 #include "clang/ScalableStaticAnalysis/Core/Support/FormatProviders.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
 #include <cassert>
 

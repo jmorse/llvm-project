@@ -10,7 +10,6 @@
 #include "llvm/DebugInfo/CodeView/CodeViewError.h"
 #include "llvm/Support/BinaryStreamReader.h"
 #include "llvm/Support/BinaryStreamWriter.h"
-#include "llvm/Support/Error.h"
 #include <cstdint>
 
 using namespace llvm;

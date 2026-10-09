@@ -9,7 +9,6 @@
 #ifndef LLVM_CODEGEN_STATICDATAANNOTATOR_H
 #define LLVM_CODEGEN_STATICDATAANNOTATOR_H
 
-#include "llvm/IR/Analysis.h"
 #include "llvm/IR/PassManager.h"
 
 namespace llvm {

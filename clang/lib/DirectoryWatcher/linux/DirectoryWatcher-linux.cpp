@@ -7,11 +7,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "DirectoryScanner.h"
-#include "clang/DirectoryWatcher/DirectoryWatcher.h"
+#include "bits/local_lim.h"
 
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/Support/Errno.h"
-#include "llvm/Support/Error.h"
 #include <condition_variable>
 #include <mutex>
 #include <queue>

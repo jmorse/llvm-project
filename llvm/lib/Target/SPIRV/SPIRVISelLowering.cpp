@@ -10,16 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "SPIRVISelLowering.h"
 #include "SPIRV.h"
-#include "SPIRVInstrInfo.h"
 #include "SPIRVRegisterBankInfo.h"
-#include "SPIRVRegisterInfo.h"
 #include "SPIRVSubtarget.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/TargetLowering.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicsSPIRV.h"
 
 #define DEBUG_TYPE "spirv-lower"

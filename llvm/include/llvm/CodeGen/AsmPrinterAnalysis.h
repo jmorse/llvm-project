@@ -15,8 +15,6 @@
 #define LLVM_CODEGEN_ASMPRINTERANALYSIS_H
 
 #include "llvm/CodeGen/AsmPrinter.h"
-#include "llvm/IR/Analysis.h"
-#include "llvm/IR/PassManager.h"
 
 namespace llvm {
 

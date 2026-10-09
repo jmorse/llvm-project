@@ -20,13 +20,8 @@
 #ifndef LLVM_ADT_SETVECTOR_H
 #define LLVM_ADT_SETVECTOR_H
 
-#include "llvm/ADT/ADL.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/STLForwardCompat.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Support/Compiler.h"
 #include <cassert>
 
 namespace llvm {

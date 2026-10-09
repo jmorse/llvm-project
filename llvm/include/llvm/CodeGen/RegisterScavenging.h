@@ -17,12 +17,8 @@
 #ifndef LLVM_CODEGEN_REGISTERSCAVENGING_H
 #define LLVM_CODEGEN_REGISTERSCAVENGING_H
 
-#include "llvm/ADT/BitVector.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/LiveRegUnits.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/MC/LaneBitmask.h"
 
 namespace llvm {
 

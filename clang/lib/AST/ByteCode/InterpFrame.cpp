@@ -6,17 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "InterpFrame.h"
 #include "Boolean.h"
 #include "Char.h"
-#include "Function.h"
-#include "InterpStack.h"
 #include "InterpState.h"
-#include "MemberPointer.h"
-#include "Pointer.h"
-#include "PrimType.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/DeclCXX.h"
 #include "clang/AST/ExprCXX.h"
 
 using namespace clang;

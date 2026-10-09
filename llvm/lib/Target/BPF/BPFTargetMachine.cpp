@@ -10,8 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "BPFTargetMachine.h"
-#include "BPF.h"
 #include "BPFTargetLoweringObjectFile.h"
 #include "BPFTargetTransformInfo.h"
 #include "MCTargetDesc/BPFMCAsmInfo.h"
@@ -20,15 +18,9 @@
 #include "llvm/CodeGen/GlobalISel/InstructionSelect.h"
 #include "llvm/CodeGen/GlobalISel/Legalizer.h"
 #include "llvm/CodeGen/GlobalISel/RegBankSelect.h"
-#include "llvm/CodeGen/Passes.h"
-#include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Passes/PassBuilder.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Target/TargetOptions.h"
 #include "llvm/Transforms/Scalar.h"
 #include <optional>
 using namespace llvm;

@@ -12,13 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Analysis/FlowSensitive/AdornedCFG.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/Stmt.h"
-#include "clang/Analysis/CFG.h"
-#include "llvm/ADT/BitVector.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/Support/Error.h"
 #include <utility>
 
 namespace clang {

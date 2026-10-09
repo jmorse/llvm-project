@@ -10,10 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/DebugInfo/LogicalView/Core/LVObject.h"
 #include "llvm/DebugInfo/LogicalView/Core/LVReader.h"
-#include "llvm/DebugInfo/LogicalView/Core/LVScope.h"
-#include "llvm/DebugInfo/LogicalView/Core/LVSymbol.h"
 #include <iomanip>
 
 using namespace llvm;

@@ -8,10 +8,7 @@
 
 #include "MCTargetDesc/LanaiBaseInfo.h"
 #include "MCTargetDesc/LanaiFixupKinds.h"
-#include "llvm/BinaryFormat/ELF.h"
 #include "llvm/MC/MCELFObjectWriter.h"
-#include "llvm/MC/MCObjectWriter.h"
-#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 

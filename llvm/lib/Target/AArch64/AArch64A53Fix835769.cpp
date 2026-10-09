@@ -14,16 +14,8 @@
 // instr 2: non-SIMD integer multiply-accumulate writing 64-bit X registers.
 //===----------------------------------------------------------------------===//
 
-#include "AArch64.h"
 #include "AArch64Subtarget.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 

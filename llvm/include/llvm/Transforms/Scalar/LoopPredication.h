@@ -15,7 +15,6 @@
 #define LLVM_TRANSFORMS_SCALAR_LOOPPREDICATION_H
 
 #include "llvm/Analysis/LoopAnalysisManager.h"
-#include "llvm/IR/PassManager.h"
 
 namespace llvm {
 

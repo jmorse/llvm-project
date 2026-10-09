@@ -13,14 +13,9 @@
 #ifndef LLVM_MC_MCSYMBOL_H
 #define LLVM_MC_MCSYMBOL_H
 
-#include "llvm/ADT/StringMapEntry.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCSection.h"
 #include "llvm/MC/MCSymbolTableEntry.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/MathExtras.h"
 #include <cassert>
 #include <cstddef>
 #include <cstdint>

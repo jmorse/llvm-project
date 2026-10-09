@@ -15,9 +15,7 @@
 #include "MipsTargetMachine.h"
 #include "llvm/CodeGen/GlobalISel/Combiner.h"
 #include "llvm/CodeGen/GlobalISel/CombinerHelper.h"
-#include "llvm/CodeGen/GlobalISel/CombinerInfo.h"
 #include "llvm/CodeGen/GlobalISel/GISelValueTracking.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
 
 #define DEBUG_TYPE "mips-prelegalizer-combiner"
 

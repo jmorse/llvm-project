@@ -8,7 +8,6 @@
 
 #include "ABIInfoImpl.h"
 #include "TargetInfo.h"
-#include "clang/AST/Decl.h"
 #include "clang/Basic/DiagnosticFrontend.h"
 #include "llvm/TargetParser/AArch64TargetParser.h"
 

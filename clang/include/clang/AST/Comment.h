@@ -15,11 +15,6 @@
 
 #include "clang/AST/CommentCommandTraits.h"
 #include "clang/AST/DeclObjC.h"
-#include "clang/AST/Type.h"
-#include "clang/Basic/SourceLocation.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Compiler.h"
 
 namespace clang {
 class Decl;

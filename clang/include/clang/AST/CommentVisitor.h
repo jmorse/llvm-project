@@ -10,8 +10,6 @@
 #define LLVM_CLANG_AST_COMMENTVISITOR_H
 
 #include "clang/AST/Comment.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/Support/ErrorHandling.h"
 
 namespace clang {
 namespace comments {

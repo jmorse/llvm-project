@@ -11,8 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/StaticAnalyzer/Core/PathSensitive/CheckerHelpers.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/Expr.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/ProgramState.h"
 #include <optional>

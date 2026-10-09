@@ -22,9 +22,6 @@
 #ifndef LLVM_CODEGEN_EXECUTIONDOMAINFIX_H
 #define LLVM_CODEGEN_EXECUTIONDOMAINFIX_H
 
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/CodeGen/LoopTraversal.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/ReachingDefAnalysis.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 

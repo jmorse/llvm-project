@@ -30,14 +30,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "MCTargetDesc/RISCVBaseInfo.h"
-#include "MCTargetDesc/RISCVMCTargetDesc.h"
 #include "RISCVTargetMachine.h"
 #include "llvm/CodeGen/LiveIntervals.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/ScheduleDAGInstrs.h"
-#include "llvm/CodeGen/ScheduleDAGMutation.h"
-#include "llvm/TargetParser/RISCVTargetParser.h"
 
 #define DEBUG_TYPE "machine-scheduler"
 

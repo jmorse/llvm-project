@@ -7,10 +7,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/DebugInfo/DWARF/DWARFExpressionPrinter.h"
-#include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/DebugInfo/DWARF/DWARFUnit.h"
-#include "llvm/DebugInfo/DWARF/LowLevel/DWARFExpression.h"
 #include "llvm/Support/Endian.h"
 #include "llvm/Support/FormatVariadic.h"
 #include <cassert>

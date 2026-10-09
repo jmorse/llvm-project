@@ -13,8 +13,6 @@
 
 #include "X86CallingConv.h"
 #include "X86Subtarget.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/CodeGen/CallingConvLower.h"
 #include "llvm/IR/Module.h"
 
 using namespace llvm;

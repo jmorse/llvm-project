@@ -12,18 +12,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "MCTargetDesc/RISCVMatInt.h"
-#include "RISCVRegisterBankInfo.h"
-#include "RISCVSubtarget.h"
 #include "RISCVTargetMachine.h"
 #include "llvm/CodeGen/GlobalISel/GIMatchTableExecutorImpl.h"
 #include "llvm/CodeGen/GlobalISel/GISelValueTracking.h"
-#include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
-#include "llvm/CodeGen/GlobalISel/InstructionSelector.h"
 #include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
-#include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
 #include "llvm/CodeGen/MachineJumpTableInfo.h"
 #include "llvm/IR/IntrinsicsRISCV.h"
-#include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "riscv-isel"
 

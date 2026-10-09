@@ -9,12 +9,9 @@
 #ifndef LLVM_ANALYSIS_DXILMETADATA_H
 #define LLVM_ANALYSIS_DXILMETADATA_H
 
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/MC/DXContainerInfo.h"
 #include "llvm/Pass.h"
-#include "llvm/Support/VersionTuple.h"
-#include "llvm/TargetParser/Triple.h"
 
 namespace llvm {
 

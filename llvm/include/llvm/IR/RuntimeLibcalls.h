@@ -16,17 +16,11 @@
 #ifndef LLVM_IR_RUNTIME_LIBCALLS_H
 #define LLVM_IR_RUNTIME_LIBCALLS_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/Bitset.h"
-#include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/StringTable.h"
-#include "llvm/IR/CallingConv.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/SystemLibraries.h"
-#include "llvm/Support/AtomicOrdering.h"
-#include "llvm/Support/CodeGen.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/TargetParser/Triple.h"
 
 /// TableGen will produce 2 enums, RTLIB::Libcall and

@@ -6,7 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Basic/OpenCLOptions.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/TargetInfo.h"
 

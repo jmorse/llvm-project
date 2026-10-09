@@ -10,15 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/APValue.h"
 #include "Linkage.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
-#include "clang/AST/Type.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/raw_ostream.h"
 using namespace clang;
 
 /// The identity of a type_info object depends on the canonical unqualified

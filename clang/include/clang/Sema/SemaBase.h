@@ -14,13 +14,7 @@
 #ifndef LLVM_CLANG_SEMA_SEMABASE_H
 #define LLVM_CLANG_SEMA_SEMABASE_H
 
-#include "clang/AST/Decl.h"
-#include "clang/AST/Redeclarable.h"
-#include "clang/Basic/Diagnostic.h"
-#include "clang/Basic/PartialDiagnostic.h"
-#include "clang/Basic/SourceLocation.h"
 #include "clang/Sema/Ownership.h"
-#include "llvm/ADT/DenseMap.h"
 #include <optional>
 #include <type_traits>
 #include <utility>

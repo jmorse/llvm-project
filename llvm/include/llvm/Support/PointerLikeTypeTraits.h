@@ -14,7 +14,7 @@
 #ifndef LLVM_SUPPORT_POINTERLIKETYPETRAITS_H
 #define LLVM_SUPPORT_POINTERLIKETYPETRAITS_H
 
-#include "llvm/Support/DataTypes.h"
+#include "inttypes.h"
 #include "llvm/Support/MathExtras.h"
 #include <cassert>
 

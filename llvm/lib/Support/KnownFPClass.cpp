@@ -13,7 +13,6 @@
 
 #include "llvm/Support/KnownFPClass.h"
 #include "llvm/ADT/APFloat.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/KnownBits.h"
 
 using namespace llvm;

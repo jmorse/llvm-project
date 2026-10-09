@@ -8,9 +8,6 @@
 
 #include "MipsLinux.h"
 #include "Arch/Mips.h"
-#include "clang/Driver/Driver.h"
-#include "clang/Options/Options.h"
-#include "llvm/Option/ArgList.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 

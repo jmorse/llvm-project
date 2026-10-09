@@ -10,18 +10,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "AVRTargetMachine.h"
 
-#include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Compiler.h"
 
 #include "AVR.h"
 #include "AVRMachineFunctionInfo.h"
 #include "AVRTargetObjectFile.h"
 #include "AVRTargetTransformInfo.h"
-#include "MCTargetDesc/AVRMCTargetDesc.h"
 #include "TargetInfo/AVRTargetInfo.h"
 
 #include <optional>

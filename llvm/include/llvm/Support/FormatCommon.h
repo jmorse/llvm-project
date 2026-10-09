@@ -11,7 +11,6 @@
 
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/FormatVariadicDetails.h"
-#include "llvm/Support/raw_ostream.h"
 
 namespace llvm {
 enum class AlignStyle { Left, Center, Right };

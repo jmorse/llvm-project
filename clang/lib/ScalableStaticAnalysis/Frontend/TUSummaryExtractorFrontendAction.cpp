@@ -7,22 +7,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/ScalableStaticAnalysis/Frontend/TUSummaryExtractorFrontendAction.h"
-#include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/Basic/DiagnosticFrontend.h"
-#include "clang/Basic/TargetInfo.h"
 #include "clang/Frontend/MultiplexConsumer.h"
 #include "clang/Frontend/SSAFOptions.h"
 #include "clang/ScalableStaticAnalysis/Core/Serialization/SerializationFormatRegistry.h"
 #include "clang/ScalableStaticAnalysis/Core/TUSummary/ExtractorRegistry.h"
-#include "clang/ScalableStaticAnalysis/Core/TUSummary/TUSummary.h"
 #include "clang/ScalableStaticAnalysis/Core/TUSummary/TUSummaryBuilder.h"
-#include "clang/ScalableStaticAnalysis/Core/TUSummary/TUSummaryExtractor.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/IOSandbox.h"
-#include "llvm/Support/Path.h"
-#include "llvm/TargetParser/Triple.h"
 #include <memory>
 #include <string>
 #include <vector>

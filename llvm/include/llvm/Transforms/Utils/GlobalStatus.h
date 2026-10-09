@@ -10,7 +10,6 @@
 #define LLVM_TRANSFORMS_UTILS_GLOBALSTATUS_H
 
 #include "llvm/IR/Instructions.h"
-#include "llvm/Support/AtomicOrdering.h"
 
 namespace llvm {
 

@@ -21,15 +21,9 @@
 #ifndef LLVM_TRANSFORMS_UTILS_DEBUGSSAUPDATER_H
 #define LLVM_TRANSFORMS_UTILS_DEBUGSSAUPDATER_H
 
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/DebugInfoMetadata.h"
-#include "llvm/IR/DebugProgramInstruction.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/ValueHandle.h"
 #include "llvm/IR/ValueMap.h"
-#include "llvm/Support/Compiler.h"
 #include <cstdint>
 
 namespace llvm {

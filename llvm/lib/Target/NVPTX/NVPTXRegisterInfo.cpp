@@ -10,16 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "NVPTXRegisterInfo.h"
 #include "MCTargetDesc/NVPTXBaseInfo.h"
 #include "MCTargetDesc/NVPTXInstPrinter.h"
-#include "NVPTX.h"
 #include "NVPTXSubtarget.h"
-#include "llvm/ADT/BitVector.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
-#include "llvm/IR/Instructions.h"
 
 using namespace llvm;
 

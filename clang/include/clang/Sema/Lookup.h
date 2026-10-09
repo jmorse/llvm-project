@@ -14,20 +14,7 @@
 #ifndef LLVM_CLANG_SEMA_LOOKUP_H
 #define LLVM_CLANG_SEMA_LOOKUP_H
 
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclBase.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/DeclarationName.h"
-#include "clang/AST/Type.h"
-#include "clang/AST/UnresolvedSet.h"
-#include "clang/Basic/LLVM.h"
-#include "clang/Basic/LangOptions.h"
-#include "clang/Basic/SourceLocation.h"
-#include "clang/Basic/Specifiers.h"
 #include "clang/Sema/Sema.h"
-#include "llvm/ADT/MapVector.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/Support/Casting.h"
 #include <cassert>
 #include <optional>
 #include <utility>

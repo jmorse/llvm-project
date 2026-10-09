@@ -13,7 +13,6 @@
 #ifndef LLVM_OBJECT_ERROR_H
 #define LLVM_OBJECT_ERROR_H
 
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/Error.h"
 #include <system_error>
 

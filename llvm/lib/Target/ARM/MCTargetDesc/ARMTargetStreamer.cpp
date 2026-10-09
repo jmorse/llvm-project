@@ -17,7 +17,6 @@
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSubtargetInfo.h"
-#include "llvm/Support/ARMBuildAttributes.h"
 
 using namespace llvm;
 

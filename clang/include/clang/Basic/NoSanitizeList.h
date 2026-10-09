@@ -14,9 +14,7 @@
 #ifndef LLVM_CLANG_BASIC_NOSANITIZELIST_H
 #define LLVM_CLANG_BASIC_NOSANITIZELIST_H
 
-#include "clang/Basic/LLVM.h"
 #include "clang/Basic/SourceLocation.h"
-#include "llvm/ADT/StringRef.h"
 #include <memory>
 #include <vector>
 

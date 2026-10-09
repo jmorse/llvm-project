@@ -15,8 +15,6 @@
 #define LLVM_CLANG_BASIC_SYNCSCOPE_H
 
 #include "clang/Basic/LangOptions.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/TargetParser/AtomicScope.h"
 #include <memory>
 

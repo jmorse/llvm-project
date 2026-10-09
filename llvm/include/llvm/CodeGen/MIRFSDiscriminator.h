@@ -17,8 +17,6 @@
 #ifndef LLVM_CODEGEN_MIRFSDISCRIMINATOR_H
 #define LLVM_CODEGEN_MIRFSDISCRIMINATOR_H
 
-#include "llvm/ADT/StringRef.h"
-#include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/Support/Discriminator.h"
 

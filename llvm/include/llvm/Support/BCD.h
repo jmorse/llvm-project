@@ -13,6 +13,7 @@
 #ifndef LLVM_SUPPORT_BCD_H
 #define LLVM_SUPPORT_BCD_H
 
+#include "stddef.h"
 #include <assert.h>
 #include <cstddef>
 #include <cstdint>

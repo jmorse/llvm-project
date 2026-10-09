@@ -11,20 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Basic/DiagnosticFrontend.h"
-#include "clang/Basic/FileManager.h"
-#include "clang/Basic/MakeSupport.h"
-#include "clang/Basic/SourceManager.h"
-#include "clang/Frontend/DependencyOutputOptions.h"
 #include "clang/Frontend/Utils.h"
-#include "clang/Lex/DirectoryLookup.h"
-#include "clang/Lex/ModuleMap.h"
-#include "clang/Lex/PPCallbacks.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Serialization/ASTReader.h"
-#include "llvm/ADT/StringSet.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Path.h"
-#include "llvm/Support/raw_ostream.h"
 #include <optional>
 
 using namespace clang;

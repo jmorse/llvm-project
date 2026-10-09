@@ -6,16 +6,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/DebugInfo/GSYM/CallSiteInfo.h"
 #include "llvm/DebugInfo/GSYM/FileWriter.h"
-#include "llvm/DebugInfo/GSYM/FunctionInfo.h"
 #include "llvm/DebugInfo/GSYM/GsymCreator.h"
 #include "llvm/DebugInfo/GSYM/GsymDataExtractor.h"
-#include "llvm/MC/StringTableBuilder.h"
 #include "llvm/Support/InterleavedRange.h"
-#include "llvm/Support/YAMLParser.h"
 #include "llvm/Support/YAMLTraits.h"
-#include "llvm/Support/raw_ostream.h"
 #include <string>
 #include <vector>
 

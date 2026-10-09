@@ -12,7 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "LinkInModulesPass.h"
-#include "BackendConsumer.h"
 
 using namespace llvm;
 

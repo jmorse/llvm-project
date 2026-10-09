@@ -19,33 +19,16 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "AArch64.h"
 #include "AArch64ExpandImm.h"
 #include "AArch64GlobalISelUtils.h"
 #include "AArch64PerfectShuffle.h"
 #include "AArch64Subtarget.h"
 #include "GISel/AArch64LegalizerInfo.h"
-#include "MCTargetDesc/AArch64MCTargetDesc.h"
-#include "Utils/AArch64BaseInfo.h"
 #include "llvm/CodeGen/GlobalISel/Combiner.h"
 #include "llvm/CodeGen/GlobalISel/CombinerHelper.h"
-#include "llvm/CodeGen/GlobalISel/CombinerInfo.h"
 #include "llvm/CodeGen/GlobalISel/GIMatchTableExecutorImpl.h"
-#include "llvm/CodeGen/GlobalISel/GISelChangeObserver.h"
-#include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
-#include "llvm/CodeGen/GlobalISel/LegalizerHelper.h"
 #include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
-#include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
-#include "llvm/CodeGen/GlobalISel/Utils.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunctionAnalysisManager.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachinePassManager.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/TargetOpcodes.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <optional>
 
 #define GET_GICOMBINER_DEPS

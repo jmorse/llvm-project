@@ -16,10 +16,7 @@
 
 #include "clang/AST/DependenceFlags.h"
 #include "clang/Basic/Diagnostic.h"
-#include "clang/Basic/SourceLocation.h"
 #include "llvm/ADT/FoldingSet.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/PointerLikeTypeTraits.h"
 #include <cstdint>
 #include <cstdlib>
 #include <utility>

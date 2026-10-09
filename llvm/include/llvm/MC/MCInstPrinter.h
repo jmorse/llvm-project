@@ -9,10 +9,7 @@
 #ifndef LLVM_MC_MCINSTPRINTER_H
 #define LLVM_MC_MCINSTPRINTER_H
 
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/Format.h"
-#include "llvm/Support/raw_ostream.h"
 #include <cstdint>
 
 namespace llvm {

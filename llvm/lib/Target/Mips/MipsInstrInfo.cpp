@@ -10,25 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "MipsInstrInfo.h"
-#include "MCTargetDesc/MipsBaseInfo.h"
-#include "MCTargetDesc/MipsMCTargetDesc.h"
-#include "Mips.h"
 #include "MipsSubtarget.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/CodeGen/TargetOpcodes.h"
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/IR/DebugInfoMetadata.h"
-#include "llvm/IR/DebugLoc.h"
 #include "llvm/MC/MCInstBuilder.h"
-#include "llvm/MC/MCInstrDesc.h"
-#include "llvm/Target/TargetMachine.h"
 #include <cassert>
 
 using namespace llvm;

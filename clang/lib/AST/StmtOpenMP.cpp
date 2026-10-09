@@ -11,9 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/AST/StmtOpenMP.h"
-#include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
-#include "clang/AST/Stmt.h"
 
 using namespace clang;
 using namespace llvm::omp;

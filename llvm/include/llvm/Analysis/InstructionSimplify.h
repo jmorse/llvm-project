@@ -33,7 +33,6 @@
 
 #include "llvm/Analysis/SimplifyQuery.h"
 #include "llvm/IR/FPEnv.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

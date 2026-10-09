@@ -11,9 +11,7 @@
 
 #include "llvm/Analysis/FunctionPropertiesAnalysis.h"
 #include "llvm/Analysis/InlineAdvisor.h"
-#include "llvm/Analysis/LazyCallGraph.h"
 #include "llvm/Analysis/MLModelRunner.h"
-#include "llvm/IR/PassManager.h"
 
 #include <map>
 #include <memory>

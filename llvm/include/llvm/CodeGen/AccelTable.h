@@ -13,15 +13,8 @@
 #ifndef LLVM_CODEGEN_ACCELTABLE_H
 #define LLVM_CODEGEN_ACCELTABLE_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/MapVector.h"
-#include "llvm/ADT/STLFunctionalExtras.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/CodeGen/DIE.h"
-#include "llvm/CodeGen/DwarfStringPoolEntry.h"
-#include "llvm/Support/Allocator.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/DJB.h"
 #include "llvm/Support/Debug.h"
 #include <cstdint>

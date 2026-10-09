@@ -7,32 +7,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Frontend/FrontendActions.h"
-#include "clang/AST/ASTConsumer.h"
-#include "clang/AST/Decl.h"
 #include "clang/Basic/DiagnosticFrontend.h"
-#include "clang/Basic/FileManager.h"
-#include "clang/Basic/LangStandard.h"
-#include "clang/Basic/Module.h"
-#include "clang/Basic/TargetInfo.h"
 #include "clang/Frontend/ASTConsumers.h"
 #include "clang/Frontend/ASTUnit.h"
-#include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/MultiplexConsumer.h"
-#include "clang/Frontend/Utils.h"
-#include "clang/Lex/DependencyDirectivesScanner.h"
-#include "clang/Lex/HeaderSearch.h"
-#include "clang/Lex/Preprocessor.h"
-#include "clang/Lex/PreprocessorOptions.h"
 #include "clang/Parse/ParseHLSLRootSignature.h"
 #include "clang/Serialization/ASTReader.h"
-#include "clang/Serialization/ASTWriter.h"
-#include "clang/Serialization/ModuleFile.h"
-#include "llvm/Config/llvm-config.h" // for LLVM_HOST_TRIPLE
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/YAMLTraits.h"
-#include "llvm/Support/raw_ostream.h"
 #include <memory>
 #include <optional>
 #include <system_error>

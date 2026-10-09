@@ -41,26 +41,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "NVPTX.h"
 #include "NVPTXTargetMachine.h"
 #include "NVPTXUtilities.h"
 #include "NVVMProperties.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVectorExtras.h"
 #include "llvm/Analysis/PtrUseVisitor.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
-#include "llvm/IR/Attributes.h"
 #include "llvm/IR/DebugInfo.h"
-#include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Type.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/NVPTXAddrSpace.h"
 
 #define DEBUG_TYPE "nvptx-lower-args"
 

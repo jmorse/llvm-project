@@ -7,13 +7,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "IndexingContext.h"
-#include "clang/AST/ASTConcept.h"
 #include "clang/AST/Attr.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclTemplate.h"
 #include "clang/AST/DeclVisitor.h"
 #include "clang/Index/IndexDataConsumer.h"
-#include "clang/Index/IndexSymbol.h"
 
 using namespace clang;
 using namespace index;

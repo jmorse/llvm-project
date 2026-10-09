@@ -9,15 +9,11 @@
 #ifndef LLVM_OBJECT_ELFTYPES_H
 #define LLVM_OBJECT_ELFTYPES_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/BitmaskEnum.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/BinaryFormat/ELF.h"
 #include "llvm/Object/BBAddrMap.h"
 #include "llvm/Object/Error.h"
 #include "llvm/Support/Endian.h"
-#include "llvm/Support/Error.h"
-#include "llvm/Support/MathExtras.h"
 #include <cassert>
 #include <cstdint>
 #include <cstring>

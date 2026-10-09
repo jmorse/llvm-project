@@ -12,21 +12,15 @@
 //===----------------------------------------------------------------------===//
 
 #include "LoongArchAsmPrinter.h"
-#include "LoongArch.h"
 #include "LoongArchMachineFunctionInfo.h"
 #include "MCTargetDesc/LoongArchInstPrinter.h"
 #include "MCTargetDesc/LoongArchMCAsmInfo.h"
-#include "MCTargetDesc/LoongArchMCTargetDesc.h"
 #include "TargetInfo/LoongArchTargetInfo.h"
-#include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/MachineJumpTableInfo.h"
 #include "llvm/CodeGen/MachineModuleInfoImpls.h"
-#include "llvm/MC/MCAsmInfo.h"
-#include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCInstBuilder.h"
 #include "llvm/MC/MCSectionELF.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Compiler.h"
 
 using namespace llvm;
 

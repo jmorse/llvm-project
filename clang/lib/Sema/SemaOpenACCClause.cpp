@@ -10,11 +10,8 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/DeclCXX.h"
 #include "clang/AST/ExprCXX.h"
-#include "clang/AST/OpenACCClause.h"
 #include "clang/Basic/DiagnosticSema.h"
-#include "clang/Basic/OpenACCKinds.h"
 #include "clang/Sema/SemaOpenACC.h"
 
 using namespace clang;

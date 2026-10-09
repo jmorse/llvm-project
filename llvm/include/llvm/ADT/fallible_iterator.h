@@ -10,7 +10,6 @@
 #define LLVM_ADT_FALLIBLE_ITERATOR_H
 
 #include "llvm/ADT/PointerIntPair.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/Support/Error.h"
 
 #include <type_traits>

@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "SparcMCTargetDesc.h"
 #include "SparcInstPrinter.h"
 #include "SparcMCAsmInfo.h"
 #include "SparcTargetStreamer.h"
@@ -19,8 +18,6 @@
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorHandling.h"
 
 namespace llvm {
 namespace SparcASITag {

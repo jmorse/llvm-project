@@ -8,7 +8,6 @@
 
 #include "clang/Tooling/CompilationDatabase.h"
 #include "clang/Tooling/Tooling.h"
-#include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
 #include <memory>
 

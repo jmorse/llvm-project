@@ -12,17 +12,13 @@
 
 #include "LoongArchAsmBackend.h"
 #include "LoongArchFixupKinds.h"
-#include "llvm/BinaryFormat/ELF.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCELFObjectWriter.h"
-#include "llvm/MC/MCExpr.h"
-#include "llvm/MC/MCSection.h"
 #include "llvm/MC/MCValue.h"
 #include "llvm/Support/EndianStream.h"
 #include "llvm/Support/LEB128.h"
-#include "llvm/Support/MathExtras.h"
 
 #define DEBUG_TYPE "loongarch-asmbackend"
 

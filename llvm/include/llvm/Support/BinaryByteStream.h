@@ -10,11 +10,7 @@
 #ifndef LLVM_SUPPORT_BINARYBYTESTREAM_H
 #define LLVM_SUPPORT_BINARYBYTESTREAM_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/BinaryStream.h"
-#include "llvm/Support/BinaryStreamError.h"
-#include "llvm/Support/Error.h"
 #include "llvm/Support/FileOutputBuffer.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include <cstdint>

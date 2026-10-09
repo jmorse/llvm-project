@@ -224,13 +224,8 @@
 #ifndef LLVM_CODEGEN_RDFGRAPH_H
 #define LLVM_CODEGEN_RDFGRAPH_H
 
-#include "RDFRegisters.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/MC/LaneBitmask.h"
-#include "llvm/Support/Allocator.h"
-#include "llvm/Support/MathExtras.h"
+#include "llvm/ADT/IndexedMap.h"
+#include "llvm/CodeGen/TargetRegisterInfo.h"
 #include <cassert>
 #include <cstdint>
 #include <cstring>
@@ -239,6 +234,8 @@
 #include <set>
 #include <utility>
 #include <vector>
+
+#include "llvm/CodeGen/RDFRegisters.h"
 
 // RDF uses uint32_t to refer to registers. This is to ensure that the type
 // size remains specific. In other places, registers are often stored using

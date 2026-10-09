@@ -14,24 +14,10 @@
 #ifndef LLVM_OBJECT_MACHO_H
 #define LLVM_OBJECT_MACHO_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/BinaryFormat/MachO.h"
-#include "llvm/BinaryFormat/Swift.h"
-#include "llvm/Object/Binary.h"
 #include "llvm/Object/ObjectFile.h"
-#include "llvm/Object/SymbolicFile.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/Error.h"
-#include "llvm/Support/Format.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/TargetParser/SubtargetFeature.h"
-#include "llvm/TargetParser/Triple.h"
 #include <cstdint>
 #include <memory>
 #include <string>

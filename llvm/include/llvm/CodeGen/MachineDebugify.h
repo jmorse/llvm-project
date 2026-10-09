@@ -16,8 +16,6 @@
 
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/IR/DIBuilder.h"
-#include "llvm/IR/Function.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

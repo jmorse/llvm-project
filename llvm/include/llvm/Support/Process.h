@@ -24,10 +24,6 @@
 #ifndef LLVM_SUPPORT_PROCESS_H
 #define LLVM_SUPPORT_PROCESS_H
 
-#include "llvm/Support/Chrono.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/DataTypes.h"
-#include "llvm/Support/Error.h"
 #include "llvm/Support/Program.h"
 #include <optional>
 #include <system_error>

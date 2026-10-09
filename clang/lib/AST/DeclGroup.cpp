@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/DeclGroup.h"
 #include "clang/AST/ASTContext.h"
 #include <cassert>
 #include <memory>

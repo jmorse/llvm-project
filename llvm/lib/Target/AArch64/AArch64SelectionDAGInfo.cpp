@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "AArch64SelectionDAGInfo.h"
 #include "AArch64MachineFunctionInfo.h"
 
 #define GET_SDNODE_DESC

@@ -16,9 +16,6 @@
 #define LLVM_CODEGEN_BREAKFALSEDEPS_H
 
 #include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionAnalysisManager.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

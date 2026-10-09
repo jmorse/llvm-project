@@ -39,21 +39,8 @@
 // length remains unchanged.
 //===----------------------------------------------------------------------===//
 
-#include "MCTargetDesc/X86BaseInfo.h"
 #include "X86.h"
-#include "X86InstrInfo.h"
 #include "X86Subtarget.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionAnalysisManager.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/CodeGen/MachinePassManager.h"
-#include "llvm/IR/Analysis.h"
-#include "llvm/MC/MCInstrDesc.h"
-#include "llvm/Pass.h"
 #include <atomic>
 #include <cassert>
 #include <cstdint>

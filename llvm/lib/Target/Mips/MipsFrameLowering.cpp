@@ -10,11 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "MipsFrameLowering.h"
-#include "MipsInstrInfo.h"
 #include "MipsTargetMachine.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
 
 using namespace llvm;

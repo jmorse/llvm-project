@@ -15,17 +15,11 @@
 #include "MCTargetDesc/WebAssemblyMCTargetDesc.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/MC/MCCodeEmitter.h"
-#include "llvm/MC/MCContext.h"
-#include "llvm/MC/MCFixup.h"
-#include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/MCSymbol.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Support/EndianStream.h"
 #include "llvm/Support/LEB128.h"
-#include "llvm/Support/SMLoc.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 

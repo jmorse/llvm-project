@@ -10,7 +10,6 @@
 #define LLVM_MC_DXCONTAINERROOTSIGNATURE_H
 
 #include "llvm/BinaryFormat/DXContainer.h"
-#include "llvm/Support/Compiler.h"
 #include <cstdint>
 #include <limits>
 

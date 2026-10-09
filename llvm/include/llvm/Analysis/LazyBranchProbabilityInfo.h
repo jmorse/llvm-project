@@ -17,7 +17,6 @@
 #define LLVM_ANALYSIS_LAZYBRANCHPROBABILITYINFO_H
 
 #include "llvm/Analysis/BranchProbabilityInfo.h"
-#include "llvm/Pass.h"
 
 namespace llvm {
 class CycleInfo;

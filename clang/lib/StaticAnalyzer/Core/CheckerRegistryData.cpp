@@ -8,7 +8,6 @@
 
 #include "clang/StaticAnalyzer/Core/CheckerRegistryData.h"
 #include "clang/StaticAnalyzer/Core/AnalyzerOptions.h"
-#include "llvm/ADT/Twine.h"
 #include <map>
 
 using namespace clang;

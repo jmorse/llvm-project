@@ -15,9 +15,7 @@
 #ifndef LLVM_CLANG_AST_ASTLAMBDA_H
 #define LLVM_CLANG_AST_ASTLAMBDA_H
 
-#include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclTemplate.h"
-#include "llvm/Support/Casting.h"
 
 namespace clang {
 inline StringRef getLambdaStaticInvokerName() {

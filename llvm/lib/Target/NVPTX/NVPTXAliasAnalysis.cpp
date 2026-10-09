@@ -13,9 +13,6 @@
 #include "MCTargetDesc/NVPTXBaseInfo.h"
 #include "NVPTX.h"
 #include "llvm/Analysis/ValueTracking.h"
-#include "llvm/IR/InlineAsm.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
 

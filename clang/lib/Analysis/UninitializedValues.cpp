@@ -11,25 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Analysis/Analyses/UninitializedValues.h"
-#include "clang/AST/Attr.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclBase.h"
-#include "clang/AST/Expr.h"
-#include "clang/AST/OperationKinds.h"
-#include "clang/AST/Stmt.h"
-#include "clang/AST/StmtObjC.h"
 #include "clang/AST/StmtVisitor.h"
-#include "clang/AST/Type.h"
-#include "clang/Analysis/AnalysisDeclContext.h"
-#include "clang/Analysis/CFG.h"
 #include "clang/Analysis/DomainSpecific/ObjCNoReturn.h"
 #include "clang/Analysis/FlowSensitive/DataflowWorklist.h"
-#include "clang/Basic/LLVM.h"
-#include "llvm/ADT/BitVector.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/PackedVector.h"
 #include "llvm/ADT/SmallBitVector.h"
-#include "llvm/ADT/SmallVector.h"
 #include <algorithm>
 #include <cassert>
 #include <optional>

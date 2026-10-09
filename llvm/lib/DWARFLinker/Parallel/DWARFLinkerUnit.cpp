@@ -6,8 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "DWARFLinkerUnit.h"
-#include "DWARFEmitterImpl.h"
 #include "DebugLineSectionEmitter.h"
 
 using namespace llvm;

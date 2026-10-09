@@ -37,15 +37,11 @@
 #ifndef LLVM_ANALYSIS_ALIASANALYSIS_H
 #define LLVM_ANALYSIS_ALIASANALYSIS_H
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ModRef.h"
 #include <cstdint>
 #include <functional>
 #include <memory>

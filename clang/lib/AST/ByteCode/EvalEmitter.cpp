@@ -7,10 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "EvalEmitter.h"
-#include "Context.h"
-#include "IntegralAP.h"
 #include "Interp.h"
-#include "clang/AST/DeclCXX.h"
 #include "clang/AST/ExprCXX.h"
 #include "llvm/ADT/ScopeExit.h"
 

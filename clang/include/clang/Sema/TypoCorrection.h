@@ -14,15 +14,7 @@
 #ifndef LLVM_CLANG_SEMA_TYPOCORRECTION_H
 #define LLVM_CLANG_SEMA_TYPOCORRECTION_H
 
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclarationName.h"
-#include "clang/Basic/LLVM.h"
-#include "clang/Basic/PartialDiagnostic.h"
-#include "clang/Basic/SourceLocation.h"
 #include "clang/Sema/DeclSpec.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Support/Casting.h"
 #include <cstddef>
 #include <limits>
 #include <string>

@@ -13,13 +13,9 @@
 #ifndef LLVM_MC_MCSYMBOLGOFF_H
 #define LLVM_MC_MCSYMBOLGOFF_H
 
-#include "llvm/BinaryFormat/GOFF.h"
 #include "llvm/MC/MCDirectives.h"
-#include "llvm/MC/MCGOFFAttributes.h"
 #include "llvm/MC/MCSectionGOFF.h"
 #include "llvm/MC/MCSymbol.h"
-#include "llvm/MC/MCSymbolTableEntry.h"
-#include "llvm/Support/Alignment.h"
 
 namespace llvm {
 

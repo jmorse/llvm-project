@@ -10,16 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "SparcInstrInfo.h"
-#include "Sparc.h"
 #include "SparcMachineFunctionInfo.h"
 #include "SparcSubtarget.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineMemOperand.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 

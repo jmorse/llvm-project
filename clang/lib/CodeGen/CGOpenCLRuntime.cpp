@@ -16,8 +16,6 @@
 #include "CodeGenFunction.h"
 #include "TargetInfo.h"
 #include "clang/CodeGen/ConstantInitBuilder.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/GlobalValue.h"
 #include <assert.h>
 
 using namespace clang;

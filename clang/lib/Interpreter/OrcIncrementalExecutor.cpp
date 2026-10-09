@@ -14,14 +14,9 @@
 #include "clang/Interpreter/PartialTranslationUnit.h"
 
 #include "llvm/ExecutionEngine/Orc/EPCDynamicLibrarySearchGenerator.h"
-#include "llvm/ExecutionEngine/Orc/ExecutionUtils.h"
-#include "llvm/ExecutionEngine/Orc/JITTargetMachineBuilder.h"
 #include "llvm/ExecutionEngine/Orc/LLJIT.h"
 #include "llvm/ExecutionEngine/Orc/Shared/OrcRTBridge.h"
-#include "llvm/ExecutionEngine/Orc/Shared/SimpleRemoteEPCUtils.h"
 #include "llvm/ExecutionEngine/Orc/TargetProcess/JITLoaderGDB.h"
-#include "llvm/Support/Error.h"
-#include "llvm/Support/raw_ostream.h"
 
 #ifdef LLVM_ON_UNIX
 #include <netdb.h>

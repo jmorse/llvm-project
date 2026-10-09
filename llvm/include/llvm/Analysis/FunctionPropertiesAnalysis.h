@@ -14,11 +14,8 @@
 #ifndef LLVM_ANALYSIS_FUNCTIONPROPERTIESANALYSIS_H
 #define LLVM_ANALYSIS_FUNCTIONPROPERTIESANALYSIS_H
 
-#include "llvm/ADT/DenseSet.h"
 #include "llvm/Analysis/IR2Vec.h"
 #include "llvm/IR/Dominators.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 class BasicBlock;

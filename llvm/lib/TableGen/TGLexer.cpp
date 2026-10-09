@@ -11,14 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "TGLexer.h"
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/Config/config.h" // for strtoull()/strtoll() define
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/SourceMgr.h"
 #include "llvm/TableGen/Error.h"
 #include <cerrno>
 #include <cstdio>

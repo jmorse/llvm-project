@@ -14,14 +14,9 @@
 #include "SPIRV.h"
 #include "SPIRVBaseInfo.h"
 #include "llvm/ADT/APFloat.h"
-#include "llvm/ADT/StringExtras.h"
 #include "llvm/MC/MCAsmInfo.h"
-#include "llvm/MC/MCExpr.h"
-#include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCSymbol.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/MathExtras.h"
 
 using namespace llvm;
 using namespace llvm::SPIRV;

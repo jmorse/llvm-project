@@ -14,7 +14,6 @@
 #ifndef LLVM_TRANSFORMS_UTILS_SIMPLIFYLIBCALLS_H
 #define LLVM_TRANSFORMS_UTILS_SIMPLIFYLIBCALLS_H
 
-#include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 
 namespace llvm {

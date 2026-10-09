@@ -10,7 +10,6 @@
 #define LLVM_TRANSFORMS_SCALAR_LOOPUNROLLPASS_H
 
 #include "llvm/Analysis/LoopAnalysisManager.h"
-#include "llvm/IR/PassManager.h"
 #include "llvm/Support/CommandLine.h"
 #include <optional>
 

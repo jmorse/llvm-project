@@ -16,13 +16,10 @@
 #define LLVM_MC_MCASMINFO_H
 
 #include "llvm/ADT/CachedHashString.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/StringMap.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/MC/MCDirectives.h"
 #include "llvm/MC/MCTargetOptions.h"
-#include "llvm/Support/Compiler.h"
 #include <vector>
 
 namespace llvm {

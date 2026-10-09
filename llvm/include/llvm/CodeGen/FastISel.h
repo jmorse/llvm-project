@@ -14,18 +14,8 @@
 #ifndef LLVM_CODEGEN_FASTISEL_H
 #define LLVM_CODEGEN_FASTISEL_H
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/TargetLowering.h"
-#include "llvm/CodeGenTypes/MachineValueType.h"
-#include "llvm/IR/Attributes.h"
-#include "llvm/IR/CallingConv.h"
-#include "llvm/IR/DebugLoc.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/InstrTypes.h"
 #include <cstdint>
 #include <utility>
 

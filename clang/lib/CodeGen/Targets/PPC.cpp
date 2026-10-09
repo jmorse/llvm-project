@@ -9,7 +9,6 @@
 #include "ABIInfoImpl.h"
 #include "TargetInfo.h"
 #include "clang/Basic/DiagnosticFrontend.h"
-#include "llvm/Support/CodeGen.h"
 
 using namespace clang;
 using namespace clang::CodeGen;

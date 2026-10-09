@@ -14,10 +14,6 @@
 #define LLVM_CLANG_AST_REDECLARABLE_H
 
 #include "clang/AST/ExternalASTSource.h"
-#include "llvm/ADT/DenseMapInfo.h"
-#include "llvm/ADT/PointerUnion.h"
-#include "llvm/ADT/iterator_range.h"
-#include "llvm/Support/Casting.h"
 #include <cassert>
 #include <cstddef>
 #include <iterator>

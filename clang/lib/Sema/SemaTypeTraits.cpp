@@ -10,23 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/ComparisonCategories.h"
-#include "clang/AST/DeclCXX.h"
 #include "clang/AST/Mangle.h"
-#include "clang/AST/TemplateBase.h"
-#include "clang/AST/Type.h"
-#include "clang/Basic/BuiltinTraits.h"
-#include "clang/Basic/DiagnosticIDs.h"
 #include "clang/Basic/DiagnosticParse.h"
-#include "clang/Basic/DiagnosticSema.h"
-#include "clang/Basic/Specifiers.h"
 #include "clang/Sema/EnterExpressionEvaluationContext.h"
 #include "clang/Sema/Initialization.h"
 #include "clang/Sema/Lookup.h"
-#include "clang/Sema/Overload.h"
-#include "clang/Sema/Sema.h"
 #include "clang/Sema/SemaHLSL.h"
-#include "llvm/ADT/STLExtras.h"
 
 using namespace clang;
 

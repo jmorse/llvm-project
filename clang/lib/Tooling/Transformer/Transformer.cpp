@@ -7,11 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Tooling/Transformer/Transformer.h"
-#include "clang/ASTMatchers/ASTMatchFinder.h"
-#include "clang/ASTMatchers/ASTMatchersInternal.h"
-#include "clang/Basic/SourceLocation.h"
-#include "clang/Tooling/Refactoring/AtomicChange.h"
-#include "llvm/Support/Error.h"
 #include <map>
 #include <utility>
 

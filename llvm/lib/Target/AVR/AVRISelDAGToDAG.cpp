@@ -12,20 +12,10 @@
 
 #include "AVR.h"
 #include "AVRMachineFunctionInfo.h"
-#include "AVRRegisterInfo.h"
 #include "AVRTargetMachine.h"
-#include "MCTargetDesc/AVRMCTargetDesc.h"
 
-#include "llvm/CodeGen/ISDOpcodes.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/SelectionDAGISel.h"
-#include "llvm/CodeGen/SelectionDAGNodes.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/raw_ostream.h"
 
 #define DEBUG_TYPE "avr-isel"
 #define PASS_NAME "AVR DAG->DAG Instruction Selection"

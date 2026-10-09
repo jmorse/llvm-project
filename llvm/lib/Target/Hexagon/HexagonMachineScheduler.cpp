@@ -12,11 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "HexagonMachineScheduler.h"
-#include "HexagonInstrInfo.h"
 #include "HexagonSubtarget.h"
-#include "llvm/CodeGen/MachineScheduler.h"
-#include "llvm/CodeGen/ScheduleDAG.h"
-#include "llvm/CodeGen/VLIWMachineScheduler.h"
 
 using namespace llvm;
 

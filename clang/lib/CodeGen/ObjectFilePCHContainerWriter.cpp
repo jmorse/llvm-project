@@ -8,26 +8,12 @@
 
 #include "clang/CodeGen/ObjectFilePCHContainerWriter.h"
 #include "CGDebugInfo.h"
-#include "CodeGenModule.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/DeclObjC.h"
-#include "clang/AST/Expr.h"
 #include "clang/AST/RecursiveASTVisitor.h"
-#include "clang/Basic/CodeGenOptions.h"
-#include "clang/Basic/Diagnostic.h"
-#include "clang/Basic/TargetInfo.h"
 #include "clang/CodeGen/BackendUtil.h"
 #include "clang/Frontend/CompilerInstance.h"
-#include "clang/Lex/HeaderSearch.h"
 #include "clang/Lex/Preprocessor.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Module.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Object/COFF.h"
-#include "llvm/Support/Path.h"
 #include <memory>
 #include <utility>
 

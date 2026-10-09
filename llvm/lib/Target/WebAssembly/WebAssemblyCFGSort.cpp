@@ -16,21 +16,11 @@
 ///
 ////===----------------------------------------------------------------------===//
 
-#include "WebAssembly.h"
 #include "WebAssemblyExceptionInfo.h"
 #include "WebAssemblySortRegion.h"
-#include "WebAssemblyUtilities.h"
 #include "llvm/ADT/PriorityQueue.h"
 #include "llvm/CodeGen/MachineDominators.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionAnalysisManager.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
-#include "llvm/CodeGen/MachinePassManager.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/Passes.h"
-#include "llvm/IR/Analysis.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 using WebAssembly::SortRegion;
 using WebAssembly::SortRegionInfo;

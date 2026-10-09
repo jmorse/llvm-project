@@ -6,11 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Function.h"
 #include "Program.h"
 #include "clang/AST/ASTLambda.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclCXX.h"
 
 using namespace clang;
 using namespace clang::interp;

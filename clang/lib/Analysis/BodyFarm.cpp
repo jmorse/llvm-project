@@ -12,18 +12,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Analysis/BodyFarm.h"
-#include "clang/AST/ASTContext.h"
 #include "clang/AST/CXXInheritance.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/ExprObjC.h"
-#include "clang/AST/NestedNameSpecifier.h"
 #include "clang/Analysis/CodeInjector.h"
-#include "clang/Basic/Builtins.h"
-#include "clang/Basic/OperatorKinds.h"
-#include "llvm/ADT/StringSwitch.h"
-#include "llvm/Support/Debug.h"
 #include <optional>
 
 #define DEBUG_TYPE "body-farm"

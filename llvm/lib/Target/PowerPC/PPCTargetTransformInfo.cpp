@@ -8,14 +8,8 @@
 
 #include "PPCTargetTransformInfo.h"
 #include "llvm/Analysis/CodeMetrics.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/CodeGen/BasicTTIImpl.h"
-#include "llvm/CodeGen/TargetLowering.h"
 #include "llvm/CodeGen/TargetSchedule.h"
 #include "llvm/IR/IntrinsicsPowerPC.h"
-#include "llvm/IR/ProfDataUtils.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/InstCombine/InstCombiner.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include <optional>

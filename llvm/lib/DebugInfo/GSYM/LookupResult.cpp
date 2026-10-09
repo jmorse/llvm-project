@@ -10,7 +10,6 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/DebugInfo/GSYM/ExtractRanges.h"
 #include "llvm/Support/Path.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 using namespace gsym;

@@ -9,15 +9,9 @@
 #ifndef LLVM_SUPPORT_BINARYSTREAMREADER_H
 #define LLVM_SUPPORT_BINARYSTREAMREADER_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Alignment.h"
 #include "llvm/Support/BinaryStreamArray.h"
-#include "llvm/Support/BinaryStreamRef.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/ConvertUTF.h"
 #include "llvm/Support/Endian.h"
-#include "llvm/Support/Error.h"
 #include <type_traits>
 
 namespace llvm {

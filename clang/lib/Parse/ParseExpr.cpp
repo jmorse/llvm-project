@@ -20,26 +20,15 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/ASTContext.h"
 #include "clang/AST/Availability.h"
-#include "clang/AST/ExprCXX.h"
 #include "clang/AST/LocInfoType.h"
 #include "clang/Basic/PrettyStackTrace.h"
 #include "clang/Lex/LiteralSupport.h"
-#include "clang/Parse/Parser.h"
 #include "clang/Parse/RAIIObjectsForParser.h"
-#include "clang/Sema/DeclSpec.h"
 #include "clang/Sema/EnterExpressionEvaluationContext.h"
-#include "clang/Sema/ParsedTemplate.h"
-#include "clang/Sema/Scope.h"
 #include "clang/Sema/SemaCUDA.h"
-#include "clang/Sema/SemaCodeCompletion.h"
-#include "clang/Sema/SemaObjC.h"
 #include "clang/Sema/SemaOpenACC.h"
-#include "clang/Sema/SemaOpenMP.h"
 #include "clang/Sema/SemaSYCL.h"
-#include "clang/Sema/TypoCorrection.h"
-#include "llvm/ADT/SmallVector.h"
 #include <optional>
 using namespace clang;
 

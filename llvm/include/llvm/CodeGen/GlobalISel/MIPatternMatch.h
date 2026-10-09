@@ -13,13 +13,9 @@
 #ifndef LLVM_CODEGEN_GLOBALISEL_MIPATTERNMATCH_H
 #define LLVM_CODEGEN_GLOBALISEL_MIPATTERNMATCH_H
 
-#include "llvm/ADT/APInt.h"
-#include "llvm/ADT/FloatingPointMode.h"
 #include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
 #include "llvm/CodeGen/GlobalISel/Utils.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/TargetOpcodes.h"
-#include "llvm/IR/InstrTypes.h"
 #include <tuple>
 #include <utility>
 

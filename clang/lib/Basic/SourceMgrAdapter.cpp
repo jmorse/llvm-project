@@ -12,7 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Basic/SourceMgrAdapter.h"
-#include "clang/Basic/Diagnostic.h"
 
 using namespace clang;
 

@@ -10,9 +10,6 @@
 #define LLVM_SUPPORT_TIMER_H
 
 #include "llvm/ADT/StringMap.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/DataTypes.h"
 #include "llvm/Support/Mutex.h"
 #include <cassert>
 #include <string>

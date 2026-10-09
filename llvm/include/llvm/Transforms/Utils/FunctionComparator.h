@@ -14,14 +14,9 @@
 #ifndef LLVM_TRANSFORMS_UTILS_FUNCTIONCOMPARATOR_H
 #define LLVM_TRANSFORMS_UTILS_FUNCTIONCOMPARATOR_H
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/ValueMap.h"
-#include "llvm/Support/AtomicOrdering.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Compiler.h"
 #include <cstdint>
 #include <tuple>
 

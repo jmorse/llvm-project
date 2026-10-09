@@ -17,19 +17,10 @@
 
 #include "clang/Basic/Builtins.h"
 #include "clang/Basic/DiagnosticIDs.h"
-#include "clang/Basic/LLVM.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/TokenKinds.h"
-#include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/ADT/FoldingSet.h"
-#include "llvm/ADT/PointerIntPair.h"
-#include "llvm/ADT/PointerUnion.h"
 #include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/StringMap.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Allocator.h"
-#include "llvm/Support/PointerLikeTypeTraits.h"
-#include "llvm/Support/type_traits.h"
 #include <cassert>
 #include <cstddef>
 #include <cstdint>

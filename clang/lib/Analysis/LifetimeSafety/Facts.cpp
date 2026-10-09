@@ -6,8 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Analysis/Analyses/LifetimeSafety/Facts.h"
-#include "clang/AST/Decl.h"
 #include "clang/Analysis/Analyses/LifetimeSafety/LoanPropagation.h"
 #include "clang/Analysis/Analyses/PostOrderCFGView.h"
 #include "llvm/Support/TimeProfiler.h"

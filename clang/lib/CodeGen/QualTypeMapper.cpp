@@ -15,20 +15,9 @@
 ///
 //===----------------------------------------------------------------------===//
 #include "QualTypeMapper.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/ASTFwd.h"
 #include "clang/AST/Attr.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclCXX.h"
 #include "clang/AST/RecordLayout.h"
-#include "clang/AST/Type.h"
-#include "clang/Basic/AddressSpaces.h"
-#include "clang/Basic/LLVM.h"
 #include "clang/Basic/TargetInfo.h"
-#include "llvm/ABI/Types.h"
-#include "llvm/Support/Alignment.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/TypeSize.h"
 #include <cstdint>
 
 namespace clang {

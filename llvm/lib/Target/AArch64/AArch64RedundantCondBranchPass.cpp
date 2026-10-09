@@ -13,10 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "AArch64.h"
 #include "AArch64InstrInfo.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
 
 using namespace llvm;
 

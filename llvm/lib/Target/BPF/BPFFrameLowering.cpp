@@ -10,10 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "BPFFrameLowering.h"
 #include "BPFSubtarget.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
 
 using namespace llvm;
 

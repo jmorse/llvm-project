@@ -32,11 +32,7 @@
 #ifndef LLVM_SUPPORT_ENUM_H
 #define LLVM_SUPPORT_ENUM_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/DataTypes.h"
 
 namespace llvm {
 

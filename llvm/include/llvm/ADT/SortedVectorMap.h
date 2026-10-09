@@ -33,7 +33,6 @@
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/Support/Compiler.h"
 #include <functional>
 #include <tuple>
 #include <utility>

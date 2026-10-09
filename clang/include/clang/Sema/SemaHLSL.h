@@ -13,19 +13,10 @@
 #ifndef LLVM_CLANG_SEMA_SEMAHLSL_H
 #define LLVM_CLANG_SEMA_SEMAHLSL_H
 
-#include "clang/AST/ASTFwd.h"
 #include "clang/AST/Attr.h"
-#include "clang/AST/Type.h"
-#include "clang/AST/TypeLoc.h"
 #include "clang/Basic/DiagnosticSema.h"
-#include "clang/Basic/SourceLocation.h"
 #include "clang/Sema/SemaBase.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringSet.h"
 #include "llvm/Frontend/HLSL/SemanticSignatures.h"
-#include "llvm/TargetParser/Triple.h"
 #include <initializer_list>
 
 namespace clang {

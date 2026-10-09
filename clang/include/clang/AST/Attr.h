@@ -14,23 +14,11 @@
 #define LLVM_CLANG_AST_ATTR_H
 
 #include "clang/AST/ASTFwd.h"
-#include "clang/AST/AttrIterator.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclCXX.h"
 #include "clang/AST/Type.h"
-#include "clang/Basic/AttrKinds.h"
 #include "clang/Basic/AttributeCommonInfo.h"
-#include "clang/Basic/LLVM.h"
-#include "clang/Basic/LangOptions.h"
 #include "clang/Basic/OpenMPKinds.h"
-#include "clang/Basic/Sanitizers.h"
-#include "clang/Basic/SourceLocation.h"
 #include "clang/Support/Compiler.h"
 #include "llvm/Frontend/HLSL/HLSLResource.h"
-#include "llvm/Support/CodeGen.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/VersionTuple.h"
-#include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cassert>
 

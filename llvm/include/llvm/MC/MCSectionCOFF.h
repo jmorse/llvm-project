@@ -13,10 +13,8 @@
 #ifndef LLVM_MC_MCSECTIONCOFF_H
 #define LLVM_MC_MCSECTIONCOFF_H
 
-#include "llvm/ADT/StringRef.h"
 #include "llvm/BinaryFormat/COFF.h"
 #include "llvm/MC/MCSection.h"
-#include "llvm/MC/SectionKind.h"
 #include <cassert>
 
 namespace llvm {

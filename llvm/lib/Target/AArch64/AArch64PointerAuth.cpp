@@ -6,17 +6,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "AArch64PointerAuth.h"
 
-#include "AArch64.h"
-#include "AArch64FrameLowering.h"
-#include "AArch64InstrInfo.h"
 #include "AArch64MachineFunctionInfo.h"
-#include "AArch64Subtarget.h"
 #include "MCTargetDesc/AArch64AddressingModes.h"
 #include "llvm/CodeGen/CFIInstBuilder.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
 
 using namespace llvm;

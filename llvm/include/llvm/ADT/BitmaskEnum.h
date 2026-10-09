@@ -12,8 +12,6 @@
 #include <cassert>
 #include <type_traits>
 
-#include "llvm/ADT/STLForwardCompat.h"
-#include "llvm/ADT/bit.h"
 #include "llvm/Support/MathExtras.h"
 
 /// LLVM_MARK_AS_BITMASK_ENUM lets you opt in an individual enum type so you can

@@ -7,14 +7,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "SSAFAnalysesCommon.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/Decl.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/DynamicRecursiveASTVisitor.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/Basic/SourceManager.h"
-#include "clang/Frontend/SSAFOptions.h"
-#include "llvm/ADT/SetVector.h"
 
 using namespace clang;
 using namespace ssaf;

@@ -10,27 +10,16 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "RISCVMCTargetDesc.h"
 #include "RISCVELFStreamer.h"
 #include "RISCVInstPrinter.h"
 #include "RISCVMCAsmInfo.h"
 #include "RISCVMCObjectFileInfo.h"
-#include "RISCVTargetStreamer.h"
 #include "TargetInfo/RISCVTargetInfo.h"
 #include "llvm/MC/MCAsmBackend.h"
-#include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCCodeEmitter.h"
 #include "llvm/MC/MCInstrAnalysis.h"
-#include "llvm/MC/MCInstrInfo.h"
-#include "llvm/MC/MCObjectFileInfo.h"
 #include "llvm/MC/MCObjectWriter.h"
-#include "llvm/MC/MCRegisterInfo.h"
-#include "llvm/MC/MCStreamer.h"
-#include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/MathExtras.h"
 #include <bitset>
 
 #define GET_INSTRINFO_MC_DESC

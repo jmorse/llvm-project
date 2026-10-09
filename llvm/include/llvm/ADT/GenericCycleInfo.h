@@ -28,17 +28,11 @@
 #ifndef LLVM_ADT_GENERICCYCLEINFO_H
 #define LLVM_ADT_GENERICCYCLEINFO_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/ADT/GenericSSAContext.h"
 #include "llvm/ADT/GraphTraits.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/iterator.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 #include <memory>
 #include <type_traits>
 

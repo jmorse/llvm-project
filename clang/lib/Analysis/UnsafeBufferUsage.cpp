@@ -7,31 +7,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Analysis/Analyses/UnsafeBufferUsage.h"
-#include "clang/AST/APValue.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/ASTTypeTraits.h"
-#include "clang/AST/Attr.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/DeclTemplate.h"
 #include "clang/AST/DynamicRecursiveASTVisitor.h"
-#include "clang/AST/Expr.h"
 #include "clang/AST/FormatString.h"
 #include "clang/AST/ParentMapContext.h"
-#include "clang/AST/Stmt.h"
 #include "clang/AST/StmtVisitor.h"
-#include "clang/AST/Type.h"
 #include "clang/ASTMatchers/LowLevelHelpers.h"
 #include "clang/Analysis/Support/FixitUtil.h"
-#include "clang/Basic/SourceLocation.h"
-#include "clang/Lex/Lexer.h"
 #include "clang/Lex/Preprocessor.h"
-#include "llvm/ADT/APInt.h"
-#include "llvm/ADT/APSInt.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/STLFunctionalExtras.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
 #include <cstddef>
 #include <optional>
 #include <queue>

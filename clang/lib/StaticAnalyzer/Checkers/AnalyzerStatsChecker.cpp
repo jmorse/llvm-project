@@ -7,18 +7,9 @@
 //===----------------------------------------------------------------------===//
 // This file reports various statistics about analyzer visitation.
 //===----------------------------------------------------------------------===//
-#include "clang/AST/DeclObjC.h"
-#include "clang/Basic/SourceManager.h"
 #include "clang/StaticAnalyzer/Checkers/BuiltinCheckerRegistration.h"
-#include "clang/StaticAnalyzer/Core/BugReporter/BugReporter.h"
-#include "clang/StaticAnalyzer/Core/Checker.h"
-#include "clang/StaticAnalyzer/Core/CheckerManager.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/EntryPointStats.h"
-#include "clang/StaticAnalyzer/Core/PathSensitive/ExplodedGraph.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/ExprEngine.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/Support/raw_ostream.h"
 #include <optional>
 
 using namespace clang;

@@ -14,8 +14,6 @@
 #include "llvm/IR/Assumptions.h"
 #include "llvm/ADT/SetOperations.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/IR/Attributes.h"
-#include "llvm/IR/Function.h"
 #include "llvm/IR/InstrTypes.h"
 
 using namespace llvm;

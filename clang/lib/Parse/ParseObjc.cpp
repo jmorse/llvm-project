@@ -10,21 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/ASTContext.h"
 #include "clang/AST/ExprObjC.h"
 #include "clang/AST/ODRDiagsEmitter.h"
 #include "clang/AST/PrettyDeclStackTrace.h"
-#include "clang/Basic/CharInfo.h"
-#include "clang/Basic/DiagnosticParse.h"
 #include "clang/Basic/TargetInfo.h"
-#include "clang/Parse/Parser.h"
 #include "clang/Parse/RAIIObjectsForParser.h"
-#include "clang/Sema/DeclSpec.h"
-#include "clang/Sema/Scope.h"
-#include "clang/Sema/SemaCodeCompletion.h"
-#include "clang/Sema/SemaObjC.h"
-#include "llvm/ADT/STLForwardCompat.h"
-#include "llvm/ADT/SmallVector.h"
 
 using namespace clang;
 

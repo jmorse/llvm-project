@@ -13,10 +13,9 @@
 #ifndef LLVM_CLANG_AST_CHARUNITS_H
 #define LLVM_CLANG_AST_CHARUNITS_H
 
+#include "inttypes.h"
 #include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/Support/Alignment.h"
-#include "llvm/Support/DataTypes.h"
-#include "llvm/Support/MathExtras.h"
 
 namespace clang {
 

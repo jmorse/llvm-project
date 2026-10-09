@@ -16,15 +16,7 @@
 #include "clang/Basic/DiagnosticLex.h"
 #include "clang/Basic/LangOptions.h"
 #include "clang/Basic/OperatorKinds.h"
-#include "clang/Basic/Specifiers.h"
 #include "clang/Basic/TargetBuiltins.h"
-#include "clang/Basic/TokenKinds.h"
-#include "llvm/ADT/DenseMapInfo.h"
-#include "llvm/ADT/FoldingSet.h"
-#include "llvm/ADT/StringMap.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Allocator.h"
-#include "llvm/Support/raw_ostream.h"
 #include <cassert>
 #include <cstdio>
 #include <cstring>

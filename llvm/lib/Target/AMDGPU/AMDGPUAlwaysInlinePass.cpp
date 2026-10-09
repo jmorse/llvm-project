@@ -14,11 +14,7 @@
 
 #include "AMDGPU.h"
 #include "AMDGPUTargetMachine.h"
-#include "Utils/AMDGPUBaseInfo.h"
 #include "llvm/CodeGen/CommandFlags.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
 

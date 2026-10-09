@@ -13,12 +13,8 @@
 #include "LinkDiagnosticInfo.h"
 #include "llvm-c/Linker.h"
 #include "llvm/ADT/SetVector.h"
-#include "llvm/IR/Comdat.h"
-#include "llvm/IR/GlobalValue.h"
-#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Linker/Linker.h"
-#include "llvm/Support/Error.h"
 using namespace llvm;
 
 namespace {

@@ -11,7 +11,6 @@
 #define LLVM_ANALYSIS_NOINFERENCEMODELRUNNER_H
 
 #include "llvm/Analysis/MLModelRunner.h"
-#include "llvm/Support/Compiler.h"
 namespace llvm {
 class TensorSpec;
 

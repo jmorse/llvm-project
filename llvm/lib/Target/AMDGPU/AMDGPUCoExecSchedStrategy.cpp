@@ -15,7 +15,6 @@
 #include "AMDGPUBarrierLatency.h"
 #include "AMDGPUIGroupLP.h"
 #include "GCNHazardRecognizer.h"
-#include "llvm/Support/Debug.h"
 
 using namespace llvm;
 using namespace llvm::AMDGPU;

@@ -11,21 +11,16 @@
 //===----------------------------------------------------------------------===//
 
 #include "CGBuiltin.h"
-#include "CodeGenFunction.h"
 #include "TargetInfo.h"
 #include "clang/Basic/DiagnosticFrontend.h"
-#include "clang/Basic/SyncScope.h"
 #include "clang/Basic/TargetBuiltins.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/IR/IntrinsicsAMDGPU.h"
 #include "llvm/IR/IntrinsicsR600.h"
 #include "llvm/IR/IntrinsicsSPIRV.h"
-#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/MemoryModelRelaxationAnnotations.h"
 #include "llvm/Support/AMDGPUAddrSpace.h"
-#include "llvm/Support/AtomicOrdering.h"
-#include "llvm/TargetParser/AtomicScope.h"
 
 using namespace clang;
 using namespace CodeGen;

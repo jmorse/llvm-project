@@ -10,19 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallString.h"
-#include "llvm/Config/config.h"
-#include "llvm/Support/Alignment.h"
 #include "llvm/Support/AutoConvert.h"
 #include "llvm/Support/Errc.h"
-#include "llvm/Support/Error.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/IOSandbox.h"
 #include "llvm/Support/Process.h"
-#include "llvm/Support/Program.h"
 #include "llvm/Support/SmallVectorMemoryBuffer.h"
 #include <algorithm>
 #include <cassert>

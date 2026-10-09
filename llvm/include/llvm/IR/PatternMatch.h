@@ -28,20 +28,9 @@
 #ifndef LLVM_IR_PATTERNMATCH_H
 #define LLVM_IR_PATTERNMATCH_H
 
-#include "llvm/ADT/APFloat.h"
-#include "llvm/ADT/APInt.h"
-#include "llvm/IR/Constant.h"
-#include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
-#include "llvm/IR/FMF.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Operator.h"
-#include "llvm/IR/Value.h"
-#include "llvm/Support/Casting.h"
 #include "llvm/Support/PatternMatchHelpers.h"
 #include <cstdint>
 #include <utility>

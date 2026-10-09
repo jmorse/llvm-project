@@ -14,10 +14,8 @@
 #ifndef LLVM_CODEGEN_MACHINESTRIPDEBUG_H
 #define LLVM_CODEGEN_MACHINESTRIPDEBUG_H
 
-#include "llvm/IR/Analysis.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

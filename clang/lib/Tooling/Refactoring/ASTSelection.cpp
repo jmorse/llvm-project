@@ -9,7 +9,6 @@
 #include "clang/Tooling/Refactoring/ASTSelection.h"
 #include "clang/AST/LexicallyOrderedRecursiveASTVisitor.h"
 #include "clang/Lex/Lexer.h"
-#include "llvm/Support/SaveAndRestore.h"
 #include <optional>
 
 using namespace clang;

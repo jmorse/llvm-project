@@ -14,11 +14,7 @@
 #include "GCNRegPressure.h"
 #include "AMDGPU.h"
 #include "SIMachineFunctionInfo.h"
-#include "llvm/ADT/SetVector.h"
-#include "llvm/CodeGen/LiveIntervalUnion.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
-#include "llvm/CodeGen/RegisterPressure.h"
 
 using namespace llvm;
 

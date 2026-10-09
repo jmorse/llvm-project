@@ -11,7 +11,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "RISCV.h"
 #include "RISCVTargetMachine.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -19,9 +18,7 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstVisitor.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
 
 using namespace llvm;
 

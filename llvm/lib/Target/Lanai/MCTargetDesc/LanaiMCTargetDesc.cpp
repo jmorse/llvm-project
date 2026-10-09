@@ -14,17 +14,10 @@
 #include "LanaiInstPrinter.h"
 #include "LanaiMCAsmInfo.h"
 #include "TargetInfo/LanaiTargetInfo.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstrAnalysis.h"
-#include "llvm/MC/MCInstrInfo.h"
-#include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/TargetParser/Triple.h"
 #include <cstdint>
 #include <string>
 

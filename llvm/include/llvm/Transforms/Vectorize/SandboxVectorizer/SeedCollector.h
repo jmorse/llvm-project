@@ -12,13 +12,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_SANDBOXVECTORIZER_SEEDCOLLECTOR_H
 #define LLVM_TRANSFORMS_VECTORIZE_SANDBOXVECTORIZER_SEEDCOLLECTOR_H
 
-#include "llvm/ADT/BitVector.h"
-#include "llvm/ADT/iterator_range.h"
-#include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/SandboxIR/Instruction.h"
 #include "llvm/SandboxIR/Utils.h"
-#include "llvm/SandboxIR/Value.h"
-#include "llvm/Support/Compiler.h"
 #include <iterator>
 #include <memory>
 

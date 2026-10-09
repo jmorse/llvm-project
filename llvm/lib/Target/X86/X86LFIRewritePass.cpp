@@ -14,10 +14,7 @@
 
 #include "MCTargetDesc/X86MCLFIRewriter.h"
 #include "X86.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineJumpTableInfo.h"
-#include "llvm/Support/Alignment.h"
-#include "llvm/Target/TargetMachine.h"
 
 using namespace llvm;
 

@@ -14,13 +14,9 @@
 #ifndef LLVM_CODEGEN_MIRYAMLMAPPING_H
 #define LLVM_CODEGEN_MIRYAMLMAPPING_H
 
-#include "llvm/ADT/StringRef.h"
 #include "llvm/CodeGen/MachineJumpTableInfo.h"
 #include "llvm/CodeGen/TargetFrameLowering.h"
-#include "llvm/Support/CodeGen.h"
-#include "llvm/Support/SMLoc.h"
 #include "llvm/Support/YAMLTraits.h"
-#include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cstdint>
 #include <optional>

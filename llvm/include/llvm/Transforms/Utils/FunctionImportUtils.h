@@ -14,9 +14,7 @@
 #ifndef LLVM_TRANSFORMS_UTILS_FUNCTIONIMPORTUTILS_H
 #define LLVM_TRANSFORMS_UTILS_FUNCTIONIMPORTUTILS_H
 
-#include "llvm/ADT/SetVector.h"
 #include "llvm/IR/ModuleSummaryIndex.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 class Module;

@@ -10,10 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "ARMSelectionDAGInfo.h"
 #include "ARMTargetTransformInfo.h"
-#include "llvm/CodeGen/SelectionDAG.h"
-#include "llvm/Support/CommandLine.h"
 
 #define GET_SDNODE_DESC
 #include "ARMGenSDNodeInfo.inc"

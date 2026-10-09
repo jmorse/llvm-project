@@ -8,8 +8,6 @@
 
 #include "SystemZ.h"
 #include "clang/Config/config.h"
-#include "clang/Options/Options.h"
-#include "llvm/Option/ArgList.h"
 #include "llvm/TargetParser/Host.h"
 
 using namespace clang::driver;

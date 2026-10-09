@@ -10,15 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "NVPTXFrameLowering.h"
-#include "NVPTX.h"
-#include "NVPTXRegisterInfo.h"
 #include "NVPTXSubtarget.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
 
 using namespace llvm;
 

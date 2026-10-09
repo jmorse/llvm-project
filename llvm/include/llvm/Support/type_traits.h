@@ -13,7 +13,7 @@
 #ifndef LLVM_SUPPORT_TYPE_TRAITS_H
 #define LLVM_SUPPORT_TYPE_TRAITS_H
 
-#include "llvm/Support/Compiler.h"
+#include "stddef.h"
 #include <type_traits>
 
 namespace llvm {

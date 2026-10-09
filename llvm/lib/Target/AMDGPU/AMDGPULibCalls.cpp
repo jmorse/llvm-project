@@ -14,7 +14,6 @@
 #include "AMDGPU.h"
 #include "AMDGPULibFunc.h"
 #include "llvm/Analysis/AssumptionCache.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/AttributeMask.h"
 #include "llvm/IR/Dominators.h"

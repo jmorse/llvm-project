@@ -9,10 +9,7 @@
 #include "llvm/DWARFLinker/Classic/DWARFLinkerDeclContext.h"
 #include "llvm/DWARFLinker/Classic/DWARFLinkerCompileUnit.h"
 #include "llvm/DebugInfo/DWARF/DWARFContext.h"
-#include "llvm/DebugInfo/DWARF/DWARFDie.h"
 #include "llvm/DebugInfo/DWARF/DWARFTypePrinter.h"
-#include "llvm/DebugInfo/DWARF/DWARFUnit.h"
-#include "llvm/Support/raw_ostream.h"
 
 namespace llvm {
 

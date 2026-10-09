@@ -56,9 +56,6 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_LOOPVECTORIZE_H
 #define LLVM_TRANSFORMS_VECTORIZE_LOOPVECTORIZE_H
 
-#include "llvm/IR/PassManager.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Transforms/Utils/ExtraPassManager.h"
 #include <functional>
 

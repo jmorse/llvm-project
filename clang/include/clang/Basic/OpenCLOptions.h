@@ -15,7 +15,6 @@
 #define LLVM_CLANG_BASIC_OPENCLOPTIONS_H
 
 #include "clang/Basic/LangOptions.h"
-#include "llvm/ADT/StringMap.h"
 
 namespace clang {
 

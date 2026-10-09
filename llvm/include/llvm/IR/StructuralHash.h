@@ -17,7 +17,6 @@
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/StableHashing.h"
 #include "llvm/IR/Instruction.h"
-#include "llvm/Support/Compiler.h"
 #include <cstdint>
 
 namespace llvm {

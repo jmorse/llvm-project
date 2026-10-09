@@ -13,13 +13,8 @@
 #ifndef LLVM_TRANSFORMS_INSTRUMENTATION_H
 #define LLVM_TRANSFORMS_INSTRUMENTATION_H
 
-#include "llvm/ADT/StringRef.h"
-#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/DebugInfoMetadata.h"
-#include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/Support/Compiler.h"
 #include <cassert>
 #include <cstdint>
 #include <limits>

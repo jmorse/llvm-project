@@ -15,19 +15,7 @@
 #define LLVM_CLANG_AST_ASTIMPORTER_H
 
 #include "clang/AST/ASTImportError.h"
-#include "clang/AST/DeclBase.h"
-#include "clang/AST/DeclarationName.h"
 #include "clang/AST/ExprCXX.h"
-#include "clang/AST/NestedNameSpecifier.h"
-#include "clang/AST/TemplateName.h"
-#include "clang/AST/Type.h"
-#include "clang/Basic/Diagnostic.h"
-#include "clang/Basic/IdentifierTable.h"
-#include "clang/Basic/LLVM.h"
-#include "clang/Basic/SourceLocation.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/SmallVector.h"
 #include <optional>
 #include <utility>
 

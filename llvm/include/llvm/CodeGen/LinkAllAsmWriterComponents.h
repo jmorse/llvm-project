@@ -14,8 +14,8 @@
 #ifndef LLVM_CODEGEN_LINKALLASMWRITERCOMPONENTS_H
 #define LLVM_CODEGEN_LINKALLASMWRITERCOMPONENTS_H
 
-#include "llvm/IR/BuiltinGCs.h"
 #include "llvm/Support/AlwaysTrue.h"
+#include "llvm/IR/BuiltinGCs.h"
 
 namespace {
   struct ForceAsmWriterLinking {

@@ -14,15 +14,9 @@
 #include "clang/Sema/SemaOpenACC.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/DeclOpenACC.h"
-#include "clang/AST/StmtOpenACC.h"
-#include "clang/Basic/DiagnosticSema.h"
-#include "clang/Basic/OpenACCKinds.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Sema/Initialization.h"
-#include "clang/Sema/Scope.h"
 #include "clang/Sema/Sema.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/Support/Casting.h"
 
 using namespace clang;
 

@@ -12,7 +12,6 @@
 #include "llvm/MC/MCObjectWriter.h"
 #include "llvm/MC/MCValue.h"
 #include "llvm/Support/EndianStream.h"
-#include "llvm/TargetParser/Triple.h"
 
 namespace llvm {
 

@@ -13,15 +13,8 @@
 #ifndef LLVM_CLANG_AST_TEMPLATENAME_H
 #define LLVM_CLANG_AST_TEMPLATENAME_H
 
-#include "clang/AST/DependenceFlags.h"
 #include "clang/AST/NestedNameSpecifierBase.h"
-#include "clang/Basic/LLVM.h"
 #include "clang/Basic/OperatorKinds.h"
-#include "clang/Basic/OptionalUnsigned.h"
-#include "llvm/ADT/FoldingSet.h"
-#include "llvm/ADT/PointerIntPair.h"
-#include "llvm/ADT/PointerUnion.h"
-#include "llvm/Support/PointerLikeTypeTraits.h"
 #include "llvm/Support/TrailingObjects.h"
 #include <cassert>
 #include <optional>

@@ -10,22 +10,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "LoongArchMCTargetDesc.h"
 #include "LoongArchELFStreamer.h"
 #include "LoongArchInstPrinter.h"
 #include "LoongArchMCAsmInfo.h"
 #include "TargetInfo/LoongArchTargetInfo.h"
 #include "llvm/MC/MCAsmBackend.h"
-#include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCCodeEmitter.h"
-#include "llvm/MC/MCDwarf.h"
 #include "llvm/MC/MCInstrAnalysis.h"
-#include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCObjectWriter.h"
-#include "llvm/MC/MCRegisterInfo.h"
-#include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Compiler.h"
 #include <bitset>
 
 #define GET_INSTRINFO_MC_DESC

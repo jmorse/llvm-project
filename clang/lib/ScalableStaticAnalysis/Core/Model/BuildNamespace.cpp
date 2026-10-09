@@ -6,10 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/ScalableStaticAnalysis/Core/Model/BuildNamespace.h"
 #include "../ModelStringConversions.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <tuple>
 
 namespace clang::ssaf {

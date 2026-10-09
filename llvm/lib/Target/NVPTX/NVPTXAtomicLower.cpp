@@ -12,9 +12,7 @@
 
 #include "NVPTX.h"
 #include "llvm/CodeGen/StackProtector.h"
-#include "llvm/IR/Function.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/Transforms/Utils/LowerAtomic.h"
 
 #include "MCTargetDesc/NVPTXBaseInfo.h"

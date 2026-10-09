@@ -42,20 +42,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Basic/LangStandard.h"
 #include "clang/Driver/Driver.h"
-#include "clang/Driver/Types.h"
-#include "clang/Options/Options.h"
 #include "clang/Tooling/CompilationDatabase.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/Option/ArgList.h"
-#include "llvm/Option/OptTable.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/Path.h"
-#include "llvm/Support/StringSaver.h"
-#include "llvm/Support/raw_ostream.h"
 #include <memory>
 #include <optional>
 

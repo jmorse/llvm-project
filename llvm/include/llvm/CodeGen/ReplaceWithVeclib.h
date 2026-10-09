@@ -16,8 +16,6 @@
 
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
-#include "llvm/PassRegistry.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 class Function;

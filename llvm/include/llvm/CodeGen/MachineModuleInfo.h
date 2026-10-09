@@ -30,15 +30,11 @@
 #ifndef LLVM_CODEGEN_MACHINEMODULEINFO_H
 #define LLVM_CODEGEN_MACHINEMODULEINFO_H
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/EquivalenceClasses.h"
-#include "llvm/ADT/PointerIntPair.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/Pass.h"
-#include "llvm/Support/Compiler.h"
 #include <memory>
 #include <utility>
 #include <vector>

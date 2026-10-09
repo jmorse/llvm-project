@@ -14,7 +14,6 @@
 #define LLVM_SUPPORT_ALLOCTOKEN_H
 
 #include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/StringRef.h"
 #include <cstdint>
 #include <optional>
 

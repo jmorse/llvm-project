@@ -16,16 +16,7 @@
 #ifndef LLVM_IR_STATEPOINT_H
 #define LLVM_IR_STATEPOINT_H
 
-#include "llvm/ADT/iterator_range.h"
-#include "llvm/IR/Attributes.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/MathExtras.h"
 #include <cassert>
 #include <cstddef>
 #include <cstdint>

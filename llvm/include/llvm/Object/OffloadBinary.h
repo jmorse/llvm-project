@@ -19,11 +19,7 @@
 
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Object/Binary.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/Error.h"
-#include "llvm/Support/MemoryBuffer.h"
 #include <memory>
 
 namespace llvm {

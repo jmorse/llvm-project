@@ -12,15 +12,10 @@
 #ifndef LLVM_TRANSFORMS_UTILS_MEMORYTAGGINGSUPPORT_H
 #define LLVM_TRANSFORMS_UTILS_MEMORYTAGGINGSUPPORT_H
 
-#include "llvm/ADT/MapVector.h"
-#include "llvm/ADT/STLFunctionalExtras.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/OptimizationRemarkEmitter.h"
 #include "llvm/Analysis/StackSafetyAnalysis.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/Support/Alignment.h"
 
 namespace llvm {
 class DominatorTree;

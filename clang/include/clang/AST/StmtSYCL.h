@@ -13,9 +13,6 @@
 #define LLVM_CLANG_AST_STMTSYCL_H
 
 #include "clang/AST/ASTContext.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/Stmt.h"
-#include "clang/Basic/SourceLocation.h"
 
 namespace clang {
 

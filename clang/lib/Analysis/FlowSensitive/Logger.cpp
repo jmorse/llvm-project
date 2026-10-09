@@ -6,8 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Analysis/FlowSensitive/Logger.h"
-#include "clang/Analysis/FlowSensitive/AdornedCFG.h"
 #include "clang/Analysis/FlowSensitive/TypeErasedDataflowAnalysis.h"
 #include "llvm/Support/WithColor.h"
 

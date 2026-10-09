@@ -6,11 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Driver/Types.h"
 #include "clang/Driver/Driver.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringSwitch.h"
 #include <cassert>
 #include <cstring>
 

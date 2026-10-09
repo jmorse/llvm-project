@@ -15,10 +15,8 @@
 #ifndef LLVM_CODEGEN_EDGEBUNDLES_H
 #define LLVM_CODEGEN_EDGEBUNDLES_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/IntEqClasses.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/IR/PassManager.h"
 
 namespace llvm {
 class EdgeBundlesWrapperLegacy;

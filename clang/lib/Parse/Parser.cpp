@@ -10,23 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Parse/Parser.h"
 #include "clang/AST/ASTConsumer.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/ASTLambda.h"
-#include "clang/AST/DeclTemplate.h"
-#include "clang/Basic/DiagnosticParse.h"
-#include "clang/Basic/StackExhaustionHandler.h"
-#include "clang/Basic/TokenKinds.h"
-#include "clang/Lex/ModuleLoader.h"
-#include "clang/Lex/Preprocessor.h"
 #include "clang/Parse/RAIIObjectsForParser.h"
-#include "clang/Sema/DeclSpec.h"
 #include "clang/Sema/EnterExpressionEvaluationContext.h"
-#include "clang/Sema/ParsedTemplate.h"
-#include "clang/Sema/Scope.h"
-#include "clang/Sema/SemaCodeCompletion.h"
-#include "llvm/ADT/STLForwardCompat.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/TimeProfiler.h"
 using namespace clang;

@@ -25,11 +25,8 @@
 #ifndef LLVM_IR_VALUEMAP_H
 #define LLVM_IR_VALUEMAP_H
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/IR/TrackingMDRef.h"
 #include "llvm/IR/ValueHandle.h"
-#include "llvm/Support/Casting.h"
 #include "llvm/Support/Mutex.h"
 #include <algorithm>
 #include <cassert>

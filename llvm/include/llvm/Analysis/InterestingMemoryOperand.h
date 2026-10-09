@@ -16,7 +16,6 @@
 
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Instruction.h"
-#include "llvm/Support/TypeSize.h"
 
 namespace llvm {
 class InterestingMemoryOperand {

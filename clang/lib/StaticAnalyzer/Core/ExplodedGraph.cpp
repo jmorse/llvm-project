@@ -11,20 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/StaticAnalyzer/Core/PathSensitive/ExplodedGraph.h"
-#include "clang/AST/Expr.h"
-#include "clang/AST/ExprObjC.h"
 #include "clang/AST/ParentMap.h"
-#include "clang/AST/Stmt.h"
-#include "clang/Analysis/ProgramPoint.h"
-#include "clang/Analysis/Support/BumpVector.h"
-#include "clang/Basic/LLVM.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/CallEvent.h"
-#include "clang/StaticAnalyzer/Core/PathSensitive/ProgramState.h"
-#include "clang/StaticAnalyzer/Core/PathSensitive/ProgramState_Fwd.h"
-#include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/FoldingSet.h"
-#include "llvm/ADT/PointerUnion.h"
 #include <cassert>
 #include <memory>
 #include <optional>

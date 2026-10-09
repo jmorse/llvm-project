@@ -9,9 +9,6 @@
 //
 //===----------------------------------------------------------------------===//
 #include "clang/Tooling/RefactoringCallbacks.h"
-#include "clang/ASTMatchers/ASTMatchFinder.h"
-#include "clang/Basic/SourceLocation.h"
-#include "clang/Lex/Lexer.h"
 
 using llvm::StringError;
 using llvm::make_error;

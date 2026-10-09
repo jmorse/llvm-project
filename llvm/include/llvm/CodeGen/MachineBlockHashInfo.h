@@ -13,7 +13,6 @@
 #ifndef LLVM_CODEGEN_MACHINEBLOCKHASHINFO_H
 #define LLVM_CODEGEN_MACHINEBLOCKHASHINFO_H
 
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 
 namespace llvm {

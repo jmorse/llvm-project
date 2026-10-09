@@ -8,17 +8,10 @@
 
 #include "clang/Edit/EditedSource.h"
 #include "clang/Basic/CharInfo.h"
-#include "clang/Basic/Diagnostic.h"
-#include "clang/Basic/LLVM.h"
-#include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Edit/Commit.h"
 #include "clang/Edit/EditsReceiver.h"
-#include "clang/Edit/FileOffset.h"
 #include "clang/Lex/Lexer.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Twine.h"
 #include <cassert>
 #include <tuple>
 #include <utility>

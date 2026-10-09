@@ -11,19 +11,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "MCTargetDesc/MipsMCTargetDesc.h"
-#include "Mips.h"
 #include "MipsLegalizerInfo.h"
 #include "MipsSubtarget.h"
 #include "llvm/CodeGen/GlobalISel/Combiner.h"
 #include "llvm/CodeGen/GlobalISel/CombinerHelper.h"
-#include "llvm/CodeGen/GlobalISel/CombinerInfo.h"
 #include "llvm/CodeGen/GlobalISel/GIMatchTableExecutorImpl.h"
 #include "llvm/CodeGen/GlobalISel/GISelValueTracking.h"
 #include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
-#include "llvm/Target/TargetMachine.h"
 
 #define GET_GICOMBINER_DEPS
 #include "MipsGenPostLegalizeGICombiner.inc"

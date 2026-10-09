@@ -15,10 +15,8 @@
 #ifndef LLVM_CODEGEN_MACHINECHECKDEBUGIFY_H_
 #define LLVM_CODEGEN_MACHINECHECKDEBUGIFY_H_
 
-#include "llvm/IR/Analysis.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

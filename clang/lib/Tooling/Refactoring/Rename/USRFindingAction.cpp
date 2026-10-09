@@ -13,12 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Tooling/Refactoring/Rename/USRFindingAction.h"
-#include "clang/AST/ASTConsumer.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/Decl.h"
 #include "clang/AST/RecursiveASTVisitor.h"
-#include "clang/Frontend/CompilerInstance.h"
-#include "clang/Lex/Lexer.h"
 #include "clang/Tooling/Refactoring/Rename/USRFinder.h"
 #include "clang/Tooling/Tooling.h"
 

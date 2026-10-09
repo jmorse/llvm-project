@@ -16,9 +16,6 @@
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/Support/CBindingWrapping.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/TypeSize.h"
 #include <cassert>
 #include <cstdint>

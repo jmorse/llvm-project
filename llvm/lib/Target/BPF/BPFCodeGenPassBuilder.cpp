@@ -6,23 +6,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "BPF.h"
 #include "BPFAsmPrinter.h"
-#include "BPFSubtarget.h"
-#include "BPFTargetMachine.h"
 #include "llvm/CodeGen/AtomicExpand.h"
 #include "llvm/CodeGen/GlobalISel/IRTranslator.h"
 #include "llvm/CodeGen/GlobalISel/InstructionSelect.h"
 #include "llvm/CodeGen/GlobalISel/Legalizer.h"
 #include "llvm/CodeGen/GlobalISel/RegBankSelect.h"
-#include "llvm/IR/PassInstrumentation.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/Passes/CodeGenPassBuilder.h"
 #include "llvm/Passes/PassBuilder.h"
-#include "llvm/Support/Error.h"
-#include "llvm/Target/CGPassBuilderOption.h"
 #include "llvm/Transforms/Scalar/SimplifyCFG.h"
-#include "llvm/Transforms/Utils/SimplifyCFGOptions.h"
 
 using namespace llvm;
 

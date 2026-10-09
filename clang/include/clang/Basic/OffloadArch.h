@@ -9,7 +9,6 @@
 #ifndef LLVM_CLANG_BASIC_OFFLOADARCH_H
 #define LLVM_CLANG_BASIC_OFFLOADARCH_H
 
-#include "llvm/ADT/StringRef.h"
 #include "llvm/TargetParser/Triple.h"
 #include <cstdint>
 #include <tuple>

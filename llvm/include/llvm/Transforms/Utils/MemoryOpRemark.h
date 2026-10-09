@@ -14,7 +14,6 @@
 #ifndef LLVM_TRANSFORMS_UTILS_MEMORYOPREMARK_H
 #define LLVM_TRANSFORMS_UTILS_MEMORYOPREMARK_H
 
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include <optional>

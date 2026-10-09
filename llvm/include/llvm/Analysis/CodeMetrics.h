@@ -15,7 +15,6 @@
 #define LLVM_ANALYSIS_CODEMETRICS_H
 
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/InstructionCost.h"
 
 namespace llvm {

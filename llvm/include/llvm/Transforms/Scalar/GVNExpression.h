@@ -16,17 +16,9 @@
 #ifndef LLVM_TRANSFORMS_SCALAR_GVNEXPRESSION_H
 #define LLVM_TRANSFORMS_SCALAR_GVNEXPRESSION_H
 
-#include "llvm/ADT/Hashing.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/MemorySSA.h"
-#include "llvm/IR/Constant.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Value.h"
-#include "llvm/Support/Allocator.h"
 #include "llvm/Support/ArrayRecycler.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cassert>
 #include <iterator>

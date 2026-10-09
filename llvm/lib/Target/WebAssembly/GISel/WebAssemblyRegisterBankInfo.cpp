@@ -12,10 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "WebAssemblyRegisterBankInfo.h"
-#include "WebAssemblyRegisterInfo.h"
 #include "WebAssemblySubtarget.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/TargetRegisterInfo.h"
 
 #define GET_TARGET_REGBANK_IMPL
 

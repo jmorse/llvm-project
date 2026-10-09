@@ -24,16 +24,12 @@
 
 #include "DebugOptions.h"
 
-#include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/ManagedStatic.h"
-#include "llvm/Support/Mutex.h"
 #include "llvm/Support/Timer.h"
 #include "llvm/Support/YAMLTraits.h"
-#include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cstring>
 using namespace llvm;

@@ -19,12 +19,8 @@
 #include "SPIRV.h"
 #include "SPIRVUtils.h"
 
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/StringMap.h"
 #include "llvm/IR/IntrinsicsSPIRV.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Support/Debug.h"
 
 #include <string>
 

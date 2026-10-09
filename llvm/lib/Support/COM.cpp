@@ -12,7 +12,6 @@
 
 #include "llvm/Support/COM.h"
 
-#include "llvm/Config/llvm-config.h"
 
 // Include the platform-specific parts of this class.
 #ifdef LLVM_ON_UNIX

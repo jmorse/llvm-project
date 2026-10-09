@@ -18,7 +18,6 @@
 #include <algorithm>
 #include <stdint.h>
 #include "clang/Basic/Builtins.h"
-#include "llvm/Support/MathExtras.h"
 #undef PPC
 
 namespace clang {

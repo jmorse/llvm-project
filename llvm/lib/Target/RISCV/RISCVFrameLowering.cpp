@@ -10,22 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "RISCVFrameLowering.h"
-#include "MCTargetDesc/RISCVBaseInfo.h"
-#include "MCTargetDesc/RISCVMCTargetDesc.h"
 #include "RISCVMachineFunctionInfo.h"
-#include "RISCVSubtarget.h"
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/CodeGen/CFIInstBuilder.h"
 #include "llvm/CodeGen/LivePhysRegs.h"
-#include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/RegisterScavenging.h"
-#include "llvm/CodeGen/TargetFrameLowering.h"
-#include "llvm/IR/DiagnosticInfo.h"
-#include "llvm/MC/MCDwarf.h"
 #include "llvm/Support/LEB128.h"
 
 #include <algorithm>

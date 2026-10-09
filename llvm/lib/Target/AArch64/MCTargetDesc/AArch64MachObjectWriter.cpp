@@ -8,22 +8,10 @@
 
 #include "MCTargetDesc/AArch64FixupKinds.h"
 #include "MCTargetDesc/AArch64MCAsmInfo.h"
-#include "MCTargetDesc/AArch64MCTargetDesc.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/BinaryFormat/MachO.h"
-#include "llvm/MC/MCAsmInfo.h"
-#include "llvm/MC/MCAsmInfoDarwin.h"
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCContext.h"
-#include "llvm/MC/MCExpr.h"
-#include "llvm/MC/MCFixup.h"
 #include "llvm/MC/MCMachObjectWriter.h"
-#include "llvm/MC/MCSection.h"
-#include "llvm/MC/MCSectionMachO.h"
-#include "llvm/MC/MCSymbol.h"
 #include "llvm/MC/MCValue.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/MathExtras.h"
 #include <cassert>
 #include <cstdint>
 

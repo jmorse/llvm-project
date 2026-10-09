@@ -15,7 +15,6 @@
 #include "llvm/DebugInfo/PDB/PDBSymbolCompilandDetails.h"
 #include "llvm/DebugInfo/PDB/PDBSymbolCompilandEnv.h"
 
-#include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/Path.h"
 
 using namespace llvm;

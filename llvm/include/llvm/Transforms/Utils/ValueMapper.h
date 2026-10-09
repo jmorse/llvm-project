@@ -14,12 +14,9 @@
 #ifndef LLVM_TRANSFORMS_UTILS_VALUEMAPPER_H
 #define LLVM_TRANSFORMS_UTILS_VALUEMAPPER_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/simple_ilist.h"
-#include "llvm/IR/ValueHandle.h"
 #include "llvm/IR/ValueMap.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

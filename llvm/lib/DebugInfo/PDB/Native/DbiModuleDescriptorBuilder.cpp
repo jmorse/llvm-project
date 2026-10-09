@@ -8,10 +8,7 @@
 
 #include "llvm/DebugInfo/PDB/Native/DbiModuleDescriptorBuilder.h"
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/BinaryFormat/COFF.h"
-#include "llvm/DebugInfo/CodeView/CodeView.h"
-#include "llvm/DebugInfo/CodeView/DebugSubsectionRecord.h"
 #include "llvm/DebugInfo/MSF/MSFBuilder.h"
 #include "llvm/DebugInfo/MSF/MappedBlockStream.h"
 #include "llvm/DebugInfo/PDB/Native/RawConstants.h"

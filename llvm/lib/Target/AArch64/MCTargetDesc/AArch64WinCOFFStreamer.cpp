@@ -12,7 +12,6 @@
 #include "llvm/MC/MCCodeEmitter.h"
 #include "llvm/MC/MCObjectWriter.h"
 #include "llvm/MC/MCWin64EH.h"
-#include "llvm/MC/MCWinCOFFStreamer.h"
 
 using namespace llvm;
 

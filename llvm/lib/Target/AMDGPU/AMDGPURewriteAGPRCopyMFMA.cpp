@@ -23,20 +23,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "AMDGPU.h"
-#include "GCNSubtarget.h"
 #include "SIMachineFunctionInfo.h"
-#include "SIRegisterInfo.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/LiveIntervals.h"
-#include "llvm/CodeGen/LiveRegMatrix.h"
 #include "llvm/CodeGen/LiveStacks.h"
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/RegisterClassInfo.h"
-#include "llvm/CodeGen/SlotIndexes.h"
-#include "llvm/CodeGen/VirtRegMap.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/Support/DebugCounter.h"
 
 using namespace llvm;

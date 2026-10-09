@@ -14,16 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "SystemZTargetTransformInfo.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/CodeGen/BasicTTIImpl.h"
-#include "llvm/CodeGen/TargetLowering.h"
-#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/InstructionCost.h"
-#include "llvm/Support/MathExtras.h"
 
 using namespace llvm;
 

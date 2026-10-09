@@ -12,18 +12,10 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "WebAssemblyRegisterInfo.h"
 #include "GISel/WebAssemblyRegisterBankInfo.h"
-#include "MCTargetDesc/WebAssemblyMCTargetDesc.h"
-#include "WebAssemblyFrameLowering.h"
-#include "WebAssemblyInstrInfo.h"
 #include "WebAssemblyMachineFunctionInfo.h"
 #include "WebAssemblySubtarget.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/TargetFrameLowering.h"
-#include "llvm/Target/TargetOptions.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "wasm-reg-info"

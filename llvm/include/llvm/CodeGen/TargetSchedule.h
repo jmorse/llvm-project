@@ -15,12 +15,7 @@
 #ifndef LLVM_CODEGEN_TARGETSCHEDULE_H
 #define LLVM_CODEGEN_TARGETSCHEDULE_H
 
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
-#include "llvm/Config/llvm-config.h"
-#include "llvm/MC/MCInstrItineraries.h"
-#include "llvm/MC/MCSchedule.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

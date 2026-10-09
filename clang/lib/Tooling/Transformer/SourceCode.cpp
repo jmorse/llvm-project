@@ -10,17 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 #include "clang/Tooling/Transformer/SourceCode.h"
-#include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/Comment.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclTemplate.h"
-#include "clang/AST/Expr.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Lex/Lexer.h"
 #include "llvm/Support/Errc.h"
-#include "llvm/Support/Error.h"
 #include <set>
 
 using namespace clang;

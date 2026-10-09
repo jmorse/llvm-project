@@ -13,11 +13,6 @@
 
 #include "llvm/IR/ProfileSummary.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Metadata.h"
-#include "llvm/IR/Type.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Format.h"
 
 using namespace llvm;
 

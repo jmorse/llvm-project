@@ -13,7 +13,6 @@
 #ifndef LLVM_CODEGEN_MACHINESIZEOPTS_H
 #define LLVM_CODEGEN_MACHINESIZEOPTS_H
 
-#include "llvm/Support/Compiler.h"
 #include "llvm/Transforms/Utils/SizeOpts.h"
 
 namespace llvm {

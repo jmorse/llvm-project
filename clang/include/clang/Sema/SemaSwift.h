@@ -13,9 +13,6 @@
 #ifndef LLVM_CLANG_SEMA_SEMASWIFT_H
 #define LLVM_CLANG_SEMA_SEMASWIFT_H
 
-#include "clang/AST/ASTFwd.h"
-#include "clang/Basic/LLVM.h"
-#include "clang/Basic/SourceLocation.h"
 #include "clang/Sema/SemaBase.h"
 
 namespace clang {

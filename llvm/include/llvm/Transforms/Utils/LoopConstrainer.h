@@ -9,7 +9,6 @@
 #ifndef LLVM_TRANSFORMS_UTILS_LOOP_CONSTRAINER_H
 #define LLVM_TRANSFORMS_UTILS_LOOP_CONSTRAINER_H
 
-#include "llvm/Support/Casting.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <optional>
 

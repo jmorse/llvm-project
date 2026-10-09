@@ -19,7 +19,6 @@
 #define LLVM_ADT_SLOWDYNAMICAPINT_H
 
 #include "llvm/ADT/APInt.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 class DynamicAPInt;

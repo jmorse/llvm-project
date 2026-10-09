@@ -9,7 +9,6 @@
 #ifndef LLVM_SUPPORT_RISCVATTRIBUTEPARSER_H
 #define LLVM_SUPPORT_RISCVATTRIBUTEPARSER_H
 
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/ELFAttrParserCompact.h"
 #include "llvm/Support/RISCVAttributes.h"
 

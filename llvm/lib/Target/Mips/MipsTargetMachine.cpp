@@ -10,37 +10,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "MipsTargetMachine.h"
-#include "MCTargetDesc/MipsABIInfo.h"
-#include "MCTargetDesc/MipsMCTargetDesc.h"
-#include "Mips.h"
 #include "Mips16ISelDAGToDAG.h"
 #include "MipsMachineFunction.h"
 #include "MipsSEISelDAGToDAG.h"
-#include "MipsSubtarget.h"
 #include "MipsTargetObjectFile.h"
 #include "MipsTargetTransformInfo.h"
 #include "TargetInfo/MipsTargetInfo.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/CodeGen/BasicTTIImpl.h"
 #include "llvm/CodeGen/GlobalISel/CSEInfo.h"
 #include "llvm/CodeGen/GlobalISel/IRTranslator.h"
 #include "llvm/CodeGen/GlobalISel/InstructionSelect.h"
 #include "llvm/CodeGen/GlobalISel/Legalizer.h"
 #include "llvm/CodeGen/GlobalISel/RegBankSelect.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
-#include "llvm/IR/Attributes.h"
-#include "llvm/IR/Function.h"
-#include "llvm/InitializePasses.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/CodeGen.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetOptions.h"
 #include <optional>
 #include <string>
 

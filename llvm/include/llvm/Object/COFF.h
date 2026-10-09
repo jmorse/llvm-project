@@ -13,17 +13,11 @@
 #ifndef LLVM_OBJECT_COFF_H
 #define LLVM_OBJECT_COFF_H
 
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/BinaryFormat/COFF.h"
-#include "llvm/Object/Binary.h"
 #include "llvm/Object/CVDebugRecord.h"
-#include "llvm/Object/Error.h"
 #include "llvm/Object/ObjectFile.h"
 #include "llvm/Support/BinaryByteStream.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/ConvertUTF.h"
-#include "llvm/Support/Endian.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/TargetParser/SubtargetFeature.h"
 #include <cassert>
 #include <cstddef>

@@ -12,22 +12,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "AMDGPUISelLowering.h"
 #include "AMDGPU.h"
 #include "AMDGPUInstrInfo.h"
-#include "AMDGPUMachineFunctionInfo.h"
 #include "AMDGPUMemoryUtils.h"
 #include "AMDGPUSelectionDAGInfo.h"
 #include "SIMachineFunctionInfo.h"
 #include "llvm/CodeGen/Analysis.h"
 #include "llvm/CodeGen/GlobalISel/GISelValueTracking.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/IntrinsicsAMDGPU.h"
-#include "llvm/Support/AMDGPUAddrSpace.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/KnownBits.h"
-#include "llvm/Target/TargetMachine.h"
 
 using namespace llvm;
 

@@ -7,11 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Tooling/Transformer/Parsing.h"
-#include "clang/Basic/CharInfo.h"
-#include "clang/Tooling/Transformer/RangeSelector.h"
-#include "llvm/ADT/StringMap.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Error.h"
 #include <optional>
 #include <string>
 #include <utility>

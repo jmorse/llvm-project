@@ -14,7 +14,6 @@
 #define LLVM_ANALYSIS_CAPTURETRACKING_H
 
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/ModRef.h"
 
 namespace llvm {

@@ -18,7 +18,6 @@
 #define LLVM_SUPPORT_VIRTUALFILESYSTEMFWD_H
 
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 namespace vfs {

@@ -9,9 +9,7 @@
 #ifndef LLVM_CODEGEN_CFIINSTBUILDER_H
 #define LLVM_CODEGEN_CFIINSTBUILDER_H
 
-#include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
-#include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/MC/MCDwarf.h"
 
 namespace llvm {

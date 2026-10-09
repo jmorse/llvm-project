@@ -7,12 +7,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/DebugInfo/CodeView/MergingTypeTableBuilder.h"
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/DebugInfo/CodeView/ContinuationRecordBuilder.h"
 #include "llvm/DebugInfo/CodeView/TypeHashing.h"
-#include "llvm/DebugInfo/CodeView/TypeIndex.h"
-#include "llvm/Support/Allocator.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <cassert>
 #include <cstdint>
 #include <cstring>

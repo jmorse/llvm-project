@@ -9,19 +9,13 @@
 #ifndef LLVM_MC_MCMACHOBJECTWRITER_H
 #define LLVM_MC_MCMACHOBJECTWRITER_H
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/BinaryFormat/MachO.h"
 #include "llvm/MC/MCDirectives.h"
-#include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCLinkerOptimizationHint.h"
 #include "llvm/MC/MCObjectWriter.h"
 #include "llvm/MC/MCSectionMachO.h"
 #include "llvm/MC/MCSymbolMachO.h"
 #include "llvm/MC/StringTableBuilder.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/EndianStream.h"
-#include "llvm/Support/VersionTuple.h"
 #include <cstdint>
 #include <memory>
 #include <string>

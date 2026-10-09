@@ -13,7 +13,6 @@
 #include "DirectXRegisterInfo.h"
 #include "DirectXFrameLowering.h"
 #include "MCTargetDesc/DirectXMCTargetDesc.h"
-#include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 
 #define GET_REGINFO_TARGET_DESC

@@ -9,11 +9,8 @@
 #ifndef LLVM_CLANG_BASIC_JSONSUPPORT_H
 #define LLVM_CLANG_BASIC_JSONSUPPORT_H
 
-#include "clang/Basic/LLVM.h"
 #include "clang/Basic/SourceManager.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Path.h"
-#include "llvm/Support/raw_ostream.h"
 #include <iterator>
 
 namespace clang {

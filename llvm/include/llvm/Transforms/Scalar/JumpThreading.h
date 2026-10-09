@@ -14,15 +14,9 @@
 #ifndef LLVM_TRANSFORMS_SCALAR_JUMPTHREADING_H
 #define LLVM_TRANSFORMS_SCALAR_JUMPTHREADING_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/SmallSet.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/DomTreeUpdater.h"
-#include "llvm/IR/ValueHandle.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <utility>
 

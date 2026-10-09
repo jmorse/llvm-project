@@ -6,7 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/SandboxIR/Type.h"
 #include "llvm/SandboxIR/Context.h"
 
 using namespace llvm::sandboxir;

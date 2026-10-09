@@ -17,8 +17,6 @@
 #include "llvm/ADT/GenericUniformityInfo.h"
 #include "llvm/CodeGen/MachineCycleAnalysis.h"
 #include "llvm/CodeGen/MachineDominators.h"
-#include "llvm/CodeGen/MachinePassManager.h"
-#include "llvm/CodeGen/MachineSSAContext.h"
 
 namespace llvm {
 

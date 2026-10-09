@@ -9,11 +9,8 @@
 #ifndef LLVM_SUPPORT_TARWRITER_H
 #define LLVM_SUPPORT_TARWRITER_H
 
-#include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSet.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/Error.h"
-#include "llvm/Support/raw_ostream.h"
 
 namespace llvm {
 class TarWriter {

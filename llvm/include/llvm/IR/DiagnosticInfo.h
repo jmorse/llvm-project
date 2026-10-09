@@ -14,18 +14,9 @@
 #ifndef LLVM_IR_DIAGNOSTICINFO_H
 #define LLVM_IR_DIAGNOSTICINFO_H
 
-#include "llvm-c/Types.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Twine.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/Support/BranchProbability.h"
-#include "llvm/Support/CBindingWrapping.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/TypeSize.h"
 #include <cstdint>
 #include <functional>
 #include <optional>

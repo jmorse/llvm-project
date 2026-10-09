@@ -14,10 +14,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "MCTargetDesc/RISCVBaseInfo.h"
-#include "RISCV.h"
 #include "RISCVSubtarget.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "riscv-insert-read-write-csr"

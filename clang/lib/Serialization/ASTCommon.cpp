@@ -11,9 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "ASTCommon.h"
-#include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
-#include "clang/Basic/IdentifierTable.h"
 #include "clang/Serialization/ASTDeserializationListener.h"
 #include "llvm/Support/DJB.h"
 

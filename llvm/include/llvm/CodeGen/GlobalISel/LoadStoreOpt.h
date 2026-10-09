@@ -16,9 +16,6 @@
 
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 // Forward declarations.

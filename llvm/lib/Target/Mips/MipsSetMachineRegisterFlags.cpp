@@ -10,15 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Mips.h"
-#include "MipsInstrInfo.h"
 #include "MipsSubtarget.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "mips-set-machine-register-flags"
 

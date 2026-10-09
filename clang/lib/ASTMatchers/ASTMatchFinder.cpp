@@ -17,15 +17,8 @@
 
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/AST/ASTConsumer.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/DeclCXX.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Basic/Module.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/StringMap.h"
-#include "llvm/Support/PrettyStackTrace.h"
-#include "llvm/Support/Timer.h"
 #include <deque>
 #include <memory>
 #include <set>

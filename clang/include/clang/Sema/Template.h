@@ -12,16 +12,8 @@
 #ifndef LLVM_CLANG_SEMA_TEMPLATE_H
 #define LLVM_CLANG_SEMA_TEMPLATE_H
 
-#include "clang/AST/DeclTemplate.h"
 #include "clang/AST/DeclVisitor.h"
-#include "clang/AST/TemplateBase.h"
-#include "clang/AST/Type.h"
-#include "clang/Basic/LLVM.h"
 #include "clang/Sema/Sema.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/PointerUnion.h"
-#include "llvm/ADT/SmallVector.h"
 #include <cassert>
 #include <optional>
 #include <utility>

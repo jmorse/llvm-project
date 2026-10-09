@@ -9,7 +9,6 @@
 #ifndef LLVM_IR_PRINTPASSES_H
 #define LLVM_IR_PRINTPASSES_H
 
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/CommandLine.h"
 #include <vector>
 

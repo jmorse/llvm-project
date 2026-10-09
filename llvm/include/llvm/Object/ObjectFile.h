@@ -13,20 +13,8 @@
 #ifndef LLVM_OBJECT_OBJECTFILE_H
 #define LLVM_OBJECT_OBJECTFILE_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/Hashing.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/iterator_range.h"
-#include "llvm/BinaryFormat/Magic.h"
 #include "llvm/BinaryFormat/Swift.h"
-#include "llvm/Object/Binary.h"
-#include "llvm/Object/Error.h"
 #include "llvm/Object/SymbolicFile.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/Error.h"
-#include "llvm/Support/MemoryBufferRef.h"
-#include "llvm/TargetParser/Triple.h"
 #include <cassert>
 #include <cstdint>
 #include <memory>

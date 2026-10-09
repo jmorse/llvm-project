@@ -7,11 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "NoOwnershipChangeVisitor.h"
-#include "clang/StaticAnalyzer/Core/BugReporter/BugReporterVisitors.h"
-#include "clang/StaticAnalyzer/Core/PathSensitive/AnalysisManager.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/CallEvent.h"
-#include "clang/StaticAnalyzer/Core/PathSensitive/ExplodedGraph.h"
-#include "clang/StaticAnalyzer/Core/PathSensitive/ProgramState_Fwd.h"
 #include "llvm/ADT/SetOperations.h"
 
 using namespace clang;

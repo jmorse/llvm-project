@@ -14,9 +14,7 @@
 #ifndef LLVM_ANALYSIS_EPHEMERALVALUESCACHE_H
 #define LLVM_ANALYSIS_EPHEMERALVALUESCACHE_H
 
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

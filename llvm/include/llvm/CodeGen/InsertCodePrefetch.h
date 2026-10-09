@@ -15,7 +15,6 @@
 #define LLVM_CODEGEN_INSERTCODEPREFETCH_H
 
 #include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/UniqueBBID.h"
 
 namespace llvm {

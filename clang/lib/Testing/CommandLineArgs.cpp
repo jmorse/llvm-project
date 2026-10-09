@@ -8,7 +8,6 @@
 
 #include "clang/Testing/CommandLineArgs.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/ErrorHandling.h"
 
 namespace clang {
 std::vector<TestLanguage> getCOrLater(const int MinimumStd) {

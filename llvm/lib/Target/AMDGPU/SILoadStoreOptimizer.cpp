@@ -60,9 +60,7 @@
 #include "SILoadStoreOptimizer.h"
 #include "AMDGPU.h"
 #include "GCNSubtarget.h"
-#include "SIDefines.h"
 #include "llvm/Analysis/AliasAnalysis.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/InitializePasses.h"
 
 using namespace llvm;

@@ -16,7 +16,6 @@
 #define LLVM_ADT_STLFUNCTIONALEXTRAS_H
 
 #include "llvm/ADT/STLForwardCompat.h"
-#include "llvm/Support/Compiler.h"
 
 #include <cstdint>
 #include <type_traits>

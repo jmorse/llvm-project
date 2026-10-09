@@ -13,11 +13,7 @@
 #include "XtensaConstantPoolValue.h"
 #include "llvm/ADT/FoldingSet.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/GlobalValue.h"
-#include "llvm/IR/Type.h"
-#include "llvm/Support/raw_ostream.h"
 #include <cstdlib>
 using namespace llvm;
 

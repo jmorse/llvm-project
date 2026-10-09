@@ -30,14 +30,10 @@
 // we have relocations for both 32-bit and 16-bit instructions (and the
 // relocation does not care about the fields of the instruction).
 
-#include "RISCV.h"
 #include "RISCVSubtarget.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/RegisterScavenging.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 

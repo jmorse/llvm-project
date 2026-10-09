@@ -15,7 +15,6 @@
 #ifndef LLVM_TRANSFORMS_UTILS_EXTRAPASSMANAGER_H
 #define LLVM_TRANSFORMS_UTILS_EXTRAPASSMANAGER_H
 
-#include "llvm/IR/PassManager.h"
 #include "llvm/Transforms/Scalar/LoopPassManager.h"
 
 namespace llvm {

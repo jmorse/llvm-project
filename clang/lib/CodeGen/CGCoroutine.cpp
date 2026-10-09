@@ -13,7 +13,6 @@
 #include "CGCleanup.h"
 #include "CGDebugInfo.h"
 #include "CodeGenFunction.h"
-#include "clang/AST/StmtCXX.h"
 #include "clang/AST/StmtVisitor.h"
 #include "llvm/ADT/ScopeExit.h"
 

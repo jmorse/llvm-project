@@ -18,11 +18,8 @@
 #ifndef LLVM_CODEGEN_REGISTERUSAGEINFO_H
 #define LLVM_CODEGEN_REGISTERUSAGEINFO_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
-#include "llvm/PassRegistry.h"
 #include <cstdint>
 #include <vector>
 

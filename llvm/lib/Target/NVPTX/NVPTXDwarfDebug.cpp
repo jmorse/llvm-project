@@ -13,18 +13,8 @@
 
 #include "NVPTXDwarfDebug.h"
 #include "NVPTXSubtarget.h"
-#include "llvm/BinaryFormat/Dwarf.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/IR/DebugInfoMetadata.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/GlobalVariable.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCContext.h"
-#include "llvm/MC/MCStreamer.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/NVPTXAddrSpace.h"
-#include "llvm/Target/TargetMachine.h"
 
 using namespace llvm;
 

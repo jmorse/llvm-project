@@ -10,7 +10,6 @@
 #define LLVM_SUPPORT_PERTHREADBUMPPTRALLOCATOR_H
 
 #include "llvm/Support/Allocator.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/raw_ostream.h"
 #include <memory>
 #include <mutex>

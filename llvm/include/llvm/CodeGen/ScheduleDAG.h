@@ -15,15 +15,8 @@
 #ifndef LLVM_CODEGEN_SCHEDULEDAG_H
 #define LLVM_CODEGEN_SCHEDULEDAG_H
 
-#include "llvm/ADT/BitVector.h"
-#include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/SmallSet.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/iterator.h"
-#include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/TargetLowering.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <cassert>
 #include <cstddef>
 #include <iterator>

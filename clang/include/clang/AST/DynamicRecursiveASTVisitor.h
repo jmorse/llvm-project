@@ -18,7 +18,6 @@
 
 #include "clang/AST/Attr.h"
 #include "clang/AST/ExprConcepts.h"
-#include "clang/AST/TypeLoc.h"
 
 namespace clang {
 class ASTContext;

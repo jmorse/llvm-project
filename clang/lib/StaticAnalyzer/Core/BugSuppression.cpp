@@ -6,10 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/StaticAnalyzer/Core/BugReporter/BugSuppression.h"
 #include "clang/AST/DynamicRecursiveASTVisitor.h"
 #include "clang/StaticAnalyzer/Core/BugReporter/BugReporter.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/TimeProfiler.h"
 

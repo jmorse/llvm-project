@@ -11,19 +11,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/Attr.h"
 #include "clang/AST/DynamicRecursiveASTVisitor.h"
 #include "clang/AST/ParentMap.h"
 #include "clang/Analysis/Analyses/LiveVariables.h"
-#include "clang/Lex/Lexer.h"
 #include "clang/StaticAnalyzer/Checkers/BuiltinCheckerRegistration.h"
-#include "clang/StaticAnalyzer/Core/BugReporter/BugReporter.h"
-#include "clang/StaticAnalyzer/Core/Checker.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/AnalysisManager.h"
-#include "llvm/ADT/BitVector.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/Support/SaveAndRestore.h"
 
 using namespace clang;
 using namespace ento;

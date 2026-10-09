@@ -11,15 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ToolDrivers/llvm-dlltool/DlltoolDriver.h"
-#include "llvm/ADT/StringSwitch.h"
 #include "llvm/Object/Archive.h"
-#include "llvm/Object/COFF.h"
-#include "llvm/Object/COFFImportFile.h"
 #include "llvm/Object/COFFModuleDefinition.h"
-#include "llvm/Option/Arg.h"
 #include "llvm/Option/ArgList.h"
-#include "llvm/Option/OptTable.h"
-#include "llvm/Option/Option.h"
 #include "llvm/Support/Path.h"
 #include "llvm/TargetParser/Host.h"
 

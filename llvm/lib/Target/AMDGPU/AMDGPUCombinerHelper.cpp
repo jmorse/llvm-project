@@ -7,9 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "AMDGPUCombinerHelper.h"
-#include "GCNSubtarget.h"
 #include "llvm/CodeGen/GlobalISel/GISelValueTracking.h"
-#include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
 #include "llvm/CodeGen/GlobalISel/LegalizerInfo.h"
 #include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
 #include "llvm/IR/IntrinsicsAMDGPU.h"

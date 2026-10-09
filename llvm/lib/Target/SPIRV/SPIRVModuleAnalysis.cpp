@@ -19,14 +19,8 @@
 //       Diagnostic infrastructure (e.g. the reportUnsupported function below).
 
 #include "SPIRVModuleAnalysis.h"
-#include "MCTargetDesc/SPIRVBaseInfo.h"
-#include "MCTargetDesc/SPIRVMCTargetDesc.h"
 #include "SPIRV.h"
-#include "SPIRVSubtarget.h"
 #include "SPIRVTargetMachine.h"
-#include "SPIRVUtils.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
 
 using namespace llvm;

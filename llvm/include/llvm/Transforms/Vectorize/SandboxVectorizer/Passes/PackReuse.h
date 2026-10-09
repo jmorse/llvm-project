@@ -12,7 +12,6 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_SANDBOXVECTORIZER_PASSES_PACKREUSE_H
 #define LLVM_TRANSFORMS_VECTORIZE_SANDBOXVECTORIZER_PASSES_PACKREUSE_H
 
-#include "llvm/ADT/StringRef.h"
 #include "llvm/SandboxIR/Pass.h"
 #include "llvm/SandboxIR/Region.h"
 

@@ -12,22 +12,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Lex/LiteralSupport.h"
-#include "clang/Basic/CharInfo.h"
-#include "clang/Basic/LangOptions.h"
-#include "clang/Basic/SourceLocation.h"
+#include "clang/Basic/DiagnosticLex.h"
 #include "clang/Basic/TargetInfo.h"
-#include "clang/Lex/LexDiagnostic.h"
-#include "clang/Lex/Lexer.h"
 #include "clang/Lex/Preprocessor.h"
-#include "clang/Lex/Token.h"
-#include "llvm/ADT/APInt.h"
 #include "llvm/ADT/ScopeExit.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/StringSwitch.h"
-#include "llvm/Support/ConvertUTF.h"
-#include "llvm/Support/Error.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Unicode.h"
 #include <algorithm>
 #include <cassert>

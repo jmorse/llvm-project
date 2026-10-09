@@ -7,9 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "SISpillUtils.h"
-#include "llvm/ADT/BitVector.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
 
 using namespace llvm;
 

@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "XCoreSelectionDAGInfo.h"
 #include "XCoreTargetMachine.h"
 
 #define GET_SDNODE_DESC

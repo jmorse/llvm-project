@@ -11,11 +11,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Basic/SourceManager.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Rewrite/Core/Rewriter.h"
 #include "clang/Rewrite/Frontend/Rewriters.h"
-#include "llvm/ADT/RewriteBuffer.h"
 #include <cstdio>
 
 using namespace clang;

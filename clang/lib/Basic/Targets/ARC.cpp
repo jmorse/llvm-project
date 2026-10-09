@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "ARC.h"
-#include "clang/Basic/Builtins.h"
 #include "clang/Basic/MacroBuilder.h"
 
 using namespace clang;

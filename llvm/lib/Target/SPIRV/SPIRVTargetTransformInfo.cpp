@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "SPIRVTargetTransformInfo.h"
-#include "SPIRVSubtarget.h"
 #include "llvm/IR/IntrinsicsSPIRV.h"
 
 using namespace llvm;

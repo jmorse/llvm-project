@@ -9,10 +9,6 @@
 #include "AnalysisResults.h"
 #include "clang/ScalableStaticAnalysis/Core/Serialization/JSONFormat.h"
 #include "clang/ScalableStaticAnalysis/Core/WholeProgramAnalysis/AnalysisRegistry.h"
-#include "clang/ScalableStaticAnalysis/Core/WholeProgramAnalysis/DerivedAnalysis.h"
-#include "llvm/Support/Error.h"
-#include "llvm/Support/JSON.h"
-#include "llvm/Support/Registry.h"
 #include <memory>
 
 using namespace clang::ssaf;

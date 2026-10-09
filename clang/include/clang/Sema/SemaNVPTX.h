@@ -13,7 +13,6 @@
 #ifndef LLVM_CLANG_SEMA_SEMANVPTX_H
 #define LLVM_CLANG_SEMA_SEMANVPTX_H
 
-#include "clang/AST/ASTFwd.h"
 #include "clang/Sema/SemaBase.h"
 
 namespace clang {

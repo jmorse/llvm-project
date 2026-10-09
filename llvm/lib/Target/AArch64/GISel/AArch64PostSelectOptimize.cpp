@@ -11,17 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "AArch64.h"
 #include "AArch64TargetMachine.h"
-#include "MCTargetDesc/AArch64MCTargetDesc.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/CodeGen/GlobalISel/Utils.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/ErrorHandling.h"
 
 #define DEBUG_TYPE "aarch64-post-select-optimize"
 

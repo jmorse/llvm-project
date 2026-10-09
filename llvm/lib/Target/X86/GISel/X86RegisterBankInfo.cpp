@@ -11,14 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "X86RegisterBankInfo.h"
-#include "X86InstrInfo.h"
 #include "X86Subtarget.h"
 #include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
-#include "llvm/CodeGen/GlobalISel/Utils.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/RegisterBank.h"
-#include "llvm/CodeGen/RegisterBankInfo.h"
-#include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/IR/IntrinsicsX86.h"
 
 #define GET_TARGET_REGBANK_IMPL

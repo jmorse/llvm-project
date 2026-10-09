@@ -39,7 +39,6 @@
 #define LLVM_TRANSFORMS_UTILS_LOOPSIMPLIFY_H
 
 #include "llvm/IR/PassManager.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

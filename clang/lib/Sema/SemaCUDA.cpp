@@ -11,19 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Sema/SemaCUDA.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/Decl.h"
 #include "clang/AST/EvaluatedExprVisitor.h"
-#include "clang/AST/ExprCXX.h"
-#include "clang/Basic/Cuda.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Lex/Preprocessor.h"
-#include "clang/Sema/Lookup.h"
 #include "clang/Sema/Overload.h"
-#include "clang/Sema/ScopeInfo.h"
-#include "clang/Sema/Sema.h"
 #include "clang/Sema/Template.h"
-#include "llvm/ADT/SmallVector.h"
 #include <optional>
 using namespace clang;
 

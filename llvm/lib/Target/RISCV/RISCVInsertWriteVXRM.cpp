@@ -25,10 +25,7 @@
 // reduce the number of VXRM writes in some cases.
 //===----------------------------------------------------------------------===//
 
-#include "MCTargetDesc/RISCVBaseInfo.h"
-#include "RISCV.h"
 #include "RISCVSubtarget.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
 #include <queue>
 
 using namespace llvm;

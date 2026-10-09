@@ -15,7 +15,6 @@
 #ifndef LLVM_SUPPORT_CACHING_H
 #define LLVM_SUPPORT_CACHING_H
 
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/MemoryBuffer.h"
 

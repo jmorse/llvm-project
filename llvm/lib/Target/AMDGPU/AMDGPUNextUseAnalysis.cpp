@@ -54,20 +54,12 @@
 #include "AMDGPUNextUseAnalysis.h"
 #include "AMDGPU.h"
 #include "GCNRegPressure.h"
-#include "GCNSubtarget.h"
 
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineLoopInfo.h"
 #include "llvm/IR/ModuleSlotTracker.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/JSON.h"
 #include "llvm/Support/Timer.h"
 #include "llvm/Support/ToolOutputFile.h"
-#include "llvm/Support/raw_ostream.h"
 
 #include <string>
 

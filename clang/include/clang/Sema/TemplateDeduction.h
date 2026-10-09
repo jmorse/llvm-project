@@ -14,15 +14,7 @@
 #ifndef LLVM_CLANG_SEMA_TEMPLATEDEDUCTION_H
 #define LLVM_CLANG_SEMA_TEMPLATEDEDUCTION_H
 
-#include "clang/Sema/Ownership.h"
 #include "clang/Sema/SemaConcept.h"
-#include "clang/AST/ASTConcept.h"
-#include "clang/AST/DeclAccessPair.h"
-#include "clang/AST/DeclTemplate.h"
-#include "clang/AST/TemplateBase.h"
-#include "clang/Basic/PartialDiagnostic.h"
-#include "clang/Basic/SourceLocation.h"
-#include "llvm/ADT/SmallVector.h"
 #include <cassert>
 #include <cstddef>
 #include <optional>

@@ -12,9 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/VirtualOutputConfig.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 using namespace llvm::vfs;

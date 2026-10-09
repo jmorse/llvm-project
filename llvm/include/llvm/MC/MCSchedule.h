@@ -14,11 +14,8 @@
 #ifndef LLVM_MC_MCSCHEDULE_H
 #define LLVM_MC_MCSCHEDULE_H
 
-#include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringTable.h"
 #include "llvm/MC/MCInstrDesc.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <cassert>
 #include <optional>
 

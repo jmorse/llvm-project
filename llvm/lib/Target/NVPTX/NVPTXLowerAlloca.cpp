@@ -28,14 +28,7 @@
 
 #include "MCTargetDesc/NVPTXBaseInfo.h"
 #include "NVPTX.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/DebugInfo.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/Type.h"
-#include "llvm/Pass.h"
 
 using namespace llvm;
 

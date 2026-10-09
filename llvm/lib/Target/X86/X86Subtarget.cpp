@@ -10,30 +10,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "X86Subtarget.h"
 #include "GISel/X86CallLowering.h"
 #include "GISel/X86LegalizerInfo.h"
 #include "GISel/X86RegisterBankInfo.h"
-#include "MCTargetDesc/X86BaseInfo.h"
 #include "X86.h"
 #include "X86MacroFusion.h"
 #include "X86TargetMachine.h"
-#include "llvm/CodeGen/GlobalISel/CallLowering.h"
 #include "llvm/CodeGen/GlobalISel/InstructionSelect.h"
 #include "llvm/CodeGen/GlobalISel/InstructionSelector.h"
 #include "llvm/CodeGen/ScheduleDAGMutation.h"
-#include "llvm/IR/Attributes.h"
-#include "llvm/IR/ConstantRange.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/GlobalValue.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/CodeGen.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Target/TargetMachine.h"
-#include "llvm/TargetParser/Triple.h"
 
 #if defined(_MSC_VER)
 #include <intrin.h>

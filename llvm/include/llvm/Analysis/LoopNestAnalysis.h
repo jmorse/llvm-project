@@ -14,10 +14,8 @@
 #ifndef LLVM_ANALYSIS_LOOPNESTANALYSIS_H
 #define LLVM_ANALYSIS_LOOPNESTANALYSIS_H
 
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

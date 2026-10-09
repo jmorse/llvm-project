@@ -8,8 +8,6 @@
 
 #include "clang/Analysis/Analyses/LifetimeSafety/LiveOrigins.h"
 #include "Dataflow.h"
-#include "clang/Analysis/Analyses/LifetimeSafety/Facts.h"
-#include "llvm/Support/ErrorHandling.h"
 
 namespace clang::lifetimes::internal {
 namespace {

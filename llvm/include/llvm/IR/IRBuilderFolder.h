@@ -14,11 +14,8 @@
 #ifndef LLVM_IR_IRBUILDERFOLDER_H
 #define LLVM_IR_IRBUILDERFOLDER_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/IR/GEPNoWrapFlags.h"
 #include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

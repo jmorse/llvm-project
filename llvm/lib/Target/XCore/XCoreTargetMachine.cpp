@@ -9,18 +9,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "XCoreTargetMachine.h"
 #include "TargetInfo/XCoreTargetInfo.h"
-#include "XCore.h"
 #include "XCoreMachineFunctionInfo.h"
 #include "XCoreTargetObjectFile.h"
 #include "XCoreTargetTransformInfo.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/CodeGen.h"
-#include "llvm/Support/Compiler.h"
 #include <optional>
 
 using namespace llvm;

@@ -33,8 +33,6 @@
 
 #include "llvm/ADT/APInt.h"
 #include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/Support/Compiler.h"
 #include <cstdint>
 
 namespace llvm {

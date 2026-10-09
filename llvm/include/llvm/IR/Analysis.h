@@ -13,7 +13,6 @@
 #define LLVM_IR_ANALYSIS_H
 
 #include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

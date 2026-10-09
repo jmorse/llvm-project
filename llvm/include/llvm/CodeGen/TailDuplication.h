@@ -10,7 +10,6 @@
 #define LLVM_CODEGEN_TAILDUPLICATIONPASS_H
 
 #include "llvm/CodeGen/MBFIWrapper.h"
-#include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachinePassManager.h"
 
 namespace llvm {

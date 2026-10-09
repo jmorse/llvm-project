@@ -16,7 +16,6 @@
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallSet.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

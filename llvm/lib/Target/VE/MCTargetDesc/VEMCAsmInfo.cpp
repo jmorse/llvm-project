@@ -12,10 +12,8 @@
 
 #include "VEMCAsmInfo.h"
 #include "llvm/ADT/Enum.h"
-#include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCValue.h"
-#include "llvm/TargetParser/Triple.h"
 
 using namespace llvm;
 

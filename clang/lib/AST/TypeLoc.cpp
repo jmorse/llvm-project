@@ -10,21 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/TypeLoc.h"
-#include "clang/AST/ASTConcept.h"
-#include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/DeclTemplate.h"
-#include "clang/AST/Expr.h"
 #include "clang/AST/NestedNameSpecifier.h"
-#include "clang/AST/TemplateBase.h"
-#include "clang/AST/TemplateName.h"
 #include "clang/AST/TypeLocVisitor.h"
-#include "clang/Basic/SourceLocation.h"
-#include "clang/Basic/Specifiers.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/MathExtras.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdint>

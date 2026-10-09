@@ -10,24 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "MipsRegisterInfo.h"
-#include "MCTargetDesc/MipsABIInfo.h"
-#include "Mips.h"
 #include "MipsMachineFunction.h"
 #include "MipsSubtarget.h"
-#include "llvm/ADT/BitVector.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/TargetFrameLowering.h"
-#include "llvm/CodeGen/TargetRegisterInfo.h"
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
-#include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/raw_ostream.h"
 #include <cstdint>
 
 using namespace llvm;

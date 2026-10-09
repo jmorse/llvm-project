@@ -1,5 +1,3 @@
-#include "clang/Sema/SemaBase.h"
-#include "clang/Sema/Sema.h"
 #include "clang/Sema/SemaCUDA.h"
 
 namespace clang {

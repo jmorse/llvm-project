@@ -6,21 +6,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/DebugInfo/PDB/Native/LinePrinter.h"
 
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/DebugInfo/MSF/MSFCommon.h"
 #include "llvm/DebugInfo/MSF/MappedBlockStream.h"
 #include "llvm/DebugInfo/PDB/Native/InputFile.h"
 #include "llvm/DebugInfo/PDB/Native/NativeSession.h"
 #include "llvm/DebugInfo/PDB/Native/PDBFile.h"
 #include "llvm/DebugInfo/PDB/UDTLayout.h"
 #include "llvm/Object/COFF.h"
-#include "llvm/Support/BinaryStreamReader.h"
-#include "llvm/Support/Format.h"
-#include "llvm/Support/FormatAdapters.h"
-#include "llvm/Support/FormatVariadic.h"
-#include "llvm/Support/Regex.h"
 
 #include <algorithm>
 

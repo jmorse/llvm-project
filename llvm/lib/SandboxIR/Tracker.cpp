@@ -6,10 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/SandboxIR/Tracker.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/Instruction.h"
 #include "llvm/IR/StructuralHash.h"
 #include "llvm/SandboxIR/Instruction.h"
 

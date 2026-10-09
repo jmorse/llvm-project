@@ -13,12 +13,9 @@
 #ifndef LLVM_TRANSFORMS_UTILS_EVALUATOR_H
 #define LLVM_TRANSFORMS_UTILS_EVALUATOR_H
 
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/GlobalVariable.h"
-#include "llvm/Support/Casting.h"
 #include <cassert>
 #include <deque>
 #include <memory>

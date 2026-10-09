@@ -11,18 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Basic/TargetInfo.h"
-#include "clang/Basic/AddressSpaces.h"
 #include "clang/Basic/CharInfo.h"
-#include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/DiagnosticFrontend.h"
-#include "clang/Basic/LangOptions.h"
-#include "llvm/ADT/APFloat.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/DerivedTypes.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/TargetParser/TargetParser.h"
-#include "llvm/TargetParser/Triple.h"
 #include <cstdlib>
 using namespace clang;
 

@@ -13,12 +13,10 @@
 #ifndef LLVM_ANALYSIS_BRANCHPROBABILITYINFO_H
 #define LLVM_ANALYSIS_BRANCHPROBABILITYINFO_H
 
-#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/BranchProbability.h"
-#include "llvm/Support/Compiler.h"
 #include <cassert>
 #include <cstdint>
 #include <memory>

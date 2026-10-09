@@ -6,20 +6,14 @@
 //
 //==-----------------------------------------------------------------------===//
 
-#include "SIFrameLowering.h"
 #include "AMDGPU.h"
 #include "AMDGPULaneMaskUtils.h"
-#include "GCNSubtarget.h"
-#include "MCTargetDesc/AMDGPUMCTargetDesc.h"
 #include "SIMachineFunctionInfo.h"
 #include "SISpillUtils.h"
-#include "llvm/BinaryFormat/Dwarf.h"
-#include "llvm/CodeGen/LiveRegUnits.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/CodeGen/RegisterScavenging.h"
 #include "llvm/Support/LEB128.h"
-#include "llvm/Target/TargetMachine.h"
 
 using namespace llvm;
 

@@ -10,19 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/IR/DebugInfoMetadata.h"
 #include "LLVMContextImpl.h"
 #include "MetadataImpl.h"
 #include "llvm/ADT/SetVector.h"
-#include "llvm/ADT/StringSwitch.h"
-#include "llvm/BinaryFormat/Dwarf.h"
-#include "llvm/IR/DebugProgramInstruction.h"
-#include "llvm/IR/Function.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/Value.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Compiler.h"
 
 #include <numeric>
 #include <optional>

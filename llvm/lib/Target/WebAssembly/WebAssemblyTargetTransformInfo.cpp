@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "WebAssemblyTargetTransformInfo.h"
-#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/IntrinsicsWebAssembly.h"
 #include "llvm/Transforms/InstCombine/InstCombiner.h"
 

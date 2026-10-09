@@ -12,17 +12,10 @@
 
 #include "clang/Driver/CreateInvocationFromArgs.h"
 #include "clang/Basic/DiagnosticFrontend.h"
-#include "clang/Basic/DiagnosticOptions.h"
 #include "clang/Driver/Compilation.h"
 #include "clang/Driver/Driver.h"
 #include "clang/Driver/Tool.h"
 #include "clang/Frontend/CompilerInstance.h"
-#include "clang/Frontend/Utils.h"
-#include "clang/Options/Options.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Option/ArgList.h"
-#include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/TargetParser/Host.h"
 
 using namespace llvm::opt;

@@ -14,11 +14,8 @@
 #define LLVM_MC_MCSECTIONELF_H
 
 #include "llvm/ADT/PointerIntPair.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/BinaryFormat/ELF.h"
-#include "llvm/MC/MCSection.h"
 #include "llvm/MC/MCSymbolELF.h"
-#include "llvm/MC/SectionKind.h"
 
 namespace llvm {
 

@@ -11,10 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/DebugInfo/LogicalView/Core/LVReader.h"
-#include "llvm/DebugInfo/LogicalView/Core/LVScope.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormatAdapters.h"
-#include "llvm/Support/FormatVariadic.h"
 #include <tuple>
 
 using namespace llvm;

@@ -11,21 +11,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "SPIRVCallLowering.h"
-#include "MCTargetDesc/SPIRVBaseInfo.h"
 #include "SPIRV.h"
 #include "SPIRVBuiltins.h"
-#include "SPIRVGlobalRegistry.h"
-#include "SPIRVISelLowering.h"
 #include "SPIRVMetadata.h"
-#include "SPIRVRegisterInfo.h"
 #include "SPIRVSubtarget.h"
-#include "SPIRVUtils.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/CodeGen/FunctionLoweringInfo.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/IntrinsicsSPIRV.h"
-#include "llvm/Support/ModRef.h"
 
 using namespace llvm;
 

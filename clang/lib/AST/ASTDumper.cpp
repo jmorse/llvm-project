@@ -12,13 +12,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/AST/ASTDumper.h"
-#include "clang/AST/ASTConcept.h"
-#include "clang/AST/ASTContext.h"
 #include "clang/AST/DeclLookups.h"
 #include "clang/AST/JSONNodeDumper.h"
-#include "clang/Basic/Diagnostic.h"
-#include "clang/Basic/SourceManager.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace clang;
 using namespace clang::comments;

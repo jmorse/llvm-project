@@ -13,9 +13,11 @@
 #ifndef LLVM_CODEGEN_PBQP_REDUCTIONRULES_H
 #define LLVM_CODEGEN_PBQP_REDUCTIONRULES_H
 
-#include "Graph.h"
-#include "Math.h"
-#include "Solution.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/Support/InterleavedRange.h"
+#include "llvm/CodeGen/PBQP/Math.h"
+#include "llvm/CodeGen/PBQP/Solution.h"
+#include "map"
 #include <cassert>
 #include <limits>
 

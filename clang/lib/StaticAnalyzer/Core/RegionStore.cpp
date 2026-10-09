@@ -14,21 +14,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/Attr.h"
-#include "clang/AST/CharUnits.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
-#include "clang/Analysis/AnalysisDeclContext.h"
 #include "clang/Basic/JsonSupport.h"
 #include "clang/Basic/TargetInfo.h"
-#include "clang/StaticAnalyzer/Core/PathSensitive/AnalysisManager.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/CallEvent.h"
-#include "clang/StaticAnalyzer/Core/PathSensitive/ExprEngine.h"
-#include "clang/StaticAnalyzer/Core/PathSensitive/MemRegion.h"
-#include "clang/StaticAnalyzer/Core/PathSensitive/ProgramState.h"
-#include "llvm/ADT/ImmutableMap.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/TimeProfiler.h"
-#include "llvm/Support/raw_ostream.h"
 #include <limits>
 #include <optional>
 #include <utility>

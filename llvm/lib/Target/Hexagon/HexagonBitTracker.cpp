@@ -7,21 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "HexagonBitTracker.h"
-#include "HexagonInstrInfo.h"
-#include "HexagonRegisterInfo.h"
 #include "HexagonSubtarget.h"
-#include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/IR/Argument.h"
-#include "llvm/IR/Attributes.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Type.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 

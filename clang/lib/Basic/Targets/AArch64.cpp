@@ -12,13 +12,6 @@
 
 #include "AArch64.h"
 #include "clang/Basic/Diagnostic.h"
-#include "clang/Basic/LangOptions.h"
-#include "clang/Basic/TargetBuiltins.h"
-#include "clang/Basic/TargetInfo.h"
-#include "llvm/ADT/APSInt.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/StringSwitch.h"
-#include "llvm/TargetParser/AArch64TargetParser.h"
 #include "llvm/TargetParser/ARMTargetParserCommon.h"
 #include <optional>
 

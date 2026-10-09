@@ -17,14 +17,12 @@
 
 #include "llvm/Support/VirtualOutputBackends.h"
 #include "llvm/ADT/ScopeExit.h"
-#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/IOSandbox.h"
 #include "llvm/Support/LockFileManager.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Process.h"
 #include "llvm/Support/Signals.h"
-#include "llvm/Support/VirtualOutputConfig.h"
 #include "llvm/Support/VirtualOutputError.h"
 
 using namespace llvm;

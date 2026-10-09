@@ -6,7 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/ScalableStaticAnalysis/Core/Model/EntityLinkage.h"
 
 #include "../ModelStringConversions.h"
 

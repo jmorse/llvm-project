@@ -25,7 +25,6 @@
 #ifndef LLVM_CODEGEN_DFAPACKETIZER_H
 #define LLVM_CODEGEN_DFAPACKETIZER_H
 
-#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/ScheduleDAGInstrs.h"
 #include "llvm/CodeGen/ScheduleDAGMutation.h"
 #include "llvm/Support/Automaton.h"

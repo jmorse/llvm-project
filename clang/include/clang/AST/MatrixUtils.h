@@ -15,7 +15,6 @@
 #define LLVM_CLANG_AST_MATRIXUTILS_H
 
 #include "clang/AST/Type.h"
-#include "clang/Basic/LangOptions.h"
 
 namespace clang {
 /// Returns true if matrices of \p T should be laid out in row-major order.

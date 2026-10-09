@@ -33,11 +33,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "X86.h"
-#include "X86InstrInfo.h"
 #include "X86Subtarget.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/IR/Analysis.h"
 
 #define AVOIDCALL_DESC "X86 avoid trailing call pass"
 #define AVOIDCALL_NAME "x86-avoid-trailing-call"

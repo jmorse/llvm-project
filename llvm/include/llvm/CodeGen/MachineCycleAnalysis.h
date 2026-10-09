@@ -18,7 +18,6 @@
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachinePassManager.h"
 #include "llvm/CodeGen/MachineSSAContext.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

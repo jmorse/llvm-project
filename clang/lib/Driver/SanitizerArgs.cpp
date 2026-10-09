@@ -6,20 +6,12 @@
 //
 //===----------------------------------------------------------------------===//
 #include "clang/Driver/SanitizerArgs.h"
-#include "clang/Basic/Sanitizers.h"
 #include "clang/Driver/Driver.h"
-#include "clang/Driver/ToolChain.h"
-#include "clang/Options/Options.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/StringSwitch.h"
-#include "llvm/Support/Path.h"
 #include "llvm/Support/SpecialCaseList.h"
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/TargetParser/AArch64TargetParser.h"
 #include "llvm/TargetParser/RISCVTargetParser.h"
 #include "llvm/TargetParser/TargetParser.h"
-#include "llvm/Transforms/Instrumentation/AddressSanitizerOptions.h"
 #include <memory>
 
 using namespace clang;

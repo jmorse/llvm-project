@@ -7,11 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Basic/DarwinSDKInfo.h"
-#include "llvm/ADT/StringSwitch.h"
-#include "llvm/Support/ErrorOr.h"
 #include "llvm/Support/JSON.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/Path.h"
 #include "llvm/TargetParser/ARMTargetParser.h"
 #include <optional>
 

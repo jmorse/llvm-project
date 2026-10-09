@@ -10,23 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/ASTContext.h"
-#include "clang/Basic/DiagnosticParse.h"
-#include "clang/Basic/PragmaKinds.h"
 #include "clang/Basic/TargetInfo.h"
-#include "clang/Lex/Preprocessor.h"
-#include "clang/Lex/Token.h"
 #include "clang/Parse/LoopHint.h"
-#include "clang/Parse/Parser.h"
 #include "clang/Parse/RAIIObjectsForParser.h"
 #include "clang/Sema/EnterExpressionEvaluationContext.h"
-#include "clang/Sema/Scope.h"
 #include "clang/Sema/SemaCUDA.h"
-#include "clang/Sema/SemaCodeCompletion.h"
 #include "clang/Sema/SemaRISCV.h"
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/ScopeExit.h"
-#include "llvm/ADT/StringSwitch.h"
 #include <optional>
 using namespace clang;
 

@@ -12,22 +12,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "ThumbRegisterInfo.h"
-#include "ARMBaseInstrInfo.h"
-#include "ARMMachineFunctionInfo.h"
 #include "ARMSubtarget.h"
-#include "llvm/CodeGen/MachineConstantPool.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/RegisterScavenging.h"
-#include "llvm/CodeGen/TargetFrameLowering.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Target/TargetMachine.h"
 
 namespace llvm {
 extern cl::opt<bool> ReuseFrameIndexVals;

@@ -15,11 +15,8 @@
 #ifndef LLVM_IR_PROFDATAUTILS_H
 #define LLVM_IR_PROFDATAUTILS_H
 
-#include "llvm/ADT/STLFunctionalExtras.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Compiler.h"
 #include <cstddef>
 #include <type_traits>
 

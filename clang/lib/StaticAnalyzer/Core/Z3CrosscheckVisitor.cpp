@@ -16,7 +16,6 @@
 #include "clang/StaticAnalyzer/Core/BugReporter/BugReporter.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/EntryPointStats.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/SMTConv.h"
-#include "llvm/Support/SMTAPI.h"
 #include "llvm/Support/Timer.h"
 
 #define DEBUG_TYPE "Z3CrosscheckOracle"

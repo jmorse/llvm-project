@@ -9,22 +9,9 @@
 #include <cassert>
 #include <string>
 
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/Expr.h"
-#include "clang/AST/ExprCXX.h"
-#include "clang/AST/OperationKinds.h"
-#include "clang/Analysis/Analyses/LifetimeSafety/Facts.h"
 #include "clang/Analysis/Analyses/LifetimeSafety/FactsGenerator.h"
 #include "clang/Analysis/Analyses/LifetimeSafety/LifetimeAnnotations.h"
-#include "clang/Analysis/Analyses/LifetimeSafety/Origins.h"
 #include "clang/Analysis/Analyses/PostOrderCFGView.h"
-#include "clang/Analysis/CFG.h"
-#include "clang/Basic/OperatorKinds.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Signals.h"
 #include "llvm/Support/TimeProfiler.h"
 
 namespace clang::lifetimes::internal {

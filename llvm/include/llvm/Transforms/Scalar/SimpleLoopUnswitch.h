@@ -9,10 +9,6 @@
 #ifndef LLVM_TRANSFORMS_SCALAR_SIMPLELOOPUNSWITCH_H
 #define LLVM_TRANSFORMS_SCALAR_SIMPLELOOPUNSWITCH_H
 
-#include "llvm/ADT/STLFunctionalExtras.h"
-#include "llvm/Analysis/LoopAnalysisManager.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/Transforms/Scalar/LoopPassManager.h"
 #include "llvm/Transforms/Utils/ExtraPassManager.h"
 
 namespace llvm {

@@ -15,7 +15,6 @@
 #include "clang/Basic/SourceManager.h"
 #include "clang/Lex/Lexer.h"
 #include "clang/Lex/ScratchBuffer.h"
-#include "clang/Lex/Token.h"
 #include <cassert>
 #include <cstring>
 #include <map>

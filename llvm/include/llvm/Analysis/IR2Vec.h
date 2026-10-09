@@ -35,13 +35,8 @@
 #ifndef LLVM_ANALYSIS_IR2VEC_H
 #define LLVM_ANALYSIS_IR2VEC_H
 
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/IR/Type.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorOr.h"
 #include "llvm/Support/JSON.h"
 #include <array>
 #include <map>

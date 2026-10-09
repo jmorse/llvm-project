@@ -16,8 +16,6 @@
 #define LLVM_SUPPORT_TEXT_ENCODING_H
 
 #include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/ErrorOr.h"
 
 #include <string>

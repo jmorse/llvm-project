@@ -17,8 +17,6 @@
 #include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/DiagnosticInfo.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/TypeSize.h"
 #include <optional>
 #include <variant>
 

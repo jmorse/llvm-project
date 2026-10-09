@@ -8,8 +8,6 @@
 
 #include "X86TargetObjectFile.h"
 #include "MCTargetDesc/X86MCAsmInfo.h"
-#include "llvm/BinaryFormat/Dwarf.h"
-#include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCValue.h"
 #include "llvm/Target/TargetMachine.h"
 

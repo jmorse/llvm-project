@@ -17,10 +17,7 @@
 #include "clang/AST/CXXInheritance.h"
 #include "clang/AST/GlobalDecl.h"
 #include "clang/AST/RecordLayout.h"
-#include "clang/Basic/ABI.h"
 #include "clang/Basic/Thunk.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallVector.h"
 #include <memory>
 #include <utility>
 

@@ -13,8 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/ExtractAPI/API.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <memory>
 
 using namespace clang::extractapi;

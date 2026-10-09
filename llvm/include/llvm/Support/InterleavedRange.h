@@ -21,7 +21,6 @@
 #define LLVM_SUPPORT_INTERLEAVED_RANGE_H
 
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/raw_ostream.h"
 
 namespace llvm {

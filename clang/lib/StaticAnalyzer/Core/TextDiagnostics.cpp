@@ -10,12 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Analysis/MacroExpansionContext.h"
-#include "clang/Analysis/PathDiagnostic.h"
-#include "clang/Basic/SourceManager.h"
 #include "clang/CrossTU/CrossTranslationUnit.h"
-#include "clang/Frontend/ASTUnit.h"
-#include "clang/Lex/Preprocessor.h"
 #include "clang/Rewrite/Core/Rewriter.h"
 #include "clang/StaticAnalyzer/Core/PathDiagnosticConsumers.h"
 #include "clang/Tooling/Core/Replacement.h"

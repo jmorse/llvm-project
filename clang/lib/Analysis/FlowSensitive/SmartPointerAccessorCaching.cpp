@@ -1,11 +1,5 @@
 #include "clang/Analysis/FlowSensitive/SmartPointerAccessorCaching.h"
 
-#include "clang/AST/CanonicalType.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/Type.h"
-#include "clang/ASTMatchers/ASTMatchers.h"
-#include "clang/ASTMatchers/ASTMatchersMacros.h"
-#include "clang/Basic/OperatorKinds.h"
 
 namespace clang::dataflow {
 

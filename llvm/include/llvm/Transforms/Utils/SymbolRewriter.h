@@ -33,7 +33,6 @@
 #define LLVM_TRANSFORMS_UTILS_SYMBOLREWRITER_H
 
 #include "llvm/IR/PassManager.h"
-#include "llvm/Support/Compiler.h"
 #include <list>
 #include <memory>
 #include <string>

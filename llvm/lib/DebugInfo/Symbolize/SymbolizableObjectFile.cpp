@@ -11,16 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/DebugInfo/Symbolize/SymbolizableObjectFile.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/BinaryFormat/COFF.h"
 #include "llvm/DebugInfo/DWARF/DWARFContext.h"
 #include "llvm/Object/COFF.h"
 #include "llvm/Object/ELFObjectFile.h"
-#include "llvm/Object/ObjectFile.h"
 #include "llvm/Object/SymbolSize.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/DataExtractor.h"
-#include "llvm/TargetParser/Triple.h"
 
 using namespace llvm;
 using namespace object;

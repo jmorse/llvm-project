@@ -7,10 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "IndexingContext.h"
-#include "clang/AST/ASTConcept.h"
-#include "clang/AST/PrettyPrinter.h"
 #include "clang/AST/RecursiveASTVisitor.h"
-#include "clang/AST/TypeLoc.h"
 #include "clang/Sema/HeuristicResolver.h"
 #include "llvm/ADT/ScopeExit.h"
 

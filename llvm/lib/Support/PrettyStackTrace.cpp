@@ -14,7 +14,6 @@
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm-c/ErrorHandling.h"
 #include "llvm/Config/config.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Support/Signals.h"
 #include "llvm/Support/Watchdog.h"

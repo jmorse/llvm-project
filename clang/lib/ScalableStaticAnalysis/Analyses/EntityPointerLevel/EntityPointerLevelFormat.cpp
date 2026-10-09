@@ -8,10 +8,6 @@
 
 #include "clang/ScalableStaticAnalysis/Analyses/EntityPointerLevel/EntityPointerLevelFormat.h"
 #include "SSAFAnalysesCommon.h"
-#include "clang/ScalableStaticAnalysis/Analyses/EntityPointerLevel/EntityPointerLevel.h"
-#include "clang/ScalableStaticAnalysis/Core/Serialization/JSONFormat.h"
-#include "llvm/Support/Error.h"
-#include "llvm/Support/JSON.h"
 
 using namespace clang;
 using namespace ssaf;

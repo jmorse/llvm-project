@@ -11,15 +11,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "SIInstrInfo.h"
 #include "AMDGPU.h"
 #include "AMDGPUInstrInfo.h"
 #include "AMDGPULaneMaskUtils.h"
 #include "GCNHazardRecognizer.h"
-#include "GCNSubtarget.h"
 #include "SIMachineFunctionInfo.h"
-#include "Utils/AMDGPUBaseInfo.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
 #include "llvm/CodeGen/LiveIntervals.h"
@@ -29,12 +25,8 @@
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineScheduler.h"
 #include "llvm/CodeGen/RegisterScavenging.h"
-#include "llvm/CodeGen/ScheduleDAG.h"
-#include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/IntrinsicsAMDGPU.h"
 #include "llvm/MC/MCContext.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Target/TargetMachine.h"
 #include <tuple>
 
 using namespace llvm;

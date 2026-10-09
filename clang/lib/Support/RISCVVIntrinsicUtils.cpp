@@ -7,10 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Support/RISCVVIntrinsicUtils.h"
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include <optional>
 

@@ -17,13 +17,8 @@
 #ifndef LLVM_CODEGEN_GLOBALISEL_COMBINERHELPER_H
 #define LLVM_CODEGEN_GLOBALISEL_COMBINERHELPER_H
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
 #include "llvm/CodeGen/GlobalISel/Utils.h"
-#include "llvm/CodeGen/Register.h"
-#include "llvm/CodeGenTypes/LowLevelType.h"
-#include "llvm/IR/InstrTypes.h"
 #include <functional>
 
 namespace llvm {

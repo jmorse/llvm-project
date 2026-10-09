@@ -18,7 +18,6 @@
 
 #include "AMDGPUHazardLatency.h"
 #include "GCNSubtarget.h"
-#include "SIInstrInfo.h"
 #include "llvm/CodeGen/ScheduleDAGInstrs.h"
 
 using namespace llvm;

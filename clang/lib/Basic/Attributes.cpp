@@ -11,14 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Basic/Attributes.h"
-#include "clang/Basic/AttrSubjectMatchRules.h"
 #include "clang/Basic/IdentifierTable.h"
-#include "clang/Basic/LangOptions.h"
 #include "clang/Basic/ParsedAttrInfo.h"
 #include "clang/Basic/SimpleTypoCorrection.h"
 #include "clang/Basic/TargetInfo.h"
 
-#include "llvm/ADT/StringSwitch.h"
 
 using namespace clang;
 

@@ -17,7 +17,6 @@
 #ifndef LLVM_CODEGEN_MACHINEPASSREGISTRY_H
 #define LLVM_CODEGEN_MACHINEPASSREGISTRY_H
 
-#include "llvm/ADT/StringRef.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/Support/CommandLine.h"
 

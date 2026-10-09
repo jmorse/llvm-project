@@ -11,23 +11,13 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "MCTargetDesc/WebAssemblyMCTargetDesc.h"
 #include "WebAssembly.h"
-#include "WebAssemblyISelLowering.h"
 #include "WebAssemblyTargetMachine.h"
-#include "WebAssemblyUtilities.h"
-#include "llvm/BinaryFormat/Wasm.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/SelectionDAGISel.h"
 #include "llvm/CodeGen/WasmEHInfo.h"
-#include "llvm/IR/DiagnosticInfo.h"
-#include "llvm/IR/Function.h" // To access function attributes.
 #include "llvm/IR/IntrinsicsWebAssembly.h"
 #include "llvm/MC/MCSymbolWasm.h"
-#include "llvm/Support/CodeGen.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Support/KnownBits.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 

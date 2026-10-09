@@ -15,7 +15,6 @@
 #define LLVM_SUPPORT_UNICODE_H
 
 #include "llvm/ADT/SmallString.h"
-#include "llvm/Support/Compiler.h"
 #include <optional>
 #include <string>
 

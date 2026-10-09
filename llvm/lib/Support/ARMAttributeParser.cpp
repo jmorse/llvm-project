@@ -7,8 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/ARMAttributeParser.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/Support/ARMBuildAttributes.h"
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/ScopedPrinter.h"
 #include <optional>

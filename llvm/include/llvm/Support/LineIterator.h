@@ -9,9 +9,7 @@
 #ifndef LLVM_SUPPORT_LINEITERATOR_H
 #define LLVM_SUPPORT_LINEITERATOR_H
 
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/DataTypes.h"
+#include "inttypes.h"
 #include "llvm/Support/MemoryBufferRef.h"
 #include <iterator>
 #include <optional>

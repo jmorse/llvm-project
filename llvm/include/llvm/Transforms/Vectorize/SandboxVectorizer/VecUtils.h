@@ -12,12 +12,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_SANDBOXVECTORIZER_VECUTILS_H
 #define LLVM_TRANSFORMS_VECTORIZE_SANDBOXVECTORIZER_VECUTILS_H
 
-#include "llvm/ADT/DenseSet.h"
-#include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/SandboxIR/Type.h"
 #include "llvm/SandboxIR/Utils.h"
-#include "llvm/Support/Compiler.h"
 #include <iterator>
 
 namespace llvm {

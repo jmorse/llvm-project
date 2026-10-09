@@ -15,7 +15,6 @@
 #define LLVM_CLANG_BASIC_SANITIZERS_H
 
 #include "clang/Basic/LLVM.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/HashBuilder.h"
 #include "llvm/Transforms/Instrumentation/AddressSanitizerOptions.h"
 #include <cassert>

@@ -14,12 +14,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "AArch64MachineFunctionInfo.h"
-#include "AArch64InstrInfo.h"
-#include "AArch64Subtarget.h"
-#include "llvm/ADT/StringSwitch.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DiagnosticInfo.h"
-#include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/MC/MCAsmInfo.h"
 

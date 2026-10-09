@@ -9,7 +9,6 @@
 #include "AMDGPU.h"
 #include "clang/Basic/TargetID.h"
 #include "clang/Driver/Driver.h"
-#include "clang/Options/Options.h"
 #include "llvm/TargetParser/AMDGPUTargetParser.h"
 
 using namespace clang::driver;

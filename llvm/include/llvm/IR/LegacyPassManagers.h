@@ -13,12 +13,9 @@
 #ifndef LLVM_IR_LEGACYPASSMANAGERS_H
 #define LLVM_IR_LEGACYPASSMANAGERS_H
 
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/FoldingSet.h"
 #include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/Pass.h"
-#include "llvm/Support/Compiler.h"
 #include <vector>
 
 //===----------------------------------------------------------------------===//

@@ -10,17 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "CGCall.h"
 #include "CGRecordLayout.h"
 #include "CodeGenFunction.h"
-#include "CodeGenModule.h"
 #include "TargetInfo.h"
-#include "clang/AST/ASTContext.h"
 #include "clang/Basic/DiagnosticFrontend.h"
-#include "clang/CodeGen/CGFunctionInfo.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/Intrinsics.h"
 
 using namespace clang;
 using namespace CodeGen;

@@ -7,10 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/ConstantFPRange.h"
-#include "llvm/ADT/APFloat.h"
-#include "llvm/ADT/FloatingPointMode.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 #include <cassert>
 
 using namespace llvm;

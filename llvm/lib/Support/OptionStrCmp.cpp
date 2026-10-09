@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/OptionStrCmp.h"
-#include "llvm/ADT/STLExtras.h"
 
 using namespace llvm;
 

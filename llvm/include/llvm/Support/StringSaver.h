@@ -10,10 +10,8 @@
 #define LLVM_SUPPORT_STRINGSAVER_H
 
 #include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Support/Allocator.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

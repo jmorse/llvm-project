@@ -18,7 +18,6 @@
 
 #include "llvm/CodeGen/ValueTypes.h"
 #include "llvm/CodeGenTypes/LowLevelType.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

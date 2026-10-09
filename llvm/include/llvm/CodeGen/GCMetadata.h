@@ -32,16 +32,11 @@
 #ifndef LLVM_CODEGEN_GCMETADATA_H
 #define LLVM_CODEGEN_GCMETADATA_H
 
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringMap.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/GCStrategy.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
-#include "llvm/Support/Compiler.h"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>

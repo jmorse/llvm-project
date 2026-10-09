@@ -19,26 +19,7 @@
 // the predicate register, they cannot use the .new form. In such cases it
 // is better to collapse them back to a single MUX instruction.
 
-#include "Hexagon.h"
-#include "HexagonInstrInfo.h"
-#include "HexagonRegisterInfo.h"
 #include "HexagonSubtarget.h"
-#include "llvm/ADT/BitVector.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/CodeGen/LiveRegUnits.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/IR/DebugLoc.h"
-#include "llvm/MC/MCInstrDesc.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/MathExtras.h"
 #include <algorithm>
 #include <cassert>
 #include <iterator>

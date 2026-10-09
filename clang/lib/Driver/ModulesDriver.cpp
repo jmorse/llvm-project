@@ -13,32 +13,18 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Driver/ModulesDriver.h"
-#include "clang/Basic/Diagnostic.h"
-#include "clang/Basic/LLVM.h"
 #include "clang/DependencyScanning/DependencyScanningUtils.h"
 #include "clang/Driver/Compilation.h"
 #include "clang/Driver/Driver.h"
-#include "clang/Driver/Job.h"
 #include "clang/Driver/Tool.h"
-#include "clang/Driver/ToolChain.h"
-#include "clang/Driver/Types.h"
 #include "clang/Frontend/StandaloneDiagnostic.h"
-#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/DirectedGraph.h"
 #include "llvm/ADT/PostOrderIterator.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVectorExtras.h"
-#include "llvm/ADT/TypeSwitch.h"
-#include "llvm/ADT/iterator_range.h"
-#include "llvm/Option/ArgList.h"
-#include "llvm/Support/Casting.h"
 #include "llvm/Support/GraphWriter.h"
 #include "llvm/Support/JSON.h"
-#include "llvm/Support/Path.h"
-#include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/ThreadPool.h"
-#include "llvm/Support/VirtualFileSystem.h"
 #include <utility>
 
 namespace deps = clang::dependencies;

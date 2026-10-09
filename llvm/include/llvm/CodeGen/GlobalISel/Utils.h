@@ -14,15 +14,11 @@
 #ifndef LLVM_CODEGEN_GLOBALISEL_UTILS_H
 #define LLVM_CODEGEN_GLOBALISEL_UTILS_H
 
-#include "GISelWorkList.h"
-#include "llvm/ADT/APFloat.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/CodeGen/Register.h"
 #include "llvm/CodeGenTypes/LowLevelType.h"
 #include "llvm/IR/DebugLoc.h"
-#include "llvm/Support/Alignment.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Compiler.h"
+
+#include "llvm/CodeGen/GlobalISel/GISelWorkList.h"
 
 #include <cstdint>
 #include <vector>

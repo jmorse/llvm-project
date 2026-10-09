@@ -13,8 +13,6 @@
 
 #include "ARMMacroFusion.h"
 #include "ARMSubtarget.h"
-#include "llvm/CodeGen/MacroFusion.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
 
 namespace llvm {
 

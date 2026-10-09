@@ -14,7 +14,6 @@
 #include "MipsTargetMachine.h"
 #include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
 #include "llvm/CodeGen/GlobalISel/LegalizerHelper.h"
-#include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
 #include "llvm/IR/IntrinsicsMips.h"
 
 using namespace llvm;

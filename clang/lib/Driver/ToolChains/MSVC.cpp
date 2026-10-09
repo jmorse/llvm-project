@@ -8,20 +8,9 @@
 
 #include "MSVC.h"
 #include "Darwin.h"
-#include "clang/Config/config.h"
 #include "clang/Driver/CommonArgs.h"
-#include "clang/Driver/Compilation.h"
-#include "clang/Driver/Driver.h"
 #include "clang/Driver/SanitizerArgs.h"
-#include "clang/Options/Options.h"
-#include "llvm/Option/Arg.h"
-#include "llvm/Option/ArgList.h"
-#include "llvm/Support/ConvertUTF.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Path.h"
 #include "llvm/Support/Process.h"
-#include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/TargetParser/Host.h"
 #include <cstdio>
 

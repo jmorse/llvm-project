@@ -16,9 +16,6 @@
 #ifndef LLVM_SUPPORT_INTEGER_INCLUSIVE_INTERVAL_H
 #define LLVM_SUPPORT_INTEGER_INCLUSIVE_INTERVAL_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Error.h"
 #include <cassert>
 #include <cstdint>

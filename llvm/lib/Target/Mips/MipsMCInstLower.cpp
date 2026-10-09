@@ -11,17 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "MipsMCInstLower.h"
-#include "MCTargetDesc/MipsBaseInfo.h"
-#include "MCTargetDesc/MipsMCAsmInfo.h"
 #include "MipsAsmPrinter.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/MC/MCContext.h"
-#include "llvm/MC/MCExpr.h"
-#include "llvm/MC/MCInst.h"
-#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 

@@ -39,13 +39,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "NVPTX.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/TargetRegisterInfo.h"
-#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 

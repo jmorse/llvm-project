@@ -10,7 +10,6 @@
 #define LLVM_CODEGEN_MACHINEVERIFIER_H
 
 #include "llvm/CodeGen/MachinePassManager.h"
-#include "llvm/Support/Compiler.h"
 #include <string>
 
 namespace llvm {

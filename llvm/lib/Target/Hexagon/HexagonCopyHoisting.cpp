@@ -10,16 +10,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "HexagonTargetMachine.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/PostOrderIterator.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/CodeGen/LiveInterval.h"
 #include "llvm/CodeGen/LiveIntervals.h"
 #include "llvm/CodeGen/MachineDominators.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "CopyHoist"
 

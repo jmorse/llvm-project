@@ -13,12 +13,7 @@
 
 #include "llvm/Frontend/HLSL/SemanticSignatures.h"
 #include "llvm/ADT/Enum.h"
-#include "llvm/ADT/STLForwardCompat.h"
-#include "llvm/ADT/bit.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/Metadata.h"
-#include "llvm/IR/Type.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <cassert>
 
 using namespace llvm;

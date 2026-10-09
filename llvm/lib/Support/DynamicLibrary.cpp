@@ -11,10 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/DynamicLibrary.h"
+#include "dlfcn.h"
 #include "llvm-c/Support.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringMap.h"
-#include "llvm/Config/config.h"
 #include "llvm/Support/Mutex.h"
 #include <vector>
 

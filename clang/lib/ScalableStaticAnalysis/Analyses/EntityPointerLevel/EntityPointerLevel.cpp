@@ -8,13 +8,7 @@
 
 #include "clang/ScalableStaticAnalysis/Analyses/EntityPointerLevel/EntityPointerLevel.h"
 #include "SSAFAnalysesCommon.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/Expr.h"
-#include "clang/AST/ExprCXX.h"
 #include "clang/AST/StmtVisitor.h"
-#include "clang/ScalableStaticAnalysis/Core/TUSummary/TUSummaryExtractor.h"
-#include "llvm/ADT/STLExtras.h"
 #include <optional>
 
 using namespace clang;

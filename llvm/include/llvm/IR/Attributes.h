@@ -16,14 +16,8 @@
 #define LLVM_IR_ATTRIBUTES_H
 
 #include "llvm-c/Types.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/BitmaskEnum.h"
-#include "llvm/ADT/Hashing.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Config/llvm-config.h"
 #include "llvm/Support/Alignment.h"
 #include "llvm/Support/CodeGen.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/ModRef.h"
 #include "llvm/Support/PointerLikeTypeTraits.h"
 #include <cassert>

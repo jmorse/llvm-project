@@ -18,14 +18,7 @@
 //   or a branch instruction.
 //===----------------------------------------------------------------------===//
 
-#include "Mips.h"
-#include "MipsInstrInfo.h"
 #include "MipsSubtarget.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Target/TargetMachine.h"
 
 #define DEBUG_TYPE "mips-vr4300-mulmul-fix"
 

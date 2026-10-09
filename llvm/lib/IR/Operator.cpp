@@ -10,10 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/IR/Operator.h"
-#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 
 #include "ConstantsContext.h"

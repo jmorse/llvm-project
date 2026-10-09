@@ -10,10 +10,8 @@
 #include "clang/Basic/OffloadArch.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallSet.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Path.h"
 #include "llvm/TargetParser/AMDGPUTargetParser.h"
-#include "llvm/TargetParser/Triple.h"
 #include <map>
 #include <optional>
 #include <string>

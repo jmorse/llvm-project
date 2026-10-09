@@ -19,13 +19,10 @@
 #ifndef LLVM_IR_GLOBALVARIABLE_H
 #define LLVM_IR_GLOBALVARIABLE_H
 
-#include "llvm/ADT/Twine.h"
 #include "llvm/ADT/ilist_node.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/GlobalObject.h"
 #include "llvm/IR/OperandTraits.h"
-#include "llvm/IR/Value.h"
-#include "llvm/Support/Compiler.h"
 #include <cassert>
 #include <cstddef>
 

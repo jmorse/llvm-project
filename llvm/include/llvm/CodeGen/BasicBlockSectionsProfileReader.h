@@ -15,15 +15,9 @@
 #ifndef LLVM_CODEGEN_BASICBLOCKSECTIONSPROFILEREADER_H
 #define LLVM_CODEGEN_BASICBLOCKSECTIONSPROFILEREADER_H
 
-#include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringMap.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/PassManager.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
-#include "llvm/Support/Error.h"
 #include "llvm/Support/LineIterator.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/UniqueBBID.h"

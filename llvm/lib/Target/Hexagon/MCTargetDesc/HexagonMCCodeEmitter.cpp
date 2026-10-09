@@ -8,24 +8,12 @@
 
 #include "MCTargetDesc/HexagonMCCodeEmitter.h"
 #include "MCTargetDesc/HexagonBaseInfo.h"
-#include "MCTargetDesc/HexagonFixupKinds.h"
-#include "MCTargetDesc/HexagonMCExpr.h"
 #include "MCTargetDesc/HexagonMCInstrInfo.h"
-#include "MCTargetDesc/HexagonMCTargetDesc.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/MC/MCContext.h"
-#include "llvm/MC/MCExpr.h"
-#include "llvm/MC/MCFixup.h"
-#include "llvm/MC/MCInst.h"
-#include "llvm/MC/MCInstrDesc.h"
 #include "llvm/MC/MCInstrInfo.h"
-#include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Support/EndianStream.h"
-#include "llvm/Support/raw_ostream.h"
 #include <cassert>
 #include <cstddef>
 #include <cstdint>

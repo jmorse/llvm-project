@@ -14,9 +14,7 @@
 //===----------------------------------------------------------------------===//
 #include "clang/APINotes/APINotesReader.h"
 #include "APINotesFormat.h"
-#include "clang/APINotes/Types.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/Hashing.h"
 #include "llvm/Bitstream/BitstreamReader.h"
 #include "llvm/Support/DJB.h"
 #include "llvm/Support/OnDiskHashTable.h"

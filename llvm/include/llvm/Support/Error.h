@@ -15,13 +15,9 @@
 
 #include "llvm-c/Error.h"
 #include "llvm/ADT/Twine.h"
-#include "llvm/Config/abi-breaking.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/ErrorOr.h"
 #include "llvm/Support/Format.h"
-#include "llvm/Support/raw_ostream.h"
 #include <cassert>
 #include <cstdint>
 #include <cstdlib>

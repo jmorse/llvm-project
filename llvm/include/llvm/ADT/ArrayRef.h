@@ -12,8 +12,6 @@
 #include "llvm/ADT/Hashing.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/xxhash.h"
 #include <algorithm>
 #include <array>
 #include <cassert>

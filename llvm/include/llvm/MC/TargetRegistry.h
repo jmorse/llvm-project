@@ -19,15 +19,9 @@
 #define LLVM_MC_TARGETREGISTRY_H
 
 #include "llvm-c/DisassemblerTypes.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCObjectFileInfo.h"
-#include "llvm/Support/CodeGen.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormattedStream.h"
-#include "llvm/TargetParser/Triple.h"
 #include <cassert>
 #include <cstddef>
 #include <iterator>

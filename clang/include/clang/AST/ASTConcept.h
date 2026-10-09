@@ -15,13 +15,7 @@
 #define LLVM_CLANG_AST_ASTCONCEPT_H
 
 #include "clang/AST/DeclarationName.h"
-#include "clang/AST/NestedNameSpecifierBase.h"
 #include "clang/AST/TemplateBase.h"
-#include "clang/Basic/OptionalUnsigned.h"
-#include "clang/Basic/SourceLocation.h"
-#include "llvm/ADT/FoldingSet.h"
-#include "llvm/ADT/PointerUnion.h"
-#include "llvm/ADT/SmallVector.h"
 #include <utility>
 
 namespace clang {

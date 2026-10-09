@@ -8,9 +8,7 @@
 
 #include "llvm/DebugInfo/DWARF/DWARFDebugRangeList.h"
 #include "llvm/DebugInfo/DWARF/DWARFContext.h"
-#include "llvm/Support/Errc.h"
 #include "llvm/Support/FormatVariadic.h"
-#include "llvm/Support/raw_ostream.h"
 #include <cinttypes>
 #include <cstdint>
 

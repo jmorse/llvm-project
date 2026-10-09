@@ -16,14 +16,9 @@
 #ifndef LLVM_IR_CONSTANTFOLDER_H
 #define LLVM_IR_CONSTANTFOLDER_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/ConstantFold.h"
-#include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilderFolder.h"
-#include "llvm/IR/Instruction.h"
 #include "llvm/IR/Operator.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

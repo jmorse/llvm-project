@@ -15,7 +15,6 @@
 #define LLVM_CLANG_SEMA_WEAK_H
 
 #include "clang/Basic/SourceLocation.h"
-#include "llvm/ADT/DenseMapInfo.h"
 
 namespace clang {
 

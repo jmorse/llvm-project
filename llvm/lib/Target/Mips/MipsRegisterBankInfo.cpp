@@ -11,12 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "MipsRegisterBankInfo.h"
-#include "MipsInstrInfo.h"
 #include "MipsTargetMachine.h"
-#include "llvm/CodeGen/GlobalISel/GISelChangeObserver.h"
 #include "llvm/CodeGen/GlobalISel/LegalizationArtifactCombiner.h"
 #include "llvm/CodeGen/GlobalISel/LegalizerHelper.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 
 #define GET_TARGET_REGBANK_IMPL
 

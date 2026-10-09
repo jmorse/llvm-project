@@ -6,15 +6,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Lanai.h"
 #include "LanaiAsmPrinter.h"
 #include "LanaiTargetMachine.h"
 #include "llvm/CodeGen/AtomicExpand.h"
-#include "llvm/IR/PassInstrumentation.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/Passes/CodeGenPassBuilder.h"
 #include "llvm/Passes/PassBuilder.h"
-#include "llvm/Target/CGPassBuilderOption.h"
 
 using namespace llvm;
 

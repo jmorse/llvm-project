@@ -15,9 +15,6 @@
 #ifndef LLVM_CODEGEN_COMMANDFLAGS_H
 #define LLVM_CODEGEN_COMMANDFLAGS_H
 
-#include "llvm/ADT/FloatingPointMode.h"
-#include "llvm/Support/CodeGen.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Target/TargetOptions.h"
 #include <optional>
 #include <string>

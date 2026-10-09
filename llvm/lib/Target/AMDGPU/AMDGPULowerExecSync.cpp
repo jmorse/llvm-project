@@ -17,11 +17,8 @@
 #include "AMDGPUMemoryUtils.h"
 #include "AMDGPUTargetMachine.h"
 #include "llvm/Analysis/CallGraph.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/ReplaceConstant.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 
 #define DEBUG_TYPE "amdgpu-lower-exec-sync"

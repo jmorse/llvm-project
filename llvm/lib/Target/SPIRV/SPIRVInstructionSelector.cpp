@@ -12,31 +12,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "MCTargetDesc/SPIRVBaseInfo.h"
-#include "MCTargetDesc/SPIRVMCTargetDesc.h"
 #include "SPIRV.h"
-#include "SPIRVGlobalRegistry.h"
-#include "SPIRVInstrInfo.h"
-#include "SPIRVRegisterInfo.h"
 #include "SPIRVTargetMachine.h"
-#include "SPIRVTypeInst.h"
-#include "SPIRVUtils.h"
-#include "llvm/ADT/APFloat.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/STLFunctionalExtras.h"
-#include "llvm/ADT/SmallSet.h"
-#include "llvm/ADT/StringExtras.h"
 #include "llvm/CodeGen/GlobalISel/GIMatchTableExecutorImpl.h"
 #include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
-#include "llvm/CodeGen/GlobalISel/InstructionSelector.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/Register.h"
-#include "llvm/CodeGen/TargetOpcodes.h"
-#include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/IntrinsicsSPIRV.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <functional>
 #include <optional>
 

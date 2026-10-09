@@ -11,19 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "X86LegalizerInfo.h"
-#include "X86Subtarget.h"
 #include "X86TargetMachine.h"
-#include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
 #include "llvm/CodeGen/GlobalISel/LegalizerHelper.h"
 #include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
-#include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/TargetOpcodes.h"
-#include "llvm/CodeGen/ValueTypes.h"
-#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/IntrinsicsX86.h"
-#include "llvm/IR/Type.h"
 
 using namespace llvm;
 using namespace MIPatternMatch;

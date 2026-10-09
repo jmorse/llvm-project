@@ -6,7 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/DebugInfo/CodeView/TypeIndex.h"
 
 #include "llvm/DebugInfo/CodeView/TypeCollection.h"
 #include "llvm/Support/ScopedPrinter.h"

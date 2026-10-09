@@ -12,13 +12,8 @@
 
 #include "Thumb1InstrInfo.h"
 #include "ARMSubtarget.h"
-#include "llvm/ADT/BitVector.h"
-#include "llvm/CodeGen/LiveRegUnits.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineMemOperand.h"
 #include "llvm/IR/Module.h"
-#include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstBuilder.h"
 
 using namespace llvm;

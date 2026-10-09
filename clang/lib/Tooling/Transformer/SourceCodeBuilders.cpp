@@ -7,13 +7,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Tooling/Transformer/SourceCodeBuilders.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/Expr.h"
-#include "clang/AST/ExprCXX.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
-#include "clang/ASTMatchers/ASTMatchers.h"
 #include "clang/Tooling/Transformer/SourceCode.h"
-#include "llvm/ADT/Twine.h"
 #include <string>
 
 using namespace clang;

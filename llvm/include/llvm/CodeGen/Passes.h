@@ -16,7 +16,6 @@
 
 #include "llvm/CodeGen/RegAllocCommon.h"
 #include "llvm/Support/CodeGen.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/Discriminator.h"
 #include "llvm/Support/VirtualFileSystemFwd.h"
 

@@ -11,15 +11,10 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "clang/Lex/ModuleMapFile.h"
-#include "clang/Basic/Diagnostic.h"
-#include "clang/Basic/LangOptions.h"
-#include "clang/Basic/Module.h"
+#include "clang/Basic/DiagnosticLex.h"
 #include "clang/Basic/SourceManager.h"
-#include "clang/Lex/LexDiagnostic.h"
 #include "clang/Lex/Lexer.h"
 #include "clang/Lex/ModuleMap.h"
-#include "llvm/ADT/STLExtras.h"
 #include <optional>
 
 using namespace clang;

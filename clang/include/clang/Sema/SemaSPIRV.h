@@ -13,7 +13,6 @@
 #ifndef LLVM_CLANG_SEMA_SEMASPIRV_H
 #define LLVM_CLANG_SEMA_SEMASPIRV_H
 
-#include "clang/AST/ASTFwd.h"
 #include "clang/Sema/SemaBase.h"
 
 namespace clang {

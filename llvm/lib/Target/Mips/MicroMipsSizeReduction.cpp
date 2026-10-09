@@ -10,12 +10,8 @@
 ///
 /// TODO: Implement microMIPS64 support.
 //===----------------------------------------------------------------------===//
-#include "Mips.h"
-#include "MipsInstrInfo.h"
 #include "MipsSubtarget.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/Support/Debug.h"
 
 using namespace llvm;
 

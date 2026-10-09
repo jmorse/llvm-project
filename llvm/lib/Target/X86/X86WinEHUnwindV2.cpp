@@ -15,14 +15,7 @@
 #include "MCTargetDesc/X86BaseInfo.h"
 #include "X86.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/TargetFrameLowering.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
-#include "llvm/IR/DiagnosticInfo.h"
-#include "llvm/IR/Module.h"
 
 using namespace llvm;
 

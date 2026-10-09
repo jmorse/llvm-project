@@ -25,15 +25,9 @@
 //    r0 = zxtb(r3)
 //  }
 
-#include "Hexagon.h"
 #include "HexagonTargetMachine.h"
 
 #include "llvm/CodeGen/LiveIntervals.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/Passes.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
-#include "llvm/CodeGen/TargetRegisterInfo.h"
 
 using namespace llvm;
 

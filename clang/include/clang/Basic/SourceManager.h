@@ -35,21 +35,10 @@
 #define LLVM_CLANG_BASIC_SOURCEMANAGER_H
 
 #include "clang/Basic/Diagnostic.h"
-#include "clang/Basic/FileEntry.h"
 #include "clang/Basic/FileManager.h"
-#include "clang/Basic/SourceLocation.h"
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/BitVector.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/ADT/PagedVector.h"
-#include "llvm/ADT/PointerIntPair.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Allocator.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/MemoryBuffer.h"
 #include <cassert>
 #include <cstddef>
 #include <map>

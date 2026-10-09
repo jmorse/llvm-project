@@ -8,13 +8,8 @@
 
 #include "clang/Index/IndexSymbol.h"
 #include "clang/AST/Attr.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/DeclTemplate.h"
-#include "clang/AST/PrettyPrinter.h"
-#include "clang/AST/TypeBase.h"
-#include "clang/Lex/MacroInfo.h"
 
 using namespace clang;
 using namespace clang::index;

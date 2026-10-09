@@ -12,12 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/DebugInfo/Symbolize/DIPrinter.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/DebugInfo/DIContext.h"
-#include "llvm/Support/ErrorOr.h"
-#include "llvm/Support/Format.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>

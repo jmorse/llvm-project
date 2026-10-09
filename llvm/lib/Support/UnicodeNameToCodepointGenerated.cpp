@@ -62,7 +62,7 @@ use or other dealings in these Data Files or Software without prior
 written authorization of the copyright holder.
 */
 
-#include "llvm/Support/Compiler.h"
+#include "stddef.h"
 #include <cstddef>
 #include <cstdint>
 namespace llvm {

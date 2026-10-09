@@ -10,25 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "AArch64.h"
 #include "AArch64ExpandImm.h"
 #include "AArch64MachineFunctionInfo.h"
 #include "AArch64TargetMachine.h"
 #include "MCTargetDesc/AArch64AddressingModes.h"
-#include "llvm/ADT/APSInt.h"
-#include "llvm/CodeGen/ISDOpcodes.h"
 #include "llvm/CodeGen/SDPatternMatch.h"
-#include "llvm/CodeGen/SelectionDAGISel.h"
-#include "llvm/IR/Function.h" // To access function attributes.
-#include "llvm/IR/GlobalValue.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicsAArch64.h"
-#include "llvm/Support/AArch64MemoryHints.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/KnownBits.h"
-#include "llvm/Support/MathExtras.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 using namespace llvm::SDPatternMatch;

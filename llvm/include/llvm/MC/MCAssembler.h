@@ -9,17 +9,9 @@
 #ifndef LLVM_MC_MCASSEMBLER_H
 #define LLVM_MC_MCASSEMBLER_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/iterator.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/MC/MCDwarf.h"
 #include "llvm/MC/MCSymbol.h"
-#include "llvm/Support/Alignment.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/SMLoc.h"
 #include <cassert>
 #include <cstddef>
 #include <cstdint>

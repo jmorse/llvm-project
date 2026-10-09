@@ -18,7 +18,6 @@
 #ifndef LLVM_SUPPORT_ARMBUILDATTRIBUTES_H
 #define LLVM_SUPPORT_ARMBUILDATTRIBUTES_H
 
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/ELFAttributes.h"
 
 namespace llvm {

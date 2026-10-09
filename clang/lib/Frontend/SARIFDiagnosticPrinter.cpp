@@ -11,14 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Frontend/SARIFDiagnosticPrinter.h"
-#include "clang/Basic/DiagnosticOptions.h"
-#include "clang/Basic/Sarif.h"
-#include "clang/Frontend/DiagnosticRenderer.h"
 #include "clang/Frontend/SARIFDiagnostic.h"
 #include "clang/Lex/Lexer.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/JSON.h"
-#include "llvm/Support/raw_ostream.h"
 
 namespace clang {
 

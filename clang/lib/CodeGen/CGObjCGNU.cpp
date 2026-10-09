@@ -14,28 +14,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "CGCXXABI.h"
-#include "CGCleanup.h"
 #include "CGObjCRuntime.h"
-#include "CodeGenFunction.h"
-#include "CodeGenModule.h"
-#include "CodeGenTypes.h"
-#include "SanitizerMetadata.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/Attr.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclObjC.h"
-#include "clang/AST/RecordLayout.h"
 #include "clang/AST/StmtObjC.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/CodeGen/ConstantInitBuilder.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringMap.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ConvertUTF.h"
 #include <cctype>
 
 using namespace clang;

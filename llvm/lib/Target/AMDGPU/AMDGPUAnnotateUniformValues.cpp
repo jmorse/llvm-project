@@ -15,7 +15,6 @@
 #include "AMDGPU.h"
 #include "AMDGPUMemoryUtils.h"
 #include "Utils/AMDGPUBaseInfo.h"
-#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/MemorySSA.h"
 #include "llvm/Analysis/UniformityAnalysis.h"
 #include "llvm/IR/InstVisitor.h"

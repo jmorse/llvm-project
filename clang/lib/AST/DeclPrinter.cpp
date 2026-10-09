@@ -10,20 +10,11 @@
 // AST back out to C/Objective-C/C++/Objective-C++ code.
 //
 //===----------------------------------------------------------------------===//
-#include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/DeclObjC.h"
-#include "clang/AST/DeclTemplate.h"
 #include "clang/AST/DeclVisitor.h"
-#include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
-#include "clang/AST/PrettyPrinter.h"
 #include "clang/Basic/Module.h"
 #include "clang/Basic/SourceManager.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/Support/raw_ostream.h"
 using namespace clang;
 
 namespace {

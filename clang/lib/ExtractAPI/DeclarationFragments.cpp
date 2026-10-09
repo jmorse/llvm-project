@@ -11,19 +11,8 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "clang/ExtractAPI/DeclarationFragments.h"
-#include "clang/AST/ASTFwd.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/TemplateBase.h"
-#include "clang/AST/TemplateName.h"
-#include "clang/AST/Type.h"
-#include "clang/AST/TypeLoc.h"
 #include "clang/ExtractAPI/TypedefUnderlyingTypeResolver.h"
 #include "clang/UnifiedSymbolResolution/USRGeneration.h"
-#include "llvm/ADT/StringSwitch.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/raw_ostream.h"
 #include <optional>
 
 using namespace clang::extractapi;

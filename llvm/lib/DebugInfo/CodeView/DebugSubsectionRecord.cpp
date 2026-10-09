@@ -7,12 +7,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/DebugInfo/CodeView/DebugSubsectionRecord.h"
-#include "llvm/DebugInfo/CodeView/CodeView.h"
 #include "llvm/DebugInfo/CodeView/DebugSubsection.h"
 #include "llvm/Support/BinaryStreamReader.h"
 #include "llvm/Support/BinaryStreamWriter.h"
-#include "llvm/Support/Error.h"
-#include "llvm/Support/MathExtras.h"
 #include <cassert>
 #include <cstdint>
 

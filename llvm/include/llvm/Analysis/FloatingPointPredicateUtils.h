@@ -11,7 +11,6 @@
 
 #include "llvm/IR/GenericFloatingPointPredicateUtils.h"
 #include "llvm/IR/SSAContext.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

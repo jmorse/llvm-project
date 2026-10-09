@@ -9,10 +9,7 @@
 #ifndef LLVM_CODEGEN_SWITCHLOWERINGUTILS_H
 #define LLVM_CODEGEN_SWITCHLOWERINGUTILS_H
 
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/CodeGen/ISDOpcodes.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
-#include "llvm/IR/InstrTypes.h"
 #include "llvm/Support/BranchProbability.h"
 #include <vector>
 

@@ -10,16 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "RISCV.h"
-#include "RISCVISelLowering.h"
 #include "RISCVSubtarget.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Analysis/VectorUtils.h"
-#include "llvm/CodeGen/ValueTypes.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicsRISCV.h"
-#include "llvm/IR/Module.h"
 #include "llvm/IR/PatternMatch.h"
 
 using namespace llvm;

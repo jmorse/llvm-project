@@ -13,14 +13,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "RISCVCallLowering.h"
-#include "RISCVCallingConv.h"
-#include "RISCVISelLowering.h"
 #include "RISCVMachineFunctionInfo.h"
-#include "RISCVSubtarget.h"
 #include "llvm/CodeGen/Analysis.h"
 #include "llvm/CodeGen/FunctionLoweringInfo.h"
 #include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
-#include "llvm/CodeGen/MachineFrameInfo.h"
 #include <functional>
 
 using namespace llvm;

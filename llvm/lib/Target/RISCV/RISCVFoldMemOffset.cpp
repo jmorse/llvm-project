@@ -15,10 +15,7 @@
 //
 //===---------------------------------------------------------------------===//
 
-#include "RISCV.h"
 #include "RISCVSubtarget.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/RegisterClassInfo.h"
 #include <queue>
 
 using namespace llvm;

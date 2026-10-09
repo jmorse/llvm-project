@@ -13,18 +13,7 @@
 #ifndef LLVM_IR_BASICBLOCK_H
 #define LLVM_IR_BASICBLOCK_H
 
-#include "llvm-c/Types.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/ADT/ilist.h"
-#include "llvm/ADT/ilist_node.h"
-#include "llvm/ADT/iterator.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/IR/DebugProgramInstruction.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/IR/SymbolTableListTraits.h"
-#include "llvm/IR/Value.h"
-#include "llvm/Support/Compiler.h"
 #include <cassert>
 #include <cstddef>
 #include <iterator>

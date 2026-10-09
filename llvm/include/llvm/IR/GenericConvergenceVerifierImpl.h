@@ -28,7 +28,6 @@
 
 #include "llvm/ADT/GenericConvergenceVerifier.h"
 #include "llvm/ADT/PostOrderIterator.h"
-#include "llvm/ADT/Twine.h"
 #include "llvm/IR/IntrinsicInst.h"
 
 #define Check(C, ...)                                                          \

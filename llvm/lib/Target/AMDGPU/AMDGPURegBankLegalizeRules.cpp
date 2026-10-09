@@ -19,7 +19,6 @@
 #include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
 #include "llvm/CodeGen/MachineUniformityAnalysis.h"
 #include "llvm/IR/IntrinsicsAMDGPU.h"
-#include "llvm/Support/AMDGPUAddrSpace.h"
 
 #define DEBUG_TYPE "amdgpu-reg-bank-legalize"
 

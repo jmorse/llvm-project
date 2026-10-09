@@ -11,24 +11,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "AVRISelLowering.h"
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/StringSwitch.h"
-#include "llvm/CodeGen/CallingConvLower.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/SelectionDAG.h"
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
-#include "llvm/IR/Function.h"
-#include "llvm/Support/ErrorHandling.h"
 
 #include "AVR.h"
 #include "AVRMachineFunctionInfo.h"
-#include "AVRSubtarget.h"
 #include "AVRTargetMachine.h"
-#include "MCTargetDesc/AVRMCTargetDesc.h"
 
 namespace llvm {
 

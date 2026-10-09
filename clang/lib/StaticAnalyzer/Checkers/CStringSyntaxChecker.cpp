@@ -12,18 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 #include "clang/StaticAnalyzer/Checkers/BuiltinCheckerRegistration.h"
-#include "clang/AST/Expr.h"
-#include "clang/AST/OperationKinds.h"
 #include "clang/AST/StmtVisitor.h"
-#include "clang/Analysis/AnalysisDeclContext.h"
-#include "clang/Basic/BuiltinTraits.h"
 #include "clang/Basic/TargetInfo.h"
-#include "clang/StaticAnalyzer/Core/BugReporter/BugReporter.h"
-#include "clang/StaticAnalyzer/Core/Checker.h"
-#include "clang/StaticAnalyzer/Core/PathSensitive/AnalysisManager.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/CheckerContext.h"
-#include "llvm/ADT/SmallString.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace clang;
 using namespace ento;

@@ -12,7 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/PassInstrumentation.h"
-#include "llvm/ADT/STLExtras.h"
 
 using namespace llvm;
 

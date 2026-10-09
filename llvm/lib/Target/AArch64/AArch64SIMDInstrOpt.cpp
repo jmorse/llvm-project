@@ -32,27 +32,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "AArch64InstrInfo.h"
 #include "AArch64Subtarget.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/StringMap.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionAnalysisManager.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/RegisterClassInfo.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
 #include "llvm/CodeGen/TargetSchedule.h"
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
-#include "llvm/MC/MCInstrDesc.h"
-#include "llvm/MC/MCSchedule.h"
-#include "llvm/Pass.h"
 #include <map>
 
 using namespace llvm;

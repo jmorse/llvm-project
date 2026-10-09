@@ -28,16 +28,10 @@
 #ifndef LLVM_OBJECT_WINDOWSRESOURCE_H
 #define LLVM_OBJECT_WINDOWSRESOURCE_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/BinaryFormat/COFF.h"
 #include "llvm/Object/Binary.h"
-#include "llvm/Object/Error.h"
 #include "llvm/Support/BinaryByteStream.h"
 #include "llvm/Support/BinaryStreamReader.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ConvertUTF.h"
-#include "llvm/Support/Endian.h"
-#include "llvm/Support/Error.h"
 
 #include <map>
 

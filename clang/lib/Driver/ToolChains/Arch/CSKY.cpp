@@ -7,10 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "CSKY.h"
-#include "clang/Driver/Driver.h"
-#include "clang/Options/Options.h"
-#include "llvm/ADT/StringSwitch.h"
-#include "llvm/Option/ArgList.h"
 #include "llvm/TargetParser/CSKYTargetParser.h"
 #include "llvm/TargetParser/Host.h"
 #include "llvm/TargetParser/TargetParser.h"

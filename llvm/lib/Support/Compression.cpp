@@ -11,13 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/Compression.h"
+#include "zconf.h"
 #include "llvm/ADT/ScopeExit.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Config/config.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/Error.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <limits>
 #if LLVM_ENABLE_ZLIB
 #include <zlib.h>

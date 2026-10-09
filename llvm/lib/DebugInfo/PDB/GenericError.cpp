@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/DebugInfo/PDB/GenericError.h"
-#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 using namespace llvm::pdb;

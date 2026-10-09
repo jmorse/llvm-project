@@ -15,8 +15,6 @@
 #include "clang/Basic/TargetBuiltins.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Sema/Sema.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/MathExtras.h"
 
 namespace clang {
 

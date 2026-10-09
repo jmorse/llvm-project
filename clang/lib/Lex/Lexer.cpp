@@ -10,33 +10,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Lex/Lexer.h"
 #include "UnicodeCharSets.h"
-#include "clang/Basic/CharInfo.h"
-#include "clang/Basic/Diagnostic.h"
-#include "clang/Basic/IdentifierTable.h"
-#include "clang/Basic/LLVM.h"
-#include "clang/Basic/LangOptions.h"
-#include "clang/Basic/SourceLocation.h"
-#include "clang/Basic/SourceManager.h"
-#include "clang/Basic/TokenKinds.h"
-#include "clang/Lex/LexDiagnostic.h"
+#include "clang/Basic/DiagnosticLex.h"
 #include "clang/Lex/LiteralSupport.h"
-#include "clang/Lex/MultipleIncludeOpt.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Lex/PreprocessorOptions.h"
-#include "clang/Lex/Token.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/StringSwitch.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ConvertUTF.h"
-#include "llvm/Support/MemoryBufferRef.h"
 #include "llvm/Support/NativeFormatting.h"
 #include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Support/Unicode.h"
-#include "llvm/Support/UnicodeCharRanges.h"
 
 #include <algorithm>
 #include <cassert>

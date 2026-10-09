@@ -11,26 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "Thumb2InstrInfo.h"
-#include "ARMMachineFunctionInfo.h"
 #include "ARMSubtarget.h"
-#include "MCTargetDesc/ARMAddressingModes.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineMemOperand.h"
-#include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/TargetRegisterInfo.h"
-#include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/Module.h"
-#include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstBuilder.h"
-#include "llvm/MC/MCInstrDesc.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Target/TargetMachine.h"
 #include <cassert>
 
 using namespace llvm;

@@ -15,9 +15,6 @@
 #ifndef LLVM_DEBUGINFO_OBJECT_BUILDID_H
 #define LLVM_DEBUGINFO_OBJECT_BUILDID_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/Error.h"
 
 namespace llvm {

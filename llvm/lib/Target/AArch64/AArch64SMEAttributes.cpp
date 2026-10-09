@@ -8,9 +8,6 @@
 
 #include "AArch64SMEAttributes.h"
 #include "AArch64ISelLowering.h"
-#include "llvm/ADT/StringSwitch.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/RuntimeLibcalls.h"
 #include <cassert>
 
 using namespace llvm;

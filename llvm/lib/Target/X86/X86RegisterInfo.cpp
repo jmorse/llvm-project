@@ -12,26 +12,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "X86RegisterInfo.h"
-#include "X86FrameLowering.h"
 #include "X86MachineFunctionInfo.h"
 #include "X86Subtarget.h"
-#include "llvm/ADT/BitVector.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/CodeGen/LiveRegMatrix.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/RegisterScavenging.h"
-#include "llvm/CodeGen/TargetFrameLowering.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
-#include "llvm/CodeGen/TileShapeInfo.h"
-#include "llvm/CodeGen/VirtRegMap.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Type.h"
 #include "llvm/MC/MCContext.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Target/TargetMachine.h"
 
 using namespace llvm;

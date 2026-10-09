@@ -12,18 +12,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Basic/JsonSupport.h"
-#include "clang/StaticAnalyzer/Core/PathSensitive/APSIntType.h"
-#include "clang/StaticAnalyzer/Core/PathSensitive/ProgramState.h"
-#include "clang/StaticAnalyzer/Core/PathSensitive/ProgramStateTrait.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/RangedConstraintManager.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/SValVisitor.h"
-#include "llvm/ADT/FoldingSet.h"
-#include "llvm/ADT/ImmutableSet.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallSet.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <iterator>
 #include <optional>

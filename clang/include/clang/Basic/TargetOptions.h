@@ -15,7 +15,6 @@
 #define LLVM_CLANG_BASIC_TARGETOPTIONS_H
 
 #include "clang/Basic/OpenCLOptions.h"
-#include "llvm/Support/VersionTuple.h"
 #include "llvm/Target/TargetOptions.h"
 #include <string>
 #include <vector>

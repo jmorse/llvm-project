@@ -8,7 +8,6 @@
 
 #include "clang/Tooling/Refactoring/Extract/Extract.h"
 #include "clang/Tooling/Refactoring/RefactoringAction.h"
-#include "clang/Tooling/Refactoring/RefactoringOptions.h"
 #include "clang/Tooling/Refactoring/Rename/RenamingAction.h"
 
 namespace clang {

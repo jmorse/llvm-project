@@ -9,16 +9,8 @@
 #ifndef LLVM_MC_MCPARSER_MCASMPARSER_H
 #define LLVM_MC_MCPARSER_MCASMPARSER_H
 
-#include "llvm/ADT/STLFunctionalExtras.h"
-#include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/MC/MCAsmMacro.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCParser/AsmLexer.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/SMLoc.h"
 #include <cstdint>
 #include <string>
 #include <utility>

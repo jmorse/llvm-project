@@ -15,15 +15,8 @@
 #define LLVM_IR_FIXEDPOINTBUILDER_H
 
 #include "llvm/ADT/APFixedPoint.h"
-#include "llvm/IR/Constant.h"
-#include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/Instruction.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/Type.h"
-#include "llvm/IR/Value.h"
 
 #include <cmath>
 

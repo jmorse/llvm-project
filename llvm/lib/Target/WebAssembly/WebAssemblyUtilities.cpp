@@ -11,12 +11,8 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "WebAssemblyUtilities.h"
 #include "WebAssemblyMachineFunctionInfo.h"
 #include "WebAssemblySubtarget.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/IR/Function.h"
-#include "llvm/MC/MCContext.h"
 using namespace llvm;
 
 // Function names in libc++abi and libunwind

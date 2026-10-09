@@ -20,22 +20,10 @@
 //    instructions generated due to bad RA on subregister.
 //===----------------------------------------------------------------------===//
 
-#include "BPF.h"
-#include "BPFInstrInfo.h"
 #include "BPFTargetMachine.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/StringExtras.h"
 #include "llvm/CodeGen/LivePhysRegs.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionAnalysisManager.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachinePassManager.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
-#include "llvm/IR/Analysis.h"
-#include "llvm/Support/Debug.h"
 #include <set>
 
 using namespace llvm;

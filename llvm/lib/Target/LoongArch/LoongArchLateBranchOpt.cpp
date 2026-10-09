@@ -12,7 +12,6 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "LoongArchInstrInfo.h"
 #include "LoongArchSubtarget.h"
 
 using namespace llvm;

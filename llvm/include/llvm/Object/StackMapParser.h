@@ -9,10 +9,7 @@
 #ifndef LLVM_OBJECT_STACKMAPPARSER_H
 #define LLVM_OBJECT_STACKMAPPARSER_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/Object/ELF.h"
-#include "llvm/Support/Endian.h"
 #include <cassert>
 #include <cstddef>
 #include <cstdint>

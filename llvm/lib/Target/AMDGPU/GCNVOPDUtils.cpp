@@ -13,22 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "GCNVOPDUtils.h"
-#include "AMDGPUSubtarget.h"
 #include "GCNSubtarget.h"
-#include "SIInstrInfo.h"
-#include "Utils/AMDGPUBaseInfo.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/MacroFusion.h"
-#include "llvm/CodeGen/ScheduleDAG.h"
-#include "llvm/CodeGen/ScheduleDAGMutation.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
-#include "llvm/MC/MCInst.h"
-#include "llvm/TargetParser/AMDGPUTargetParser.h"
 
 using namespace llvm;
 

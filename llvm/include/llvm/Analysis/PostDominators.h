@@ -13,11 +13,7 @@
 #ifndef LLVM_ANALYSIS_POSTDOMINATORS_H
 #define LLVM_ANALYSIS_POSTDOMINATORS_H
 
-#include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/IR/Dominators.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

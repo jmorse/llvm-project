@@ -15,10 +15,7 @@
 #define LLVM_SUPPORT_CFGDIFF_H
 
 #include "llvm/ADT/GraphTraits.h"
-#include "llvm/ADT/iterator.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/Support/CFGUpdate.h"
-#include "llvm/Support/type_traits.h"
 #include <cassert>
 #include <cstddef>
 

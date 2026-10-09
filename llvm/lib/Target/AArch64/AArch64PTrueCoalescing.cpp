@@ -20,18 +20,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "AArch64.h"
-#include "AArch64InstrInfo.h"
 #include "AArch64Subtarget.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/MachineDominators.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
 
 using namespace llvm;
 

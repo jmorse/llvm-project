@@ -13,12 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/AST/ASTContext.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/TypeOrdering.h"
-#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/GraphWriter.h"
-#include "llvm/Support/raw_ostream.h"
 #include <map>
 #include <set>
 using namespace clang;

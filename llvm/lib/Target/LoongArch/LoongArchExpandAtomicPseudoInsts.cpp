@@ -13,13 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "LoongArch.h"
-#include "LoongArchInstrInfo.h"
 #include "LoongArchTargetMachine.h"
 
 #include "llvm/CodeGen/LivePhysRegs.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
 
 using namespace llvm;
 

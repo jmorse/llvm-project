@@ -11,7 +11,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Targets.h"
 
 #include "Targets/AArch64.h"
 #include "Targets/AMDGPU.h"
@@ -40,10 +39,6 @@
 #include "Targets/X86.h"
 #include "Targets/XCore.h"
 #include "Targets/Xtensa.h"
-#include "clang/Basic/Diagnostic.h"
-#include "clang/Basic/DiagnosticFrontend.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/TargetParser/Triple.h"
 
 using namespace clang;
 

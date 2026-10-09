@@ -15,10 +15,6 @@
 #include "llvm/DebugInfo/LogicalView/Readers/LVCodeViewReader.h"
 #include "llvm/DebugInfo/LogicalView/Readers/LVDWARFReader.h"
 #include "llvm/DebugInfo/LogicalView/Readers/LVIRReader.h"
-#include "llvm/DebugInfo/PDB/Native/NativeSession.h"
-#include "llvm/DebugInfo/PDB/PDB.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/Object/COFF.h"
 
 using namespace llvm;
 using namespace llvm::object;

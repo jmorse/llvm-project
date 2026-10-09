@@ -15,16 +15,11 @@
 #include "DebugOptions.h"
 
 #include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/StringMap.h"
 #include "llvm/Config/config.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Format.h"
 #include "llvm/Support/ManagedStatic.h"
-#include "llvm/Support/Mutex.h"
 #include "llvm/Support/Process.h"
 #include "llvm/Support/Signposts.h"
-#include "llvm/Support/raw_ostream.h"
 #include <limits>
 #include <optional>
 

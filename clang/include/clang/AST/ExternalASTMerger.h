@@ -15,8 +15,6 @@
 
 #include "clang/AST/ASTImporter.h"
 #include "clang/AST/ASTImporterSharedState.h"
-#include "clang/AST/ExternalASTSource.h"
-#include "llvm/Support/raw_ostream.h"
 
 namespace clang {
 

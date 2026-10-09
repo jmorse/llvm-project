@@ -7,25 +7,15 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/ScalableStaticAnalysis/Frontend/SourceTransformationFrontendAction.h"
-#include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/Basic/DiagnosticFrontend.h"
-#include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/MultiplexConsumer.h"
 #include "clang/Frontend/SSAFOptions.h"
-#include "clang/ScalableStaticAnalysis/Core/Serialization/SerializationFormat.h"
 #include "clang/ScalableStaticAnalysis/Core/Serialization/SerializationFormatRegistry.h"
-#include "clang/ScalableStaticAnalysis/Core/WholeProgramAnalysis/WPASuite.h"
 #include "clang/ScalableStaticAnalysis/SourceTransformation/SARIFTransformationReportFormat.h"
-#include "clang/ScalableStaticAnalysis/SourceTransformation/SourceEditEmitter.h"
-#include "clang/ScalableStaticAnalysis/SourceTransformation/Transformation.h"
 #include "clang/ScalableStaticAnalysis/SourceTransformation/TransformationRegistry.h"
-#include "clang/ScalableStaticAnalysis/SourceTransformation/TransformationReportEmitter.h"
 #include "clang/ScalableStaticAnalysis/SourceTransformation/YAMLSourceEditFormat.h"
-#include "clang/Tooling/Core/Replacement.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/IOSandbox.h"
-#include "llvm/Support/Path.h"
 #include <memory>
 #include <string>
 #include <utility>

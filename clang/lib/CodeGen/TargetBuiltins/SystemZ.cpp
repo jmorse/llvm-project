@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "CGBuiltin.h"
-#include "CodeGenFunction.h"
 #include "clang/Basic/TargetBuiltins.h"
 #include "llvm/IR/IntrinsicsS390.h"
 

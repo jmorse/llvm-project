@@ -19,13 +19,9 @@
 #ifndef LLVM_ANALYSIS_INSTSIMPLIFYFOLDER_H
 #define LLVM_ANALYSIS_INSTSIMPLIFYFOLDER_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/TargetFolder.h"
 #include "llvm/IR/CmpPredicate.h"
-#include "llvm/IR/IRBuilderFolder.h"
-#include "llvm/IR/Instruction.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 class Constant;

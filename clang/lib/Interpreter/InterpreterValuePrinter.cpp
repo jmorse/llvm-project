@@ -12,18 +12,9 @@
 
 #include "IncrementalAction.h"
 #include "InterpreterUtils.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/PrettyPrinter.h"
-#include "clang/AST/Type.h"
-#include "clang/Frontend/CompilerInstance.h"
 #include "clang/Interpreter/Interpreter.h"
-#include "clang/Interpreter/Value.h"
 #include "clang/Lex/Preprocessor.h"
-#include "clang/Sema/Lookup.h"
-#include "clang/Sema/Sema.h"
 
-#include "llvm/Support/Error.h"
-#include "llvm/Support/raw_ostream.h"
 
 #include <cassert>
 #include <cmath>

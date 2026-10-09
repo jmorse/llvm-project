@@ -37,12 +37,8 @@
 #define LLVM_TRANSFORMS_SCALAR_LOOPPASSMANAGER_H
 
 #include "llvm/ADT/PriorityWorklist.h"
-#include "llvm/Analysis/LoopAnalysisManager.h"
-#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopNestAnalysis.h"
 #include "llvm/IR/PassInstrumentation.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Transforms/Utils/LCSSA.h"
 #include "llvm/Transforms/Utils/LoopSimplify.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"

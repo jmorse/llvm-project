@@ -12,22 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Analysis/Analyses/Consumed.h"
-#include "clang/AST/Attr.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/Expr.h"
-#include "clang/AST/ExprCXX.h"
-#include "clang/AST/Stmt.h"
 #include "clang/AST/StmtVisitor.h"
-#include "clang/AST/Type.h"
-#include "clang/Analysis/Analyses/PostOrderCFGView.h"
-#include "clang/Analysis/AnalysisDeclContext.h"
-#include "clang/Analysis/CFG.h"
-#include "clang/Basic/LLVM.h"
-#include "clang/Basic/OperatorKinds.h"
-#include "clang/Basic/SourceLocation.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <cassert>
 #include <memory>
 #include <optional>

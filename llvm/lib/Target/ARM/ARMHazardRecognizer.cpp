@@ -7,14 +7,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "ARMHazardRecognizer.h"
-#include "ARMBaseInstrInfo.h"
 #include "ARMSubtarget.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/ScheduleDAG.h"
-#include "llvm/CodeGen/TargetRegisterInfo.h"
-#include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
 

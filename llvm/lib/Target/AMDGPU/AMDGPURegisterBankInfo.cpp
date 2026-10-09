@@ -68,19 +68,13 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "AMDGPURegisterBankInfo.h"
 
 #include "AMDGPUGlobalISelUtils.h"
 #include "AMDGPUInstrInfo.h"
 #include "AMDGPULaneMaskUtils.h"
-#include "GCNSubtarget.h"
 #include "SIMachineFunctionInfo.h"
-#include "SIRegisterInfo.h"
-#include "llvm/CodeGen/GlobalISel/GenericMachineInstrs.h"
 #include "llvm/CodeGen/GlobalISel/LegalizerHelper.h"
 #include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
-#include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
-#include "llvm/CodeGen/RegisterBank.h"
 #include "llvm/IR/IntrinsicsAMDGPU.h"
 
 #define GET_TARGET_REGBANK_IMPL

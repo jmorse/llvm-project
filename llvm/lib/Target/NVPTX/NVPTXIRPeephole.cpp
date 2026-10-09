@@ -25,8 +25,6 @@
 #include "NVPTXUtilities.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Intrinsics.h"
 
 #define DEBUG_TYPE "nvptx-ir-peephole"
 

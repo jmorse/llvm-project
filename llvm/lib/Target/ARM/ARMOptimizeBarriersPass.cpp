@@ -10,7 +10,6 @@
 #include "ARM.h"
 #include "ARMInstrInfo.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "double barriers"

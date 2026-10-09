@@ -14,16 +14,11 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "clang/Lex/DependencyDirectivesScanner.h"
 #include "clang/Basic/CharInfo.h"
-#include "clang/Basic/Diagnostic.h"
-#include "clang/Lex/LexDiagnostic.h"
+#include "clang/Basic/DiagnosticLex.h"
 #include "clang/Lex/Lexer.h"
 #include "clang/Lex/Pragma.h"
 #include "llvm/ADT/ScopeExit.h"
-#include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/StringMap.h"
-#include "llvm/ADT/StringSwitch.h"
 #include <optional>
 
 using namespace clang;

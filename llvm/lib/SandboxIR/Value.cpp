@@ -6,7 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/SandboxIR/Value.h"
 #include "llvm/SandboxIR/Context.h"
 #include "llvm/SandboxIR/User.h"
 #include <sstream>

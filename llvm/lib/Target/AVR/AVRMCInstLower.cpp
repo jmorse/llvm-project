@@ -12,13 +12,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "AVRMCInstLower.h"
-#include "AVRInstrInfo.h"
 #include "MCTargetDesc/AVRMCAsmInfo.h"
 
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/IR/Mangler.h"
-#include "llvm/MC/MCInst.h"
-#include "llvm/Support/ErrorHandling.h"
 
 namespace llvm {
 

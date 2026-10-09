@@ -10,8 +10,6 @@
 #define LLVM_CODEGEN_DBGENTITYHISTORYCALCULATOR_H
 
 #include "llvm/ADT/MapVector.h"
-#include "llvm/ADT/PointerIntPair.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/MachineInstr.h"
 #include <utility>
 

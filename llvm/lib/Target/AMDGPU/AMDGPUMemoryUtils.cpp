@@ -9,16 +9,11 @@
 #include "AMDGPUMemoryUtils.h"
 #include "Utils/AMDGPUBaseInfo.h"
 #include "llvm/ADT/SetOperations.h"
-#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/MemorySSA.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/IntrinsicsAMDGPU.h"
-#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/ReplaceConstant.h"
-#include "llvm/Support/AMDGPUAddrSpace.h"
 
 #define DEBUG_TYPE "amdgpu-memory-utils"
 

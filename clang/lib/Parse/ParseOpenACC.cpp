@@ -10,15 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/OpenACCClause.h"
-#include "clang/Basic/DiagnosticParse.h"
-#include "clang/Basic/OpenACCKinds.h"
-#include "clang/Parse/Parser.h"
 #include "clang/Parse/RAIIObjectsForParser.h"
-#include "clang/Sema/ParsedAttr.h"
 #include "clang/Sema/SemaOpenACC.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/StringSwitch.h"
 
 using namespace clang;
 using namespace llvm;

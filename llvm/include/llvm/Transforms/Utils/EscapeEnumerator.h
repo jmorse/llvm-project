@@ -14,7 +14,6 @@
 #ifndef LLVM_TRANSFORMS_UTILS_ESCAPEENUMERATOR_H
 #define LLVM_TRANSFORMS_UTILS_ESCAPEENUMERATOR_H
 
-#include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 
 namespace llvm {

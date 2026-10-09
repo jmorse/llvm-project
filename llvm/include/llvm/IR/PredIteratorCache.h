@@ -13,9 +13,6 @@
 #ifndef LLVM_IR_PREDITERATORCACHE_H
 #define LLVM_IR_PREDITERATORCACHE_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/Support/Allocator.h"
 

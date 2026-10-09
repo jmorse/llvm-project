@@ -20,7 +20,6 @@
 #define LLVM_ADT_GRAPHTRAITS_H
 
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/iterator_range.h"
 
 namespace llvm {
 

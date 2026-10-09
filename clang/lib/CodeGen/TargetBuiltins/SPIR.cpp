@@ -13,7 +13,6 @@
 #include "CGHLSLRuntime.h"
 #include "CodeGenFunction.h"
 #include "clang/Basic/TargetBuiltins.h"
-#include "llvm/IR/Intrinsics.h"
 
 using namespace clang;
 using namespace CodeGen;

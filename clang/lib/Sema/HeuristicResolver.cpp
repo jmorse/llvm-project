@@ -7,13 +7,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Sema/HeuristicResolver.h"
-#include "clang/AST/ASTContext.h"
 #include "clang/AST/CXXInheritance.h"
-#include "clang/AST/DeclTemplate.h"
 #include "clang/AST/ExprCXX.h"
-#include "clang/AST/TemplateBase.h"
-#include "clang/AST/TemplateName.h"
-#include "clang/AST/Type.h"
 
 namespace clang {
 

@@ -10,8 +10,6 @@
 #include "llvm/ADT/FloatingPointMode.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/SystemLibraries.h"
-#include "llvm/IR/Type.h"
 #include "llvm/TargetParser/ARMTargetParser.h"
 
 #define DEBUG_TYPE "runtime-libcalls-info"

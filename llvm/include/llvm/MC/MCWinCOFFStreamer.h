@@ -9,7 +9,6 @@
 #ifndef LLVM_MC_MCWINCOFFSTREAMER_H
 #define LLVM_MC_MCWINCOFFSTREAMER_H
 
-#include "llvm/MC/MCDirectives.h"
 #include "llvm/MC/MCObjectStreamer.h"
 
 namespace llvm {

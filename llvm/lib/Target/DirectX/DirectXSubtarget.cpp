@@ -12,7 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "DirectXSubtarget.h"
-#include "DirectXTargetLowering.h"
 
 using namespace llvm;
 

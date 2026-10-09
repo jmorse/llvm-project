@@ -17,13 +17,8 @@
 
 #include <stdint.h>
 
-#include "llvm/ADT/APFloat.h"
-#include "llvm/ADT/APInt.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IntrinsicsNVPTX.h"
-#include "llvm/Support/raw_ostream.h"
 
 namespace llvm {
 namespace nvvm {

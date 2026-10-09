@@ -13,10 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "SystemZTargetMachine.h"
-#include "llvm/CodeGen/LiveRegUnits.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/TargetRegisterInfo.h"
 
 using namespace llvm;
 

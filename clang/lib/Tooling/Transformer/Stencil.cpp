@@ -7,18 +7,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Tooling/Transformer/Stencil.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/ASTTypeTraits.h"
-#include "clang/AST/Expr.h"
-#include "clang/ASTMatchers/ASTMatchFinder.h"
-#include "clang/Basic/SourceLocation.h"
 #include "clang/Lex/Lexer.h"
 #include "clang/Tooling/Transformer/SourceCode.h"
 #include "clang/Tooling/Transformer/SourceCodeBuilders.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/Support/Errc.h"
-#include "llvm/Support/Error.h"
 #include <memory>
 #include <string>
 

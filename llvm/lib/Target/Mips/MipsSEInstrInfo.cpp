@@ -13,11 +13,7 @@
 #include "MipsSEInstrInfo.h"
 #include "MipsAnalyzeImmediate.h"
 #include "MipsTargetMachine.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/MathExtras.h"
 
 using namespace llvm;
 

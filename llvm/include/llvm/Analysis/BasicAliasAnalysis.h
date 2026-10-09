@@ -13,11 +13,7 @@
 #ifndef LLVM_ANALYSIS_BASICALIASANALYSIS_H
 #define LLVM_ANALYSIS_BASICALIASANALYSIS_H
 
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/AliasAnalysis.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/Compiler.h"
 #include <memory>
 #include <utility>
 

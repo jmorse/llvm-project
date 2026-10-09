@@ -10,25 +10,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/DebugInfo/LogicalView/Readers/LVCodeViewVisitor.h"
-#include "llvm/BinaryFormat/Magic.h"
 #include "llvm/DebugInfo/CodeView/EnumTables.h"
-#include "llvm/DebugInfo/CodeView/LazyRandomTypeCollection.h"
 #include "llvm/DebugInfo/CodeView/SymbolRecordHelpers.h"
 #include "llvm/DebugInfo/CodeView/TypeRecordHelpers.h"
 #include "llvm/DebugInfo/CodeView/TypeVisitorCallbackPipeline.h"
-#include "llvm/DebugInfo/LogicalView/Core/LVScope.h"
-#include "llvm/DebugInfo/LogicalView/Core/LVSymbol.h"
-#include "llvm/DebugInfo/LogicalView/Core/LVType.h"
 #include "llvm/DebugInfo/LogicalView/Readers/LVCodeViewReader.h"
-#include "llvm/DebugInfo/PDB/Native/InputFile.h"
 #include "llvm/DebugInfo/PDB/Native/PDBStringTable.h"
 #include "llvm/DebugInfo/PDB/Native/TpiStream.h"
 #include "llvm/Demangle/Demangle.h"
-#include "llvm/Object/COFF.h"
-#include "llvm/Support/Error.h"
-#include "llvm/Support/FormatAdapters.h"
-#include "llvm/Support/FormatVariadic.h"
 
 using namespace llvm;
 using namespace llvm::codeview;

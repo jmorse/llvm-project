@@ -25,7 +25,6 @@
 
 #include "llvm/ADT/APFloat.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/Support/Compiler.h"
 #include <optional>
 
 namespace llvm {

@@ -13,10 +13,8 @@
 #ifndef LLVM_IR_ARGUMENT_H
 #define LLVM_IR_ARGUMENT_H
 
-#include "llvm/ADT/Twine.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/Value.h"
-#include "llvm/Support/Compiler.h"
 #include <optional>
 
 namespace llvm {

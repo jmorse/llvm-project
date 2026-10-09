@@ -13,15 +13,12 @@
 #ifndef LLVM_MC_MCSECTION_H
 #define LLVM_MC_MCSECTION_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/MC/MCFixup.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/SectionKind.h"
 #include "llvm/Support/Alignment.h"
-#include "llvm/Support/Compiler.h"
 #include <cassert>
 #include <utility>
 

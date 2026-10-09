@@ -10,13 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Sema/ParsedAttr.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/Basic/AttrSubjectMatchRules.h"
-#include "clang/Basic/IdentifierTable.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Sema/SemaInternal.h"
-#include "llvm/ADT/SmallVector.h"
 #include <cassert>
 #include <cstddef>
 #include <utility>

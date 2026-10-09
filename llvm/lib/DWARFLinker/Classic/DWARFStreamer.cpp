@@ -7,24 +7,16 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/DWARFLinker/Classic/DWARFStreamer.h"
-#include "llvm/CodeGen/NonRelocatableStringpool.h"
-#include "llvm/DWARFLinker/Classic/DWARFLinkerCompileUnit.h"
-#include "llvm/DebugInfo/DWARF/DWARFContext.h"
 #include "llvm/DebugInfo/DWARF/DWARFDebugMacro.h"
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCCodeEmitter.h"
-#include "llvm/MC/MCDwarf.h"
 #include "llvm/MC/MCInstPrinter.h"
 #include "llvm/MC/MCObjectWriter.h"
-#include "llvm/MC/MCSection.h"
 #include "llvm/MC/MCStreamer.h"
-#include "llvm/MC/MCTargetOptions.h"
 #include "llvm/MC/MCTargetOptionsCommandFlags.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/LEB128.h"
-#include "llvm/Target/TargetOptions.h"
-#include "llvm/TargetParser/Triple.h"
 
 using namespace llvm;
 using namespace dwarf_linker;

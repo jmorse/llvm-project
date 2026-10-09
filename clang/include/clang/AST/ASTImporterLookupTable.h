@@ -15,8 +15,6 @@
 #define LLVM_CLANG_AST_ASTIMPORTERLOOKUPTABLE_H
 
 #include "clang/AST/DeclBase.h" // lookup_result
-#include "clang/AST/DeclarationName.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SetVector.h"
 
 namespace clang {

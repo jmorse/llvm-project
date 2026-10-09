@@ -15,13 +15,8 @@
 #define LLVM_CODEGEN_MACHINEDOMINATORS_H
 
 #include "llvm/ADT/SmallSet.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineInstrBundleIterator.h"
 #include "llvm/CodeGen/MachinePassManager.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/GenericDomTree.h"
 #include <cassert>
 #include <optional>

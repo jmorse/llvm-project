@@ -8,7 +8,6 @@
 
 #include "TargetInfo/ARMTargetInfo.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Compiler.h"
 
 using namespace llvm;
 

@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "DependencyTracker.h"
-#include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/SaveAndRestore.h"
 
 using namespace llvm;

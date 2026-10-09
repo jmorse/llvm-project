@@ -13,13 +13,8 @@
 #ifndef LLVM_OBJECT_SYMBOLICFILE_H
 #define LLVM_OBJECT_SYMBOLICFILE_H
 
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/BinaryFormat/Magic.h"
 #include "llvm/Object/Binary.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/Error.h"
-#include "llvm/Support/Format.h"
-#include "llvm/Support/MemoryBufferRef.h"
 #include <cinttypes>
 #include <cstdint>
 #include <cstring>

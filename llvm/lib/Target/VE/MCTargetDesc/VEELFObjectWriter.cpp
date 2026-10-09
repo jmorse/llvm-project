@@ -7,15 +7,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "MCTargetDesc/VEMCAsmInfo.h"
-#include "VEFixupKinds.h"
 #include "VEMCAsmInfo.h"
 #include "VEMCTargetDesc.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCELFObjectWriter.h"
-#include "llvm/MC/MCExpr.h"
-#include "llvm/MC/MCObjectWriter.h"
 #include "llvm/MC/MCValue.h"
-#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 

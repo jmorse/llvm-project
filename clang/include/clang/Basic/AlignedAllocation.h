@@ -15,8 +15,6 @@
 #ifndef LLVM_CLANG_BASIC_ALIGNEDALLOCATION_H
 #define LLVM_CLANG_BASIC_ALIGNEDALLOCATION_H
 
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/VersionTuple.h"
 #include "llvm/TargetParser/Triple.h"
 
 namespace clang {

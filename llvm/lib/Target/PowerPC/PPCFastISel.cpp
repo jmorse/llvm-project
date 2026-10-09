@@ -13,25 +13,16 @@
 //===----------------------------------------------------------------------===//
 
 #include "MCTargetDesc/PPCPredicates.h"
-#include "PPC.h"
 #include "PPCCallingConv.h"
-#include "PPCISelLowering.h"
 #include "PPCMachineFunctionInfo.h"
 #include "PPCSelectionDAGInfo.h"
 #include "PPCSubtarget.h"
-#include "llvm/CodeGen/CallingConvLower.h"
 #include "llvm/CodeGen/FastISel.h"
 #include "llvm/CodeGen/FunctionLoweringInfo.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/TargetLowering.h"
-#include "llvm/IR/CallingConv.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/GlobalVariable.h"
-#include "llvm/IR/Operator.h"
-#include "llvm/Target/TargetMachine.h"
 
 //===----------------------------------------------------------------------===//
 //

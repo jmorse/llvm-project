@@ -9,10 +9,9 @@
 #ifndef LLVM_CLANG_BASIC_CHARINFO_H
 #define LLVM_CLANG_BASIC_CHARINFO_H
 
+#include "inttypes.h"
 #include "clang/Basic/LLVM.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/DataTypes.h"
 
 namespace clang {
 namespace charinfo {

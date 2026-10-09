@@ -17,8 +17,6 @@
 #include "llvm/ADT/ilist_node.h"
 #include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/OperandTraits.h"
-#include "llvm/IR/Value.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

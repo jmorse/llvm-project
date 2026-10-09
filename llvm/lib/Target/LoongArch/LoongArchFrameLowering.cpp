@@ -10,20 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "LoongArchFrameLowering.h"
 #include "LoongArchMachineFunctionInfo.h"
-#include "LoongArchSubtarget.h"
-#include "MCTargetDesc/LoongArchBaseInfo.h"
-#include "MCTargetDesc/LoongArchMCTargetDesc.h"
 #include "llvm/CodeGen/CFIInstBuilder.h"
 #include "llvm/CodeGen/LivePhysRegs.h"
-#include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/RegisterScavenging.h"
-#include "llvm/IR/DiagnosticInfo.h"
-#include "llvm/MC/MCDwarf.h"
 
 using namespace llvm;
 

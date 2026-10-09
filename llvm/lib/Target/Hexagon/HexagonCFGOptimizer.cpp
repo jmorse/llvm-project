@@ -8,15 +8,7 @@
 
 #include "Hexagon.h"
 #include "MCTargetDesc/HexagonMCTargetDesc.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <cassert>
 #include <vector>
 

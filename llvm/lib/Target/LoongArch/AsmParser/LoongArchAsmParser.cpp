@@ -6,27 +6,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "MCTargetDesc/LoongArchBaseInfo.h"
 #include "MCTargetDesc/LoongArchInstPrinter.h"
 #include "MCTargetDesc/LoongArchMCAsmInfo.h"
-#include "MCTargetDesc/LoongArchMCTargetDesc.h"
 #include "MCTargetDesc/LoongArchMatInt.h"
 #include "MCTargetDesc/LoongArchTargetStreamer.h"
 #include "TargetInfo/LoongArchTargetInfo.h"
 #include "llvm/BinaryFormat/ELF.h"
-#include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCInstBuilder.h"
 #include "llvm/MC/MCInstrInfo.h"
-#include "llvm/MC/MCParser/AsmLexer.h"
-#include "llvm/MC/MCParser/MCParsedAsmOperand.h"
 #include "llvm/MC/MCParser/MCTargetAsmParser.h"
 #include "llvm/MC/MCRegisterInfo.h"
-#include "llvm/MC/MCStreamer.h"
-#include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/MCValue.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Compiler.h"
 
 using namespace llvm;
 

@@ -11,10 +11,8 @@
 /// until the legacy pass manager path is removed.
 //===----------------------------------------------------------------------===//
 
-#include "NVPTX.h"
 #include "NVPTXAliasAnalysis.h"
 #include "NVPTXAsmPrinter.h"
-#include "NVPTXSubtarget.h"
 #include "NVPTXTargetMachine.h"
 #include "llvm/Analysis/KernelInfo.h"
 #include "llvm/CodeGen/AtomicExpand.h"
@@ -37,11 +35,9 @@
 #include "llvm/CodeGen/TailDuplication.h"
 #include "llvm/CodeGen/TwoAddressInstructionPass.h"
 #include "llvm/CodeGen/UnreachableBlockElim.h"
-#include "llvm/IR/PassInstrumentation.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/Passes/CodeGenPassBuilder.h"
 #include "llvm/Passes/PassBuilder.h"
-#include "llvm/Target/CGPassBuilderOption.h"
 #include "llvm/Transforms/IPO/ExpandVariadics.h"
 #include "llvm/Transforms/Scalar/EarlyCSE.h"
 #include "llvm/Transforms/Scalar/GVN.h"

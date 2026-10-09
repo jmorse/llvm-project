@@ -12,8 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "AMDGPU.h"
-#include "GCNSubtarget.h"
-#include "SIInstrInfo.h"
 #include "SIMachineFunctionInfo.h"
 
 using namespace llvm;

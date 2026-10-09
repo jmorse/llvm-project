@@ -6,13 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 #include "clang/Analysis/Analyses/ExprMutationAnalyzer.h"
-#include "clang/AST/Expr.h"
-#include "clang/AST/OperationKinds.h"
-#include "clang/AST/Stmt.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
-#include "clang/ASTMatchers/ASTMatchers.h"
-#include "clang/ASTMatchers/ASTMatchersMacros.h"
-#include "llvm/ADT/STLExtras.h"
 
 namespace clang {
 using namespace ast_matchers;

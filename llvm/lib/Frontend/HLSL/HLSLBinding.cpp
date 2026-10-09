@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Frontend/HLSL/HLSLBinding.h"
-#include "llvm/ADT/STLExtras.h"
 
 using namespace llvm;
 using namespace hlsl;

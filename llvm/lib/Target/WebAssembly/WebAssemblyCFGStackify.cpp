@@ -22,25 +22,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "Utils/WebAssemblyTypeUtilities.h"
-#include "WebAssembly.h"
 #include "WebAssemblyExceptionInfo.h"
 #include "WebAssemblyMachineFunctionInfo.h"
 #include "WebAssemblySortRegion.h"
-#include "WebAssemblySubtarget.h"
 #include "WebAssemblyTargetMachine.h"
-#include "WebAssemblyUtilities.h"
-#include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/BinaryFormat/Wasm.h"
 #include "llvm/CodeGen/MachineDominators.h"
-#include "llvm/CodeGen/MachineFunctionAnalysisManager.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
-#include "llvm/CodeGen/MachinePassManager.h"
-#include "llvm/IR/Analysis.h"
 #include "llvm/MC/MCAsmInfo.h"
-#include "llvm/Target/TargetMachine.h"
 using namespace llvm;
 using WebAssembly::SortRegionInfo;
 

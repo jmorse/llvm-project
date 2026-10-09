@@ -10,17 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "LoongArchInstrInfo.h"
-#include "LoongArch.h"
 #include "LoongArchMachineFunctionInfo.h"
-#include "LoongArchRegisterInfo.h"
-#include "MCTargetDesc/LoongArchMCTargetDesc.h"
 #include "MCTargetDesc/LoongArchMatInt.h"
 #include "llvm/CodeGen/RegisterScavenging.h"
 #include "llvm/CodeGen/StackMaps.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCInstBuilder.h"
-#include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
 

@@ -11,9 +11,7 @@
 #include "MCTargetDesc/AMDGPUMCExpr.h"
 #include "MCTargetDesc/AMDGPUMCTargetDesc.h"
 #include "llvm/ADT/Enum.h"
-#include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCSubtargetInfo.h"
-#include "llvm/TargetParser/Triple.h"
 
 using namespace llvm;
 

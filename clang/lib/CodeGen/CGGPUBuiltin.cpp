@@ -12,9 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "CodeGenFunction.h"
-#include "clang/Basic/Builtins.h"
-#include "llvm/IR/DataLayout.h"
-#include "llvm/IR/Instruction.h"
 #include "llvm/Transforms/Utils/AMDGPUEmitPrintf.h"
 
 using namespace clang;

@@ -11,14 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Sema/SemaX86.h"
-#include "clang/Basic/DiagnosticSema.h"
 #include "clang/Basic/TargetBuiltins.h"
 #include "clang/Basic/TargetInfo.h"
-#include "clang/Sema/Attr.h"
-#include "clang/Sema/ParsedAttr.h"
 #include "clang/Sema/Sema.h"
-#include "llvm/ADT/APSInt.h"
-#include "llvm/TargetParser/Triple.h"
 #include <bitset>
 
 namespace clang {

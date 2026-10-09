@@ -11,18 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "ASTCommon.h"
-#include "clang/AST/Attr.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/DeclTemplate.h"
 #include "clang/AST/DeclVisitor.h"
-#include "clang/AST/Expr.h"
-#include "clang/AST/OpenMPClause.h"
 #include "clang/AST/PrettyDeclStackTrace.h"
-#include "clang/Basic/SourceManager.h"
-#include "clang/Serialization/ASTReader.h"
 #include "clang/Serialization/ASTRecordWriter.h"
-#include "llvm/Bitstream/BitstreamWriter.h"
-#include "llvm/Support/ErrorHandling.h"
 using namespace clang;
 using namespace serialization;
 

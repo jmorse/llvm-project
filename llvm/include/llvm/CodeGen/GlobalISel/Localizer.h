@@ -21,10 +21,7 @@
 #ifndef LLVM_CODEGEN_GLOBALISEL_LOCALIZER_H
 #define LLVM_CODEGEN_GLOBALISEL_LOCALIZER_H
 
-#include "llvm/CodeGen/MachineFunctionAnalysisManager.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/IR/Analysis.h"
-#include "llvm/IR/PassManager.h"
 
 namespace llvm {
 // Forward declarations.

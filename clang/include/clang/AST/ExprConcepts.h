@@ -14,19 +14,8 @@
 #ifndef LLVM_CLANG_AST_EXPRCONCEPTS_H
 #define LLVM_CLANG_AST_EXPRCONCEPTS_H
 
-#include "clang/AST/ASTConcept.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/Decl.h"
 #include "clang/AST/DeclTemplate.h"
-#include "clang/AST/DeclarationName.h"
-#include "clang/AST/Expr.h"
 #include "clang/AST/NestedNameSpecifier.h"
-#include "clang/AST/TemplateBase.h"
-#include "clang/AST/Type.h"
-#include "clang/Basic/SourceLocation.h"
-#include "llvm/ADT/STLFunctionalExtras.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/TrailingObjects.h"
 #include <string>
 #include <utility>
 

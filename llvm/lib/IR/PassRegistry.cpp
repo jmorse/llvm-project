@@ -11,10 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/PassRegistry.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/Pass.h"
-#include "llvm/PassInfo.h"
 #include <cassert>
 #include <memory>
 

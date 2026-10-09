@@ -10,12 +10,9 @@
 #include "Arch/RISCV.h"
 #include "Cuda.h"
 
-#include "clang/Basic/CodeGenOptions.h"
 #include "clang/Basic/MakeSupport.h"
 #include "clang/Driver/CommonArgs.h"
 #include "clang/Options/OptionUtils.h"
-#include "clang/Options/Options.h"
-#include "llvm/Frontend/Debug/Options.h"
 #include "llvm/Support/Path.h"
 #include "llvm/TargetParser/Host.h"
 #include "llvm/TargetParser/RISCVISAInfo.h"

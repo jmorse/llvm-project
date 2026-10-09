@@ -22,7 +22,6 @@
 #define LLVM_IR_CONSTANTFOLD_H
 
 #include "llvm/IR/InstrTypes.h"
-#include "llvm/Support/Compiler.h"
 #include <optional>
 
 namespace llvm {

@@ -67,7 +67,6 @@
 #include "SIFixSGPRCopies.h"
 #include "AMDGPU.h"
 #include "AMDGPULaneMaskUtils.h"
-#include "GCNSubtarget.h"
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Target/TargetMachine.h"

@@ -15,7 +15,6 @@
 #define LLVM_SUPPORT_FORMATTEDSTREAM_H
 
 #include "llvm/ADT/SmallString.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/raw_ostream.h"
 #include <utility>
 

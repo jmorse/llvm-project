@@ -13,21 +13,12 @@
 #ifndef LLVM_MC_MCSTREAMER_H
 #define LLVM_MC_MCSTREAMER_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/MC/MCDirectives.h"
 #include "llvm/MC/MCDwarf.h"
 #include "llvm/MC/MCLinkerOptimizationHint.h"
 #include "llvm/MC/MCPseudoProbe.h"
 #include "llvm/MC/MCSection.h"
 #include "llvm/MC/MCWinEH.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/Error.h"
-#include "llvm/Support/MD5.h"
-#include "llvm/Support/SMLoc.h"
-#include "llvm/Support/VersionTuple.h"
 #include "llvm/TargetParser/ARMTargetParser.h"
 #include <cassert>
 #include <cstdint>

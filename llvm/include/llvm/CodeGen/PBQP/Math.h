@@ -10,9 +10,6 @@
 #define LLVM_CODEGEN_PBQP_MATH_H
 
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/Hashing.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/InterleavedRange.h"
 #include <algorithm>
 #include <cassert>

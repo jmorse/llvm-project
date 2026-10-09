@@ -17,19 +17,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/ConstantFold.h"
-#include "llvm/ADT/APInt.h"
 #include "llvm/ADT/APSInt.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/DerivedTypes.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/GlobalAlias.h"
-#include "llvm/IR/GlobalVariable.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/Operator.h"
 #include "llvm/IR/PatternMatch.h"
-#include "llvm/Support/ErrorHandling.h"
 using namespace llvm;
 using namespace llvm::PatternMatch;
 

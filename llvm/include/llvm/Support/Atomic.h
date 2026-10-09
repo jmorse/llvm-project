@@ -17,8 +17,9 @@
 #ifndef LLVM_SUPPORT_ATOMIC_H
 #define LLVM_SUPPORT_ATOMIC_H
 
+#include "inttypes.h"
+#include "sys/types.h"
 #include "llvm/Support/Compiler.h"
-#include "llvm/Support/DataTypes.h"
 
 // Windows will at times define MemoryFence.
 #ifdef MemoryFence

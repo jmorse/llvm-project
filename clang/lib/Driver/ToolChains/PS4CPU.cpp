@@ -8,14 +8,9 @@
 
 #include "PS4CPU.h"
 #include "Arch/X86.h"
-#include "clang/Config/config.h"
 #include "clang/Driver/CommonArgs.h"
 #include "clang/Driver/Compilation.h"
-#include "clang/Driver/Driver.h"
 #include "clang/Driver/SanitizerArgs.h"
-#include "clang/Options/Options.h"
-#include "llvm/Option/ArgList.h"
-#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include <cstdlib> // ::getenv
 

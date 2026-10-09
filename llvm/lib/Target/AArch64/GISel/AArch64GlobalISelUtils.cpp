@@ -10,9 +10,6 @@
 //===----------------------------------------------------------------------===//
 #include "AArch64GlobalISelUtils.h"
 #include "llvm/CodeGen/GlobalISel/MIPatternMatch.h"
-#include "llvm/CodeGen/GlobalISel/Utils.h"
-#include "llvm/CodeGen/TargetLowering.h"
-#include "llvm/IR/InstrTypes.h"
 
 using namespace llvm;
 using namespace MIPatternMatch;

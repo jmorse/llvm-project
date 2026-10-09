@@ -13,12 +13,7 @@
 #ifndef LLVM_IR_VFABIDEMANGLER_H
 #define LLVM_IR_VFABIDEMANGLER_H
 
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/Support/Alignment.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/TypeSize.h"
 
 namespace llvm {
 

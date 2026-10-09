@@ -8,7 +8,6 @@
 
 #include "llvm/Support/Driver.h"
 
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/InitLLVM.h"
 #include "llvm/Support/Path.h"

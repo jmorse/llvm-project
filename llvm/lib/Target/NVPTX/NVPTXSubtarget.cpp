@@ -10,10 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "NVPTXSubtarget.h"
 #include "NVPTXSelectionDAGInfo.h"
 #include "NVPTXTargetMachine.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormatVariadic.h"
 
 using namespace llvm;

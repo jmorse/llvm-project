@@ -14,17 +14,10 @@
 #include "CodeGenFunction.h"
 #include "CodeGenPGO.h"
 #include "clang/AST/StmtVisitor.h"
-#include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/DiagnosticFrontend.h"
-#include "clang/Lex/Lexer.h"
-#include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/SmallSet.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/ProfileData/Coverage/CoverageMapping.h"
 #include "llvm/ProfileData/Coverage/CoverageMappingReader.h"
 #include "llvm/ProfileData/Coverage/CoverageMappingWriter.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Path.h"
 #include <optional>
 
 // This selects the coverage mapping format defined when `InstrProfData.inc`

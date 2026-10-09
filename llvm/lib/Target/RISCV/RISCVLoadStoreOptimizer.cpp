@@ -24,15 +24,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "RISCV.h"
 #include "RISCVTargetMachine.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/AliasAnalysis.h"
-#include "llvm/CodeGen/Passes.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Target/TargetOptions.h"
 
 using namespace llvm;
 

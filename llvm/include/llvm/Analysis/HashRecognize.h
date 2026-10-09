@@ -15,11 +15,8 @@
 #ifndef LLVM_ANALYSIS_HASHRECOGNIZE_H
 #define LLVM_ANALYSIS_HASHRECOGNIZE_H
 
-#include "llvm/ADT/APInt.h"
 #include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/IR/Value.h"
 #include <variant>
 
 namespace llvm {

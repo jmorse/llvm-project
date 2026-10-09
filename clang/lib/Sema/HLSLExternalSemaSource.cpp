@@ -11,22 +11,9 @@
 
 #include "clang/Sema/HLSLExternalSemaSource.h"
 #include "HLSLBuiltinTypeDeclBuilder.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/Attr.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/DeclTemplate.h"
-#include "clang/AST/Expr.h"
-#include "clang/AST/Type.h"
-#include "clang/Basic/AddressSpaces.h"
-#include "clang/Basic/SourceLocation.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Sema/Lookup.h"
-#include "clang/Sema/Sema.h"
 #include "clang/Sema/SemaHLSL.h"
-#include "llvm/ADT/BitmaskEnum.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
 
 using namespace clang;
 using namespace llvm::hlsl;

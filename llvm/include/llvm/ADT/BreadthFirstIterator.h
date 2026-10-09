@@ -20,7 +20,6 @@
 
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/iterator_range.h"
 #include <iterator>
 #include <optional>
 #include <queue>

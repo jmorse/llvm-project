@@ -7,8 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/ProgramStack.h"
-#include "llvm/Config/config.h"
-#include "llvm/Support/Compiler.h"
 
 #ifdef LLVM_ON_UNIX
 # include <sys/resource.h> // for getrlimit

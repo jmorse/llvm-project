@@ -6,17 +6,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/DeclObjC.h"
 #include "clang/Analysis/AnalysisDeclContext.h"
 #include "clang/Analysis/CallGraph.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/ScalableStaticAnalysis/Analyses/CallGraph/CallGraphSummary.h"
 #include "clang/ScalableStaticAnalysis/Core/TUSummary/ExtractorRegistry.h"
 #include "clang/ScalableStaticAnalysis/Core/TUSummary/TUSummaryBuilder.h"
-#include "llvm/ADT/STLExtras.h"
 #include <memory>
 
 using namespace clang;

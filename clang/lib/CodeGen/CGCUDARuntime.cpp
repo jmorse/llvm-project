@@ -13,9 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "CGCUDARuntime.h"
-#include "CGCall.h"
 #include "CodeGenFunction.h"
-#include "clang/AST/ExprCXX.h"
 
 using namespace clang;
 using namespace CodeGen;

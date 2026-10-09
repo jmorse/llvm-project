@@ -15,7 +15,6 @@
 #include "NumericLiteralCaseFixer.h"
 #include "NumericLiteralInfo.h"
 
-#include "llvm/ADT/StringExtras.h"
 
 #include <algorithm>
 

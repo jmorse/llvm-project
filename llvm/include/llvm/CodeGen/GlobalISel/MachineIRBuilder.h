@@ -14,14 +14,9 @@
 #define LLVM_CODEGEN_GLOBALISEL_MACHINEIRBUILDER_H
 
 #include "llvm/CodeGen/GlobalISel/GISelChangeObserver.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/TargetLowering.h"
-#include "llvm/CodeGen/TargetOpcodes.h"
-#include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

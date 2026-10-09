@@ -11,9 +11,7 @@
 #include "SIShrinkInstructions.h"
 #include "AMDGPU.h"
 #include "GCNSubtarget.h"
-#include "Utils/AMDGPUBaseInfo.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
 
 #define DEBUG_TYPE "si-shrink-instructions"
 

@@ -21,20 +21,12 @@
 #ifndef LLVM_ANALYSIS_TARGETTRANSFORMINFO_H
 #define LLVM_ANALYSIS_TARGETTRANSFORMINFO_H
 
-#include "llvm/ADT/APInt.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/BitmaskEnum.h"
-#include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/ADT/Uniformity.h"
 #include "llvm/Analysis/IVDescriptors.h"
 #include "llvm/Analysis/InterestingMemoryOperand.h"
-#include "llvm/IR/FMF.h"
-#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Pass.h"
-#include "llvm/Support/AtomicOrdering.h"
 #include "llvm/Support/BranchProbability.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/InstructionCost.h"
 #include <functional>
 #include <optional>

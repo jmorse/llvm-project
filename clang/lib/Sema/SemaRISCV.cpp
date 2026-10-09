@@ -11,21 +11,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Sema/SemaRISCV.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/Attr.h"
-#include "clang/AST/Decl.h"
-#include "clang/Basic/Builtins.h"
 #include "clang/Basic/TargetBuiltins.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Lex/Preprocessor.h"
-#include "clang/Sema/Attr.h"
 #include "clang/Sema/Initialization.h"
 #include "clang/Sema/Lookup.h"
-#include "clang/Sema/ParsedAttr.h"
 #include "clang/Sema/RISCVIntrinsicManager.h"
-#include "clang/Sema/Sema.h"
 #include "clang/Support/RISCVVIntrinsicUtils.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/TargetParser/RISCVISAInfo.h"
 #include "llvm/TargetParser/RISCVTargetParser.h"
 #include <optional>

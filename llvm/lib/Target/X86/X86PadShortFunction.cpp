@@ -14,17 +14,11 @@
 
 
 #include "X86.h"
-#include "X86InstrInfo.h"
 #include "X86Subtarget.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/ProfileSummaryInfo.h"
 #include "llvm/CodeGen/LazyMachineBlockFrequencyInfo.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineSizeOpts.h"
-#include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetSchedule.h"
-#include "llvm/IR/Function.h"
 
 using namespace llvm;
 

@@ -10,12 +10,9 @@
 #define LLVM_ANALYSIS_CTXPROFANALYSIS_H
 
 #include "llvm/ADT/SetVector.h"
-#include "llvm/IR/GlobalValue.h"
-#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/ProfileData/PGOCtxProfReader.h"
-#include "llvm/Support/Compiler.h"
 #include <optional>
 
 namespace llvm {

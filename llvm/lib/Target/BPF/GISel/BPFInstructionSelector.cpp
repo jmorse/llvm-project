@@ -9,13 +9,9 @@
 /// This file implements the targeting of the InstructionSelector class for BPF.
 //===----------------------------------------------------------------------===//
 
-#include "BPFInstrInfo.h"
 #include "BPFRegisterBankInfo.h"
-#include "BPFSubtarget.h"
 #include "BPFTargetMachine.h"
 #include "llvm/CodeGen/GlobalISel/GIMatchTableExecutorImpl.h"
-#include "llvm/CodeGen/GlobalISel/InstructionSelector.h"
-#include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
 #include "llvm/IR/IntrinsicsBPF.h"
 
 #define DEBUG_TYPE "bpf-gisel"

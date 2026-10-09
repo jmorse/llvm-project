@@ -9,8 +9,6 @@
 #ifndef LLVM_MC_MCELFSTREAMER_H
 #define LLVM_MC_MCELFSTREAMER_H
 
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/MC/MCDirectives.h"
 #include "llvm/MC/MCObjectStreamer.h"
 
 namespace llvm {

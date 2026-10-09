@@ -7,15 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/DebugInfo/PDB/Native/NamedStreamMap.h"
-#include "llvm/ADT/StringMap.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/DebugInfo/PDB/Native/Hash.h"
-#include "llvm/DebugInfo/PDB/Native/HashTable.h"
-#include "llvm/DebugInfo/PDB/Native/RawError.h"
-#include "llvm/Support/BinaryStreamReader.h"
-#include "llvm/Support/BinaryStreamWriter.h"
-#include "llvm/Support/Endian.h"
-#include "llvm/Support/Error.h"
 #include <cassert>
 #include <cstdint>
 

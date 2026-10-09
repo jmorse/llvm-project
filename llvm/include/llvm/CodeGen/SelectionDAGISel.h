@@ -16,9 +16,7 @@
 
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachinePassManager.h"
 #include "llvm/CodeGen/SelectionDAG.h"
-#include "llvm/IR/BasicBlock.h"
 #include <memory>
 
 namespace llvm {

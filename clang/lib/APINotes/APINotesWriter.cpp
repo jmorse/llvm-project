@@ -8,14 +8,9 @@
 
 #include "clang/APINotes/APINotesWriter.h"
 #include "APINotesFormat.h"
-#include "clang/APINotes/Types.h"
 #include "clang/Basic/FileManager.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/StringMap.h"
-#include "llvm/Bitstream/BitstreamWriter.h"
 #include "llvm/Support/DJB.h"
 #include "llvm/Support/OnDiskHashTable.h"
-#include "llvm/Support/VersionTuple.h"
 
 namespace clang {
 namespace api_notes {

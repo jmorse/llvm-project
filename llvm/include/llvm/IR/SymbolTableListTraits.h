@@ -25,8 +25,6 @@
 #define LLVM_IR_SYMBOLTABLELISTTRAITS_H
 
 #include "llvm/ADT/ilist.h"
-#include "llvm/ADT/simple_ilist.h"
-#include "llvm/Support/Compiler.h"
 #include <cstddef>
 
 namespace llvm {

@@ -13,16 +13,9 @@
 #ifndef LLVM_IR_VALUE_H
 #define LLVM_IR_VALUE_H
 
-#include "llvm-c/Types.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Use.h"
 #include "llvm/Support/Alignment.h"
-#include "llvm/Support/CBindingWrapping.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/Compiler.h"
 #include <cassert>
 #include <iterator>
 #include <memory>

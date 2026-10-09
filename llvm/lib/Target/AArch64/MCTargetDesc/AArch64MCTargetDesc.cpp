@@ -10,9 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "AArch64MCTargetDesc.h"
 #include "AArch64ELFStreamer.h"
-#include "AArch64MCAsmInfo.h"
 #include "AArch64MCLFIRewriter.h"
 #include "AArch64WinCOFFStreamer.h"
 #include "MCTargetDesc/AArch64InstPrinter.h"
@@ -21,15 +19,9 @@
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCCodeEmitter.h"
 #include "llvm/MC/MCInstrAnalysis.h"
-#include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCObjectWriter.h"
-#include "llvm/MC/MCRegisterInfo.h"
-#include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/Endian.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/TargetParser/AArch64TargetParser.h"
 
 using namespace llvm;

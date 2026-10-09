@@ -11,14 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "AMDGPU.h"
-#include "clang/Basic/Builtins.h"
 #include "clang/Basic/Diagnostic.h"
-#include "clang/Basic/LangOptions.h"
 #include "clang/Basic/MacroBuilder.h"
 #include "clang/Basic/TargetBuiltins.h"
-#include "clang/Basic/TargetID.h"
-#include "llvm/ADT/SmallString.h"
-#include "llvm/TargetParser/AMDGPUTargetParser.h"
 using namespace clang;
 using namespace clang::targets;
 

@@ -126,24 +126,8 @@
 
 #define HEXAGON_XQFLOAT_GENERATOR "XQFloat Generator pass"
 
-#include "Hexagon.h"
-#include "HexagonInstrInfo.h"
-#include "HexagonSubtarget.h"
 #include "HexagonTargetMachine.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/CodeGen/Passes.h"
-#include "llvm/IR/DebugLoc.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 #include <vector>
 
 #define DEBUG_TYPE "hexagon-xqf-gen"

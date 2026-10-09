@@ -7,15 +7,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "MipsELFStreamer.h"
-#include "MipsOptionRecord.h"
 #include "MipsTargetStreamer.h"
 #include "llvm/BinaryFormat/ELF.h"
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCAssembler.h"
 #include "llvm/MC/MCCodeEmitter.h"
-#include "llvm/MC/MCContext.h"
-#include "llvm/MC/MCDwarf.h"
-#include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCObjectWriter.h"
 #include "llvm/MC/MCSymbolELF.h"
 

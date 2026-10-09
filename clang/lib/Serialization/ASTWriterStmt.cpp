@@ -11,17 +11,8 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/ASTConcept.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/DeclObjC.h"
-#include "clang/AST/DeclTemplate.h"
-#include "clang/AST/ExprOpenMP.h"
 #include "clang/AST/StmtVisitor.h"
-#include "clang/AST/TypeBase.h"
-#include "clang/Serialization/ASTReader.h"
 #include "clang/Serialization/ASTRecordWriter.h"
-#include "llvm/Bitstream/BitstreamWriter.h"
 using namespace clang;
 
 //===----------------------------------------------------------------------===//

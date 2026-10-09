@@ -11,13 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Sema/SemaBPF.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/Type.h"
-#include "clang/Basic/DiagnosticSema.h"
 #include "clang/Basic/TargetBuiltins.h"
-#include "clang/Sema/ParsedAttr.h"
 #include "clang/Sema/Sema.h"
-#include "llvm/ADT/APSInt.h"
 #include <optional>
 
 namespace clang {

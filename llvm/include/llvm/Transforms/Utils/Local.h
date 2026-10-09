@@ -14,10 +14,8 @@
 #ifndef LLVM_TRANSFORMS_UTILS_LOCAL_H
 #define LLVM_TRANSFORMS_UTILS_LOCAL_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Transforms/Utils/SimplifyCFGOptions.h"
 #include "llvm/Transforms/Utils/ValueMapper.h"
 #include <cstdint>

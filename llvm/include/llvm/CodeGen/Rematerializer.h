@@ -14,13 +14,9 @@
 #ifndef LLVM_CODEGEN_REMATERIALIZER_H
 #define LLVM_CODEGEN_REMATERIALIZER_H
 
-#include "llvm/ADT/PointerUnion.h"
 #include "llvm/CodeGen/LiveIntervals.h"
 #include "llvm/CodeGen/LiveRangeEdit.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
-#include "llvm/CodeGen/TargetRegisterInfo.h"
 
 namespace llvm {
 

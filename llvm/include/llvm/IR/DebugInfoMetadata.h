@@ -13,21 +13,10 @@
 #ifndef LLVM_IR_DEBUGINFOMETADATA_H
 #define LLVM_IR_DEBUGINFOMETADATA_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/BitmaskEnum.h"
-#include "llvm/ADT/PointerUnion.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/TinyPtrVector.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/IR/DbgVariableFragmentInfo.h"
-#include "llvm/IR/Metadata.h"
 #include "llvm/IR/PseudoProbe.h"
-#include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/Discriminator.h"
 #include <cassert>
 #include <climits>

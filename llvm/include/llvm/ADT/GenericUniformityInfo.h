@@ -10,7 +10,6 @@
 #define LLVM_ADT_GENERICUNIFORMITYINFO_H
 
 #include "llvm/ADT/GenericCycleInfo.h"
-#include "llvm/Support/raw_ostream.h"
 
 namespace llvm {
 

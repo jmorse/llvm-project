@@ -15,12 +15,8 @@
 #ifndef LLVM_ADT_SMALLPTRSET_H
 #define LLVM_ADT_SMALLPTRSET_H
 
-#include "llvm/ADT/ADL.h"
 #include "llvm/ADT/EpochTracker.h"
-#include "llvm/ADT/STLForwardCompat.h"
 #include "llvm/ADT/iterator_range.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/MathExtras.h"
 #include "llvm/Support/ReverseIteration.h"
 #include "llvm/Support/type_traits.h"
 #include <algorithm>

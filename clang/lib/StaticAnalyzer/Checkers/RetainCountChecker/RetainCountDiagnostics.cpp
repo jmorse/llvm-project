@@ -11,10 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "RetainCountDiagnostics.h"
 #include "RetainCountChecker.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
 #include <optional>
 
 using namespace clang;

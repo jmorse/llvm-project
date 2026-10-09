@@ -10,8 +10,6 @@
 #define CLANG_BASIC_CUSTOMIZABLEOPTIONAL_H
 
 #include "llvm/ADT/Hashing.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/type_traits.h"
 #include <cassert>
 #include <new>
 #include <optional>

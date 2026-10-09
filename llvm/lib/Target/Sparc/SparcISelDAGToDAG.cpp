@@ -12,9 +12,7 @@
 
 #include "SparcSelectionDAGInfo.h"
 #include "SparcTargetMachine.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/SelectionDAGISel.h"
-#include "llvm/Support/ErrorHandling.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "sparc-isel"

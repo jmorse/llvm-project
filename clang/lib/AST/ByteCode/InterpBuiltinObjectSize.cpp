@@ -10,7 +10,6 @@
 // __builtin_dynamic_object_size builtins.
 
 #include "InterpHelpers.h"
-#include "Pointer.h"
 #include "Record.h"
 #include "clang/AST/RecordLayout.h"
 

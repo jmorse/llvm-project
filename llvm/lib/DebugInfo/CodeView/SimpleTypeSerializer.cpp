@@ -7,11 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/DebugInfo/CodeView/SimpleTypeSerializer.h"
-#include "llvm/DebugInfo/CodeView/CVRecord.h"
-#include "llvm/DebugInfo/CodeView/RecordSerialization.h"
 #include "llvm/DebugInfo/CodeView/TypeRecordMapping.h"
-#include "llvm/Support/BinaryStreamWriter.h"
-#include "llvm/Support/Compiler.h"
 
 using namespace llvm;
 using namespace llvm::codeview;

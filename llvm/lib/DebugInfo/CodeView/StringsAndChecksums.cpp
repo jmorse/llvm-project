@@ -7,11 +7,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/DebugInfo/CodeView/StringsAndChecksums.h"
-#include "llvm/DebugInfo/CodeView/CodeView.h"
 #include "llvm/DebugInfo/CodeView/DebugChecksumsSubsection.h"
 #include "llvm/DebugInfo/CodeView/DebugStringTableSubsection.h"
-#include "llvm/DebugInfo/CodeView/DebugSubsectionRecord.h"
-#include "llvm/Support/Error.h"
 #include <cassert>
 
 using namespace llvm;

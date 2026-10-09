@@ -11,12 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "PPCHazardRecognizers.h"
-#include "PPCInstrInfo.h"
 #include "PPCSubtarget.h"
 #include "llvm/CodeGen/ScheduleDAG.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "pre-RA-sched"

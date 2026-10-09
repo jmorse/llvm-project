@@ -10,19 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Mips16RegisterInfo.h"
 #include "Mips16InstrInfo.h"
-#include "MipsInstrInfo.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/TargetFrameLowering.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Type.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Target/TargetMachine.h"
-#include "llvm/Target/TargetOptions.h"
 
 using namespace llvm;
 

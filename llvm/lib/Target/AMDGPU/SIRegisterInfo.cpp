@@ -11,19 +11,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "SIRegisterInfo.h"
 #include "AMDGPU.h"
-#include "AMDGPURegisterBankInfo.h"
-#include "GCNSubtarget.h"
 #include "MCTargetDesc/AMDGPUInstPrinter.h"
 #include "SIMachineFunctionInfo.h"
 #include "llvm/CodeGen/LiveIntervals.h"
-#include "llvm/CodeGen/LiveRegUnits.h"
 #include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/RegisterScavenging.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 
 #define DEBUG_TYPE "amdgpu-si-register-info"
 

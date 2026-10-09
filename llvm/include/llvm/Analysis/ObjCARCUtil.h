@@ -15,9 +15,6 @@
 #define LLVM_ANALYSIS_OBJCARCUTIL_H
 
 #include "llvm/Analysis/ObjCARCInstKind.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/InstrTypes.h"
-#include "llvm/IR/LLVMContext.h"
 
 namespace llvm {
 namespace objcarc {

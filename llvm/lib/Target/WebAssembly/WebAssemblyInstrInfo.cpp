@@ -12,16 +12,9 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "WebAssemblyInstrInfo.h"
-#include "MCTargetDesc/WebAssemblyMCTargetDesc.h"
 #include "WebAssembly.h"
 #include "WebAssemblyMachineFunctionInfo.h"
-#include "WebAssemblySubtarget.h"
-#include "WebAssemblyUtilities.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineMemOperand.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "wasm-instr-info"

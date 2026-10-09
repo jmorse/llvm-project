@@ -12,10 +12,7 @@
 
 #include "clang/StaticAnalyzer/Core/PathSensitive/WorkList.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/EntryPointStats.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/PriorityQueue.h"
-#include "llvm/ADT/STLExtras.h"
 #include <deque>
 #include <vector>
 

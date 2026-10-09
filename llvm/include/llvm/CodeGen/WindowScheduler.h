@@ -43,10 +43,7 @@
 #define LLVM_CODEGEN_WINDOWSCHEDULER_H
 
 #include "llvm/CodeGen/MachineLoopInfo.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/MachineScheduler.h"
-#include "llvm/CodeGen/ScheduleDAGInstrs.h"
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
 
 namespace llvm {
 

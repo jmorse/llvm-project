@@ -26,7 +26,6 @@
 #ifndef LLVM_SUPPORT_SUFFIXTREE_NODE_H
 #define LLVM_SUPPORT_SUFFIXTREE_NODE_H
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 

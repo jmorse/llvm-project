@@ -52,7 +52,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "ARM.h"
-#include "ARMBaseInstrInfo.h"
 #include "ARMBasicBlockInfo.h"
 #include "ARMSubtarget.h"
 #include "MVETailPredUtils.h"
@@ -60,13 +59,9 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/CodeGen/LivePhysRegs.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
 #include "llvm/CodeGen/MachineLoopUtils.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/ReachingDefAnalysis.h"
-#include "llvm/MC/MCInstrDesc.h"
 
 using namespace llvm;
 

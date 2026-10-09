@@ -12,9 +12,7 @@
 
 #include "SparcSubtarget.h"
 #include "SparcSelectionDAGInfo.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/MathExtras.h"
 
 using namespace llvm;
 

@@ -6,6 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/ADT/BitmaskEnum.h"
+#include "llvm/ADT/Sequence.h"
+#include "llvm/Frontend/Directive/Spelling.h"
 #include "llvm/Frontend/OpenACC/ACC.h.inc"
 
 #include "llvm/ADT/StringSwitch.h"

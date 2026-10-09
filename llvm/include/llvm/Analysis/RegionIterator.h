@@ -11,9 +11,6 @@
 #ifndef LLVM_ANALYSIS_REGIONITERATOR_H
 #define LLVM_ANALYSIS_REGIONITERATOR_H
 
-#include "llvm/ADT/DepthFirstIterator.h"
-#include "llvm/ADT/GraphTraits.h"
-#include "llvm/ADT/PointerIntPair.h"
 #include "llvm/Analysis/RegionInfo.h"
 #include <cassert>
 #include <iterator>

@@ -9,9 +9,6 @@
 #include "SSAFAnalysesCommon.h"
 #include "clang/ScalableStaticAnalysis/Analyses/SharedLexicalRepresentation/SharedLexicalRepresentation.h"
 #include "clang/ScalableStaticAnalysis/Core/Serialization/JSONFormat.h"
-#include "llvm/Support/Error.h"
-#include "llvm/Support/JSON.h"
-#include "llvm/Support/Registry.h"
 
 #include <memory>
 #include <utility>

@@ -10,14 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "BPFInstrInfo.h"
-#include "BPF.h"
 #include "BPFSubtarget.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/IR/DebugLoc.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <cassert>
 #include <iterator>
 

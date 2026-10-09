@@ -15,13 +15,7 @@
 #include "CGHLSLRuntime.h"
 #include "CGObjCRuntime.h"
 #include "CGOpenMPRuntime.h"
-#include "CodeGenFunction.h"
 #include "TargetInfo.h"
-#include "clang/AST/Attr.h"
-#include "clang/Basic/LangOptions.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/IR/MDBuilder.h"
 #include "llvm/Support/Path.h"
 
 using namespace clang;

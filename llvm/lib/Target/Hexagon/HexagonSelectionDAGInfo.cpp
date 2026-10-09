@@ -10,9 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "HexagonSelectionDAGInfo.h"
 #include "HexagonTargetMachine.h"
-#include "llvm/CodeGen/SelectionDAG.h"
 
 #define GET_SDNODE_DESC
 #include "HexagonGenSDNodeInfo.inc"

@@ -36,12 +36,8 @@
 #ifndef LLVM_TRANSFORMS_SCALAR_CONSTANTHOISTING_H
 #define LLVM_TRANSFORMS_SCALAR_CONSTANTHOISTING_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
-#include "llvm/ADT/PointerUnion.h"
 #include "llvm/ADT/SetVector.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/PassManager.h"
 #include <algorithm>

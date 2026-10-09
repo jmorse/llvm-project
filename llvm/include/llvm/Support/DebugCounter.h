@@ -42,12 +42,7 @@
 #ifndef LLVM_SUPPORT_DEBUGCOUNTER_H
 #define LLVM_SUPPORT_DEBUGCOUNTER_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Support/IntegerInclusiveInterval.h"
 #include <string>
 

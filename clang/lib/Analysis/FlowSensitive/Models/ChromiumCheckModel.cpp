@@ -7,9 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Analysis/FlowSensitive/Models/ChromiumCheckModel.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclCXX.h"
-#include "llvm/ADT/DenseSet.h"
 
 namespace clang {
 namespace dataflow {

@@ -18,11 +18,7 @@
 #ifndef LLVM_CODEGEN_GLOBALISEL_IRTRANSLATOR_H
 #define LLVM_CODEGEN_GLOBALISEL_IRTRANSLATOR_H
 
-#include "llvm/CodeGen/MachineFunctionAnalysisManager.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/IR/Analysis.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/Support/CodeGen.h"
 #include <memory>
 
 namespace llvm {

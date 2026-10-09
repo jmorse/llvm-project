@@ -14,9 +14,7 @@
 #include "AMDGPUWaitSGPRHazards.h"
 #include "AMDGPU.h"
 #include "GCNSubtarget.h"
-#include "SIInstrInfo.h"
 #include "llvm/ADT/SmallBitVector.h"
-#include "llvm/TargetParser/AMDGPUTargetParser.h"
 
 using namespace llvm;
 

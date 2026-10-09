@@ -33,7 +33,6 @@
 #define LLVM_TRANSFORMS_SCALAR_LICM_H
 
 #include "llvm/Analysis/LoopAnalysisManager.h"
-#include "llvm/IR/PassManager.h"
 #include "llvm/Support/CommandLine.h"
 
 namespace llvm {

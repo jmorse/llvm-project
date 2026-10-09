@@ -15,8 +15,6 @@
 #define LLVM_ANALYSIS_LOOPPASS_H
 
 #include "llvm/IR/LegacyPassManagers.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/Compiler.h"
 #include <deque>
 
 namespace llvm {

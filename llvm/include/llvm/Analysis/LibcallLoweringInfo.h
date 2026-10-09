@@ -15,11 +15,7 @@
 #ifndef LLVM_ANALYSIS_LIBCALLLOWERINGINFO_H
 #define LLVM_ANALYSIS_LIBCALLLOWERINGINFO_H
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/Analysis/RuntimeLibcallInfo.h"
-#include "llvm/IR/RuntimeLibcalls.h"
-#include "llvm/Pass.h"
 
 namespace llvm {
 

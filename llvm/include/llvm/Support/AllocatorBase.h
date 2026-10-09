@@ -25,7 +25,6 @@
 #define LLVM_ALLOCATORHOLDER_EMPTYBASE
 #endif // _MSC_VER
 
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/MemAlloc.h"
 #include <type_traits>
 #include <utility>

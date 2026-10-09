@@ -32,13 +32,8 @@
 //    * ld/lwu.
 //===---------------------------------------------------------------------===//
 
-#include "RISCV.h"
 #include "RISCVMachineFunctionInfo.h"
-#include "RISCVSubtarget.h"
-#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
 
 using namespace llvm;
 

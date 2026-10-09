@@ -12,11 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Basic/AtomicLineLogger.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Errno.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Format.h"
 #include "llvm/Support/Process.h"
 #include "llvm/Support/Threading.h"
 #ifndef _WIN32

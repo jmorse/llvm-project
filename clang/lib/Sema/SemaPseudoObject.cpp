@@ -30,12 +30,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Sema/SemaPseudoObject.h"
-#include "clang/AST/ExprCXX.h"
 #include "clang/AST/ExprObjC.h"
-#include "clang/Basic/CharInfo.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Sema/Initialization.h"
-#include "clang/Sema/ScopeInfo.h"
 #include "clang/Sema/SemaObjC.h"
 
 using namespace clang;

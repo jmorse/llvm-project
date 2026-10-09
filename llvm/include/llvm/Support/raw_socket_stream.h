@@ -14,7 +14,6 @@
 #ifndef LLVM_SUPPORT_RAW_SOCKET_STREAM_H
 #define LLVM_SUPPORT_RAW_SOCKET_STREAM_H
 
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/Threading.h"
 #include "llvm/Support/raw_ostream.h"
 

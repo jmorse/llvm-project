@@ -12,7 +12,6 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "clang/Format/Format.h"
 #include "DefinitionBlockSeparator.h"
 #include "IntegerLiteralSeparatorFixer.h"
 #include "NamespaceEndCommentsFixer.h"
@@ -24,8 +23,6 @@
 #include "UsingDeclarationsSorter.h"
 #include "clang/Tooling/Inclusions/HeaderIncludes.h"
 #include "llvm/ADT/Sequence.h"
-#include "llvm/ADT/StringSet.h"
-#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/VirtualFileSystem.h"
 #include <functional>
 #include <limits>

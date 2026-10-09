@@ -11,15 +11,7 @@
 // form.
 //===----------------------------------------------------------------------===//
 
-#include "Hexagon.h"
 #include "HexagonTargetMachine.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/Passes.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
-#include "llvm/Support/MathExtras.h"
 
 using namespace llvm;
 

@@ -14,13 +14,8 @@
 #ifndef LLVM_IR_GETELEMENTPTRTYPEITERATOR_H
 #define LLVM_IR_GETELEMENTPTRTYPEITERATOR_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/PointerUnion.h"
 #include "llvm/IR/DataLayout.h"
-#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Operator.h"
-#include "llvm/IR/User.h"
-#include "llvm/Support/Casting.h"
 #include <cstddef>
 #include <cstdint>
 #include <iterator>

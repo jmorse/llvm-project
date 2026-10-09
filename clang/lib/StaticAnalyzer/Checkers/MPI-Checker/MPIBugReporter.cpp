@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "MPIBugReporter.h"
-#include "clang/StaticAnalyzer/Core/PathSensitive/CallEvent.h"
 
 namespace clang {
 namespace ento {

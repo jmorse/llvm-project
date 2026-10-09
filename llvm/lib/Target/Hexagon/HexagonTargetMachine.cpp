@@ -10,25 +10,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "HexagonTargetMachine.h"
-#include "Hexagon.h"
-#include "HexagonISelLowering.h"
 #include "HexagonLoopIdiomRecognition.h"
 #include "HexagonMachineFunctionInfo.h"
 #include "HexagonMachineScheduler.h"
-#include "HexagonTargetObjectFile.h"
 #include "HexagonTargetTransformInfo.h"
 #include "HexagonVectorLoopCarriedReuse.h"
 #include "TargetInfo/HexagonTargetInfo.h"
 #include "llvm/CodeGen/MIRParser/MIParser.h"
-#include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
-#include "llvm/CodeGen/VLIWMachineScheduler.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Passes/PassBuilder.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Transforms/Scalar.h"
 #include <optional>
 

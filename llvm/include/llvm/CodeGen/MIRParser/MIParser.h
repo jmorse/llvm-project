@@ -13,7 +13,6 @@
 #ifndef LLVM_CODEGEN_MIRPARSER_MIPARSER_H
 #define LLVM_CODEGEN_MIRPARSER_MIPARSER_H
 
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/CodeGen/MachineMemOperand.h"
 #include "llvm/CodeGen/Register.h"

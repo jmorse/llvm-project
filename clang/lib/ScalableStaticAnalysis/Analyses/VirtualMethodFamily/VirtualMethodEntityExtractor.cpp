@@ -12,15 +12,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclCXX.h"
 #include "clang/AST/DynamicRecursiveASTVisitor.h"
 #include "clang/ScalableStaticAnalysis/Analyses/VirtualMethodFamily/VirtualMethodFamily.h"
-#include "clang/ScalableStaticAnalysis/Core/Model/EntityId.h"
 #include "clang/ScalableStaticAnalysis/Core/TUSummary/ExtractorRegistry.h"
 #include "clang/ScalableStaticAnalysis/Core/TUSummary/TUSummaryBuilder.h"
-#include "clang/ScalableStaticAnalysis/Core/TUSummary/TUSummaryExtractor.h"
 #include <memory>
 #include <optional>
 

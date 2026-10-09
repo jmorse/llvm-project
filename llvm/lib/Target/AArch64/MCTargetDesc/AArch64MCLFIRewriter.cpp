@@ -12,15 +12,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "AArch64MCLFIRewriter.h"
-#include "AArch64AddressingModes.h"
-#include "MCTargetDesc/AArch64MCTargetDesc.h"
 #include "Utils/AArch64BaseInfo.h"
 
-#include "llvm/ADT/Twine.h"
-#include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstBuilder.h"
-#include "llvm/MC/MCInstrDesc.h"
-#include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/MCSymbol.h"

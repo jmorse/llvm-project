@@ -11,12 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Interpreter/Value.h"
 #include "InterpreterUtils.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/Type.h"
 #include "clang/Interpreter/Interpreter.h"
-#include "llvm/ADT/StringExtras.h"
 #include <cassert>
 #include <utility>
 

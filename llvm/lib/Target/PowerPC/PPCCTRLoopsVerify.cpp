@@ -18,24 +18,8 @@
 #ifndef NDEBUG
 #include "MCTargetDesc/PPCMCTargetDesc.h"
 #include "PPC.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/ilist_iterator.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineDominators.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineInstrBundleIterator.h"
-#include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/CodeGen/Register.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Pass.h"
-#include "llvm/PassRegistry.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/Printable.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 

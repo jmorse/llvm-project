@@ -10,16 +10,8 @@
 // store pairs. Later we may do the same for floating point loads.
 // ===---------------------------------------------------------------------===//
 
-#include "AArch64InstrInfo.h"
 #include "AArch64Subtarget.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/MachineTraceMetrics.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
-#include "llvm/CodeGen/TargetSchedule.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 

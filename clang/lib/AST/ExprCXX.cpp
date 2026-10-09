@@ -11,29 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/AST/ExprCXX.h"
-#include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
-#include "clang/AST/ComparisonCategories.h"
-#include "clang/AST/ComputeDependence.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclAccessPair.h"
-#include "clang/AST/DeclBase.h"
-#include "clang/AST/DeclCXX.h"
-#include "clang/AST/DeclTemplate.h"
-#include "clang/AST/DeclarationName.h"
-#include "clang/AST/DependenceFlags.h"
-#include "clang/AST/Expr.h"
-#include "clang/AST/LambdaCapture.h"
-#include "clang/AST/NestedNameSpecifier.h"
-#include "clang/AST/TemplateBase.h"
-#include "clang/AST/Type.h"
-#include "clang/AST/TypeLoc.h"
-#include "clang/Basic/LLVM.h"
-#include "clang/Basic/OperatorKinds.h"
-#include "clang/Basic/SourceLocation.h"
-#include "clang/Basic/Specifiers.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/Support/ErrorHandling.h"
 #include <cassert>
 #include <cstddef>
 #include <cstring>

@@ -9,11 +9,8 @@
 #ifndef LLVM_TRANSFORMS_UTILS_LOCKSTEPREVERSEITERATOR_H
 #define LLVM_TRANSFORMS_UTILS_LOCKSTEPREVERSEITERATOR_H
 
-#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SetVector.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/BasicBlock.h"
-#include "llvm/IR/Instruction.h"
 
 namespace llvm {
 

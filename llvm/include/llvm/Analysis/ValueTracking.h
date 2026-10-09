@@ -16,13 +16,8 @@
 
 #include "llvm/Analysis/SimplifyQuery.h"
 #include "llvm/Analysis/WithCache.h"
-#include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
-#include "llvm/IR/FMF.h"
-#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/Support/Compiler.h"
 #include <cassert>
 #include <cstdint>
 #include <optional>

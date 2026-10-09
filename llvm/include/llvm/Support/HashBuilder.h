@@ -16,11 +16,8 @@
 #define LLVM_SUPPORT_HASHBUILDER_H
 
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/Hashing.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Endian.h"
-#include "llvm/Support/type_traits.h"
 
 #include <iterator>
 #include <optional>

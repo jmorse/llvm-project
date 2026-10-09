@@ -14,18 +14,9 @@
 #define LLVM_CLANG_SEMA_CODECOMPLETECONSUMER_H
 
 #include "clang-c/Index.h"
-#include "clang/AST/Type.h"
-#include "clang/Basic/LLVM.h"
 #include "clang/Lex/MacroInfo.h"
 #include "clang/Sema/CodeCompleteOptions.h"
 #include "clang/Sema/DeclSpec.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Allocator.h"
-#include "llvm/Support/type_traits.h"
 #include <cassert>
 #include <memory>
 #include <optional>

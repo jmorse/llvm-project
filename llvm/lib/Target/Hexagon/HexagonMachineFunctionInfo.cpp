@@ -8,7 +8,6 @@
 
 #include "HexagonMachineFunctionInfo.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 

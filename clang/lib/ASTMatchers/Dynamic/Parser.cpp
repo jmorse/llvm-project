@@ -12,13 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/ASTMatchers/Dynamic/Parser.h"
-#include "clang/ASTMatchers/ASTMatchersInternal.h"
-#include "clang/ASTMatchers/Dynamic/Diagnostics.h"
-#include "clang/ASTMatchers/Dynamic/Registry.h"
-#include "clang/Basic/CharInfo.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/ManagedStatic.h"
 #include <cassert>
 #include <cerrno>
 #include <cstddef>

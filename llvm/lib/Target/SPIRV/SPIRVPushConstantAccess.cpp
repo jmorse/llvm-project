@@ -16,13 +16,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "SPIRV.h"
-#include "SPIRVSubtarget.h"
 #include "SPIRVTargetMachine.h"
-#include "SPIRVUtils.h"
 #include "llvm/Frontend/HLSL/CBuffer.h"
-#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/IntrinsicsSPIRV.h"
-#include "llvm/IR/Module.h"
 #include "llvm/IR/ReplaceConstant.h"
 
 #define DEBUG_TYPE "spirv-pushconstant-access"

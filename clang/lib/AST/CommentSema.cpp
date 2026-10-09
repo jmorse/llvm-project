@@ -8,15 +8,10 @@
 
 #include "clang/AST/CommentSema.h"
 #include "clang/AST/Attr.h"
-#include "clang/AST/CommentCommandTraits.h"
-#include "clang/AST/Decl.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/Basic/DiagnosticComment.h"
-#include "clang/Basic/LLVM.h"
 #include "clang/Basic/SimpleTypoCorrection.h"
-#include "clang/Basic/SourceManager.h"
 #include "clang/Lex/Preprocessor.h"
-#include "llvm/ADT/StringSwitch.h"
 
 namespace clang {
 namespace comments {

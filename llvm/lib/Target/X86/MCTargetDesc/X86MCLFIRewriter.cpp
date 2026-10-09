@@ -13,10 +13,8 @@
 
 #include "X86MCLFIRewriter.h"
 #include "X86BaseInfo.h"
-#include "X86MCTargetDesc.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCExpr.h"
-#include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstBuilder.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSubtargetInfo.h"

@@ -10,7 +10,6 @@
 #define LLVM_ANALYSIS_INLINEORDER_H
 
 #include "llvm/Analysis/InlineCost.h"
-#include "llvm/Support/Compiler.h"
 #include <utility>
 
 namespace llvm {

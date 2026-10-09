@@ -21,13 +21,8 @@
 // pass looks through a function and performs such combinations.
 //
 //===----------------------------------------------------------------------===//
-#include "AArch64.h"
 #include "AArch64MachineFunctionInfo.h"
 #include "llvm/CodeGen/MachineDominators.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 using namespace llvm;
 
 #define TLSCLEANUP_PASS_NAME "AArch64 Local Dynamic TLS Access Clean-up"

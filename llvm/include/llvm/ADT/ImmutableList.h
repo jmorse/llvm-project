@@ -15,7 +15,6 @@
 #define LLVM_ADT_IMMUTABLELIST_H
 
 #include "llvm/ADT/FoldingSet.h"
-#include "llvm/Support/Allocator.h"
 #include <cassert>
 #include <cstddef>
 #include <cstdint>

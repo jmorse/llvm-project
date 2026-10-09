@@ -34,20 +34,9 @@
 #ifndef LLVM_ANALYSIS_LAZYCALLGRAPH_H
 #define LLVM_ANALYSIS_LAZYCALLGRAPH_H
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/SetVector.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/iterator.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/IR/IRUnitRef.h"
-#include "llvm/IR/PassManager.h"
 #include "llvm/Support/Allocator.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/raw_ostream.h"
 #include <cassert>
 #include <iterator>
 #include <optional>

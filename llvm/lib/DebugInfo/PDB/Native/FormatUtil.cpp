@@ -8,12 +8,8 @@
 
 #include "llvm/DebugInfo/PDB/Native/FormatUtil.h"
 
-#include "llvm/ADT/STLForwardCompat.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/BinaryFormat/COFF.h"
-#include "llvm/DebugInfo/CodeView/CodeView.h"
-#include "llvm/Support/FormatAdapters.h"
-#include "llvm/Support/FormatVariadic.h"
 
 using namespace llvm;
 using namespace llvm::codeview;

@@ -23,9 +23,6 @@
 #include "llvm/CodeGen/GlobalISel/CallLowering.h"
 #include "llvm/CodeGen/GlobalISel/GISelValueTracking.h"
 #include "llvm/CodeGen/GlobalISel/MachineIRBuilder.h"
-#include "llvm/CodeGen/RuntimeLibcallUtil.h"
-#include "llvm/CodeGen/TargetOpcodes.h"
-#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 // Forward declarations.

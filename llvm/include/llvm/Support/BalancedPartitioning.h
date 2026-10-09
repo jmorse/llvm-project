@@ -39,9 +39,9 @@
 #ifndef LLVM_SUPPORT_BALANCED_PARTITIONING_H
 #define LLVM_SUPPORT_BALANCED_PARTITIONING_H
 
-#include "raw_ostream.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/Support/Compiler.h"
+#include "llvm/ADT/StringRef.h"
 
 #include <atomic>
 #include <condition_variable>

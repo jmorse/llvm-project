@@ -16,9 +16,6 @@
 
 #include "SIProgramInfo.h"
 #include "GCNSubtarget.h"
-#include "SIDefines.h"
-#include "Utils/AMDGPUBaseInfo.h"
-#include "llvm/MC/MCExpr.h"
 
 using namespace llvm;
 

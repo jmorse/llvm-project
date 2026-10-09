@@ -16,18 +16,7 @@
 #include "AMDGPU.h"
 #include "AMDGPUMachineModuleInfo.h"
 #include "GCNSubtarget.h"
-#include "llvm/ADT/BitmaskEnum.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachinePassManager.h"
-#include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/MemoryModelRelaxationAnnotations.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/Support/AMDGPUAddrSpace.h"
-#include "llvm/Support/AtomicOrdering.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/TargetParser/AMDGPUTargetParser.h"
 
 using namespace llvm;
 using namespace llvm::AMDGPU;

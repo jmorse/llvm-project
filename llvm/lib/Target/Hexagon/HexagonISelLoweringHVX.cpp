@@ -6,20 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "HexagonISelLowering.h"
-#include "HexagonRegisterInfo.h"
 #include "HexagonSubtarget.h"
 #include "llvm/ADT/SetVector.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/Analysis/MemoryLocation.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/TargetInstrInfo.h"
 #include "llvm/IR/IntrinsicsHexagon.h"
-#include "llvm/Support/CommandLine.h"
 
 #include <algorithm>
 #include <string>

@@ -15,9 +15,9 @@
 #ifndef LLVM_CLANG_BASIC_SPECIFIERS_H
 #define LLVM_CLANG_BASIC_SPECIFIERS_H
 
+#include "inttypes.h"
 #include "clang/Basic/OptionalUnsigned.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Support/DataTypes.h"
 #include "llvm/Support/ErrorHandling.h"
 
 namespace llvm {

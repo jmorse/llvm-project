@@ -18,12 +18,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Mips.h"
-#include "MipsInstrInfo.h"
 #include "MipsSubtarget.h"
 #include "llvm/CodeGen/LivePhysRegs.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
 
 using namespace llvm;
 

@@ -15,7 +15,6 @@
 #include "SIPostRABundler.h"
 #include "AMDGPU.h"
 #include "GCNSubtarget.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
 
 using namespace llvm;
 

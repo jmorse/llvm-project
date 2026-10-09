@@ -9,7 +9,6 @@
 #include "clang/DependencyScanning/DependencyGraph.h"
 
 #include "clang/Serialization/ASTReader.h"
-#include "llvm/ADT/SmallString.h"
 
 using namespace clang;
 using namespace clang::dependencies;

@@ -9,7 +9,6 @@
 #include "RISCVTargetObjectFile.h"
 #include "MCTargetDesc/RISCVMCObjectFileInfo.h"
 #include "RISCVTargetMachine.h"
-#include "llvm/BinaryFormat/ELF.h"
 #include "llvm/IR/Mangler.h"
 #include "llvm/IR/Module.h"
 #include "llvm/MC/MCContext.h"

@@ -9,7 +9,6 @@
 #ifndef LLVM_CODEGEN_BASICBLOCKSECTIONUTILS_H
 #define LLVM_CODEGEN_BASICBLOCKSECTIONUTILS_H
 
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/CommandLine.h"
 
 namespace llvm {

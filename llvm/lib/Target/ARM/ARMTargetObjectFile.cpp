@@ -7,18 +7,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "ARMTargetObjectFile.h"
-#include "ARMSubtarget.h"
 #include "ARMTargetMachine.h"
 #include "MCTargetDesc/ARMMCAsmInfo.h"
-#include "llvm/BinaryFormat/Dwarf.h"
-#include "llvm/BinaryFormat/ELF.h"
-#include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCContext.h"
-#include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCSectionELF.h"
 #include "llvm/MC/MCValue.h"
-#include "llvm/MC/SectionKind.h"
-#include "llvm/Target/TargetMachine.h"
 #include <cassert>
 
 using namespace llvm;

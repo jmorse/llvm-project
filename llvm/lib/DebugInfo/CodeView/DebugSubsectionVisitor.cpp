@@ -8,7 +8,6 @@
 
 #include "llvm/DebugInfo/CodeView/DebugSubsectionVisitor.h"
 
-#include "llvm/DebugInfo/CodeView/CodeView.h"
 #include "llvm/DebugInfo/CodeView/DebugChecksumsSubsection.h"
 #include "llvm/DebugInfo/CodeView/DebugCrossExSubsection.h"
 #include "llvm/DebugInfo/CodeView/DebugCrossImpSubsection.h"
@@ -16,11 +15,9 @@
 #include "llvm/DebugInfo/CodeView/DebugInlineeLinesSubsection.h"
 #include "llvm/DebugInfo/CodeView/DebugLinesSubsection.h"
 #include "llvm/DebugInfo/CodeView/DebugStringTableSubsection.h"
-#include "llvm/DebugInfo/CodeView/DebugSubsectionRecord.h"
 #include "llvm/DebugInfo/CodeView/DebugSymbolRVASubsection.h"
 #include "llvm/DebugInfo/CodeView/DebugSymbolsSubsection.h"
 #include "llvm/DebugInfo/CodeView/DebugUnknownSubsection.h"
-#include "llvm/Support/BinaryStreamReader.h"
 
 using namespace llvm;
 using namespace llvm::codeview;

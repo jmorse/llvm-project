@@ -14,15 +14,8 @@
 #ifndef LLVM_CLANG_BASIC_FILEENTRY_H
 #define LLVM_CLANG_BASIC_FILEENTRY_H
 
-#include "clang/Basic/CustomizableOptional.h"
 #include "clang/Basic/DirectoryEntry.h"
-#include "clang/Basic/LLVM.h"
-#include "llvm/ADT/DenseMapInfo.h"
-#include "llvm/ADT/Hashing.h"
 #include "llvm/ADT/PointerUnion.h"
-#include "llvm/ADT/StringMap.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/ErrorOr.h"
 #include "llvm/Support/FileSystem/UniqueID.h"
 
 #include <optional>

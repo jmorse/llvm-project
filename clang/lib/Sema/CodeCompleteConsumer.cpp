@@ -11,22 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Sema/CodeCompleteConsumer.h"
-#include "clang-c/Index.h"
-#include "clang/AST/Decl.h"
-#include "clang/AST/DeclBase.h"
-#include "clang/AST/DeclObjC.h"
-#include "clang/AST/DeclTemplate.h"
-#include "clang/AST/DeclarationName.h"
-#include "clang/AST/Type.h"
-#include "clang/Basic/IdentifierTable.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Sema/Sema.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdint>

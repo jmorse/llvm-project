@@ -12,16 +12,9 @@
 
 #include "ARMInstrInfo.h"
 #include "ARM.h"
-#include "ARMConstantPoolValue.h"
-#include "ARMMachineFunctionInfo.h"
 #include "ARMTargetMachine.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineJumpTableInfo.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Module.h"
-#include "llvm/MC/MCInst.h"
 using namespace llvm;
 
 ARMInstrInfo::ARMInstrInfo(const ARMSubtarget &STI)

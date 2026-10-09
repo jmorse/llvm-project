@@ -7,21 +7,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "ARM.h"
-#include "ARMMachineFunctionInfo.h"
 #include "ARMSubtarget.h"
 #include "Thumb2InstrInfo.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
-#include "llvm/CodeGen/MachineFunction.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineInstrBundle.h"
-#include "llvm/CodeGen/MachineOperand.h"
-#include "llvm/IR/DebugLoc.h"
-#include "llvm/Support/Debug.h"
 #include <cassert>
 #include <new>
 

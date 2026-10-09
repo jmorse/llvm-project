@@ -21,9 +21,6 @@
 #ifndef LLVM_CODEGEN_REACHINGDEFANALYSIS_H
 #define LLVM_CODEGEN_REACHINGDEFANALYSIS_H
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/TinyPtrVector.h"
 #include "llvm/CodeGen/LoopTraversal.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachinePassManager.h"

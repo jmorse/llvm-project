@@ -30,9 +30,7 @@
 #ifndef LLVM_ANALYSIS_LASTRUNTRACKINGANALYSIS_H
 #define LLVM_ANALYSIS_LASTRUNTRACKINGANALYSIS_H
 
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/Support/Compiler.h"
 #include <functional>
 
 namespace llvm {

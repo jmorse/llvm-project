@@ -15,15 +15,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "MCTargetDesc/PPCPredicates.h"
-#include "PPC.h"
-#include "PPCInstrInfo.h"
 #include "PPCSubtarget.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
-#include "llvm/Support/MathExtras.h"
-#include "llvm/Target/TargetMachine.h"
 #include <algorithm>
 using namespace llvm;
 

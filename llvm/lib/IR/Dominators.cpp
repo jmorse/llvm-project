@@ -14,21 +14,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Dominators.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Config/llvm-config.h"
-#include "llvm/IR/CFG.h"
-#include "llvm/IR/Function.h"
-#include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/PassManager.h"
 #include "llvm/InitializePasses.h"
-#include "llvm/Support/Casting.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/Error.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/GenericDomTreeConstruction.h"
-#include "llvm/Support/raw_ostream.h"
 
 #include <cassert>
 

@@ -7,18 +7,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "Solaris.h"
-#include "Gnu.h"
-#include "clang/Basic/LangStandard.h"
 #include "clang/Config/config.h"
 #include "clang/Driver/CommonArgs.h"
 #include "clang/Driver/Compilation.h"
-#include "clang/Driver/Driver.h"
 #include "clang/Driver/SanitizerArgs.h"
-#include "clang/Driver/ToolChain.h"
-#include "clang/Options/Options.h"
-#include "llvm/ADT/StringSwitch.h"
-#include "llvm/Option/ArgList.h"
-#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 
 using namespace clang::driver;

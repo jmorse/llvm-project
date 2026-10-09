@@ -10,9 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "SPIRVRegisterInfo.h"
 #include "SPIRVSubtarget.h"
-#include "llvm/CodeGen/MachineFunction.h"
 
 #define GET_REGINFO_TARGET_DESC
 #include "SPIRVGenRegisterInfo.inc"

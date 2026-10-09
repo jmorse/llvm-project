@@ -14,19 +14,14 @@
 #include "DirectXMCTargetDesc.h"
 #include "DirectXContainerObjectWriter.h"
 #include "TargetInfo/DirectXTargetInfo.h"
-#include "llvm/MC/LaneBitmask.h"
 #include "llvm/MC/MCAsmBackend.h"
-#include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCCodeEmitter.h"
 #include "llvm/MC/MCDXContainerWriter.h"
 #include "llvm/MC/MCInstPrinter.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"
-#include "llvm/MC/MCSchedule.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/TargetRegistry.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/TargetParser/Triple.h"
 #include <memory>
 
 using namespace llvm;

@@ -18,14 +18,10 @@
 #ifndef LLVM_ANALYSIS_ALIASSETTRACKER_H
 #define LLVM_ANALYSIS_ALIASSETTRACKER_H
 
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/ilist.h"
-#include "llvm/ADT/ilist_node.h"
 #include "llvm/Analysis/MemoryLocation.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/IR/ValueHandle.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/ModRef.h"
 #include <cassert>
 #include <vector>

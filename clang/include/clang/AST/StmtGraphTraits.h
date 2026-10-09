@@ -16,7 +16,6 @@
 
 #include "clang/AST/Stmt.h"
 #include "llvm/ADT/DepthFirstIterator.h"
-#include "llvm/ADT/GraphTraits.h"
 
 namespace llvm {
 

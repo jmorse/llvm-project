@@ -7,14 +7,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Edit/Commit.h"
-#include "clang/Basic/LLVM.h"
-#include "clang/Basic/SourceLocation.h"
-#include "clang/Basic/SourceManager.h"
 #include "clang/Edit/EditedSource.h"
-#include "clang/Edit/FileOffset.h"
 #include "clang/Lex/Lexer.h"
 #include "clang/Lex/PPConditionalDirectiveRecord.h"
-#include "llvm/ADT/StringRef.h"
 #include <cassert>
 
 using namespace clang;

@@ -15,7 +15,6 @@
 #ifndef LLVM_TRANSFORMS_UTILS_SAMPLEPROFILELOADERBASEUTIL_H
 #define LLVM_TRANSFORMS_UTILS_SAMPLEPROFILELOADERBASEUTIL_H
 
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ProfileData/SampleProf.h"
 #include "llvm/Support/CommandLine.h"
 

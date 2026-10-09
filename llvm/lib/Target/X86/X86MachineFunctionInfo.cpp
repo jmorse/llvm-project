@@ -9,7 +9,6 @@
 #include "X86MachineFunctionInfo.h"
 #include "X86RegisterInfo.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/TargetSubtargetInfo.h"
 
 using namespace llvm;
 
