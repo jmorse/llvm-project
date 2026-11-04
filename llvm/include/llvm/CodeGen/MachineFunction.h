@@ -664,7 +664,10 @@ public:
   salvageCopySSA(MachineInstr &MI,
                  DenseMap<Register, DebugInstrOperandPair> &DbgPHICache);
 
+  DebugInstrOperandPair salvageDebugRefToPhysreg(MachineInstr &CurInst, Register RegToSeek);
   DebugInstrOperandPair salvageCopySSAImpl(MachineInstr &MI);
+
+  DebugInstrOperandPair salvageDbgValueToInstRef(MachineInstr &MI, Register R, DenseMap<Register, DebugInstrOperandPair> &DbgPHICache);
 
   /// Finalise any partially emitted debug instructions. These are DBG_INSTR_REF
   /// instructions where we only knew the vreg of the value they use, not the

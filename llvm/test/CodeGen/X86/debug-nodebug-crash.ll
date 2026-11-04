@@ -5,14 +5,14 @@
 ; triggered by LiveDebugValues when another (debug) function is handled later.
 ;
 ; This minimal example does not leave much to check for, so we just make sure we get
-; reasonable output, preserving function labels and a DBG_VALUE comment.
+; reasonable output, preserving function labels and a DBG_LABEL comment.
 ;
 ; CHECK-LABEL: foo:
 ; CHECK-NEXT:  Lfunc_begin0:
 ; CHECK:       Lfunc_end0:
 ; CHECK-LABEL: bar:
 ; CHECK-NEXT:  Lfunc_begin1:
-; CHECK:       #DEBUG_VALUE: foo:x <-
+; CHECK:       #DEBUG_LABEL: foo:bar
 ; CHECK:       Lfunc_end1:
 
 define i32 @foo() {
@@ -22,7 +22,7 @@ entry:
 
 define i32 @bar(i32 %x) !dbg !50 {
 entry:
-  tail call void @llvm.dbg.value(metadata i32 %x, i64 0, metadata !41, metadata !43), !dbg !52
+  tail call void @llvm.dbg.label(metadata !100), !dbg !52
   %tobool.i = icmp eq i32 %x, 0
   br i1 %tobool.i, label %foo.exit, label %if.then.i
 
@@ -34,7 +34,7 @@ foo.exit:
   ret i32 %x.addr.0.i
 }
 
-declare void @llvm.dbg.value(metadata, i64, metadata, metadata)
+declare void @llvm.dbg.label(metadata)
 
 !llvm.dbg.cu = !{!0, !3}
 !llvm.ident = !{!5, !5}
@@ -59,3 +59,4 @@ declare void @llvm.dbg.value(metadata, i64, metadata, metadata)
 !51 = !DISubroutineType(types: !2)
 !52 = !DILocation(line: 1, scope: !36, inlinedAt: !53)
 !53 = distinct !DILocation(line: 5, scope: !50)
+!100 = !DILabel(scope: !36, name: "bar", file: !4, line: 5555)

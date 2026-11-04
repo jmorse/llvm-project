@@ -45,6 +45,7 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/EHPersonalities.h"
 #include "llvm/IR/Function.h"
@@ -1156,6 +1157,15 @@ void MachineFunction::substituteDebugValuesForInst(const MachineInstr &Old,
   }
 }
 
+auto MachineFunction::salvageDbgValueToInstRef(MachineInstr &MI, Register RegToSeek, DenseMap<Register, DebugInstrOperandPair> &DbgPHICache) -> DebugInstrOperandPair {
+  // We're looking at this physreg: 
+  MachineRegisterInfo &MRI = getRegInfo();
+  const TargetRegisterInfo &TRI = *MRI.getTargetRegisterInfo();
+  const TargetInstrInfo &TII = *getSubtarget().getInstrInfo();
+
+  return salvageDebugRefToPhysreg(MI, RegToSeek);
+}
+
 auto MachineFunction::salvageCopySSA(
     MachineInstr &MI, DenseMap<Register, DebugInstrOperandPair> &DbgPHICache)
     -> DebugInstrOperandPair {
@@ -1292,20 +1302,28 @@ auto MachineFunction::salvageCopySSAImpl(MachineInstr &MI)
   State = GetRegAndSubreg(*CurInst);
   Register RegToSeek = State.first;
 
-  auto RMII = CurInst->getReverseIterator();
-  auto PrevInstrs = make_range(RMII, CurInst->getParent()->instr_rend());
+  return ApplySubregisters(salvageDebugRefToPhysreg(*CurInst, RegToSeek));
+}
+
+auto MachineFunction::salvageDebugRefToPhysreg(MachineInstr &CurInst, Register RegToSeek)
+    -> DebugInstrOperandPair {
+  MachineRegisterInfo &MRI = getRegInfo();
+  const TargetRegisterInfo &TRI = *MRI.getTargetRegisterInfo();
+  const TargetInstrInfo &TII = *getSubtarget().getInstrInfo();
+
+  auto RMII = CurInst.getReverseIterator();
+  auto PrevInstrs = make_range(RMII, CurInst.getParent()->instr_rend());
   for (auto &ToExamine : PrevInstrs) {
     for (auto &MO : ToExamine.all_defs()) {
       // Test for operand that defines something aliasing RegToSeek.
       if (!TRI.regsOverlap(RegToSeek, MO.getReg()))
         continue;
 
-      return ApplySubregisters(
-          {ToExamine.getDebugInstrNum(), MO.getOperandNo()});
+      return {ToExamine.getDebugInstrNum(), MO.getOperandNo()};
     }
   }
 
-  MachineBasicBlock &InsertBB = *CurInst->getParent();
+  MachineBasicBlock &InsertBB = *CurInst.getParent();
 
   // We reached the start of the block before finding a defining instruction.
   // There are numerous scenarios where this can happen:
@@ -1319,10 +1337,10 @@ auto MachineFunction::salvageCopySSAImpl(MachineInstr &MI)
   // Create DBG_PHI for specified physreg.
   auto Builder = BuildMI(InsertBB, InsertBB.getFirstNonPHI(), DebugLoc(),
                          TII.get(TargetOpcode::DBG_PHI));
-  Builder.addReg(State.first);
+  Builder.addReg(RegToSeek);
   unsigned NewNum = getNewDebugInstrNum();
   Builder.addImm(NewNum);
-  return ApplySubregisters({NewNum, 0u});
+  return {NewNum, 0u};
 }
 
 void MachineFunction::finalizeDebugInstrRefs() {
@@ -1335,6 +1353,54 @@ void MachineFunction::finalizeDebugInstrRefs() {
   };
 
   DenseMap<Register, DebugInstrOperandPair> ArgDbgPHIs;
+
+  // Look at any DBG_VALUEs in the entry block: these were put in by the
+  // argument-value emitter. Trace them back to the start-of-block register.
+  MachineBasicBlock &Entry = *begin();
+  const MCInstrDesc &RefII = TII->get(TargetOpcode::DBG_INSTR_REF);
+  for (auto &MI : Entry) {
+    // Handle DBG_VALUEs of physregs. There should be no variadic DBG_VALUEs
+    if (!MI.isDebugValue())
+      continue;
+
+    // If we're folding anything else in, we've gone too far.
+    if (MI.isNonListDebugValue())
+      break;
+
+    // Ignore constants,
+    MachineOperand &Op = MI.getOperand(0);
+    if (!Op.isReg())
+      continue;
+
+    // Ignore non-parameters,
+    if (!MI.getDebugVariable()->isParameter())
+      continue;
+
+    // Ignore virtual register references, they'll get patched up later.
+    // Undefined locations aren't interesting either.
+    Register Reg = Op.getReg();
+    if (Reg.isVirtual() || !Reg)
+      continue;
+
+    // We should never see a function parameter that's indirect. NRVO variables
+    // can point at arguments but aren't named parameters.
+    assert(!MI.getOperand(1).isImm() && "Indirect argument?");
+
+    auto Result = salvageDbgValueToInstRef(MI, Reg, ArgDbgPHIs);
+    MachineOperand VarCpy = MI.getOperand(2);
+    MachineOperand ExprCpy = MI.getOperand(3);
+    //Op.ChangeToDbgInstrRef(Result.first, Result.second);
+
+    MI.setDesc(RefII);
+    MI.removeOperand(3);
+    MI.removeOperand(2);
+    MI.removeOperand(1);
+    MI.removeOperand(0);
+    MI.addOperand(VarCpy);
+    MI.addOperand(MachineOperand::CreateMetadata(DIExpression::convertToVariadicExpression(cast<DIExpression>(ExprCpy.getMetadata()))));
+    MI.addOperand(MachineOperand::CreateDbgInstrRef(Result.first, Result.second));
+  }
+
   for (auto &MBB : *this) {
     for (auto &MI : MBB) {
       if (!MI.isDebugRef())
